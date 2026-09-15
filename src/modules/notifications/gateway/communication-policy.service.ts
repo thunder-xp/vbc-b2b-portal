@@ -40,6 +40,7 @@ export const DEFAULT_PURPOSE_CHANNEL_MODES = Object.freeze({
   FINANCE: Object.freeze({ email: "DRY_RUN", in_app: "DRY_RUN", sms: "DISABLED" }),
   SECURITY: Object.freeze({ email: "DISABLED", in_app: "DISABLED", sms: "DISABLED" }),
   SUPPORT: Object.freeze({ email: "DISABLED", in_app: "DISABLED", sms: "DISABLED" }),
+  CUSTOMER_SERVICE: Object.freeze({ email: "DISABLED", in_app: "DISABLED", sms: "DISABLED" }),
   MARKETING: Object.freeze({ email: "DISABLED", in_app: "DISABLED", sms: "DISABLED" }),
 }) satisfies CommunicationActivationPolicy["purposeChannelModes"];
 
@@ -50,12 +51,21 @@ export function communicationActivationPolicyFromEnvironment(
     .split(",").map(normalizeEmail).filter((value): value is string => Boolean(value)));
   const sandboxEmailRecipient = normalizeEmail(environment.COMMUNICATION_SANDBOX_EMAIL_RECIPIENT ?? "");
   const sandboxSmsAllowlist = smsSandboxAllowlistFromEnvironment(environment);
-  const purposeChannelModes = environment.SMS_MODE === "SANDBOX"
-    ? Object.freeze({
-      ...DEFAULT_PURPOSE_CHANNEL_MODES,
-      SUPPORT: Object.freeze({ ...DEFAULT_PURPOSE_CHANNEL_MODES.SUPPORT, sms: "SANDBOX" as const }),
-    })
-    : DEFAULT_PURPOSE_CHANNEL_MODES;
+  const smsSandbox = environment.SMS_MODE === "SANDBOX";
+  const purposeChannelModes = Object.freeze({
+    ...DEFAULT_PURPOSE_CHANNEL_MODES,
+    SUPPORT: Object.freeze({
+      ...DEFAULT_PURPOSE_CHANNEL_MODES.SUPPORT,
+      sms: smsSandbox ? "SANDBOX" as const : "DISABLED" as const,
+    }),
+    CUSTOMER_SERVICE: Object.freeze({
+      ...DEFAULT_PURPOSE_CHANNEL_MODES.CUSTOMER_SERVICE,
+      sms: smsSandbox
+        && environment.CUSTOMER_SERVICE_SMS_ENABLED === "true"
+        && environment.CUSTOMER_SERVICE_SMS_MODE === "SANDBOX"
+        ? "SANDBOX" as const : "DISABLED" as const,
+    }),
+  });
   return Object.freeze({
     globalExternalKillSwitch: environment.COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON",
     channelKillSwitches: Object.freeze({
@@ -84,12 +94,13 @@ export function classifyCommunicationPurpose(eventType: string): CommunicationPu
   if (eventType.startsWith("finance.")) return "FINANCE";
   if (eventType.startsWith("security.")) return "SECURITY";
   if (eventType.startsWith("support.")) return "SUPPORT";
+  if (eventType.startsWith("customer_service.")) return "CUSTOMER_SERVICE";
   if (eventType.startsWith("marketing.") || eventType.startsWith("commercial.")) return "MARKETING";
   return null;
 }
 
 export function evaluateCommunicationPolicy(input: {
-  intent: Pick<CommunicationIntent, "purpose" | "businessEventType" | "companyId" | "recipient">;
+  intent: Pick<CommunicationIntent, "purpose" | "businessEventType" | "companyId" | "customerAccountId" | "recipient">;
   channel: CommunicationChannel;
   mode: CommunicationChannelMode;
   activation: CommunicationActivationPolicy;
@@ -115,8 +126,10 @@ export function evaluateCommunicationPolicy(input: {
   else if (classifyCommunicationPurpose(intent.businessEventType) !== intent.purpose) reason = "PURPOSE_DISABLED";
   else if (activation.purposeChannelModes[intent.purpose][channel] !== mode
     && !(activation.purposeChannelModes[intent.purpose][channel] === "LIVE" && mode === "DRY_RUN")) reason = "MODE_DISABLED";
-  else if (intent.recipient.companyId !== intent.companyId) reason = "COMPANY_MISMATCH";
-  else if (!intent.recipient.identityVerified || !intent.recipient.membershipActive || !intent.recipient.userId) reason = "INVALID_RECIPIENT";
+  else if (!audienceMatches(intent)) reason = "COMPANY_MISMATCH";
+  else if (!intent.recipient.identityVerified
+    || !(intent.recipient.audienceActive ?? intent.recipient.membershipActive)
+    || !intent.recipient.userId) reason = "INVALID_RECIPIENT";
   else if (!intent.recipient.capabilityAuthorized) reason = "CAPABILITY_NOT_AUTHORIZED";
   else if (channel === "email" && !validEmail(intent.recipient.email)) reason = "INVALID_RECIPIENT";
   else if (channel === "sms" && !validPhone(intent.recipient.phone)) reason = "INVALID_RECIPIENT";
@@ -155,7 +168,7 @@ export function evaluateCommunicationPolicy(input: {
 
 export function markSandboxEmail(input: {
   purpose: CommunicationPurpose;
-  companyId: string;
+  companyId: string | null;
   originalRecipientFingerprint: string;
   subject: string;
   text: string;
@@ -170,10 +183,19 @@ export function markSandboxEmail(input: {
 }
 
 function defaultPreferenceOutcome(purpose: CommunicationPurpose, channel: CommunicationChannel): CommunicationPreferenceOutcome {
-  if (purpose === "TRANSACTIONAL" || purpose === "SECURITY") return "NOT_APPLICABLE";
+  if (purpose === "TRANSACTIONAL" || purpose === "SECURITY" || purpose === "CUSTOMER_SERVICE") return "NOT_APPLICABLE";
   if (purpose === "FINANCE" && channel === "email") return "NOT_APPLICABLE";
   if (purpose === "FINANCE" && channel === "in_app") return "ALLOWED";
   return "NOT_CONFIGURED";
+}
+
+function audienceMatches(intent: Pick<CommunicationIntent, "companyId" | "customerAccountId" | "recipient">): boolean {
+  if (intent.customerAccountId) {
+    return intent.companyId === null
+      && intent.recipient.companyId === null
+      && intent.recipient.customerAccountId === intent.customerAccountId;
+  }
+  return Boolean(intent.companyId && intent.recipient.companyId === intent.companyId);
 }
 
 function normalizeEmail(value: string): string | null {

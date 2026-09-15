@@ -128,7 +128,8 @@ export class FinalCustomerAccountService {
       const order = await this.repository.findOrder(account.customerIdentityId, orderId);
       if (!order || (orderLineId && !order.lines.some((line) => line.id === orderLineId))) throw new Error("INVALID_SERVICE_REFERENCE");
     }
-    return this.repository.createServiceRequest({ accountId: account.id, actorUserId: account.authUserId, customerIdentityId: account.customerIdentityId, type, subject, description, preferredContact, orderId, orderLineId });
+    const locale = input.locale === "ro" ? "ro" : "ru";
+    return this.repository.createServiceRequest({ accountId: account.id, actorUserId: account.authUserId, customerIdentityId: account.customerIdentityId, type, subject, description, preferredContact, locale, orderId, orderLineId });
   }
 
   async cancelServiceRequest(account: FinalCustomerAccount, requestId: string, expectedVersion: number) {

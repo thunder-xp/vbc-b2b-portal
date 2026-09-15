@@ -33,9 +33,23 @@ describe("CommunicationGatewayService", () => {
       SMS_SANDBOX_ALLOWED_RECIPIENTS: "+37369000000,37368000000,invalid",
     });
     expect(policy.purposeChannelModes.SUPPORT.sms).toBe("SANDBOX");
+    expect(policy.purposeChannelModes.CUSTOMER_SERVICE.sms).toBe("DISABLED");
     expect(policy.purposeChannelModes.FINANCE.sms).toBe("DISABLED");
     expect(policy.purposeChannelModes.MARKETING.sms).toBe("DISABLED");
     expect([...policy.sandboxSmsAllowlist]).toEqual(["+37369000000"]);
+  });
+
+  it("opens CUSTOMER_SERVICE SMS only behind its dedicated sandbox policy", () => {
+    const policy = communicationRuntimePolicyFromEnvironment({
+      SMS_MODE: "SANDBOX",
+      COMMUNICATION_SMS_KILL_SWITCH: "OFF",
+      CUSTOMER_SERVICE_SMS_ENABLED: "true",
+      CUSTOMER_SERVICE_SMS_MODE: "SANDBOX",
+      SMS_SANDBOX_ALLOWED_RECIPIENTS: "+37369000000",
+    });
+    expect(policy.purposeChannelModes.CUSTOMER_SERVICE.sms).toBe("SANDBOX");
+    expect(policy.purposeChannelModes.FINANCE.sms).toBe("DISABLED");
+    expect(policy.purposeChannelModes.MARKETING.sms).toBe("DISABLED");
   });
 
   it("keeps the legacy SMS allowlist name as a compatibility fallback", () => {

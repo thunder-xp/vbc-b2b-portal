@@ -241,10 +241,11 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
 
   async createServiceRequest(input: Parameters<FinalCustomerRepository["createServiceRequest"]>[0]) {
     const admin = createAdminClient();
-    const { data: requestId, error } = await admin.rpc("create_customer_service_request_v1", {
+    const { data: requestId, error } = await admin.rpc("create_customer_service_request_v2", {
       p_customer_account_id: input.accountId, p_customer_identity_id: input.customerIdentityId,
       p_actor_user_id: input.actorUserId, p_request_type: input.type, p_subject: input.subject,
       p_description: input.description, p_preferred_contact: input.preferredContact,
+      p_customer_locale: input.locale,
       p_retail_order_id: input.orderId, p_retail_order_line_id: input.orderLineId,
     });
     if (error) throw repositoryError("create customer service request", error.code);
@@ -295,7 +296,17 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     });
     if (error) throw repositoryError("update admin service request", error.code);
     const value = (data ?? {}) as Record<string, unknown>;
-    return { messageId: value.messageId ? String(value.messageId) : null };
+    const status = value.status ? String(value.status) : null;
+    const eventCode: import("./notification-policy").CustomerServiceSmsEvent | null = status === "NEED_INFO" ? "CUSTOMER_SERVICE_NEED_INFO"
+      : status === "RESOLVED" ? "CUSTOMER_SERVICE_RESOLVED"
+      : value.messageId ? "CUSTOMER_SERVICE_REPLY_FROM_NOVOTECH" : null;
+    return {
+      messageId: value.messageId ? String(value.messageId) : null,
+      eventId: value.eventId ? String(value.eventId) : null,
+      eventCode: eventCode === "CUSTOMER_SERVICE_NEED_INFO"
+        || eventCode === "CUSTOMER_SERVICE_REPLY_FROM_NOVOTECH"
+        || eventCode === "CUSTOMER_SERVICE_RESOLVED" ? eventCode : null,
+    };
   }
 
   async addServiceAttachment(input: Parameters<FinalCustomerRepository["addServiceAttachment"]>[0]) {

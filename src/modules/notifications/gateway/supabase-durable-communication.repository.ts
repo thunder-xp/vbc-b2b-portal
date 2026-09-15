@@ -37,20 +37,32 @@ implements DurableCommunicationRepository {
     intent: CommunicationIntent,
     projections: readonly CommunicationProjection[],
   ): Promise<DurableCommunicationRecord> {
-    const { data, error } = await createAdminClient().rpc("persist_communication_intent", {
+    const customerScoped = intent.purpose === "CUSTOMER_SERVICE" && Boolean(intent.customerAccountId);
+    const rpcName = customerScoped ? "persist_customer_service_sms_intent" : "persist_communication_intent";
+    const { data, error } = await createAdminClient().rpc(rpcName, {
       p_intent: {
         intentId: intent.intentId,
         purpose: intent.purpose,
         businessEventType: intent.businessEventType,
         businessEntityReferences: intent.businessEntityReferences,
         companyId: intent.companyId,
+        customerAccountId: intent.customerAccountId ?? null,
         recipientUserId: intent.recipient.userId,
         businessIdentity: intent.idempotencyIdentity,
         correlationId: intent.correlationId,
         sensitivity: intent.sensitivity,
         scheduledBusinessDate: intent.scheduledBusinessDate,
       },
-      p_deliveries: projections.map((projection) => ({
+      [customerScoped ? "p_delivery" : "p_deliveries"]: customerScoped ? deliveryPayload(projections[0]!) : projections.map(deliveryPayload),
+    });
+    const parsed = persistedSchema.safeParse(data);
+    if (error || !parsed.success) throw new DurableCommunicationRepositoryError(error?.code);
+    return parsed.data;
+  }
+}
+
+function deliveryPayload(projection: CommunicationProjection) {
+  return {
         deliveryIdentity: projection.deliveryIdentity,
         channel: projection.channel,
         channelMode: projection.mode,
@@ -77,12 +89,8 @@ implements DurableCommunicationRepository {
         adapterIdentity: projection.channel === "email" ? "smtp"
           : projection.channel === "sms" ? resolveSmsProviderIdentity(normalizedRecipient(projection)) : null,
         renderSnapshot: projection.rendered,
-      })),
-    });
-    const parsed = persistedSchema.safeParse(data);
-    if (error || !parsed.success) throw new DurableCommunicationRepositoryError(error?.code);
-    return parsed.data;
-  }
+      customerAccountId: projection.customerAccountId,
+    };
 }
 
 function normalizedRecipient(projection: CommunicationProjection): string {

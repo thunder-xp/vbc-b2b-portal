@@ -124,6 +124,7 @@ export class NotificationDeliveryWorkerService {
   private async deliver(delivery: ClaimedNotificationDelivery, rateLimitOutcome: "ALLOWED" | "RATE_LIMITED") {
     const startedAt = performance.now();
     const adapter = this.adapters.get(delivery.channel);
+    const customerAccountId = delivery.customerAccountId ?? customerAccountIdFromPayload(delivery.payload);
     console.info(logFields("notification_delivery_claimed", delivery));
     try {
       const purpose = delivery.purpose ?? (delivery.eventType === "order.registered_in_1c" ? "TRANSACTIONAL" : undefined);
@@ -134,14 +135,17 @@ export class NotificationDeliveryWorkerService {
           purpose,
           businessEventType: delivery.eventType,
           companyId: delivery.companyId,
+          customerAccountId,
           recipient: {
             userId: "governed-recipient",
             companyId: delivery.companyId,
+            customerAccountId,
             locale: delivery.recipientLocale ?? "ru",
             email: delivery.channel === "email" ? delivery.recipient : null,
             phone: delivery.channel === "sms" ? delivery.recipient : null,
             identityVerified: true,
             membershipActive: true,
+            audienceActive: true,
             capabilityAuthorized: true,
           },
         },
@@ -159,14 +163,17 @@ export class NotificationDeliveryWorkerService {
           purpose,
           businessEventType: delivery.eventType,
           companyId: delivery.companyId,
+          customerAccountId,
           recipient: {
             userId: "governed-recipient",
             companyId: delivery.companyId,
+            customerAccountId,
             locale: delivery.recipientLocale ?? "ru",
             email: delivery.channel === "email" ? delivery.recipient : null,
             phone: delivery.channel === "sms" ? delivery.recipient : null,
             identityVerified: true,
             membershipActive: true,
+            audienceActive: true,
             capabilityAuthorized: true,
           },
         },
@@ -207,7 +214,7 @@ export class NotificationDeliveryWorkerService {
       }
       const safetyBlock = delivery.channel === "email"
         ? externalEmailBlockReason()
-        : delivery.channel === "sms" ? externalSmsBlockReason(this.environment()) : "CHANNEL_KILL_SWITCH";
+        : delivery.channel === "sms" ? externalSmsBlockReason(this.environment(), purpose) : "CHANNEL_KILL_SWITCH";
       if (safetyBlock) {
         throw new NotificationDeliveryError(
           safetyBlock === "GLOBAL_KILL_SWITCH" ? "global_kill_switch" : "channel_kill_switch",
@@ -275,6 +282,12 @@ export class NotificationDeliveryWorkerService {
   }
 }
 
+function customerAccountIdFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = (payload as Record<string, unknown>).customerAccountId;
+  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+}
+
 function renderDeliveryMessage(delivery: ClaimedNotificationDelivery) {
   if (delivery.channel === "email"
     && delivery.eventType === "order.registered_in_1c"
@@ -304,14 +317,36 @@ function renderDeliveryMessage(delivery: ClaimedNotificationDelivery) {
       }
     }
   }
+  if (delivery.channel === "sms"
+    && delivery.channelMode === "SANDBOX"
+    && delivery.purpose === "CUSTOMER_SERVICE"
+    && [
+      "customer_service.need_info",
+      "customer_service.reply_from_novotech",
+      "customer_service.resolved",
+    ].includes(delivery.eventType)) {
+    const snapshot = delivery.renderedSnapshot;
+    if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+      const value = snapshot as Record<string, unknown>;
+      if (typeof value.textBody === "string" && typeof value.subject === "string") {
+        return { recipient: delivery.recipient, subject: value.subject, text: value.textBody, html: "" };
+      }
+    }
+  }
   throw new NotificationDeliveryError("invalid_payload", false);
 }
 
 function externalSmsBlockReason(
   environment: Readonly<Record<string, string | undefined>>,
+  purpose: string,
 ): "GLOBAL_KILL_SWITCH" | "CHANNEL_KILL_SWITCH" | null {
   if (environment.COMMUNICATION_OUTBOUND_KILL_SWITCH === "ON") return "GLOBAL_KILL_SWITCH";
   if (environment.COMMUNICATION_SMS_KILL_SWITCH !== "OFF" || environment.SMS_MODE !== "SANDBOX") {
+    return "CHANNEL_KILL_SWITCH";
+  }
+  if (purpose === "CUSTOMER_SERVICE"
+    && (environment.CUSTOMER_SERVICE_SMS_ENABLED !== "true"
+      || environment.CUSTOMER_SERVICE_SMS_MODE !== "SANDBOX")) {
     return "CHANNEL_KILL_SWITCH";
   }
   return null;
@@ -329,6 +364,7 @@ function logFields(event: string, delivery: ClaimedNotificationDelivery) {
     deliveryId: delivery.deliveryId,
     channel: delivery.channel,
     companyId: delivery.companyId,
+    customerAccountId: delivery.customerAccountId ?? null,
     partnerOrderId: delivery.partnerOrderId,
     attempt: delivery.attempt,
     correlationId: delivery.correlationId,

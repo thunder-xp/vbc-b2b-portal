@@ -7,6 +7,7 @@ export type CommunicationPurpose =
   | "FINANCE"
   | "SECURITY"
   | "SUPPORT"
+  | "CUSTOMER_SERVICE"
   | "MARKETING";
 
 export type CommunicationPreferenceOutcome =
@@ -26,6 +27,7 @@ export type CommunicationSandboxOutcome =
 export type CommunicationSensitivity =
   | "PUBLIC"
   | "PARTNER_PRIVATE"
+  | "CUSTOMER_PRIVATE"
   | "FINANCIAL_PRIVATE"
   | "SECURITY_SENSITIVE";
 
@@ -33,12 +35,14 @@ export type CommunicationLocale = "ru" | "ro";
 
 export type CommunicationRecipient = Readonly<{
   userId: string;
-  companyId: string;
+  companyId: string | null;
+  customerAccountId?: string | null;
   locale: CommunicationLocale;
   email?: string | null;
   phone?: string | null;
   identityVerified: boolean;
   membershipActive: boolean;
+  audienceActive?: boolean;
   capabilityAuthorized: boolean;
 }>;
 
@@ -47,7 +51,8 @@ export type CommunicationIntent<TVariables extends Record<string, unknown> = Rec
   purpose: CommunicationPurpose;
   businessEventType: string;
   businessEntityReferences: readonly string[];
-  companyId: string;
+  companyId: string | null;
+  customerAccountId?: string | null;
   recipient: CommunicationRecipient;
   templateKey: string;
   templateVersion: string;
@@ -95,7 +100,8 @@ export type CommunicationProjection = Readonly<{
   deliveryIdentity: string;
   businessEventType: string;
   businessEntityReferences: readonly string[];
-  companyId: string;
+  companyId: string | null;
+  customerAccountId: string | null;
   recipient: CommunicationRecipient;
   channel: CommunicationChannel;
   mode: CommunicationChannelMode;

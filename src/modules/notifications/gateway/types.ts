@@ -60,14 +60,15 @@ export type ClaimedNotificationDelivery = {
   deliveryId: string;
   eventId: string;
   eventType: string;
-  companyId: string;
+  companyId: string | null;
+  customerAccountId?: string | null;
   partnerOrderId: string | null;
   correlationId: string;
   payloadVersion: number;
   payload: unknown;
   channel: NotificationChannel;
   channelMode?: "DISABLED" | "DRY_RUN" | "SANDBOX" | "LIVE";
-  purpose?: "TRANSACTIONAL" | "FINANCE" | "SECURITY" | "SUPPORT" | "MARKETING";
+  purpose?: "TRANSACTIONAL" | "FINANCE" | "SECURITY" | "SUPPORT" | "CUSTOMER_SERVICE" | "MARKETING";
   policyDecision?: "ALLOW" | "SUPPRESS";
   preferenceOutcome?: "ALLOWED" | "SUPPRESSED" | "NOT_APPLICABLE" | "NOT_CONFIGURED";
   rateLimitOutcome?: "ALLOWED" | "RATE_LIMITED" | "NOT_EVALUATED";
@@ -77,7 +78,7 @@ export type ClaimedNotificationDelivery = {
   templateKey?: string;
   templateVersion: number;
   templateRevision?: string;
-  sensitivity?: "PUBLIC" | "PARTNER_PRIVATE" | "FINANCIAL_PRIVATE" | "SECURITY_SENSITIVE";
+  sensitivity?: "PUBLIC" | "PARTNER_PRIVATE" | "CUSTOMER_PRIVATE" | "FINANCIAL_PRIVATE" | "SECURITY_SENSITIVE";
   renderedSnapshot?: unknown;
   attempt: number;
   attemptSequence?: number;

@@ -130,6 +130,7 @@ function baseProjection(
     businessEventType: intent.businessEventType,
     businessEntityReferences: Object.freeze([...intent.businessEntityReferences]),
     companyId: intent.companyId,
+    customerAccountId: intent.customerAccountId ?? null,
     recipient: Object.freeze({ ...intent.recipient }),
     channel,
     mode,

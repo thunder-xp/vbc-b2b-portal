@@ -8,6 +8,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { createFinalCustomerService, getFinalCustomerContext } from "./server";
 import { filesFromFormData, storeCustomerServiceAttachments } from "./service-attachments";
 import { SupabaseFinalCustomerRepository } from "./supabase.repository";
+import { getFinalCustomerLocale } from "./locale";
 
 export type CustomerProfileActionState = { error: string | null; saved: boolean };
 export type CustomerServiceActionState = { error: string | null; createdId: string | null };
@@ -48,6 +49,7 @@ export async function createCustomerServiceRequestAction(
       subject: String(formData.get("subject") ?? ""),
       description: String(formData.get("description") ?? ""),
       preferredContact: String(formData.get("preferredContact") ?? "PHONE"),
+      locale: await getFinalCustomerLocale(),
       orderId: String(formData.get("orderId") ?? ""),
       orderLineId: String(formData.get("orderLineId") ?? ""),
     });

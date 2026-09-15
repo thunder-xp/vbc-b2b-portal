@@ -21,6 +21,8 @@ The dependency direction is:
 
 `business service → CommunicationIntent → gateway projection → durable delivery → lease worker → SMS channel → provider resolver → provider → transport → provider acceptance`
 
+The durable audience is explicit: existing partner communications use `company_id + user_profile`, while Customer Service uses `customer_account_id + confirmed auth user`. Exactly one audience is allowed per event/delivery. This additive boundary lets the `CUSTOMER_SERVICE` purpose reuse the same outbox, lease, retry, receipt, rate-limit, Moldcell and relay mechanics without forging B2B ownership.
+
 The gateway owns recipient safety validation, channel policy enforcement, deterministic template lookup, provider payload projection, delivery identity, transport state, adapter selection, and provider-acceptance semantics. It does not own Finance calculations, reminder cadence, Orders, Estimates, CRM, or commercial truth.
 
 In-app is represented by an independent durable channel delivery, but its first-party adapter remains unactivated. It never waits behind SMTP while in `DRY_RUN` and does not create a partner notification.

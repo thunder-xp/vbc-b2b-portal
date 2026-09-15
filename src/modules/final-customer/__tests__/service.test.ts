@@ -17,7 +17,7 @@ function repository(): FinalCustomerRepository {
     listServiceRequests: vi.fn(async () => []), findServiceRequest: vi.fn(async () => null),
     createServiceRequest: vi.fn(async () => { throw new Error("unused"); }), cancelServiceRequest: vi.fn(async () => undefined),
     listAdminServiceRequests: vi.fn(async () => []), findAdminServiceRequest: vi.fn(async () => null),
-    addCustomerServiceReply: vi.fn(async () => "message"), updateAdminServiceRequest: vi.fn(async () => ({ messageId: null })),
+    addCustomerServiceReply: vi.fn(async () => "message"), updateAdminServiceRequest: vi.fn(async () => ({ messageId: null, eventId: null, eventCode: null })),
     addServiceAttachment: vi.fn(async () => "attachment"), listServiceNotifications: vi.fn(async () => []), markServiceNotificationRead: vi.fn(async () => undefined),
   };
 }
