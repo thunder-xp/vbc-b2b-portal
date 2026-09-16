@@ -1,4 +1,14 @@
-import type { MaibPaymentEvidence, PaymentClaim, PaymentConfirmationResult, PaymentProviderName, PaymentReturnState } from "../types";
+import type {
+  MaibPaymentEvidence,
+  PaymentClaim,
+  PaymentConfirmationResult,
+  PaymentProviderName,
+  PaymentRefundClaim,
+  PaymentRefundEvidence,
+  PaymentRefundResult,
+  PaymentProviderRefundState,
+  PaymentReturnState,
+} from "../types";
 
 export type MaibReconciliationContext = Readonly<{
   attemptId: string;
@@ -17,4 +27,14 @@ export interface RetailPaymentRepository {
   getMaibReconciliationContext(attemptId: string): Promise<MaibReconciliationContext | null>;
   retryMaibActivation(attemptId: string): Promise<PaymentConfirmationResult>;
   getReturnState(paymentAttemptId: string): Promise<PaymentReturnState | null>;
+  claimRefund(input: Readonly<{ paymentAttemptId: string; reason: string; idempotencyKey: string }>): Promise<PaymentRefundClaim>;
+  startRefundRequest(refundId: string): Promise<boolean>;
+  assignProviderRefund(input: Readonly<{ refundId: string; providerRefundId: string; providerStatus: string }>): Promise<boolean>;
+  recordRefundFailure(input: Readonly<{ refundId: string; failureCode: string; terminal: boolean }>): Promise<boolean>;
+  getRefundContext(refundId: string): Promise<PaymentRefundClaim | null>;
+  reconcileRefund(input: Readonly<{
+    refundId: string;
+    refund: PaymentRefundEvidence;
+    payment: PaymentProviderRefundState;
+  }>): Promise<PaymentRefundResult>;
 }

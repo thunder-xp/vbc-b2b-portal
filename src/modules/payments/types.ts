@@ -1,5 +1,6 @@
 export type PaymentProviderName = "maib";
 export type PaymentAttemptStatus = "created" | "pending" | "paid_pending_activation" | "paid" | "failed" | "cancelled" | "expired";
+export type PaymentRefundStatus = "created" | "pending" | "refunded" | "failed";
 
 export type PaymentInitiationOutcome =
   | "NOT_ELIGIBLE"
@@ -93,4 +94,90 @@ export type PaymentConfirmationResult = Readonly<{
 export type PaymentReturnState = Readonly<{
   status: "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
   locale: "ru" | "ro";
+}>;
+
+export type PaymentRefundClaimOutcome =
+  | "INVALID_INPUT"
+  | "NOT_FOUND"
+  | "NOT_REFUNDABLE"
+  | "MISSING_PROVIDER_PAYMENT_ID"
+  | "IDEMPOTENCY_CONFLICT"
+  | "ALREADY_REFUNDED"
+  | "CLAIMED"
+  | "REUSE";
+
+export type PaymentRefundClaim = Readonly<{
+  outcome: PaymentRefundClaimOutcome;
+  refundId: string | null;
+  paymentAttemptId: string | null;
+  providerPaymentId: string | null;
+  providerRefundId: string | null;
+  amount: string | null;
+  currency: string | null;
+  reason: string | null;
+  status: PaymentRefundStatus | null;
+  providerStatus: string | null;
+  providerRequestStarted: boolean;
+  failureCode: string | null;
+}>;
+
+export type PaymentRefundProviderInput = Readonly<{
+  paymentId: string;
+  amount: string;
+  currency: "MDL";
+  reason: string;
+}>;
+
+export type PaymentRefundProviderResult = Readonly<{
+  refundId: string;
+  providerStatus: string;
+  authLatencyMs: number;
+  refundLatencyMs: number;
+  httpCalls: number;
+}>;
+
+export type PaymentRefundEvidence = Readonly<{
+  refundId: string;
+  paymentId: string;
+  refundType: "Full" | "Partial";
+  amount: string;
+  currency: string;
+  reason: string;
+  status: "Created" | "Requested" | "Accepted" | "Rejected" | "Manual";
+  executedAt: string | null;
+}>;
+
+export type PaymentProviderRefundState = Readonly<{
+  paymentId: string;
+  status: "Executed" | "PartiallyRefunded" | "Refunded" | "Failed";
+  amount: string;
+  currency: string;
+  refundedAmount: string;
+  requestedRefundAmount: string;
+  refundableAmount: string;
+  isRefundable: boolean;
+}>;
+
+export type PaymentRefundOutcome =
+  | PaymentRefundClaimOutcome
+  | "PROVIDER_FAILED"
+  | "AMBIGUOUS_PROVIDER_RESULT"
+  | "PERSISTENCE_FAILED"
+  | "PENDING"
+  | "REFUNDED"
+  | "FAILED"
+  | "EVIDENCE_MISMATCH"
+  | "DUPLICATE";
+
+export type PaymentRefundResult = Readonly<{
+  outcome: PaymentRefundOutcome;
+  refundId: string | null;
+  providerRefundId: string | null;
+  status: PaymentRefundStatus | null;
+  providerStatus: string | null;
+  amount: string | null;
+  currency: string | null;
+  remainingRefundable: string | null;
+  confirmedAt: string | null;
+  reused: boolean;
 }>;

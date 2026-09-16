@@ -104,11 +104,20 @@ function dependencies(claimResult: PaymentClaim = claim) {
     getMaibReconciliationContext: vi.fn().mockResolvedValue(null),
     retryMaibActivation: vi.fn().mockResolvedValue({ outcome: "PAID", attemptId: claim.attemptId, retailOrderId: "44444444-4444-4444-8444-444444444444", paymentStatus: "paid", activationRepeated: true, installationRequirementId: null }),
     getReturnState: vi.fn().mockResolvedValue(null),
+    claimRefund: vi.fn(),
+    startRefundRequest: vi.fn(),
+    assignProviderRefund: vi.fn(),
+    recordRefundFailure: vi.fn(),
+    getRefundContext: vi.fn(),
+    reconcileRefund: vi.fn(),
   };
   const provider: PaymentProvider = {
     provider: "maib",
     createCheckout: vi.fn().mockResolvedValue({ checkoutId: "33333333-3333-4333-8333-333333333333", checkoutUrl: "https://sandbox.maibmerchants.md/checkout/333", providerStatus: "WaitingForInit", authLatencyMs: 10, checkoutLatencyMs: 20, httpCalls: 2 }),
     getCheckoutEvidence: vi.fn(),
+    createRefund: vi.fn(),
+    getRefundEvidence: vi.fn(),
+    getPaymentRefundState: vi.fn(),
   };
   return { repository, provider };
 }

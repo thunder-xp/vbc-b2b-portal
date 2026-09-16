@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
-import type { PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentReturnState } from "../../types";
+import type { PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentRefundClaim, PaymentRefundClaimOutcome, PaymentRefundResult, PaymentRefundStatus, PaymentReturnState } from "../../types";
 import type { MaibReconciliationContext } from "../retail-payment.repository";
 import type { RetailPaymentRepository } from "../retail-payment.repository";
 
@@ -77,6 +77,54 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
   async getReturnState(paymentAttemptId: string) {
     return parseReturnState(await this.rpc("get_retail_payment_return_state_v1", { p_payment_attempt_id: paymentAttemptId }));
   }
+
+  async claimRefund(input: Parameters<RetailPaymentRepository["claimRefund"]>[0]) {
+    return parseRefundClaim(await this.rpc("claim_retail_payment_refund_v1", {
+      p_payment_attempt_id: input.paymentAttemptId,
+      p_reason: input.reason,
+      p_idempotency_key: input.idempotencyKey,
+    }));
+  }
+
+  async startRefundRequest(refundId: string) {
+    return await this.rpc("start_retail_payment_refund_request_v1", { p_refund_id: refundId }) === true;
+  }
+
+  async assignProviderRefund(input: Parameters<RetailPaymentRepository["assignProviderRefund"]>[0]) {
+    return await this.rpc("assign_retail_payment_provider_refund_v1", {
+      p_refund_id: input.refundId,
+      p_provider_refund_id: input.providerRefundId,
+      p_provider_status: input.providerStatus,
+    }) === true;
+  }
+
+  async recordRefundFailure(input: Parameters<RetailPaymentRepository["recordRefundFailure"]>[0]) {
+    return await this.rpc("record_retail_payment_refund_failure_v1", {
+      p_refund_id: input.refundId,
+      p_failure_code: input.failureCode,
+      p_terminal: input.terminal,
+    }) === true;
+  }
+
+  async getRefundContext(refundId: string) {
+    const value = await this.rpc("get_retail_payment_refund_context_v1", { p_refund_id: refundId });
+    return value === null ? null : parseRefundClaim({ ...(value as Record<string, unknown>), outcome: "REUSE" });
+  }
+
+  async reconcileRefund(input: Parameters<RetailPaymentRepository["reconcileRefund"]>[0]) {
+    return parseRefundResult(await this.rpc("reconcile_retail_payment_refund_v1", {
+      p_refund_id: input.refundId,
+      p_provider_payment_id: input.refund.paymentId,
+      p_provider_refund_id: input.refund.refundId,
+      p_refund_type: input.refund.refundType,
+      p_amount: input.refund.amount,
+      p_currency: input.refund.currency,
+      p_provider_status: input.refund.status,
+      p_provider_executed_at: input.refund.executedAt,
+      p_payment_status: input.payment.status,
+      p_remaining_refundable: input.payment.refundableAmount,
+    }));
+  }
 }
 
 function parseClaim(value: unknown): PaymentClaim {
@@ -141,4 +189,55 @@ function parseReturnState(value: unknown): PaymentReturnState | null {
   const row = value as Record<string, unknown>;
   if ((row.status !== "PROCESSING" && row.status !== "PAID" && row.status !== "FAILED" && row.status !== "CANCELLED") || (row.locale !== "ru" && row.locale !== "ro")) throw new RetailPaymentRepositoryError("invalid_response");
   return { status: row.status, locale: row.locale };
+}
+
+const REFUND_CLAIM_OUTCOMES = new Set<PaymentRefundClaimOutcome>([
+  "INVALID_INPUT", "NOT_FOUND", "NOT_REFUNDABLE", "MISSING_PROVIDER_PAYMENT_ID",
+  "IDEMPOTENCY_CONFLICT", "ALREADY_REFUNDED", "CLAIMED", "REUSE",
+]);
+const REFUND_STATUSES = new Set<PaymentRefundStatus>(["created", "pending", "refunded", "failed"]);
+
+function parseRefundClaim(value: unknown): PaymentRefundClaim {
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  if (typeof row.outcome !== "string" || !REFUND_CLAIM_OUTCOMES.has(row.outcome as PaymentRefundClaimOutcome)) throw new RetailPaymentRepositoryError("invalid_response");
+  const detailed = row.outcome === "CLAIMED" || row.outcome === "REUSE";
+  if (detailed && (!isUuid(row.refundId) || !isUuid(row.paymentAttemptId) || !isUuid(row.providerPaymentId)
+    || !isMoney(row.amount) || row.currency !== "MDL" || typeof row.reason !== "string"
+    || typeof row.status !== "string" || !REFUND_STATUSES.has(row.status as PaymentRefundStatus))) {
+    throw new RetailPaymentRepositoryError("invalid_response");
+  }
+  return {
+    outcome: row.outcome as PaymentRefundClaimOutcome,
+    refundId: isUuid(row.refundId) ? row.refundId : null,
+    paymentAttemptId: isUuid(row.paymentAttemptId) ? row.paymentAttemptId : null,
+    providerPaymentId: isUuid(row.providerPaymentId) ? row.providerPaymentId : null,
+    providerRefundId: isUuid(row.providerRefundId) ? row.providerRefundId : null,
+    amount: isMoney(row.amount) ? Number(row.amount).toFixed(2) : null,
+    currency: typeof row.currency === "string" ? row.currency : null,
+    reason: typeof row.reason === "string" ? row.reason : null,
+    status: typeof row.status === "string" && REFUND_STATUSES.has(row.status as PaymentRefundStatus) ? row.status as PaymentRefundStatus : null,
+    providerStatus: typeof row.providerStatus === "string" ? row.providerStatus : null,
+    providerRequestStarted: row.providerRequestStarted === true,
+    failureCode: typeof row.failureCode === "string" ? row.failureCode : null,
+  };
+}
+
+function parseRefundResult(value: unknown): PaymentRefundResult {
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  const allowed = new Set(["REFUNDED", "PENDING", "FAILED", "EVIDENCE_MISMATCH", "DUPLICATE", "NOT_FOUND"]);
+  if (typeof row.outcome !== "string" || !allowed.has(row.outcome)) throw new RetailPaymentRepositoryError("invalid_response");
+  return {
+    outcome: row.outcome as PaymentRefundResult["outcome"],
+    refundId: isUuid(row.refundId) ? row.refundId : null,
+    providerRefundId: null,
+    status: typeof row.status === "string" && REFUND_STATUSES.has(row.status as PaymentRefundStatus) ? row.status as PaymentRefundStatus : null,
+    providerStatus: null,
+    amount: null,
+    currency: null,
+    remainingRefundable: row.remainingRefundable !== null && row.remainingRefundable !== undefined && isMoney(row.remainingRefundable) ? Number(row.remainingRefundable).toFixed(2) : null,
+    confirmedAt: isIsoDate(row.confirmedAt) ? row.confirmedAt : null,
+    reused: row.outcome === "DUPLICATE",
+  };
 }

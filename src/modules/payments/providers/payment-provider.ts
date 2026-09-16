@@ -1,14 +1,26 @@
-import type { MaibPaymentEvidence, PaymentCheckoutInput, PaymentCheckoutResult, PaymentProviderName } from "../types";
+import type {
+  MaibPaymentEvidence,
+  PaymentCheckoutInput,
+  PaymentCheckoutResult,
+  PaymentProviderName,
+  PaymentProviderRefundState,
+  PaymentRefundEvidence,
+  PaymentRefundProviderInput,
+  PaymentRefundProviderResult,
+} from "../types";
 
 export interface PaymentProvider {
   readonly provider: PaymentProviderName;
   createCheckout(input: PaymentCheckoutInput): Promise<PaymentCheckoutResult>;
   getCheckoutEvidence(checkoutId: string): Promise<MaibPaymentEvidence>;
+  createRefund(input: PaymentRefundProviderInput): Promise<PaymentRefundProviderResult>;
+  getRefundEvidence(refundId: string): Promise<PaymentRefundEvidence>;
+  getPaymentRefundState(paymentId: string): Promise<PaymentProviderRefundState>;
 }
 
 export class PaymentProviderError extends Error {
   constructor(
-    readonly stage: "configuration" | "auth" | "checkout" | "lookup",
+    readonly stage: "configuration" | "auth" | "checkout" | "lookup" | "refund" | "refund_lookup" | "payment_lookup",
     readonly safeCode: string,
     readonly ambiguous: boolean,
     readonly httpStatus: number | null = null,

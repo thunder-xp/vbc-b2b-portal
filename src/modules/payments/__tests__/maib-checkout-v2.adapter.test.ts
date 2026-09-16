@@ -81,6 +81,52 @@ describe("MAIB Checkout API v2 adapter", () => {
     expect(maibConfigurationSummary({ ...environment, MAIB_CLIENT_SECRET: undefined }).ready).toBe(false);
     expect(() => createMaibCheckoutV2Adapter({ ...environment, MAIB_API_BASE_URL: "https://api.maibmerchants.md" })).toThrow(PaymentProviderError);
   });
+
+  it("creates a full refund with only authoritative amount and reason", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, result: { accessToken: "access-token", expiresIn: 300, tokenType: "Bearer" } }))
+      .mockResolvedValueOnce(json({ ok: true, result: { refundId: "44444444-4444-4444-8444-444444444444", status: "Created" } }));
+    const result = await createMaibCheckoutV2Adapter(environment, fetcher).createRefund({
+      paymentId: "33333333-3333-4333-8333-333333333333", amount: "1250.50", currency: "MDL", reason: "Certification refund",
+    });
+    expect(String(fetcher.mock.calls[1]![0])).toBe("https://sandbox.maibmerchants.md/v2/payments/33333333-3333-4333-8333-333333333333/refund");
+    expect(JSON.parse(String(fetcher.mock.calls[1]![1]?.body))).toEqual({ amount: 1250.5, reason: "Certification refund" });
+    expect(result).toMatchObject({ refundId: "44444444-4444-4444-8444-444444444444", providerStatus: "Created", httpCalls: 2 });
+  });
+
+  it("retrieves authoritative refund and payment aggregate evidence", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, result: { accessToken: "access-token", expiresIn: 300, tokenType: "Bearer" } }))
+      .mockResolvedValueOnce(json({ ok: true, result: {
+        id: "44444444-4444-4444-8444-444444444444", paymentId: "33333333-3333-4333-8333-333333333333",
+        refundType: "Full", amount: 1250.5, currency: "MDL", refundReason: "Certification refund",
+        status: "Accepted", executedAt: "2026-09-16T20:00:00.000Z",
+      } }))
+      .mockResolvedValueOnce(json({ ok: true, result: {
+        id: "33333333-3333-4333-8333-333333333333", status: "Refunded", amount: 1250.5, currency: "MDL",
+        refundedAmount: 1250.5, requestedRefundAmount: 1250.5, refundableAmount: 0, isRefundable: false,
+      } }));
+    const adapter = createMaibCheckoutV2Adapter(environment, fetcher);
+    const refund = await adapter.getRefundEvidence("44444444-4444-4444-8444-444444444444");
+    const payment = await adapter.getPaymentRefundState("33333333-3333-4333-8333-333333333333");
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(String(fetcher.mock.calls[1]![0])).toContain("/v2/payments/refunds/44444444-4444-4444-8444-444444444444");
+    expect(String(fetcher.mock.calls[2]![0])).toContain("/v2/payments/33333333-3333-4333-8333-333333333333");
+    expect(refund).toMatchObject({ refundType: "Full", status: "Accepted", amount: "1250.50" });
+    expect(payment).toMatchObject({ status: "Refunded", refundableAmount: "0.00", isRefundable: false });
+  });
+
+  it("does not treat Created as a completed refund", async () => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, result: { accessToken: "access-token", expiresIn: 300, tokenType: "Bearer" } }))
+      .mockResolvedValueOnce(json({ ok: true, result: {
+        id: "44444444-4444-4444-8444-444444444444", paymentId: "33333333-3333-4333-8333-333333333333",
+        refundType: "Full", amount: 1250.5, currency: "MDL", refundReason: "Certification refund",
+        status: "Created", executedAt: null,
+      } }));
+    await expect(createMaibCheckoutV2Adapter(environment, fetcher).getRefundEvidence("44444444-4444-4444-8444-444444444444"))
+      .resolves.toMatchObject({ status: "Created", executedAt: null });
+  });
 });
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }); }

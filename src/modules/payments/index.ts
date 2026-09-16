@@ -1,1 +1,1 @@
-export type { PaymentInitiationOutcome, PaymentInitiationResult } from "./types";
+export type { PaymentInitiationOutcome, PaymentInitiationResult, PaymentRefundResult } from "./types";
