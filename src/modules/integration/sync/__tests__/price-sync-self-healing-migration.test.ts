@@ -6,6 +6,10 @@ const sql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260916110047_onec_price_sync_self_healing.sql"),
   "utf8",
 );
+const safeUpdateRepairSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260916114500_price_sync_self_healing_safeupdate_repair.sql"),
+  "utf8",
+);
 
 describe("price sync self-healing migration", () => {
   it("uses a durable watermark with a bounded overlap only for incremental runs", () => {
@@ -48,5 +52,11 @@ describe("price sync self-healing migration", () => {
     expect(sql).toMatch(/revoke all on table public\.price_sync_domain_freshness from public, anon, authenticated/);
     expect(sql).toMatch(/revoke all on table public\.price_sync_run_history from public, anon, authenticated/);
     expect(sql).toMatch(/grant execute on function public\.are_price_derived_indicators_fresh\(\)\s+to authenticated/);
+  });
+
+  it("uses explicit bounded predicates for production safe-update enforcement", () => {
+    expect(safeUpdateRepairSql.match(/where freshness\.scope in \(/g)).toHaveLength(2);
+    expect(safeUpdateRepairSql).toContain("create or replace function public.heartbeat_price_sync_scheduler()");
+    expect(safeUpdateRepairSql).toContain("create or replace function public.fail_price_sync_run(");
   });
 });
