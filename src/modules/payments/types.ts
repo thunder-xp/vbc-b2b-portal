@@ -1,5 +1,5 @@
 export type PaymentProviderName = "maib";
-export type PaymentAttemptStatus = "created" | "pending" | "paid" | "failed" | "cancelled" | "expired";
+export type PaymentAttemptStatus = "created" | "pending" | "paid_pending_activation" | "paid" | "failed" | "cancelled" | "expired";
 
 export type PaymentInitiationOutcome =
   | "NOT_ELIGIBLE"
@@ -54,4 +54,43 @@ export type PaymentInitiationResult = Readonly<{
   paymentAttemptId: string | null;
   checkoutUrl: string | null;
   reused: boolean;
+}>;
+
+export type MaibPaymentEvidence = Readonly<{
+  checkoutId: string;
+  paymentId: string;
+  orderReference: string;
+  checkoutAmount: string;
+  checkoutCurrency: string;
+  paymentAmount: string;
+  paymentCurrency: string;
+  paymentStatus: string;
+  providerEventAt: string;
+  rrn: string | null;
+}>;
+
+export type PaymentConfirmationOutcome =
+  | "PAID"
+  | "DUPLICATE"
+  | "PAID_PENDING_ACTIVATION"
+  | "NON_PAID"
+  | "UNKNOWN_CHECKOUT"
+  | "PAYMENT_MISMATCH"
+  | "ORDER_MISMATCH"
+  | "AMOUNT_MISMATCH"
+  | "CURRENCY_MISMATCH"
+  | "INVALID_EVIDENCE";
+
+export type PaymentConfirmationResult = Readonly<{
+  outcome: PaymentConfirmationOutcome;
+  attemptId: string | null;
+  retailOrderId: string | null;
+  paymentStatus: PaymentAttemptStatus | null;
+  activationRepeated: boolean | null;
+  installationRequirementId: string | null;
+}>;
+
+export type PaymentReturnState = Readonly<{
+  status: "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
+  locale: "ru" | "ro";
 }>;

@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PaymentProvider } from "../payment-provider";
 import { PaymentProviderError } from "../payment-provider";
-import type { PaymentCheckoutInput, PaymentCheckoutResult } from "../../types";
+import type { MaibPaymentEvidence, PaymentCheckoutInput, PaymentCheckoutResult } from "../../types";
 
 const SANDBOX_ORIGIN = "https://sandbox.maibmerchants.md";
 const CHECKOUT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -54,8 +54,8 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
         },
         language: input.locale,
         callbackUrl: this.publicUrl("/api/payments/maib/callback"),
-        successUrl: this.publicUrl("/payment/return?provider=maib&result=success"),
-        failUrl: this.publicUrl("/payment/return?provider=maib&result=failed"),
+        successUrl: this.publicUrl(`/payment/return?provider=maib&paymentAttemptId=${encodeURIComponent(input.paymentAttemptId)}`),
+        failUrl: this.publicUrl(`/payment/return?provider=maib&paymentAttemptId=${encodeURIComponent(input.paymentAttemptId)}`),
       }),
     }, "checkout");
     const checkoutLatencyMs = Math.round(performance.now() - checkoutStart);
@@ -68,6 +68,42 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
       throw new PaymentProviderError("checkout", "INVALID_CHECKOUT_RESPONSE", true, response.status);
     }
     return { checkoutId: checkoutId.toLowerCase(), checkoutUrl, providerStatus: "WaitingForInit", authLatencyMs, checkoutLatencyMs, httpCalls: 2 };
+  }
+
+  async getCheckoutEvidence(checkoutId: string): Promise<MaibPaymentEvidence> {
+    if (!CHECKOUT_ID.test(checkoutId)) throw new PaymentProviderError("lookup", "INVALID_CHECKOUT_ID", false);
+    const accessToken = await this.getAccessToken();
+    const response = await this.request(`/v2/checkouts/${checkoutId.toLowerCase()}`, {
+      method: "GET",
+      headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
+    }, "lookup");
+    const payload = await safeJson(response, "lookup");
+    if (!response.ok || payload.ok !== true) throw providerResponseError("lookup", response.status, payload, response.ok);
+    const checkout = objectValue(payload.result);
+    const order = objectValue(checkout.order);
+    const payment = objectValue(checkout.payment);
+    const resultCheckoutId = stringValue(checkout.id);
+    const checkoutStatus = stringValue(checkout.status);
+    const paymentId = stringValue(payment.paymentId);
+    const orderReference = stringValue(order.id) ?? stringValue(payment.orderId);
+    const checkoutAmount = moneyValue(checkout.amount);
+    const checkoutCurrency = stringValue(checkout.currency);
+    const paymentAmount = moneyValue(payment.amount);
+    const paymentCurrency = stringValue(payment.currency);
+    const paymentStatus = stringValue(payment.status);
+    const providerEventAt = stringValue(payment.executedAt);
+    const rrn = nullableSafeString(payment.referenceNumber, 100);
+    if (!resultCheckoutId || resultCheckoutId.toLowerCase() !== checkoutId.toLowerCase()
+      || !paymentId || !CHECKOUT_ID.test(paymentId) || !orderReference || !CHECKOUT_ID.test(orderReference)
+      || !checkoutAmount || !checkoutCurrency || !paymentAmount || !paymentCurrency || !paymentStatus
+      || !providerEventAt || Number.isNaN(Date.parse(providerEventAt))
+      || (paymentStatus === "Executed" && checkoutStatus !== "Completed")) {
+      throw new PaymentProviderError("lookup", "INVALID_LOOKUP_RESPONSE", true, response.status);
+    }
+    return {
+      checkoutId: resultCheckoutId.toLowerCase(), paymentId: paymentId.toLowerCase(), orderReference: orderReference.toLowerCase(),
+      checkoutAmount, checkoutCurrency, paymentAmount, paymentCurrency, paymentStatus, providerEventAt, rrn,
+    };
   }
 
   private async getAccessToken() {
@@ -88,7 +124,7 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
     return accessToken;
   }
 
-  private async request(path: string, init: RequestInit, stage: "auth" | "checkout") {
+  private async request(path: string, init: RequestInit, stage: "auth" | "checkout" | "lookup") {
     try {
       return await this.fetchImplementation(new URL(path, `${this.configuration.apiBaseUrl}/`), {
         ...init,
@@ -97,7 +133,7 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
         signal: AbortSignal.timeout(10_000),
       });
     } catch {
-      throw new PaymentProviderError(stage, stage === "auth" ? "AUTH_NETWORK_ERROR" : "CHECKOUT_NETWORK_ERROR", stage === "checkout");
+      throw new PaymentProviderError(stage, stage === "auth" ? "AUTH_NETWORK_ERROR" : stage === "checkout" ? "CHECKOUT_NETWORK_ERROR" : "LOOKUP_NETWORK_ERROR", stage !== "auth");
     }
   }
 
@@ -157,17 +193,24 @@ function isSafeMaibCheckoutUrl(value: string) {
 function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function stringValue(value: unknown) { return typeof value === "string" && value.length > 0 ? value : null; }
 function numberValue(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : null; }
-
-async function safeJson(response: Response, stage: "auth" | "checkout") {
-  try { return objectValue(await response.json()); }
-  catch { throw new PaymentProviderError(stage, "INVALID_JSON_RESPONSE", stage === "checkout" && response.ok, response.status); }
+function moneyValue(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || Math.abs(Math.round(value * 100) - value * 100) > 1e-7) return null;
+  return value.toFixed(2);
+}
+function nullableSafeString(value: unknown, maxLength: number) {
+  return typeof value === "string" && value.length > 0 && value.length <= maxLength ? value : null;
 }
 
-function providerResponseError(stage: "auth" | "checkout", status: number, payload: Record<string, unknown>, successfulHttp: boolean) {
+async function safeJson(response: Response, stage: "auth" | "checkout" | "lookup") {
+  try { return objectValue(await response.json()); }
+  catch { throw new PaymentProviderError(stage, "INVALID_JSON_RESPONSE", stage !== "auth" && response.ok, response.status); }
+}
+
+function providerResponseError(stage: "auth" | "checkout" | "lookup", status: number, payload: Record<string, unknown>, successfulHttp: boolean) {
   const errors = Array.isArray(payload.errors) ? payload.errors : [];
   const first = objectValue(errors[0]);
   const candidate = stringValue(first.errorCode) ?? stringValue(first.code);
   const safe = candidate && SAFE_CODE.test(candidate) ? candidate.toUpperCase() : `HTTP_${status}`;
-  const ambiguous = stage === "checkout" && (successfulHttp || status >= 500 || status === 408 || status === 429);
+  const ambiguous = stage !== "auth" && (successfulHttp || status >= 500 || status === 408 || status === 429);
   return new PaymentProviderError(stage, safe, ambiguous, status);
 }

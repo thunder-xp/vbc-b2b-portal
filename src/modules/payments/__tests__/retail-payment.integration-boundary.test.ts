@@ -10,12 +10,19 @@ describe("retail payment public integration boundary", () => {
     expect(action).toContain("hashRetailOrderAccessToken");
   });
 
-  it("keeps callback and browser return paths side-effect free in Phase 1", () => {
+  it("keeps callback authoritative and browser return read-only in Phase 2", () => {
     const callback = readFileSync("app/api/payments/maib/callback/route.ts", "utf8");
     const returnPage = readFileSync("app/payment/return/page.tsx", "utf8");
-    expect(callback).toContain("payment_confirmation_not_enabled");
-    expect(callback).not.toContain("activate_paid_retail_order");
-    expect(returnPage).toContain("не подтверждает оплату");
+    expect(callback).toContain("authenticateMaibCallback");
+    expect(callback).toContain("confirmMaibCallback");
+    expect(callback).toContain("new Response(null");
+    expect(returnPage).toContain("getRetailPaymentReturnState");
+    expect(returnPage).not.toContain("query.result");
+    expect(returnPage).toContain("query.paymentAttemptId");
+    expect(returnPage).toContain("Платёж обрабатывается");
+    expect(returnPage).toContain("Оплата прошла успешно");
+    expect(returnPage).toContain("Plata este în curs de procesare");
+    expect(returnPage).toContain("Plata a fost efectuată cu succes");
   });
 
   it("does not introduce provider work on ordinary retail routes", () => {

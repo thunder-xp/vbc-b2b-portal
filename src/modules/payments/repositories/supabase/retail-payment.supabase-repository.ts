@@ -2,7 +2,8 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
-import type { PaymentClaim, PaymentClaimOutcome } from "../../types";
+import type { PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentReturnState } from "../../types";
+import type { MaibReconciliationContext } from "../retail-payment.repository";
 import type { RetailPaymentRepository } from "../retail-payment.repository";
 
 const OUTCOMES = new Set<PaymentClaimOutcome>(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "CLAIMED", "REUSE_PENDING"]);
@@ -48,6 +49,34 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
       p_terminal: input.terminal,
     }) === true;
   }
+
+  async confirmMaib(input: Parameters<RetailPaymentRepository["confirmMaib"]>[0]) {
+    return parseConfirmation(await this.rpc("confirm_maib_retail_payment_callback_v1", {
+      p_provider_checkout_id: input.evidence.checkoutId,
+      p_provider_payment_id: input.evidence.paymentId,
+      p_order_reference: input.evidence.orderReference,
+      p_checkout_amount: input.evidence.checkoutAmount,
+      p_checkout_currency: input.evidence.checkoutCurrency,
+      p_payment_amount: input.evidence.paymentAmount,
+      p_payment_currency: input.evidence.paymentCurrency,
+      p_provider_status: input.evidence.paymentStatus,
+      p_provider_event_at: input.evidence.providerEventAt,
+      p_provider_rrn: input.evidence.rrn,
+      p_source: input.source,
+    }));
+  }
+
+  async getMaibReconciliationContext(attemptId: string) {
+    return parseReconciliationContext(await this.rpc("get_maib_retail_payment_reconciliation_context_v1", { p_attempt_id: attemptId }));
+  }
+
+  async retryMaibActivation(attemptId: string) {
+    return parseConfirmation(await this.rpc("retry_maib_retail_payment_activation_v1", { p_attempt_id: attemptId }));
+  }
+
+  async getReturnState(paymentAttemptId: string) {
+    return parseReturnState(await this.rpc("get_retail_payment_return_state_v1", { p_payment_attempt_id: paymentAttemptId }));
+  }
 }
 
 function parseClaim(value: unknown): PaymentClaim {
@@ -77,3 +106,39 @@ function isUuid(value: unknown): value is string { return typeof value === "stri
 function isMoney(value: unknown) { return (typeof value === "string" || typeof value === "number") && /^\d+(?:\.\d{1,2})?$/.test(String(value)); }
 function isIsoDate(value: unknown): value is string { return typeof value === "string" && !Number.isNaN(Date.parse(value)); }
 function isSafeHttps(value: unknown): value is string { try { const url = new URL(String(value)); return url.protocol === "https:" && !url.username && !url.password; } catch { return false; } }
+
+const CONFIRMATION_OUTCOMES = new Set<PaymentConfirmationOutcome>([
+  "PAID", "DUPLICATE", "PAID_PENDING_ACTIVATION", "NON_PAID", "UNKNOWN_CHECKOUT", "PAYMENT_MISMATCH",
+  "ORDER_MISMATCH", "AMOUNT_MISMATCH", "CURRENCY_MISMATCH", "INVALID_EVIDENCE",
+]);
+const ATTEMPT_STATUSES = new Set<PaymentAttemptStatus>(["created", "pending", "paid_pending_activation", "paid", "failed", "cancelled", "expired"]);
+
+function parseConfirmation(value: unknown): PaymentConfirmationResult {
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  if (typeof row.outcome !== "string" || !CONFIRMATION_OUTCOMES.has(row.outcome as PaymentConfirmationOutcome)) throw new RetailPaymentRepositoryError("invalid_response");
+  return {
+    outcome: row.outcome as PaymentConfirmationOutcome,
+    attemptId: isUuid(row.attemptId) ? row.attemptId : null,
+    retailOrderId: isUuid(row.retailOrderId) ? row.retailOrderId : null,
+    paymentStatus: typeof row.paymentStatus === "string" && ATTEMPT_STATUSES.has(row.paymentStatus as PaymentAttemptStatus) ? row.paymentStatus as PaymentAttemptStatus : null,
+    activationRepeated: typeof row.activationRepeated === "boolean" ? row.activationRepeated : null,
+    installationRequirementId: isUuid(row.installationRequirementId) ? row.installationRequirementId : null,
+  };
+}
+
+function parseReconciliationContext(value: unknown): MaibReconciliationContext | null {
+  if (value === null) return null;
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  if (!isUuid(row.attemptId) || !isUuid(row.checkoutId) || !isMoney(row.amount) || typeof row.currency !== "string" || typeof row.status !== "string") throw new RetailPaymentRepositoryError("invalid_response");
+  return { attemptId: row.attemptId, checkoutId: row.checkoutId, paymentId: isUuid(row.paymentId) ? row.paymentId : null, status: row.status, amount: String(row.amount), currency: row.currency };
+}
+
+function parseReturnState(value: unknown): PaymentReturnState | null {
+  if (value === null) return null;
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  if ((row.status !== "PROCESSING" && row.status !== "PAID" && row.status !== "FAILED" && row.status !== "CANCELLED") || (row.locale !== "ru" && row.locale !== "ro")) throw new RetailPaymentRepositoryError("invalid_response");
+  return { status: row.status, locale: row.locale };
+}

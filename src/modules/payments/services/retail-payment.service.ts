@@ -1,7 +1,7 @@
 import type { PaymentProvider } from "../providers/payment-provider";
 import { PaymentProviderError } from "../providers/payment-provider";
 import type { RetailPaymentRepository } from "../repositories/retail-payment.repository";
-import type { PaymentInitiationResult } from "../types";
+import type { MaibPaymentEvidence, PaymentConfirmationResult, PaymentInitiationResult, PaymentReturnState } from "../types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOKEN_HASH = /^[0-9a-f]{64}$/;
@@ -53,6 +53,25 @@ export class RetailPaymentService {
     }
   }
 
+  async confirmMaibCallback(evidence: MaibPaymentEvidence): Promise<PaymentConfirmationResult> {
+    return this.repository.confirmMaib({ evidence, source: "callback" });
+  }
+
+  async reconcileMaibPayment(paymentAttemptId: string): Promise<PaymentConfirmationResult> {
+    if (!UUID.test(paymentAttemptId)) return confirmation("INVALID_EVIDENCE");
+    const context = await this.repository.getMaibReconciliationContext(paymentAttemptId);
+    if (!context) return confirmation("INVALID_EVIDENCE");
+    if (context.status === "paid") return { ...confirmation("DUPLICATE"), attemptId: context.attemptId, paymentStatus: "paid", activationRepeated: true };
+    if (context.status === "paid_pending_activation") return this.repository.retryMaibActivation(context.attemptId);
+    const evidence = await this.provider.getCheckoutEvidence(context.checkoutId);
+    return this.repository.confirmMaib({ evidence, source: "reconciliation" });
+  }
+
+  async getReturnState(paymentAttemptId: string): Promise<PaymentReturnState | null> {
+    if (!UUID.test(paymentAttemptId)) return null;
+    return this.repository.getReturnState(paymentAttemptId);
+  }
+
   private async recordFailure(attemptId: string, idempotencyKey: string, failureCode: string, terminal: boolean, outcome: "CONFIGURATION_ERROR" | "MAIB_AUTH_FAILED" | "MAIB_CHECKOUT_FAILED") {
     try {
       const persisted = await this.repository.recordFailure({ attemptId, idempotencyKey, failureCode: normalizeFailureCode(failureCode), terminal });
@@ -63,3 +82,6 @@ export class RetailPaymentService {
 
 function normalizeFailureCode(value: string) { return value.toUpperCase().replace(/[^A-Z0-9_:-]/g, "_").slice(0, 100) || "UNKNOWN"; }
 function result(outcome: Exclude<PaymentInitiationResult["outcome"], "SUCCESS">, paymentAttemptId: string | null = null): PaymentInitiationResult { return { outcome, paymentAttemptId, checkoutUrl: null, reused: false }; }
+function confirmation(outcome: PaymentConfirmationResult["outcome"]): PaymentConfirmationResult {
+  return { outcome, attemptId: null, retailOrderId: null, paymentStatus: null, activationRepeated: null, installationRequirementId: null };
+}
