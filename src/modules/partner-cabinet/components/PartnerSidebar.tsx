@@ -52,7 +52,6 @@ const icons = {
   nomenclature: ClipboardList,
   proposal_generator: WandSparkles,
   orders: ListChecks,
-  installation_orders: Wrench,
   installation_marketplace: Wrench,
   finance: Landmark,
   documents: FileText,
@@ -80,7 +79,7 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
 ];
 const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers", "nomenclature", "proposal_generator"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
-const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_marketplace", "installation_orders"];
+const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_marketplace"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
 function NavigationItem({

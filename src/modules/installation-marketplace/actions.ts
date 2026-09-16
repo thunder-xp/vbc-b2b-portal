@@ -7,6 +7,7 @@ import { requireAdminPermission } from "@/src/modules/admin/services";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getFinalCustomerContext } from "@/src/modules/final-customer/server";
 import { getInstallationMarketplaceService } from "./server";
+import { persistInstallationMarketplaceInvitationEmail } from "./marketplace-invitation.communication";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "");
 const nullable = (formData: FormData, key: string) => text(formData,key).trim() || null;
@@ -53,16 +54,16 @@ export async function respondMarketplaceInstallationAction(formData: FormData) {
   const context=await getPartnerWorkspaceContextAction();
   if(!context.success||!context.data.companyId||context.data.accessState!=="active") redirect("/cabinet");
   await getInstallationMarketplaceService().respondPartner({ companyId:context.data.companyId, assignmentId:text(formData,"assignmentId"), decision:text(formData,"decision") as "ACCEPT"|"DECLINE", reason:nullable(formData,"reason"), reasonNote:nullable(formData,"reasonNote"), expectedRevision:Number(text(formData,"assignmentRevision")), idempotencyKey:text(formData,"idempotencyKey") });
-  revalidatePath("/cabinet/installation-orders");
-  redirect("/cabinet/installation-orders?marketplace=updated");
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/cabinet/installation-marketplace?view=new&result=updated");
 }
 
 export async function transitionMarketplaceInstallationAction(formData: FormData) {
   const context=await getPartnerWorkspaceContextAction();
   if(!context.success||!context.data.companyId||context.data.accessState!=="active") redirect("/cabinet");
   await getInstallationMarketplaceService().transitionPartner({ companyId:context.data.companyId, assignmentId:text(formData,"assignmentId"), command:text(formData,"command") as "CONTACTED"|"SCHEDULED"|"INSTALLED", plannedFor:nullable(formData,"plannedFor"), expectedRevision:Number(text(formData,"revision")), idempotencyKey:text(formData,"idempotencyKey") });
-  revalidatePath("/cabinet/installation-orders");
-  redirect("/cabinet/installation-orders?view=active&marketplace=updated");
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/cabinet/installation-marketplace?view=active&result=updated");
 }
 
 export async function moderateInstallationReviewAction(formData: FormData) {
@@ -113,5 +114,47 @@ export async function reviewInstallationMarketplaceActivationAction(formData: Fo
     rejectionReason:nullable(formData,"rejectionReason"), note:nullable(formData,"note"), expectedRevision:Number(text(formData,"revision")),
   });
   revalidatePath("/admin/retail/installation");
-  redirect("/admin/retail/installation?activation=updated");
+  redirect("/admin/retail/installation?section=supply&activation=updated");
+}
+
+export async function saveInstallationMarketplacePilotConfigurationAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  await getInstallationMarketplaceService().savePilotConfiguration({
+    regionCode:text(formData,"regionCode"), capability:text(formData,"capability"),
+    enabled:formData.get("enabled")==="on", threshold:Number(text(formData,"threshold")),
+    expectedRevision:Number(text(formData,"revision")), correlationId:text(formData,"correlationId")||randomUUID(),
+  });
+  revalidatePath("/admin/retail/installation");
+  redirect("/admin/retail/installation?section=supply&pilot=saved");
+}
+
+export async function prepareInstallationMarketplaceInvitationAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  const expires=text(formData,"expiresAt").trim();
+  await getInstallationMarketplaceService().prepareInvitation({
+    companyId:text(formData,"companyId"), locale:text(formData,"locale"),
+    channels:["IN_APP",...(formData.get("email")==="on"?["EMAIL"]:[])],
+    expiresAt:expires?new Date(expires).toISOString():null,
+    expectedRevision:Number(text(formData,"revision")), readyToSend:text(formData,"command")==="READY_TO_SEND",
+    correlationId:text(formData,"correlationId")||randomUUID(),
+  });
+  revalidatePath("/admin/retail/installation");
+  redirect(`/admin/retail/installation?section=supply&invitation=${text(formData,"command")==="READY_TO_SEND"?"prepared":"draft"}`);
+}
+
+export async function sendInstallationMarketplaceInvitationAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  const correlationId=text(formData,"correlationId")||randomUUID();
+  const invitation=await getInstallationMarketplaceService().sendInvitation({
+    invitationId:text(formData,"invitationId"), expectedRevision:Number(text(formData,"revision")), correlationId,
+  });
+  let result="sent";
+  try {
+    await persistInstallationMarketplaceInvitationEmail(invitation,correlationId);
+  } catch {
+    result="in_app_only";
+  }
+  revalidatePath("/admin/retail/installation");
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect(`/admin/retail/installation?section=supply&invitation=${result}`);
 }

@@ -19,7 +19,6 @@ const navigationKeys = {
   nomenclature: "nav.nomenclature",
   proposal_generator: "nav.proposal_generator",
   orders: "nav.orders",
-  installation_orders: "nav.installation_orders",
   installation_marketplace: "nav.installation_marketplace",
   finance: "nav.finance",
   documents: "nav.documents",

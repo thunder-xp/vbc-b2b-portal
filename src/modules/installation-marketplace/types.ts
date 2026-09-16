@@ -156,3 +156,52 @@ export type InstallationPartnerActivationAdminReport = Readonly<{
   coverage: ReadonlyArray<{ regionCode: string; regionNameRu: string; regionNameRo: string; capability: InstallationPartnerCapability; installerCount: number }>;
   pilotFacts: Readonly<{ eligibleInstallerCount: number; coveredCapabilityCount: number; coveredServiceAreaCount: number }>;
 }>;
+
+export const INSTALLATION_MARKETPLACE_INVITATION_STATUSES = [
+  "INVITATION_DRAFT", "READY_TO_SEND", "SENT", "OPENED", "PARTNER_STARTED",
+  "PARTNER_SUBMITTED", "APPROVED", "DECLINED", "EXPIRED",
+] as const;
+export type InstallationMarketplaceInvitationStatus = typeof INSTALLATION_MARKETPLACE_INVITATION_STATUSES[number];
+export type InstallationMarketplaceSupplyFilter = "all" | "potential" | "invited" | "started" | "pending" | "active" | "suspended";
+
+export type InstallationMarketplaceSupplyReport = Readonly<{
+  metrics: Readonly<{
+    totalPartners: number; publicProfiles: number; potentialCandidates: number; invited: number;
+    started: number; pendingReview: number; active: number; available: number; limited: number; suspended: number;
+  }>;
+  totalCount: number;
+  limit: number;
+  offset: number;
+  pilotReadiness: "NOT_READY" | "LIMITED" | "READY";
+  candidates: ReadonlyArray<{
+    companyId: string; companyName: string; companyStatus: string;
+    publicProfileVisible: boolean; publicProfileComplete: boolean;
+    providerId: string | null; participationStatus: InstallationParticipationStatus; providerRevision: number;
+    availability: InstallationPartnerAvailability; termsAccepted: boolean; privacyAccepted: boolean;
+    adminApproved: boolean; recipientReady: boolean; readiness: InstallationPartnerActivation["readiness"];
+    missingStepCount: number; readinessGroup: "ACTIVE" | "READY_FOR_REVIEW" | "NEAR_READY" | "FOUNDATION_REQUIRED";
+    capabilities: InstallationPartnerActivation["capabilities"];
+    verifiedCapabilities: InstallationPartnerCapability[];
+    serviceAreas: ReadonlyArray<{ code: string; nameRu: string; nameRo: string }>;
+    invitationId: string | null; invitationStatus: InstallationMarketplaceInvitationStatus | null;
+    invitationRevision: number | null; invitationLocale: "ru" | "ro" | null;
+    invitationChannels: Array<"IN_APP" | "EMAIL"> | null;
+    invitationSentAt: string | null; invitationExpiresAt: string | null;
+  }>;
+  coverage: ReadonlyArray<{
+    regionCode: string; regionNameRu: string; regionNameRo: string; capability: InstallationPartnerCapability;
+    configurationId: string | null; pilotEnabled: boolean; threshold: number; revision: number;
+    active: number; available: number; limited: number; pendingReview: number; potentialCandidates: number;
+    activePartners: ReadonlyArray<{ companyId: string; companyName: string }>;
+    pendingPartners: ReadonlyArray<{ companyId: string; companyName: string }>;
+    candidatePartners: ReadonlyArray<{ companyId: string; companyName: string }>;
+    readiness: "NOT_READY" | "LIMITED" | "READY" | null;
+  }>;
+}>;
+
+export type InstallationMarketplaceInvitationSend = Readonly<{
+  invitationId: string; revision: number; status: InstallationMarketplaceInvitationStatus; repeated: boolean;
+  companyId: string; companyName: string; recipientUserId: string; recipientEmail: string | null;
+  recipientLocale: "ru" | "ro"; identityVerified: boolean;
+  channels: Array<"IN_APP" | "EMAIL">; emailIntentId: string | null;
+}>;

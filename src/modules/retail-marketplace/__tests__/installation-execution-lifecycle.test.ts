@@ -7,7 +7,7 @@ import { InstallationAssignmentDispatcher, InstallationAssignmentInputError } fr
 import { installationCopy } from "@/src/modules/partner-locale";
 
 const sql = fs.readFileSync(path.resolve("supabase/migrations/20260813091615_retail_installation_execution_lifecycle.sql"), "utf8");
-const partnerPage = fs.readFileSync(path.resolve("app/(partner)/cabinet/installation-orders/page.tsx"), "utf8");
+const partnerPage = fs.readFileSync(path.resolve("src/modules/installation-marketplace/partner-installation-lists.tsx"), "utf8");
 const customerPage = fs.readFileSync(path.resolve("app/order/[token]/page.tsx"), "utf8");
 const adminPage = fs.readFileSync(path.resolve("app/(admin)/admin/retail/installation/page.tsx"), "utf8");
 const id = (digit: number) => `${digit}0000000-0000-4000-8000-00000000000${digit}`;

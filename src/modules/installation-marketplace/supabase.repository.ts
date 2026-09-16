@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import type { InstallationMarketplaceRepository } from "./repository";
-import type { InstallationMarketplaceAdminReport, InstallationPartnerActivation, InstallationPartnerActivationAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
+import type { InstallationMarketplaceAdminReport, InstallationMarketplaceInvitationSend, InstallationMarketplaceSupplyReport, InstallationPartnerActivation, InstallationPartnerActivationAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
 
 export class InstallationMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable") {
@@ -110,6 +110,31 @@ export class SupabaseInstallationMarketplaceRepository implements InstallationMa
     return rpc<{ providerId: string; revision: number; status: string }>("admin_review_installation_partner_activation_v1", {
       p_provider_id: input.providerId, p_action: input.action, p_rejection_reason: input.rejectionReason,
       p_note: input.note, p_expected_revision: input.expectedRevision,
+    });
+  }
+  getSupplyReport(input: Parameters<InstallationMarketplaceRepository["getSupplyReport"]>[0]) {
+    return rpc<InstallationMarketplaceSupplyReport>("admin_get_installation_marketplace_supply_v1", {
+      p_search: input.search, p_filter: input.filter, p_limit: input.limit, p_offset: input.offset,
+    });
+  }
+  savePilotConfiguration(input: Parameters<InstallationMarketplaceRepository["savePilotConfiguration"]>[0]) {
+    return rpc<{ regionCode: string; capability: string; revision: number; enabled: boolean }>("admin_save_installation_marketplace_pilot_config_v1", {
+      p_region_code: input.regionCode, p_capability: input.capability, p_enabled: input.enabled,
+      p_min_active_installers: input.threshold, p_expected_revision: input.expectedRevision,
+      p_correlation_id: input.correlationId,
+    });
+  }
+  prepareInvitation(input: Parameters<InstallationMarketplaceRepository["prepareInvitation"]>[0]) {
+    return rpc<{ invitationId: string; revision: number; status: string }>("admin_prepare_installation_marketplace_invitation_v1", {
+      p_company_id: input.companyId, p_locale: input.locale, p_channels: input.channels,
+      p_expires_at: input.expiresAt, p_expected_revision: input.expectedRevision,
+      p_ready_to_send: input.readyToSend, p_correlation_id: input.correlationId,
+    });
+  }
+  sendInvitation(input: Parameters<InstallationMarketplaceRepository["sendInvitation"]>[0]) {
+    return rpc<InstallationMarketplaceInvitationSend>("admin_send_installation_marketplace_invitation_v1", {
+      p_invitation_id: input.invitationId, p_expected_revision: input.expectedRevision,
+      p_correlation_id: input.correlationId,
     });
   }
 }

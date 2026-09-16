@@ -16,7 +16,6 @@ export type WorkspaceCapabilityKey =
   | "proposal_generator"
   | "orders"
   | "installation_marketplace"
-  | "installation_orders"
   | "finance"
   | "documents"
   | "warranty"
@@ -108,8 +107,7 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "nomenclature", label: "Моя номенклатура", href: "/cabinet/nomenclature", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
   { key: "proposal_generator", label: "Генератор КП", href: "/cabinet/estimates/generator", requiredPermission: "estimates.manage", released: true, unavailableBehavior: "hide" },
   { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
-  { key: "installation_marketplace", label: "Монтажный Marketplace", href: "/cabinet/installation-marketplace", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide" },
-  { key: "installation_orders", label: "Заказы на монтаж", href: "/cabinet/installation-orders", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide" },
+  { key: "installation_marketplace", label: "Монтаж и заявки", href: "/cabinet/installation-marketplace", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide" },
   { key: "finance", label: "Финансы", href: "/cabinet/finance", requiredPermission: "finance.view_company", released: true, unavailableBehavior: "hide" },
   { key: "documents", label: "Документы", href: "/cabinet/documents", requiredPermission: "documents.view_company", released: true, unavailableBehavior: "hide" },
   { key: "warranty", label: "Сервисный центр", href: "/cabinet/service", requiredPermission: "service.view", released: true, unavailableBehavior: "hide" },

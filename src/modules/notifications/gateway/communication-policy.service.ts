@@ -94,7 +94,7 @@ export function smsSandboxAllowlistFromEnvironment(
 }
 
 export function classifyCommunicationPurpose(eventType: string): CommunicationPurpose | null {
-  if (["order.registered_in_1c", "proposal.delivery", "company.invitation"].includes(eventType)) return "TRANSACTIONAL";
+  if (["order.registered_in_1c", "proposal.delivery", "company.invitation", "marketplace.invitation"].includes(eventType)) return "TRANSACTIONAL";
   if (eventType.startsWith("finance.")) return "FINANCE";
   if (eventType.startsWith("security.")) return "SECURITY";
   if (eventType.startsWith("support.")) return "SUPPORT";

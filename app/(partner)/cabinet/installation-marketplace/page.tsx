@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { getInstallationAssignmentDispatcher } from "@/src/modules/retail-marketplace/server";
+import type { InstallationAssignmentView } from "@/src/modules/retail-marketplace/types";
 import {
   optInInstallationMarketplaceAction,
   saveInstallationMarketplaceActivationAction,
@@ -10,24 +12,44 @@ import {
 import { getInstallationMarketplaceService } from "@/src/modules/installation-marketplace/server";
 import { INSTALLATION_PARTNER_CAPABILITIES } from "@/src/modules/installation-marketplace/types";
 import type { InstallationPartnerActivation, InstallationPartnerCapability } from "@/src/modules/installation-marketplace/types";
+import { PartnerInstallationLists } from "@/src/modules/installation-marketplace/partner-installation-lists";
+
+type WorkspaceView = "overview" | "new" | "active" | "completed" | "profile";
+
+const workspaceCopy = {
+  ru: {
+    title: "Монтаж и заявки",
+    intro: "Заявки клиентов, активные монтажи и профиль исполнителя в одном рабочем разделе.",
+    tabs: { overview: "Обзор", new: "Новые заявки", active: "Активные монтажи", completed: "Завершённые", profile: "Профиль исполнителя" },
+    primary: "Настроить профиль исполнителя",
+  },
+  ro: {
+    title: "Montaj și solicitări",
+    intro: "Solicitările clienților, instalările active și profilul executantului într-un singur spațiu de lucru.",
+    tabs: { overview: "Prezentare", new: "Solicitări noi", active: "Instalări active", completed: "Finalizate", profile: "Profil instalator" },
+    primary: "Configurează profilul instalatorului",
+  },
+} as const;
+
+const workspaceViews: WorkspaceView[] = ["overview", "new", "active", "completed", "profile"];
 
 const copy = {
   ru: {
-    eyebrow: "Монтажный Marketplace", title: "Стать партнёром по монтажу",
+    eyebrow: "Монтаж и заявки", title: "Стать партнёром по монтажу",
     intro: "Укажите реальные компетенции, территорию работы и доступность. После проверки Novotech профиль сможет участвовать в подборе исполнителей.",
     optIn: "Подключиться к заявкам на монтаж", status: "Статус", saved: "Данные сохранены.", enrolled: "Черновик участия создан.", submitted: "Заявка отправлена на проверку.",
     metrics: ["Новые заявки", "Активные монтажи", "Завершённые работы", "Проверенные отзывы"],
-    checklist: "Готовность", profile: "Публичный профиль", service: "Услуга монтажа", capabilities: "Компетенции", area: "Территория", contact: "Контактное лицо", response: "Канал ответа", terms: "Условия Marketplace", privacy: "Правила работы с данными клиента", admin: "Проверка Novotech", availability: "Доступность",
-    ready: "Готово", missing: "Требуется", details: "Профиль исполнителя", descriptionRu: "Описание на русском", descriptionRo: "Descriere în română", capacity: "Одновременных работ", regions: "Регионы обслуживания", save: "Сохранить изменения", submit: "Отправить на проверку", termsAccept: "Принимаю условия участия в Marketplace", privacyAccept: "Подтверждаю правила конфиденциальности и использование данных клиента только для выполнения принятой заявки", selfDeclared: "Заявлено партнёром", verified: "Проверено Novotech", locked: "Заявка находится на проверке. Изменения временно недоступны.", rejected: "Требуются исправления", suspend: "Участие приостановлено. Новые заявки не направляются.",
+    checklist: "Готовность", profile: "Публичный профиль", service: "Услуга монтажа", capabilities: "Компетенции", area: "Территория", contact: "Контактное лицо", response: "Канал ответа", terms: "Условия участия", privacy: "Правила работы с данными клиента", admin: "Проверка Novotech", availability: "Доступность",
+    ready: "Готово", missing: "Требуется", details: "Профиль исполнителя", descriptionRu: "Описание на русском", descriptionRo: "Descriere în română", capacity: "Одновременных работ", regions: "Регионы обслуживания", save: "Сохранить изменения", submit: "Отправить на проверку", termsAccept: "Принимаю условия участия в сети монтажников", privacyAccept: "Подтверждаю правила конфиденциальности и использование данных клиента только для выполнения принятой заявки", selfDeclared: "Заявлено партнёром", verified: "Проверено Novotech", locked: "Заявка находится на проверке. Изменения временно недоступны.", rejected: "Требуются исправления", suspend: "Участие приостановлено. Новые заявки не направляются.",
     available: "Доступен", limited: "Ограниченная загрузка", unavailable: "Недоступен",
   },
   ro: {
-    eyebrow: "Marketplace instalare", title: "Deveniți partener de instalare",
+    eyebrow: "Montaj și solicitări", title: "Deveniți partener de instalare",
     intro: "Indicați competențele reale, zona de lucru și disponibilitatea. După verificarea Novotech, profilul poate participa la selectarea instalatorilor.",
     optIn: "Conectează-te la cererile de instalare", status: "Statut", saved: "Datele au fost salvate.", enrolled: "Ciorna participării a fost creată.", submitted: "Cererea a fost trimisă spre verificare.",
     metrics: ["Solicitări noi", "Instalări active", "Lucrări finalizate", "Recenzii verificate"],
-    checklist: "Pregătire", profile: "Profil public", service: "Serviciu de instalare", capabilities: "Competențe", area: "Zonă de deservire", contact: "Persoană de contact", response: "Canal de răspuns", terms: "Condiții Marketplace", privacy: "Reguli privind datele clientului", admin: "Verificare Novotech", availability: "Disponibilitate",
-    ready: "Pregătit", missing: "Necesar", details: "Profilul instalatorului", descriptionRu: "Descriere în rusă", descriptionRo: "Descriere în română", capacity: "Lucrări simultane", regions: "Zone de deservire", save: "Salvează modificările", submit: "Trimite spre verificare", termsAccept: "Accept condițiile de participare în Marketplace", privacyAccept: "Confirm regulile de confidențialitate și folosirea datelor clientului numai pentru executarea solicitării acceptate", selfDeclared: "Declarat de partener", verified: "Verificat de Novotech", locked: "Cererea este în curs de verificare. Modificările sunt temporar indisponibile.", rejected: "Sunt necesare corectări", suspend: "Participarea este suspendată. Solicitările noi nu sunt trimise.",
+    checklist: "Pregătire", profile: "Profil public", service: "Serviciu de instalare", capabilities: "Competențe", area: "Zonă de deservire", contact: "Persoană de contact", response: "Canal de răspuns", terms: "Condiții de participare", privacy: "Reguli privind datele clientului", admin: "Verificare Novotech", availability: "Disponibilitate",
+    ready: "Pregătit", missing: "Necesar", details: "Profilul instalatorului", descriptionRu: "Descriere în rusă", descriptionRo: "Descriere în română", capacity: "Lucrări simultane", regions: "Zone de deservire", save: "Salvează modificările", submit: "Trimite spre verificare", termsAccept: "Accept condițiile de participare în rețeaua de instalatori", privacyAccept: "Confirm regulile de confidențialitate și folosirea datelor clientului numai pentru executarea solicitării acceptate", selfDeclared: "Declarat de partener", verified: "Verificat de Novotech", locked: "Cererea este în curs de verificare. Modificările sunt temporar indisponibile.", rejected: "Sunt necesare corectări", suspend: "Participarea este suspendată. Solicitările noi nu sunt trimise.",
     available: "Disponibil", limited: "Disponibilitate limitată", unavailable: "Indisponibil",
   },
 } as const;
@@ -38,16 +60,37 @@ const capabilityLabels: Record<"ru" | "ro", Record<InstallationPartnerCapability
 };
 const readinessLabels = { PUBLIC_PROFILE: "profile", INSTALLATION_SERVICES: "service", CAPABILITIES: "capabilities", SERVICE_AREA: "area", CONTACT_PERSON: "contact", RESPONSE_CHANNEL: "response", MARKETPLACE_TERMS: "terms", CUSTOMER_PRIVACY: "privacy", ADMIN_VERIFICATION: "admin", AVAILABILITY: "availability" } as const;
 
-export default async function InstallationMarketplaceActivationPage({ searchParams }: { searchParams: Promise<{ result?: string }> }) {
+export default async function InstallationMarketplaceActivationPage({ searchParams }: { searchParams: Promise<{ result?: string; view?: string }> }) {
   const [context, locale, query] = await Promise.all([getPartnerWorkspaceContextAction(), getPartnerLocale(), searchParams]);
   if (!context.success || !context.data.companyId || context.data.accessState !== "active") redirect("/cabinet");
   const state = await getInstallationMarketplaceService().getPartnerActivation(context.data.companyId, locale);
   const t = copy[locale];
+  const workspace = workspaceCopy[locale];
+  const view = workspaceViews.includes(query.view as WorkspaceView) ? query.view as WorkspaceView : "overview";
+  const assignmentView: InstallationAssignmentView | null = view === "new" ? "offers" : view === "active" || view === "completed" ? view : null;
+  const [assignments, marketplaceProjects] = assignmentView ? await Promise.all([
+    getInstallationAssignmentDispatcher().list(context.data.companyId, assignmentView),
+    getInstallationMarketplaceService().listPartner(context.data.companyId, view as "new" | "active" | "completed", locale),
+  ]) : [[], []];
   return <main className="mx-auto max-w-6xl space-y-6">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{t.eyebrow}</p><h1 className="mt-1 text-2xl font-semibold">{t.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{t.intro}</p></div><span className="rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold">{t.status}: {state.status}</span></header>
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold">{workspace.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{workspace.intro}</p></div><span className="rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold">{t.status}: {state.status}</span></header>
+    <nav aria-label={workspace.title} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      {workspaceViews.map((entry)=><a aria-current={view===entry?"page":undefined} className={`inline-flex min-h-11 shrink-0 items-center rounded-md border px-4 text-sm font-semibold ${view===entry?"border-emerald-700 bg-emerald-700 text-white":"border-zinc-300 bg-white"}`} href={`/cabinet/installation-marketplace?view=${entry}`} key={entry}>{workspace.tabs[entry]}</a>)}
+    </nav>
     {query.result && <p role="status" className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">{query.result === "saved" ? t.saved : query.result === "submitted" ? t.submitted : t.enrolled}</p>}
-    {state.status === "NOT_ENROLLED" ? <NotEnrolled t={t} /> : <ActivationWorkspace locale={locale} state={state} t={t} />}
+    {view === "overview" ? <Overview locale={locale} state={state} workspace={workspace} /> : null}
+    {assignmentView ? <PartnerInstallationLists assignments={assignments} locale={locale} marketplaceProjects={marketplaceProjects} view={assignmentView} /> : null}
+    {view === "profile" ? state.status === "NOT_ENROLLED" ? <NotEnrolled t={t} /> : <ActivationWorkspace locale={locale} state={state} t={t} /> : null}
   </main>;
+}
+
+function Overview({ locale, state, workspace }: { locale: "ru" | "ro"; state: InstallationPartnerActivation; workspace: typeof workspaceCopy.ru | typeof workspaceCopy.ro }) {
+  const labels = locale === "ro" ? ["Solicitări noi", "Instalări active", "Lucrări finalizate", "Recenzii verificate"] : ["Новые заявки", "Активные монтажи", "Завершённые работы", "Проверенные отзывы"];
+  const values = [state.metrics.newRequests, state.metrics.activeInstallations, state.metrics.completedInstallations, state.metrics.verifiedReviews];
+  const active=state.status==="ACTIVE";
+  const actionLabel=active?(locale==="ro"?"Vezi solicitările noi":"Посмотреть новые заявки"):state.status==="NOT_ENROLLED"?(locale==="ro"?"Conectează-te":"Подключиться"):state.status==="PENDING_REVIEW"?(locale==="ro"?"În verificare":"На проверке"):(locale==="ro"?"Continuă configurarea":"Продолжить настройку");
+  const actionHref=active?"/cabinet/installation-marketplace?view=new":"/cabinet/installation-marketplace?view=profile";
+  return <div className="space-y-4"><section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label={workspace.title}>{values.map((value,index)=><div className="border border-zinc-200 bg-white p-4" key={labels[index]}><p className="text-2xl font-semibold tabular-nums">{value}</p><p className="mt-1 text-xs text-zinc-600">{labels[index]}</p></div>)}</section><section className="flex flex-wrap items-center justify-between gap-4 border border-zinc-200 bg-white p-5"><div><h2 className="font-semibold">{state.companyName}</h2><p className="mt-1 text-sm text-zinc-600">{state.readiness.eligibleNow ? (locale === "ro" ? "Profilul este activ și poate primi solicitări." : "Профиль активен и может получать заявки.") : (locale === "ro" ? `${state.readiness.blockers.length} pași necesită atenție.` : `Требуют внимания: ${state.readiness.blockers.length}.`)}</p></div><a aria-disabled={state.status==="PENDING_REVIEW"} className={`inline-flex min-h-11 items-center rounded-md px-5 text-sm font-semibold ${state.status==="PENDING_REVIEW"?"pointer-events-none bg-zinc-100 text-zinc-500":"bg-emerald-700 text-white"}`} href={actionHref}>{actionLabel}</a></section></div>;
 }
 
 function NotEnrolled({ t }: { t: typeof copy.ru | typeof copy.ro }) {

@@ -63,3 +63,17 @@ Activation only supplies new eligible evidence to the existing Ranking V2 pipeli
 ## Supply and pilot diagnostics
 
 The Admin report exposes factual counts: total active B2B Partners, enrolled, pending, active eligible, unavailable and suspended. The coverage matrix is the active installer count for every active service-area × governed-capability pair, including zero rows. Pilot facts are raw eligible-installer, covered-capability and covered-service-area counts; there is no synthetic readiness score or demand forecast.
+
+## Pilot configuration and invitations
+
+Pilot scope is configured per governed service region and bounded capability with an explicit minimum active-installer threshold. Readiness is factual:
+
+- `NOT_READY`: no pilot cell is enabled or an enabled cell has no active installer;
+- `LIMITED`: every enabled cell has supply but at least one is below its configured threshold;
+- `READY`: all enabled cells meet their thresholds.
+
+The Marketplace-specific invitation lifecycle is `INVITATION_DRAFT → READY_TO_SEND → SENT → OPENED → PARTNER_STARTED → PARTNER_SUBMITTED → APPROVED | DECLINED`, with `EXPIRED` for an elapsed invitation. Only `IN_APP` and `EMAIL` are supported. Preparing a draft never sends; sending requires a separate Admin action and a currently valid owner/manager recipient. The durable email intent and in-app notification both use idempotent identities. SMS is excluded.
+
+Provider lifecycle transitions advance invitation evidence where applicable. They do not create providers, capabilities, regions, assignments, reviews, ratings, or activity facts on behalf of a Partner. Append-only supply events retain actor, correlation, entity and safe bounded evidence.
+
+The Admin candidate projection includes all active B2B companies, is search/filter/pagination bounded, and reports blockers through the existing server-owned readiness function. Verified capabilities are the only evidence labelled as verified; self-declarations remain explicitly distinct.

@@ -73,3 +73,11 @@ Commercial Agent attribution remains customer/referral-owned and is neither read
 Novotech provides the matching platform. Installation is performed by the independently selected Partner; the Portal does not describe Partner staff as Novotech employees and introduces no Novotech installation guarantee.
 
 Partner participation governance, supply diagnostics and cold-start interaction are specified in `MARKETPLACE_PARTNER_ACTIVATION.md`.
+
+## Canonical Partner workspace
+
+Partner installation work has one navigation item and one canonical route: `/cabinet/installation-marketplace` (`Монтаж и заявки` / `Montaj și solicitări`). The workspace presents factual Overview, New requests, Active installations, Completed work, and Installer profile views. It composes the existing paid-installation assignment dispatcher and customer-selected installation-project service; it does not merge their aggregates or introduce a third assignment model.
+
+`/cabinet/installation-orders` is a compatibility redirect that preserves `new`, `active`, `completed`, and result context. It performs no reads and renders no second workspace.
+
+Admin supply preparation is a bounded section of the existing Retail Installation route. It reads the canonical Partner/company, provider, capability, geography, readiness and Ranking V2 evidence. Candidate discovery never enrolls a company, manufactures competence, changes rank, or sends outreach automatically.

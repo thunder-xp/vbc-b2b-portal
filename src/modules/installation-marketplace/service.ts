@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import type { InstallationMarketplaceRepository } from "./repository";
 import { rankInstallationPartners } from "./ranking";
 import { INSTALLATION_DECLINE_REASONS, INSTALLATION_NEED_TYPES, INSTALLATION_OBJECT_TYPES, INSTALLATION_PARTNER_AVAILABILITY, INSTALLATION_PARTNER_CAPABILITIES, INSTALLATION_PARTNER_REJECTION_REASONS } from "./types";
-import type { InstallationPartnerAvailability, InstallationPartnerCapability, InstallationPartnerRejectionReason } from "./types";
+import type { InstallationMarketplaceSupplyFilter, InstallationPartnerAvailability, InstallationPartnerCapability, InstallationPartnerRejectionReason } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -80,6 +80,34 @@ export class InstallationMarketplaceService {
     if (!["APPROVE","REJECT","SUSPEND","REACTIVATE"].includes(input.action)
       || input.action === "REJECT" && !INSTALLATION_PARTNER_REJECTION_REASONS.includes(reason as InstallationPartnerRejectionReason)) throw new InstallationMarketplaceInputError();
     return this.repository.reviewPartnerActivation({ ...input, rejectionReason: reason as InstallationPartnerRejectionReason | null, note: optionalText(input.note, 500) });
+  }
+  getSupplyReport(input: { search?: string | null; filter?: string | null; limit?: number; offset?: number }) {
+    const allowedFilters: InstallationMarketplaceSupplyFilter[] = ["all","potential","invited","started","pending","active","suspended"];
+    const filter = (input.filter?.trim() || "all") as InstallationMarketplaceSupplyFilter;
+    if (!allowedFilters.includes(filter)) throw new InstallationMarketplaceInputError();
+    const search = optionalText(input.search, 100);
+    return this.repository.getSupplyReport({ search, filter, limit: pageLimit(input.limit ?? 25), offset: pageOffset(input.offset ?? 0) });
+  }
+  savePilotConfiguration(input: { regionCode: string; capability: string; enabled: boolean; threshold: number; expectedRevision: number; correlationId: string }) {
+    const regionCode = bounded(input.regionCode, 2, 80);
+    if (!regionCode || !INSTALLATION_PARTNER_CAPABILITIES.includes(input.capability as InstallationPartnerCapability)
+      || !Number.isInteger(input.threshold) || input.threshold < 1 || input.threshold > 20) throw new InstallationMarketplaceInputError();
+    revision(input.expectedRevision); requireUuid(input.correlationId);
+    return this.repository.savePilotConfiguration({ ...input, regionCode, capability: input.capability as InstallationPartnerCapability });
+  }
+  prepareInvitation(input: { companyId: string; locale: string; channels: string[]; expiresAt?: string | null; expectedRevision: number; readyToSend: boolean; correlationId: string }) {
+    ids(input.companyId,input.correlationId); revision(input.expectedRevision);
+    if (!['ru','ro'].includes(input.locale) || !input.channels.length
+      || input.channels.some((value)=>!['IN_APP','EMAIL'].includes(value)) || !input.channels.includes('IN_APP')) throw new InstallationMarketplaceInputError();
+    const expiresAt=input.expiresAt?.trim()||null;
+    if (expiresAt && (Number.isNaN(new Date(expiresAt).getTime()) || new Date(expiresAt)<=new Date())) throw new InstallationMarketplaceInputError();
+    return this.repository.prepareInvitation({ companyId:input.companyId, locale:input.locale as "ru"|"ro",
+      channels:[...new Set(input.channels)] as Array<"IN_APP"|"EMAIL">, expiresAt,
+      expectedRevision:input.expectedRevision, readyToSend:input.readyToSend, correlationId:input.correlationId });
+  }
+  sendInvitation(input: { invitationId: string; expectedRevision: number; correlationId: string }) {
+    ids(input.invitationId,input.correlationId); revision(input.expectedRevision);
+    return this.repository.sendInvitation(input);
   }
 }
 

@@ -29,6 +29,10 @@ function repository(): InstallationMarketplaceRepository {
     submitPartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 2, status: "PENDING_REVIEW", repeated: false }),
     getPartnerActivationAdminReport: vi.fn().mockResolvedValue({ metrics: {}, applications: [], coverage: [], pilotFacts: {} }),
     reviewPartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 3, status: "ACTIVE" }),
+    getSupplyReport: vi.fn().mockResolvedValue({ metrics:{}, totalCount:0, limit:25, offset:0, pilotReadiness:"NOT_READY", candidates:[], coverage:[] }),
+    savePilotConfiguration: vi.fn().mockResolvedValue({ regionCode:"MD-CU", capability:"cctv", revision:1, enabled:true }),
+    prepareInvitation: vi.fn().mockResolvedValue({ invitationId:id("6"), revision:1, status:"READY_TO_SEND" }),
+    sendInvitation: vi.fn().mockResolvedValue({ invitationId:id("6"), revision:2, status:"SENT", repeated:false, companyId:id("7"), companyName:"Test", recipientUserId:id("8"), recipientEmail:"test@example.com", recipientLocale:"ru", identityVerified:true, channels:["IN_APP","EMAIL"], emailIntentId:id("9") }),
   };
 }
 
@@ -79,5 +83,19 @@ describe("InstallationMarketplaceService", () => {
     const service=new InstallationMarketplaceService(repository());
     expect(()=>service.savePartnerActivation({ companyId:id("5"), availability:"available", maxConcurrentJobs:101, capabilities:["plumbing"], regionCodes:["MD-CU"], acceptTerms:false, acceptPrivacy:false, expectedRevision:0 })).toThrow(InstallationMarketplaceInputError);
     expect(()=>service.reviewPartnerActivation({ providerId:id("5"), action:"REJECT", rejectionReason:"UNBOUNDED", expectedRevision:1 })).toThrow(InstallationMarketplaceInputError);
+  });
+
+  it("bounds the supply projection and validates pilot thresholds", async()=>{
+    const repo=repository(); const service=new InstallationMarketplaceService(repo);
+    await service.getSupplyReport({search:" Partner ",filter:"potential",limit:500,offset:-10});
+    expect(repo.getSupplyReport).toHaveBeenCalledWith({search:"Partner",filter:"potential",limit:50,offset:0});
+    expect(()=>service.savePilotConfiguration({regionCode:"MD-CU",capability:"cctv",enabled:true,threshold:21,expectedRevision:0,correlationId:id("9")})).toThrow(InstallationMarketplaceInputError);
+  });
+
+  it("allows only explicit in-app/email invitation channels", async()=>{
+    const repo=repository(); const service=new InstallationMarketplaceService(repo);
+    await service.prepareInvitation({companyId:id("7"),locale:"ro",channels:["IN_APP","EMAIL","EMAIL"],expectedRevision:0,readyToSend:true,correlationId:id("9")});
+    expect(repo.prepareInvitation).toHaveBeenCalledWith(expect.objectContaining({channels:["IN_APP","EMAIL"],readyToSend:true}));
+    expect(()=>service.prepareInvitation({companyId:id("7"),locale:"ru",channels:["SMS"],expectedRevision:0,readyToSend:true,correlationId:id("9")})).toThrow(InstallationMarketplaceInputError);
   });
 });

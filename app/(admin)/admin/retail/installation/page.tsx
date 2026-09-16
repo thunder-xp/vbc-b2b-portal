@@ -11,6 +11,7 @@ import { getRetailMarketplaceRepository } from "@/src/modules/retail-marketplace
 import type { InstallationAssignmentAdminReport } from "@/src/modules/retail-marketplace/types";
 import { requireAdminPagePermission } from "@/src/modules/admin/services/admin-page-guard";
 import { moderateInstallationReviewAction, reviewInstallationMarketplaceActivationAction } from "@/src/modules/installation-marketplace/actions";
+import { InstallationMarketplaceSupplyPilot } from "@/src/modules/installation-marketplace/admin-supply-pilot";
 import { getInstallationMarketplaceService } from "@/src/modules/installation-marketplace/server";
 import type { InstallationMarketplaceAdminReport, InstallationPartnerActivationAdminReport, InstallationRankingAdminDiagnostics } from "@/src/modules/installation-marketplace/types";
 
@@ -30,6 +31,13 @@ const leadSystemLabels: Record<string, string> = { cctv: "Видеонаблюд
 export default async function RetailInstallationAdminPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAdminPagePermission("admin.retail_marketplace.view");
   const query = await searchParams;
+  if (query.section === "supply") {
+    const search=typeof query.search==="string"?query.search:null;
+    const filter=typeof query.filter==="string"?query.filter:null;
+    const page=typeof query.page==="string"?Math.max(Number(query.page)||1,1):1;
+    const supply=await getInstallationMarketplaceService().getSupplyReport({search,filter,limit:25,offset:(page-1)*25});
+    return <InstallationMarketplaceSupplyPilot query={query} report={supply}/>;
+  }
   const rankingProjectId=typeof query.rankingProjectId==="string"&&/^[0-9a-f-]{36}$/i.test(query.rankingProjectId)?query.rankingProjectId:null;
   const [report, assignments, leads, marketplace, ranking, activation] = await Promise.all([getRetailMarketplaceRepository().getAdminReport(), getRetailMarketplaceRepository().getAssignmentAdminReport(), getRetailMarketplaceRepository().listPublicInstallationLeads(50), getInstallationMarketplaceService().listAdmin(null), getInstallationMarketplaceService().getAdminRankingDiagnostics(rankingProjectId), getInstallationMarketplaceService().getPartnerActivationAdminReport()]);
   const draft = report.tariffSets.find((set) => set.status === "draft");
@@ -37,6 +45,7 @@ export default async function RetailInstallationAdminPage({ searchParams }: { se
   const executionView = executionViews.some((view) => view.key === query.executionView) ? String(query.executionView) : "all";
   const filteredRequirements = assignments.requirements.filter((requirement) => executionView === "all" || executionView === "scheduled" && requirement.execution?.state === "scheduled" || executionView === "in_progress" && requirement.execution?.state === "in_progress" || executionView === "confirmation" && requirement.execution?.state === "customer_confirmation_pending" || executionView === "issues" && ["issue_reported", "disputed"].includes(requirement.execution?.state ?? "") || executionView === "completed" && ["customer_confirmed", "resolved", "cancelled"].includes(requirement.execution?.state ?? ""));
   return <main className="space-y-8">
+    <nav className="flex justify-end"><a className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-4 text-sm font-semibold" href="/admin/retail/installation?section=supply">Supply pilot</a></nav>
     <header><p className="text-sm font-semibold text-emerald-700">Retail Marketplace</p><h1 className="mt-1 text-2xl font-semibold">Монтаж: тарифы и исполнители</h1><p className="mt-2 max-w-3xl text-sm text-zinc-600">Тарифы Novotech и допуск исполнителей. Назначение заказов и выплаты в этот раздел не входят.</p></header>
     {query.saved ? <p className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">Изменение сохранено.</p> : null}
     {query.activation ? <p className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">Статус участия обновлён.</p> : null}

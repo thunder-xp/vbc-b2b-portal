@@ -89,8 +89,8 @@ export async function respondInstallationOfferAction(formData: FormData) {
     reasonText: nullable(String(formData.get("reasonText") ?? "")),
     idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
   });
-  revalidatePath("/cabinet/installation-orders");
-  redirect(`/cabinet/installation-orders?result=${decision}`);
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect(`/cabinet/installation-marketplace?view=new&result=${decision}`);
 }
 
 export async function transitionPartnerInstallationExecutionAction(formData: FormData) {
@@ -106,8 +106,8 @@ export async function transitionPartnerInstallationExecutionAction(formData: For
     note: nullable(String(formData.get("note") ?? "")),
     idempotencyKey: String(formData.get("idempotencyKey") ?? ""),
   });
-  revalidatePath("/cabinet/installation-orders");
-  redirect("/cabinet/installation-orders?view=active&result=updated");
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/cabinet/installation-marketplace?view=active&result=updated");
 }
 
 export async function transitionAdminInstallationExecutionAction(formData: FormData) {
