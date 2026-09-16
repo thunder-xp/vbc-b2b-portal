@@ -6,6 +6,7 @@ import { OneCODataClient } from "./one-c-odata-client";
 import { normalizeOneCCurrencyCode } from "./one-c-currency";
 
 const PRICE_RESOURCE = "InformationRegister_\u0426\u0435\u043d\u044b\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u044b";
+const PRICE_CURRENT_SLICE_RESOURCE = `${PRICE_RESOURCE}/SliceLast()`;
 const PRICE_TYPE_RESOURCE = "Catalog_\u0412\u0438\u0434\u044b\u0426\u0435\u043d";
 const CURRENCY_RESOURCE = "Catalog_\u0412\u0430\u043b\u044e\u0442\u044b";
 const PRICE_FIELDS = ["Period", "\u0412\u0438\u0434\u0426\u0435\u043d_Key", "\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u0430_Key", "\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0430_Key", "\u0426\u0435\u043d\u0430", "\u0410\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u043e\u0441\u0442\u044c", "\u0415\u0434\u0438\u043d\u0438\u0446\u0430\u0418\u0437\u043c\u0435\u0440\u0435\u043d\u0438\u044f", "\u0412\u043a\u043b\u044e\u0447\u0430\u044f\u0425\u0430\u0440\u0430\u043a\u0442\u0435\u0440\u0438\u0441\u0442\u0438\u043a\u0438"].join(",");
@@ -32,14 +33,13 @@ export class OneCPriceChunkProvider implements PriceChunkProvider {
   fetchCurrencies(skip: number, limit: number) { return this.page(CURRENCY_RESOURCE, CURRENCY_FIELDS, "Ref_Key asc", skip, limit, mapCurrency, catalogStableKey); }
   fetchPrices(skip: number, limit: number, sourceFrom?: string | null) {
     return this.page(
-      PRICE_RESOURCE,
+      sourceFrom ? PRICE_CURRENT_SLICE_RESOURCE : PRICE_RESOURCE,
       PRICE_FIELDS,
       PRICE_ORDER,
       skip,
       limit,
       mapPrice,
       priceStableKey,
-      sourceFrom ? `Period ge datetime'${oneCDateTimeLiteral(sourceFrom)}'` : null,
     );
   }
 
@@ -87,10 +87,5 @@ function mapCurrency(value: unknown): CurrencyStageRow | null { if (!isRecord(va
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function nullableText(value: unknown): string | null { return text(value) || null; }
-function oneCDateTimeLiteral(value: string): string {
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) throw new IntegrationValidationError("1C pricing watermark is invalid.");
-  return new Date(parsed).toISOString().slice(0, 19);
-}
 export const PRICE_SYNC_ZERO_CHARACTERISTIC = ONE_C_ZERO_GUID;
 export const ONE_C_PRICE_CHUNK_QUERY = { resource: PRICE_RESOURCE, select: PRICE_FIELDS, orderby: PRICE_ORDER };

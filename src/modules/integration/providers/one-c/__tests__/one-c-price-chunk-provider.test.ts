@@ -15,12 +15,13 @@ describe("OneCPriceChunkProvider", () => {
     expect(result).toMatchObject({ rowCount: 1, items: [{ amount: 125, isCurrent: false }] });
   });
 
-  it("uses an overlap watermark without changing deterministic pagination", async () => {
+  it("uses the governed current-price slice when recovering from a watermark", async () => {
     const fetchMock = vi.fn<(input: URL | RequestInfo, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({ value: [] }), { headers: { "content-type": "application/json" } }));
     vi.stubGlobal("fetch", fetchMock);
     await provider().fetchPrices(0, 500, "2026-09-14T10:20:30.456Z");
     const request = new URL(String(fetchMock.mock.calls[0][0]));
-    expect(request.searchParams.get("$filter")).toBe("Period ge datetime'2026-09-14T10:20:30'");
+    expect(decodeURIComponent(request.pathname)).toContain("InformationRegister_\u0426\u0435\u043d\u044b\u041d\u043e\u043c\u0435\u043d\u043a\u043b\u0430\u0442\u0443\u0440\u044b/SliceLast()");
+    expect(request.searchParams.get("$filter")).toBeNull();
     expect(request.searchParams.get("$orderby")).toContain("Period asc");
   });
 });
