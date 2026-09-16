@@ -23,6 +23,12 @@ function repository(): InstallationMarketplaceRepository {
     listAdmin: vi.fn().mockResolvedValue({ projects: [], reviews: [] }),
     getAdminRankingDiagnostics: vi.fn().mockResolvedValue({policyVersion:"installation-ranking-v2.1",decisionCount:0,deduplicatedImpressions:0,top1ImpressionShare:0,top3ImpressionShare:0,top5ImpressionShare:0,exposureHhi:0,latestDecision:null}),
     moderateReview: vi.fn().mockResolvedValue({ reviewId: id("3"), status: "PUBLISHED", revision: 1 }),
+    getPartnerActivation: vi.fn().mockResolvedValue({}),
+    optInPartner: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 0, repeated: false }),
+    savePartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 1, status: "DRAFT" }),
+    submitPartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 2, status: "PENDING_REVIEW", repeated: false }),
+    getPartnerActivationAdminReport: vi.fn().mockResolvedValue({ metrics: {}, applications: [], coverage: [], pilotFacts: {} }),
+    reviewPartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 3, status: "ACTIVE" }),
   };
 }
 
@@ -61,5 +67,17 @@ describe("InstallationMarketplaceService", () => {
     const service=new InstallationMarketplaceService(repository());
     expect(()=>service.respondPartner({ companyId:id("5"),assignmentId:id("2"),decision:"DECLINE",reason:"PRICE",expectedRevision:0,idempotencyKey:id("6") })).toThrow(InstallationMarketplaceInputError);
     expect(()=>service.review({ projectId:id("1"),overall:6,workmanship:5,communication:5,agreement:5,idempotencyKey:id("7") })).toThrow(InstallationMarketplaceInputError);
+  });
+
+  it("normalizes bounded partner capabilities and service areas without browser ownership", async () => {
+    const repo=repository(); const service=new InstallationMarketplaceService(repo);
+    await service.savePartnerActivation({ companyId:id("5"), descriptionRu:" Монтаж ", descriptionRo:" Instalare ", availability:"limited", maxConcurrentJobs:4, capabilities:["cctv","cctv","network"], regionCodes:["MD-CU","MD-CU"], acceptTerms:true, acceptPrivacy:true, expectedRevision:1 });
+    expect(repo.savePartnerActivation).toHaveBeenCalledWith(expect.objectContaining({ companyId:id("5"), descriptionRu:"Монтаж", capabilities:["cctv","network"], regionCodes:["MD-CU"] }));
+  });
+
+  it("rejects unsupported capabilities, capacity and Admin rejection reasons", () => {
+    const service=new InstallationMarketplaceService(repository());
+    expect(()=>service.savePartnerActivation({ companyId:id("5"), availability:"available", maxConcurrentJobs:101, capabilities:["plumbing"], regionCodes:["MD-CU"], acceptTerms:false, acceptPrivacy:false, expectedRevision:0 })).toThrow(InstallationMarketplaceInputError);
+    expect(()=>service.reviewPartnerActivation({ providerId:id("5"), action:"REJECT", rejectionReason:"UNBOUNDED", expectedRevision:1 })).toThrow(InstallationMarketplaceInputError);
   });
 });

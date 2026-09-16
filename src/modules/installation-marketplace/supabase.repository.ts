@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 import type { InstallationMarketplaceRepository } from "./repository";
-import type { InstallationMarketplaceAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
+import type { InstallationMarketplaceAdminReport, InstallationPartnerActivation, InstallationPartnerActivationAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
 
 export class InstallationMarketplaceRepositoryError extends Error {
   constructor(readonly code: "invalid" | "conflict" | "forbidden" | "unavailable") {
@@ -85,5 +85,31 @@ export class SupabaseInstallationMarketplaceRepository implements InstallationMa
   }
   moderateReview(input: Parameters<InstallationMarketplaceRepository["moderateReview"]>[0]) {
     return rpc<{ reviewId: string; status: string; revision: number }>("admin_moderate_installation_review_v1", { p_review_id: input.reviewId, p_status: input.status, p_expected_revision: input.expectedRevision, p_reason: input.reason, p_correlation_id: input.correlationId });
+  }
+  getPartnerActivation(companyId: string, locale: "ru" | "ro") {
+    return rpc<InstallationPartnerActivation>("partner_get_installation_marketplace_activation_v1", { p_company_id: companyId, p_locale: locale });
+  }
+  optInPartner(companyId: string) {
+    return rpc<{ providerId: string; revision: number; repeated: boolean }>("partner_opt_in_installation_marketplace_v1", { p_company_id: companyId });
+  }
+  savePartnerActivation(input: Parameters<InstallationMarketplaceRepository["savePartnerActivation"]>[0]) {
+    return rpc<{ providerId: string; revision: number; status: string }>("partner_save_installation_marketplace_draft_v1", {
+      p_company_id: input.companyId, p_description_ru: input.descriptionRu, p_description_ro: input.descriptionRo,
+      p_availability: input.availability, p_max_concurrent_jobs: input.maxConcurrentJobs,
+      p_capabilities: input.capabilities, p_region_codes: input.regionCodes,
+      p_accept_terms: input.acceptTerms, p_accept_privacy: input.acceptPrivacy, p_expected_revision: input.expectedRevision,
+    });
+  }
+  submitPartnerActivation(companyId: string, expectedRevision: number) {
+    return rpc<{ providerId: string; revision: number; status: string; repeated: boolean }>("partner_submit_installation_marketplace_v1", { p_company_id: companyId, p_expected_revision: expectedRevision });
+  }
+  getPartnerActivationAdminReport() {
+    return rpc<InstallationPartnerActivationAdminReport>("admin_get_installation_partner_activation_v1", {});
+  }
+  reviewPartnerActivation(input: Parameters<InstallationMarketplaceRepository["reviewPartnerActivation"]>[0]) {
+    return rpc<{ providerId: string; revision: number; status: string }>("admin_review_installation_partner_activation_v1", {
+      p_provider_id: input.providerId, p_action: input.action, p_rejection_reason: input.rejectionReason,
+      p_note: input.note, p_expected_revision: input.expectedRevision,
+    });
   }
 }

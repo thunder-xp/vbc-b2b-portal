@@ -71,3 +71,47 @@ export async function moderateInstallationReviewAction(formData: FormData) {
   revalidatePath("/admin/retail/installation"); revalidatePath("/partners");
   redirect("/admin/retail/installation?marketplace=moderated");
 }
+
+async function requirePartnerCompany() {
+  const context=await getPartnerWorkspaceContextAction();
+  if(!context.success||!context.data.companyId||context.data.accessState!=="active") redirect("/cabinet");
+  return context.data.companyId;
+}
+
+export async function optInInstallationMarketplaceAction() {
+  const companyId=await requirePartnerCompany();
+  await getInstallationMarketplaceService().optInPartner(companyId);
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/cabinet/installation-marketplace?result=enrolled");
+}
+
+export async function saveInstallationMarketplaceActivationAction(formData: FormData) {
+  const companyId=await requirePartnerCompany();
+  const capacity=text(formData,"maxConcurrentJobs").trim();
+  await getInstallationMarketplaceService().savePartnerActivation({
+    companyId, descriptionRu:nullable(formData,"descriptionRu"), descriptionRo:nullable(formData,"descriptionRo"),
+    availability:text(formData,"availability"), maxConcurrentJobs:capacity?Number(capacity):null,
+    capabilities:formData.getAll("capabilities").map(String), regionCodes:formData.getAll("regions").map(String),
+    acceptTerms:formData.get("acceptTerms")==="on", acceptPrivacy:formData.get("acceptPrivacy")==="on",
+    expectedRevision:Number(text(formData,"revision")),
+  });
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/cabinet/installation-marketplace?result=saved");
+}
+
+export async function submitInstallationMarketplaceActivationAction(formData: FormData) {
+  const companyId=await requirePartnerCompany();
+  await getInstallationMarketplaceService().submitPartnerActivation(companyId,Number(text(formData,"revision")));
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/cabinet/installation-marketplace?result=submitted");
+}
+
+export async function reviewInstallationMarketplaceActivationAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  await getInstallationMarketplaceService().reviewPartnerActivation({
+    providerId:text(formData,"providerId"), action:text(formData,"command") as "APPROVE"|"REJECT"|"SUSPEND"|"REACTIVATE",
+    rejectionReason:nullable(formData,"rejectionReason"), note:nullable(formData,"note"), expectedRevision:Number(text(formData,"revision")),
+  });
+  revalidatePath("/admin/retail/installation");
+  redirect("/admin/retail/installation?activation=updated");
+}

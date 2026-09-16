@@ -12,7 +12,7 @@ Installation Marketplace connects a final customer, a product or order, and an e
 | Product and order source | published public-retail projection and customer-owned `retail_orders` |
 | Partner identity | `partner_companies` and active `company_memberships` |
 | Public Partner profile | existing public partner directory plus governed `installation_provider_profiles` |
-| Eligibility | approved/active marketplace provider, published profile, CCTV competency, active service region |
+| Eligibility | explicitly ACTIVE, approved marketplace provider; active company/public listing; published profile; matching governed capability and active service region; current availability |
 | Operational UI | existing final-customer cabinet, Partner installation workspace, Admin Retail Installation page |
 | Audit | append-only `installation_project_events` |
 
@@ -52,13 +52,14 @@ Moderation changes visibility and records an append-only event; it does not sile
 - Custom: the customer can create a short CCTV consultation/design request without an order.
 - Partner: new, active, and completed customer-selected projects share the existing installation workspace.
 - Admin: monitoring, disputes, review status, and moderation live in the existing Retail Installation page.
+- Partner activation: explicit opt-in, readiness, self-declared capabilities, service areas, availability, terms/privacy acceptance and Admin verification live in `/cabinet/installation-marketplace`.
 
 ## Deliberately deferred
 
 - Partner pricing, bids, deposits, marketplace payments, refunds, payouts, and monetization.
 - Automatic assignment, paid placement, opaque scoring, and rating-based eligibility.
 - New SMS mechanisms or agent commission attribution.
-- Public Partner detail pages and broader non-CCTV competence taxonomy.
+- Public Partner detail pages and unconstrained/free-text competence taxonomy.
 - SLA/legal/warranty promises beyond existing governed policy.
 
 These can extend the aggregate through forward migrations and audited events without replacing customer, Partner, product, order, or assignment ownership.
@@ -70,3 +71,5 @@ The object type, locality, private-location snapshot, item references, and event
 Commercial Agent attribution remains customer/referral-owned and is neither read nor mutated by Partner selection or installation progress. Future marketplace monetization must be a separate governed commercial phase. Sponsored placement, if ever introduced, must be explicitly labelled and separated from organic eligibility and trust evidence.
 
 Novotech provides the matching platform. Installation is performed by the independently selected Partner; the Portal does not describe Partner staff as Novotech employees and introduces no Novotech installation guarantee.
+
+Partner participation governance, supply diagnostics and cold-start interaction are specified in `MARKETPLACE_PARTNER_ACTIVATION.md`.

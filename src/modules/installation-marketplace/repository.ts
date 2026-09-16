@@ -1,4 +1,4 @@
-import type { InstallationMarketplaceAdminReport, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
+import type { InstallationMarketplaceAdminReport, InstallationPartnerActivation, InstallationPartnerActivationAdminReport, InstallationPartnerAvailability, InstallationPartnerCapability, InstallationPartnerRejectionReason, InstallationProjectDetail, InstallationProjectSummary, InstallationRankingAdminDiagnostics, InstallationRankingDecision, InstallationRankingEvidence, PartnerInstallationProject } from "./types";
 
 export interface InstallationMarketplaceRepository {
   listRegions(locale: "ru" | "ro"): Promise<Array<{ code: string; name: string }>>;
@@ -17,4 +17,10 @@ export interface InstallationMarketplaceRepository {
   listAdmin(limit: number, status: string | null): Promise<InstallationMarketplaceAdminReport>;
   getAdminRankingDiagnostics(projectId: string | null): Promise<InstallationRankingAdminDiagnostics>;
   moderateReview(input: { reviewId: string; status: "PUBLISHED" | "PENDING_REVIEW" | "HIDDEN"; expectedRevision: number; reason: string; correlationId: string }): Promise<{ reviewId: string; status: string; revision: number }>;
+  getPartnerActivation(companyId: string, locale: "ru" | "ro"): Promise<InstallationPartnerActivation>;
+  optInPartner(companyId: string): Promise<{ providerId: string; revision: number; repeated: boolean }>;
+  savePartnerActivation(input: { companyId: string; descriptionRu: string | null; descriptionRo: string | null; availability: InstallationPartnerAvailability; maxConcurrentJobs: number | null; capabilities: InstallationPartnerCapability[]; regionCodes: string[]; acceptTerms: boolean; acceptPrivacy: boolean; expectedRevision: number }): Promise<{ providerId: string; revision: number; status: string }>;
+  submitPartnerActivation(companyId: string, expectedRevision: number): Promise<{ providerId: string; revision: number; status: string; repeated: boolean }>;
+  getPartnerActivationAdminReport(): Promise<InstallationPartnerActivationAdminReport>;
+  reviewPartnerActivation(input: { providerId: string; action: "APPROVE" | "REJECT" | "SUSPEND" | "REACTIVATE"; rejectionReason: InstallationPartnerRejectionReason | null; note: string | null; expectedRevision: number }): Promise<{ providerId: string; revision: number; status: string }>;
 }

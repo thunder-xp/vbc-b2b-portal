@@ -1,10 +1,18 @@
 export const INSTALLATION_OBJECT_TYPES = ["APARTMENT", "HOUSE", "OFFICE", "SHOP", "WAREHOUSE", "OTHER"] as const;
 export const INSTALLATION_NEED_TYPES = ["INSTALL_PURCHASED_EQUIPMENT", "DESIGN_AND_INSTALL", "CONSULTATION"] as const;
 export const INSTALLATION_DECLINE_REASONS = ["OUT_OF_AREA", "NO_CAPACITY", "NOT_MY_SPECIALIZATION", "TIMING", "OTHER"] as const;
+export const INSTALLATION_PARTNER_CAPABILITIES = ["cctv", "intercom", "access_control", "alarm", "network", "other"] as const;
+export const INSTALLATION_PARTICIPATION_STATUSES = ["NOT_ENROLLED", "DRAFT", "PENDING_REVIEW", "APPROVED", "ACTIVE", "SUSPENDED", "REJECTED"] as const;
+export const INSTALLATION_PARTNER_AVAILABILITY = ["available", "limited", "unavailable"] as const;
+export const INSTALLATION_PARTNER_REJECTION_REASONS = ["INCOMPLETE_PROFILE", "INSUFFICIENT_CAPABILITY", "SERVICE_AREA_INVALID", "COMPLIANCE", "QUALITY_CONCERN", "OTHER"] as const;
 
 export type InstallationObjectType = typeof INSTALLATION_OBJECT_TYPES[number];
 export type InstallationNeedType = typeof INSTALLATION_NEED_TYPES[number];
 export type InstallationDeclineReason = typeof INSTALLATION_DECLINE_REASONS[number];
+export type InstallationPartnerCapability = typeof INSTALLATION_PARTNER_CAPABILITIES[number];
+export type InstallationParticipationStatus = typeof INSTALLATION_PARTICIPATION_STATUSES[number];
+export type InstallationPartnerAvailability = typeof INSTALLATION_PARTNER_AVAILABILITY[number];
+export type InstallationPartnerRejectionReason = typeof INSTALLATION_PARTNER_REJECTION_REASONS[number];
 export type InstallationProjectStatus = "DRAFT" | "PARTNER_PENDING" | "PARTNER_ACCEPTED" | "CONTACTED" | "SCHEDULED" | "INSTALLED" | "CUSTOMER_CONFIRMED" | "CLOSED" | "PARTNER_DECLINED" | "CANCELLED" | "EXPIRED" | "DISPUTED";
 
 export type InstallationProjectSummary = Readonly<{
@@ -116,4 +124,35 @@ export type InstallationMarketplaceAdminReport = Readonly<{
   reviews: ReadonlyArray<{ id: string; projectId: string; partnerCompanyId: string; overallRating: number;
     comment: string | null; verificationStatus: "VERIFIED_INSTALLATION"; moderationStatus: "PUBLISHED" | "PENDING_REVIEW" | "HIDDEN";
     revision: number; createdAt: string }>;
+}>;
+
+export type InstallationPartnerReadinessItem = Readonly<{ code: string; ready: boolean }>;
+export type InstallationPartnerActivation = Readonly<{
+  companyId: string; companyName: string; providerId: string | null;
+  status: InstallationParticipationStatus; revision: number;
+  availability: InstallationPartnerAvailability; maxConcurrentJobs: number | null;
+  descriptionRu: string | null; descriptionRo: string | null;
+  contactUserId: string | null; responseChannel: "portal";
+  termsVersion: string; termsAccepted: boolean; privacyVersion: string; privacyAccepted: boolean;
+  rejectionReasonCode: InstallationPartnerRejectionReason | null; rejectionNote: string | null;
+  readiness: Readonly<{ preAdminReady: boolean; eligibleNow: boolean; blockers: string[]; items: InstallationPartnerReadinessItem[] }>;
+  capabilities: ReadonlyArray<{ code: InstallationPartnerCapability; verificationStatus: "self_declared" | "verified" }>;
+  serviceAreaCodes: string[];
+  regions: ReadonlyArray<{ code: string; name: string; type: string }>;
+  metrics: Readonly<{ newRequests: number; activeInstallations: number; completedInstallations: number; verifiedReviews: number }>;
+}>;
+
+export type InstallationPartnerActivationAdminReport = Readonly<{
+  metrics: Readonly<{ totalPartners: number; enrolled: number; pendingReview: number; activeEligible: number; unavailable: number; suspended: number }>;
+  applications: ReadonlyArray<{
+    providerId: string; companyId: string; companyName: string; status: InstallationParticipationStatus;
+    revision: number; availability: InstallationPartnerAvailability; publicProfileVisible: boolean;
+    publicDisplayName: string | null; publicLogoPath: string | null; termsAccepted: boolean; privacyAccepted: boolean;
+    rejectionReasonCode: InstallationPartnerRejectionReason | null; rejectionNote: string | null;
+    readiness: InstallationPartnerActivation["readiness"];
+    capabilities: InstallationPartnerActivation["capabilities"];
+    serviceAreas: ReadonlyArray<{ code: string; nameRu: string; nameRo: string }>;
+  }>;
+  coverage: ReadonlyArray<{ regionCode: string; regionNameRu: string; regionNameRo: string; capability: InstallationPartnerCapability; installerCount: number }>;
+  pilotFacts: Readonly<{ eligibleInstallerCount: number; coveredCapabilityCount: number; coveredServiceAreaCount: number }>;
 }>;

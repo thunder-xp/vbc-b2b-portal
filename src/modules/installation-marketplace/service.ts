@@ -3,7 +3,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { InstallationMarketplaceRepository } from "./repository";
 import { rankInstallationPartners } from "./ranking";
-import { INSTALLATION_DECLINE_REASONS, INSTALLATION_NEED_TYPES, INSTALLATION_OBJECT_TYPES } from "./types";
+import { INSTALLATION_DECLINE_REASONS, INSTALLATION_NEED_TYPES, INSTALLATION_OBJECT_TYPES, INSTALLATION_PARTNER_AVAILABILITY, INSTALLATION_PARTNER_CAPABILITIES, INSTALLATION_PARTNER_REJECTION_REASONS } from "./types";
+import type { InstallationPartnerAvailability, InstallationPartnerCapability, InstallationPartnerRejectionReason } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -56,6 +57,30 @@ export class InstallationMarketplaceService {
   listAdmin(status: string | null) { return this.repository.listAdmin(100,status?.trim()||null); }
   getAdminRankingDiagnostics(projectId: string | null) { const normalized=optionalUuid(projectId); return this.repository.getAdminRankingDiagnostics(normalized); }
   moderate(input: { reviewId: string; status: "PUBLISHED" | "PENDING_REVIEW" | "HIDDEN"; expectedRevision: number; reason: string; correlationId: string }) { ids(input.reviewId,input.correlationId); revision(input.expectedRevision); if (!bounded(input.reason,5,500)) throw new InstallationMarketplaceInputError(); return this.repository.moderateReview({ ...input, reason: input.reason.trim() }); }
+  getPartnerActivation(companyId: string, locale: "ru" | "ro") { requireUuid(companyId); return this.repository.getPartnerActivation(companyId, locale); }
+  optInPartner(companyId: string) { requireUuid(companyId); return this.repository.optInPartner(companyId); }
+  savePartnerActivation(input: { companyId: string; descriptionRu?: string | null; descriptionRo?: string | null; availability: string; maxConcurrentJobs?: number | null; capabilities: string[]; regionCodes: string[]; acceptTerms: boolean; acceptPrivacy: boolean; expectedRevision: number }) {
+    requireUuid(input.companyId); revision(input.expectedRevision);
+    if (!INSTALLATION_PARTNER_AVAILABILITY.includes(input.availability as InstallationPartnerAvailability)
+      || input.capabilities.some((value) => !INSTALLATION_PARTNER_CAPABILITIES.includes(value as InstallationPartnerCapability))
+      || input.regionCodes.some((value) => !bounded(value, 2, 80))
+      || input.maxConcurrentJobs !== null && input.maxConcurrentJobs !== undefined && (!Number.isInteger(input.maxConcurrentJobs) || input.maxConcurrentJobs < 1 || input.maxConcurrentJobs > 100)) throw new InstallationMarketplaceInputError();
+    return this.repository.savePartnerActivation({
+      companyId: input.companyId, descriptionRu: optionalText(input.descriptionRu, 1000), descriptionRo: optionalText(input.descriptionRo, 1000),
+      availability: input.availability as InstallationPartnerAvailability, maxConcurrentJobs: input.maxConcurrentJobs ?? null,
+      capabilities: [...new Set(input.capabilities)] as InstallationPartnerCapability[], regionCodes: [...new Set(input.regionCodes)],
+      acceptTerms: input.acceptTerms, acceptPrivacy: input.acceptPrivacy, expectedRevision: input.expectedRevision,
+    });
+  }
+  submitPartnerActivation(companyId: string, expectedRevision: number) { requireUuid(companyId); revision(expectedRevision); return this.repository.submitPartnerActivation(companyId, expectedRevision); }
+  getPartnerActivationAdminReport() { return this.repository.getPartnerActivationAdminReport(); }
+  reviewPartnerActivation(input: { providerId: string; action: "APPROVE" | "REJECT" | "SUSPEND" | "REACTIVATE"; rejectionReason?: string | null; note?: string | null; expectedRevision: number }) {
+    requireUuid(input.providerId); revision(input.expectedRevision);
+    const reason = input.rejectionReason?.trim() || null;
+    if (!["APPROVE","REJECT","SUSPEND","REACTIVATE"].includes(input.action)
+      || input.action === "REJECT" && !INSTALLATION_PARTNER_REJECTION_REASONS.includes(reason as InstallationPartnerRejectionReason)) throw new InstallationMarketplaceInputError();
+    return this.repository.reviewPartnerActivation({ ...input, rejectionReason: reason as InstallationPartnerRejectionReason | null, note: optionalText(input.note, 500) });
+  }
 }
 
 function requireUuid(value: string) { if (!UUID.test(value)) throw new InstallationMarketplaceInputError(); }
