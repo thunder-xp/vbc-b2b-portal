@@ -31,6 +31,27 @@ export interface AdminIntegrationState {
     timeoutBudgetMs: number;
     headroomPercent: number;
     warning: boolean;
+    syncMode?: "incremental" | "full_reconciliation";
+    triggerKind?: "scheduled" | "watchdog" | "manual";
+    schedulerState?: "FRESH" | "STALE";
+    lastSchedulerSeenAt?: string | null;
+    expectedNextRunAt?: string | null;
+    lastSourceSuccessAt?: string | null;
+    lastPublicationSuccessAt?: string | null;
+    sourceWatermark?: string | null;
+    sourceQueryFrom?: string | null;
+    sourceInspectedThrough?: string | null;
+    retryCount?: number;
+    domains?: readonly {
+      scope: string;
+      state: "FRESH" | "DEGRADED" | "STALE" | "FAILED";
+      lastSourceSuccessAt: string | null;
+      latestSourcePeriodSeen: string | null;
+      lastPublicationSuccessAt: string | null;
+      latestPublishedPeriod: string | null;
+      sourceRowCount: number;
+      publicationRunId: string | null;
+    }[];
   };
   stockPublication?: {
     stockReceived: number;

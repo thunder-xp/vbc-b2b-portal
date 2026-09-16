@@ -15,10 +15,13 @@ export const PRICE_SYNC_DURATION_BUDGET_MS = 45_000;
 export const PRICE_SYNC_STALE_LOCK_MS = 10 * 60 * 1000;
 export const PRICE_SYNC_MAX_PAGE_RETRIES = 3;
 export const PRICE_SYNC_RETRY_DELAY_BUDGET_MS = 15_000;
+export const PRICE_SYNC_EXPECTED_CADENCE_MS = 2 * 60 * 60 * 1000;
 const RETAIL_PRICE_TYPE_REF = "e181c772-93fc-11e9-94cb-000c2988d323";
 const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
 
 export type PriceSyncStatus = "never_run" | "queued" | "running" | "succeeded" | "failed";
+export type PriceSyncMode = "incremental" | "full_reconciliation";
+export type PriceSyncTrigger = CatalogSynchronizationTrigger | "watchdog";
 export type PriceSyncStage = "price_type_scan" | "currency_scan" | "price_register_scan" | "price_aggregation" | "price_publication" | "continuation_launch" | "completed";
 export type PriceSyncState = {
   status: PriceSyncStatus;
@@ -27,6 +30,19 @@ export type PriceSyncState = {
   startedAt: string | null;
   finishedAt: string | null;
   lastSuccessfulSyncAt: string | null;
+  syncMode: PriceSyncMode;
+  triggerKind: PriceSyncTrigger;
+  sourceWatermark: string | null;
+  sourceQueryFrom: string | null;
+  sourceInspectedThrough: string | null;
+  runLatestSourcePeriod: string | null;
+  lastSchedulerSeenAt: string | null;
+  expectedNextRunAt: string | null;
+  lastSourceSuccessAt: string | null;
+  lastPublicationSuccessAt: string | null;
+  nextRecoveryAttemptAt: string | null;
+  recoveryAttemptCount: number;
+  lastFailureRetryable: boolean;
   currentStage: PriceSyncStage | null;
   nextSkip: number;
   pageSize: number;
@@ -75,9 +91,11 @@ export type PriceSyncState = {
   updatedAt: string;
 };
 export type PriceSyncChunkResult = { state: PriceSyncState; needsContinuation: boolean; pagesProcessedThisInvocation: number; projection?: CatalogProjectionOutcome | null };
+export type PriceSyncHeartbeat = { recoveryRequired: boolean; recoveryAllowed: boolean; schedulerState: "FRESH" | "STALE" };
 
 export interface PriceSyncStateStore {
-  start(): Promise<{ state: PriceSyncState; started: boolean }>;
+  start(mode: PriceSyncMode, trigger: PriceSyncTrigger): Promise<{ state: PriceSyncState; started: boolean }>;
+  heartbeat(): Promise<PriceSyncHeartbeat>;
   getState(): Promise<PriceSyncState>;
   claimChunk(syncId: string, chunkToken: string): Promise<boolean>;
   releaseChunk(syncId: string, chunkToken: string): Promise<void>;
@@ -85,9 +103,9 @@ export interface PriceSyncStateStore {
   stageCurrencies(syncId: string, rows: CurrencyStageRow[]): Promise<number>;
   stagePrices(syncId: string, rows: PriceRegisterStageRow[], pageNumber: number, diagnostics: PricePageDiagnostics): Promise<number>;
   stageRetailHistory?(syncId: string, rows: PriceRegisterStageRow[], sourceOffset: number): Promise<number>;
-  checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; retryCount?: number; requestCount?: number; requestDurationMs?: number; requestDurationsMs?: number[]; stagingDurationMs?: number }): Promise<void>;
+  checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; latestSourcePeriod?: string | null; retryCount?: number; requestCount?: number; requestDurationMs?: number; requestDurationsMs?: number[]; stagingDurationMs?: number }): Promise<void>;
   publish(syncId: string): Promise<void>;
-  fail(syncId: string, category: string, stage: PriceSyncStage, page: number, databaseCode?: string, safeError?: string): Promise<void>;
+  fail(syncId: string, category: string, stage: PriceSyncStage, page: number, databaseCode?: string, safeError?: string, retryable?: boolean): Promise<void>;
   failLaunch(syncId: string, safeError: string): Promise<void>;
 }
 
@@ -97,8 +115,9 @@ export class ChunkedPriceSyncService {
     this.retry = { maxRetries: retry.maxRetries ?? PRICE_SYNC_MAX_PAGE_RETRIES, sleep: retry.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms))), random: retry.random ?? Math.random };
   }
 
-  async start(trigger: CatalogSynchronizationTrigger = "scheduled") { const result = await this.store.start(); if (result.started && result.state.activeSyncId) { try { await this.orchestrator?.registerSourceRun(result.state.activeSyncId, "prices", trigger); } catch (error) { await this.store.failLaunch(result.state.activeSyncId, "Synchronization audit registration failed."); throw error; } console.info(observation("price_sync_started", result.state.activeSyncId, result.state.currentStage)); } return result; }
+  async start(trigger: PriceSyncTrigger = "scheduled", mode: PriceSyncMode = "full_reconciliation") { const result = await this.store.start(mode, trigger); if (result.started && result.state.activeSyncId) { try { await this.orchestrator?.registerSourceRun(result.state.activeSyncId, "prices", trigger === "watchdog" ? "scheduled" : trigger); } catch (error) { await this.store.failLaunch(result.state.activeSyncId, "Synchronization audit registration failed."); throw error; } console.info(observation("price_sync_started", result.state.activeSyncId, result.state.currentStage, { mode, trigger })); } return result; }
   getState() { return this.store.getState(); }
+  heartbeat() { return this.store.heartbeat(); }
   resumePendingProjection() { return this.orchestrator?.resumePendingProjection() ?? Promise.resolve(null); }
   async failLaunch(syncId: string, safeError: string) { await this.store.failLaunch(syncId, safeError); await this.orchestrator?.failSourceSync(syncId, "prices", "CONTINUATION_LAUNCH_FAILED"); }
 
@@ -114,10 +133,24 @@ export class ChunkedPriceSyncService {
       while (processed < PRICE_SYNC_PAGES_PER_INVOCATION && this.now() - started < PRICE_SYNC_DURATION_BUDGET_MS) {
         state = await this.store.getState();
         if (state.activeSyncId !== syncId || !state.currentStage) return { state, needsContinuation: false, pagesProcessedThisInvocation: processed };
+        if (state.currentStage === "price_publication") {
+          await this.store.publish(syncId);
+          const completedState = await this.store.getState();
+          const projection = await this.completeOrchestration(syncId, completedState);
+          return { state: completedState, needsContinuation: false, pagesProcessedThisInvocation: processed, projection };
+        }
         const processedStage = state.currentStage;
         const pageNumber = state.pagesProcessed + 1;
         const entityPage = Math.floor(state.nextSkip / state.pageSize) + 1;
-        const fetched = await this.fetchPageWithRetry(syncId, processedStage, pageNumber, entityPage, state.nextSkip, state.pageSize);
+        const fetched = await this.fetchPageWithRetry(
+          syncId,
+          processedStage,
+          pageNumber,
+          entityPage,
+          state.nextSkip,
+          state.pageSize,
+          state.sourceQueryFrom,
+        );
         const page = fetched.page;
         assertPageIntegrity(state, processedStage, pageNumber, page);
         const normalizedPricePage = processedStage === "price_register_scan" ? normalizePricePage(page.items as PriceRegisterStageRow[]) : null;
@@ -134,7 +167,7 @@ export class ChunkedPriceSyncService {
         processed += 1;
         const complete = page.rowCount < state.pageSize;
         const nextStage = complete ? followingStage(processedStage) : processedStage;
-        await this.store.checkpoint(syncId, { stage: nextStage, processedStage, pageNumber, pageIntegrity: page.integrity, nextSkip: complete ? 0 : state.nextSkip + state.pageSize, rowsScanned: page.rowCount, rowsStaged: staged, pageCompleted: true, scanComplete: processedStage === "price_register_scan" && complete, priceDiagnostics: normalizedPricePage?.diagnostics, retryCount: fetched.retryCount, requestCount: fetched.retryCount + 1, requestDurationMs: sum(fetched.requestDurationsMs), requestDurationsMs: fetched.requestDurationsMs, stagingDurationMs });
+        await this.store.checkpoint(syncId, { stage: nextStage, processedStage, pageNumber, pageIntegrity: page.integrity, nextSkip: complete ? 0 : state.nextSkip + state.pageSize, rowsScanned: page.rowCount, rowsStaged: staged, pageCompleted: true, scanComplete: processedStage === "price_register_scan" && complete, priceDiagnostics: normalizedPricePage?.diagnostics, latestSourcePeriod: processedStage === "price_register_scan" ? latestSourcePeriod(page.items as PriceRegisterStageRow[]) : null, retryCount: fetched.retryCount, requestCount: fetched.retryCount + 1, requestDurationMs: sum(fetched.requestDurationsMs), requestDurationsMs: fetched.requestDurationsMs, stagingDurationMs });
         console.info(observation("price_sync_page_completed", syncId, processedStage, { entity: stageEntity(processedStage), page: pageNumber, entityPage, rows: page.rowCount, cumulativeRows: state.rowsScanned + page.rowCount, durationMs: fetched.durationMs, retryCount: fetched.retryCount, firstStableKey: page.integrity.firstStableKey, lastStableKey: page.integrity.lastStableKey, duplicatesDiscarded: normalizedPricePage?.diagnostics.rowsDeduplicated ?? 0 }));
         if (processedStage === "price_register_scan" && complete) {
           console.info(observation("price_sync_scan_completed", syncId, processedStage, { rows: page.rowCount, cumulativeRows: state.rowsScanned + page.rowCount }));
@@ -157,7 +190,9 @@ export class ChunkedPriceSyncService {
     } catch (error) {
       const current = await this.store.getState();
       const stage = current.currentStage ?? "price_register_scan";
-      await this.store.fail(syncId, errorCategory(error, stage), stage, current.pagesProcessed + 1, databaseCode(error), safeIntegrationError(error));
+      const retryable = isRetryableTerminalError(error, stage);
+      if (retryable) await this.store.fail(syncId, errorCategory(error, stage), stage, current.pagesProcessed + 1, databaseCode(error), safeIntegrationError(error), true);
+      else await this.store.fail(syncId, errorCategory(error, stage), stage, current.pagesProcessed + 1, databaseCode(error), safeIntegrationError(error));
       console.error(observation("price_sync_failed", syncId, stage, { page: current.pagesProcessed + 1, nextSkip: current.nextSkip, pagesProcessed: current.pagesProcessed, cumulativeRows: current.rowsScanned, safeError: safeIntegrationError(error), errorCategory: errorCategory(error, stage) }));
       const failedState = await this.store.getState();
       await this.orchestrator?.failSourceSync(syncId, "prices", errorCategory(error, stage));
@@ -180,7 +215,7 @@ export class ChunkedPriceSyncService {
     });
   }
 
-  private async fetchPageWithRetry(syncId: string, stage: PriceSyncStage, page: number, entityPage: number, skip: number, limit: number): Promise<{ page: PriceSyncPage<PriceTypeStageRow | CurrencyStageRow | PriceRegisterStageRow>; retryCount: number; durationMs: number; requestDurationsMs: number[] }> {
+  private async fetchPageWithRetry(syncId: string, stage: PriceSyncStage, page: number, entityPage: number, skip: number, limit: number, sourceFrom: string | null): Promise<{ page: PriceSyncPage<PriceTypeStageRow | CurrencyStageRow | PriceRegisterStageRow>; retryCount: number; durationMs: number; requestDurationsMs: number[] }> {
     const startedAt = performance.now();
     let totalDelayMs = 0;
     const requestDurationsMs: number[] = [];
@@ -188,7 +223,7 @@ export class ChunkedPriceSyncService {
     for (let attempt = 0; ; attempt += 1) {
       const requestStartedAt = performance.now();
       try {
-        const page = await this.fetchStagePage(stage, skip, limit);
+        const page = await this.fetchStagePage(stage, skip, limit, sourceFrom);
         requestDurationsMs.push(Math.round(performance.now() - requestStartedAt));
         return { page, retryCount: attempt, durationMs: Math.round(performance.now() - startedAt), requestDurationsMs };
       } catch (error) {
@@ -204,10 +239,14 @@ export class ChunkedPriceSyncService {
     }
   }
 
-  private fetchStagePage(stage: PriceSyncStage, skip: number, limit: number) {
+  private fetchStagePage(stage: PriceSyncStage, skip: number, limit: number, sourceFrom: string | null) {
     if (stage === "price_type_scan") return this.provider.fetchPriceTypes(skip, limit);
     if (stage === "currency_scan") return this.provider.fetchCurrencies(skip, limit);
-    if (stage === "price_register_scan") return this.provider.fetchPrices(skip, limit);
+    if (stage === "price_register_scan") {
+      return sourceFrom
+        ? this.provider.fetchPrices(skip, limit, sourceFrom)
+        : this.provider.fetchPrices(skip, limit);
+    }
     throw new Error("Price sync stage cannot fetch pages.");
   }
   private stagePage(syncId: string, stage: PriceSyncStage, rows: PriceTypeStageRow[] | CurrencyStageRow[] | PriceRegisterStageRow[], pageNumber: number, diagnostics?: PricePageDiagnostics) {
@@ -219,20 +258,13 @@ export class ChunkedPriceSyncService {
 }
 
 export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
-  async start() {
+  async start(mode: PriceSyncMode, trigger: PriceSyncTrigger) {
     const client = createAdminClient();
-    const current = await this.getState();
-    const stale = isPriceSyncLockStale(current, Date.now());
-    if (["queued", "running"].includes(current.status) && !stale) return { state: current, started: false };
-    const { data: catalog } = await client.from("catalog_sync_state").select("status").eq("id", "daily_catalog").maybeSingle();
-    if (catalog?.status === "running") throw Object.assign(new Error("Catalog publication is active."), { errorCategory: "lock_conflict" });
-    const syncId = crypto.randomUUID();
-    await this.clearStages(current.activeSyncId ?? current.lastFailedSyncId);
-    const now = new Date().toISOString();
-    const { error } = await client.from("price_sync_state").update({ status: "queued", active_sync_id: syncId, last_failed_sync_id: null, started_at: now, finished_at: null, current_stage: "price_type_scan", next_skip: 0, page_size: PRICE_SYNC_PAGE_SIZE, pages_processed: 0, rows_scanned: 0, rows_staged: 0, price_rows_received: 0, price_unique_keys: 0, price_duplicate_keys: 0, price_rows_deduplicated: 0, latest_prices_resolved: 0, prices_published: 0, prices_deactivated: 0, delta_unchanged: 0, delta_inserted: 0, delta_updated: 0, delta_removed: 0, publication_batches: 0, publication_db_duration_ms: 0, publication_headroom_percent: 100, publication_warning: false, publication_profile: {}, unmatched_products: 0, unknown_price_types: 0, scan_complete: false, error_category: null, failed_stage: null, database_error_code: null, safe_error: null, failed_page: null, last_page_stage: null, last_page_number: null, last_page_fingerprint: null, last_page_first_key: null, last_page_last_key: null, retry_count: 0, odata_request_count: 0, odata_request_duration_ms: 0, odata_request_durations_ms: [], staging_duration_ms: 0, validation_duration_ms: 0, publication_duration_ms: 0, continuation_count: 0, lock_acquired_at: now, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices");
-    if (error) throw persistenceError(error);
-    return { state: await this.getState(), started: true };
+    const { data, error } = await client.rpc("start_price_sync_run", { p_mode: mode, p_trigger: trigger });
+    if (error || !isRecord(data)) throw persistenceError(error ?? data);
+    return { state: await this.getState(), started: data.result === "acquired" || data.result === "stale_lock_recovered" };
   }
+  async heartbeat(): Promise<PriceSyncHeartbeat> { const { data, error } = await createAdminClient().rpc("heartbeat_price_sync_scheduler"); if (error || !isRecord(data)) throw persistenceError(error ?? data); return { recoveryRequired: data.recoveryRequired === true, recoveryAllowed: data.recoveryAllowed === true, schedulerState: data.schedulerState === "STALE" ? "STALE" : "FRESH" }; }
   async getState(): Promise<PriceSyncState> { const { data, error } = await createAdminClient().from("price_sync_state").select("*").eq("id", "product_prices").single(); if (error || !data) throw persistenceError(error); return mapState(data); }
   async claimChunk(syncId: string, chunkToken: string) { const { data, error } = await createAdminClient().rpc("claim_price_sync_chunk", { p_sync_id: syncId, p_chunk_token: chunkToken }); if (error) throw persistenceError(error); return data === true; }
   async releaseChunk(syncId: string, chunkToken: string) { const { error } = await createAdminClient().from("price_sync_state").update({ active_chunk_token: null, chunk_started_at: null, updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId).eq("active_chunk_token", chunkToken); if (error) throw persistenceError(error); }
@@ -286,7 +318,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     if (error) throw persistenceError(error);
     return retailRows.length;
   }
-  async checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; retryCount?: number; requestCount?: number; requestDurationMs?: number; requestDurationsMs?: number[]; stagingDurationMs?: number }) { const client = createAdminClient(); const state = await this.getState(); if (state.activeSyncId !== syncId) throw Object.assign(new Error("Stale price sync."), { errorCategory: "stale_job" }); const d = input.priceDiagnostics; const { error } = await client.from("price_sync_state").update({ status: "running", current_stage: input.stage, next_skip: input.nextSkip, pages_processed: state.pagesProcessed + (input.pageCompleted ? 1 : 0), rows_scanned: state.rowsScanned + input.rowsScanned, rows_staged: state.rowsStaged + input.rowsStaged, price_rows_received: state.priceRowsReceived + (d?.received ?? 0), price_unique_keys: state.priceUniqueKeys + (d?.uniqueKeys ?? 0), price_duplicate_keys: state.priceDuplicateKeys + (d?.duplicateKeys ?? 0), price_rows_deduplicated: state.priceRowsDeduplicated + (d?.rowsDeduplicated ?? 0), scan_complete: input.scanComplete ?? state.scanComplete, last_page_stage: input.pageCompleted ? input.processedStage : state.lastPageStage, last_page_number: input.pageCompleted ? input.pageNumber : state.lastPageNumber, last_page_fingerprint: input.pageCompleted ? input.pageIntegrity?.fingerprint : state.lastPageFingerprint, last_page_first_key: input.pageCompleted ? input.pageIntegrity?.firstStableKey : state.lastPageFirstKey, last_page_last_key: input.pageCompleted ? input.pageIntegrity?.lastStableKey : state.lastPageLastKey, retry_count: state.retryCount + (input.retryCount ?? 0), odata_request_count: state.odataRequestCount + (input.requestCount ?? 0), odata_request_duration_ms: state.odataRequestDurationMs + (input.requestDurationMs ?? 0), odata_request_durations_ms: [...state.odataRequestDurationsMs, ...(input.requestDurationsMs ?? [])], staging_duration_ms: state.stagingDurationMs + (input.stagingDurationMs ?? 0), updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); if (error) throw persistenceError(error); }
+  async checkpoint(syncId: string, input: { stage: PriceSyncStage; processedStage?: PriceSyncStage; pageNumber?: number; pageIntegrity?: PricePageIntegrity; nextSkip: number; rowsScanned: number; rowsStaged: number; pageCompleted: boolean; scanComplete?: boolean; priceDiagnostics?: PricePageDiagnostics; latestSourcePeriod?: string | null; retryCount?: number; requestCount?: number; requestDurationMs?: number; requestDurationsMs?: number[]; stagingDurationMs?: number }) { const client = createAdminClient(); const state = await this.getState(); if (state.activeSyncId !== syncId) throw Object.assign(new Error("Stale price sync."), { errorCategory: "stale_job" }); const d = input.priceDiagnostics; const { error } = await client.from("price_sync_state").update({ status: "running", current_stage: input.stage, next_skip: input.nextSkip, pages_processed: state.pagesProcessed + (input.pageCompleted ? 1 : 0), rows_scanned: state.rowsScanned + input.rowsScanned, rows_staged: state.rowsStaged + input.rowsStaged, price_rows_received: state.priceRowsReceived + (d?.received ?? 0), price_unique_keys: state.priceUniqueKeys + (d?.uniqueKeys ?? 0), price_duplicate_keys: state.priceDuplicateKeys + (d?.duplicateKeys ?? 0), price_rows_deduplicated: state.priceRowsDeduplicated + (d?.rowsDeduplicated ?? 0), run_latest_source_period: latestTimestamp(state.runLatestSourcePeriod, input.latestSourcePeriod), scan_complete: input.scanComplete ?? state.scanComplete, last_page_stage: input.pageCompleted ? input.processedStage : state.lastPageStage, last_page_number: input.pageCompleted ? input.pageNumber : state.lastPageNumber, last_page_fingerprint: input.pageCompleted ? input.pageIntegrity?.fingerprint : state.lastPageFingerprint, last_page_first_key: input.pageCompleted ? input.pageIntegrity?.firstStableKey : state.lastPageFirstKey, last_page_last_key: input.pageCompleted ? input.pageIntegrity?.lastStableKey : state.lastPageLastKey, retry_count: state.retryCount + (input.retryCount ?? 0), odata_request_count: state.odataRequestCount + (input.requestCount ?? 0), odata_request_duration_ms: state.odataRequestDurationMs + (input.requestDurationMs ?? 0), odata_request_durations_ms: [...state.odataRequestDurationsMs, ...(input.requestDurationsMs ?? [])], staging_duration_ms: state.stagingDurationMs + (input.stagingDurationMs ?? 0), updated_at: new Date().toISOString() }).eq("id", "product_prices").eq("active_sync_id", syncId); if (error) throw persistenceError(error); }
   async publish(syncId: string) {
     const client = createAdminClient();
     const validationStartedAt = performance.now();
@@ -294,7 +326,7 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     if (discovery.error) throw Object.assign(persistenceError(discovery.error), { errorCategory: "publication_failure" });
     const validationDurationMs = Math.round(performance.now() - validationStartedAt);
     const publicationStartedAt = performance.now();
-    const { data: publication, error } = await client.rpc("publish_product_prices_with_retail_history", { p_sync_id: syncId });
+    const { data: publication, error } = await client.rpc("publish_product_prices_self_healing", { p_sync_id: syncId });
     if (error) throw Object.assign(persistenceError(error), { errorCategory: "publication_failure" });
     if (hasMaterialPriceDelta(publication)) {
       const hotRefresh = await client.rpc("refresh_automated_hot_product_ranking");
@@ -314,11 +346,11 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const { error: metricsError } = await client.from("price_sync_run_metrics").upsert({ sync_id: syncId, started_at: state.startedAt, finished_at: state.finishedAt, total_remote_requests: state.odataRequestCount, successful_remote_requests: state.pagesProcessed, retry_remote_requests: state.retryCount, average_remote_duration_ms: remote.average, p50_remote_duration_ms: remote.p50, p95_remote_duration_ms: remote.p95, max_remote_duration_ms: remote.max, staging_duration_ms: state.stagingDurationMs, validation_duration_ms: validationDurationMs, publication_duration_ms: publicationDurationMs, total_processing_duration_ms: state.odataRequestDurationMs + state.stagingDurationMs + validationDurationMs + publicationDurationMs, total_wall_clock_duration_ms: totalWallClockMs, continuation_count: state.continuationCount }, { onConflict: "sync_id" });
     if (metricsError) console.warn(observation("price_sync_metrics_persistence_warning", syncId, "completed", { databaseCode: metricsError.code ?? null }));
   }
-  async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string) {
+  async fail(syncId: string, category: string, stage: PriceSyncStage, page: number, code?: string, safeError?: string, retryable = false) {
     const client = createAdminClient();
     const now = new Date().toISOString();
     await Promise.all([
-      client.from("price_sync_state").update({ status: "failed", finished_at: now, error_category: category, failed_stage: stage, database_error_code: code ?? null, safe_error: safeError ?? null, failed_page: page, last_failed_sync_id: syncId, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices").eq("active_sync_id", syncId),
+      client.rpc("fail_price_sync_run", { p_sync_id: syncId, p_category: category, p_stage: stage, p_page: page, p_code: code ?? null, p_safe_error: safeError ?? null, p_retryable: retryable }),
       client.from("retail_price_history_backfill_runs").update({ status: "failed", finished_at: now, error_code: code ?? null, safe_error: safeError ?? "RETAIL_HISTORY_SOURCE_QUERY_FAILED", updated_at: now }).eq("sync_id", syncId).in("status", ["requested", "running"]),
     ]);
   }
@@ -326,11 +358,10 @@ export class SupabasePriceSyncStateStore implements PriceSyncStateStore {
     const client = createAdminClient();
     const now = new Date().toISOString();
     await Promise.all([
-      client.from("price_sync_state").update({ status: "failed", finished_at: now, error_category: "orchestration_failure", failed_stage: "continuation_launch", safe_error: safeError, active_sync_id: null, lock_acquired_at: null, active_chunk_token: null, chunk_started_at: null, updated_at: now }).eq("id", "product_prices").eq("active_sync_id", syncId),
+      client.rpc("fail_price_sync_run", { p_sync_id: syncId, p_category: "orchestration_failure", p_stage: "continuation_launch", p_page: 0, p_code: null, p_safe_error: safeError, p_retryable: true }),
       client.from("retail_price_history_backfill_runs").update({ status: "failed", finished_at: now, safe_error: "RETAIL_HISTORY_SOURCE_QUERY_FAILED", updated_at: now }).eq("sync_id", syncId).in("status", ["requested", "running"]),
     ]);
   }
-  private async clearStages(syncId: string | null) { if (!syncId) return; const client = createAdminClient(); await Promise.all([client.from("product_price_sync_stage").delete().eq("sync_id", syncId), client.from("product_price_type_sync_stage").delete().eq("sync_id", syncId), client.from("product_currency_sync_stage").delete().eq("sync_id", syncId), client.from("retail_price_history_source_stage").delete().eq("sync_id", syncId)]); }
 }
 
 function followingStage(stage: PriceSyncStage): PriceSyncStage { if (stage === "price_type_scan") return "currency_scan"; if (stage === "currency_scan") return "price_register_scan"; if (stage === "price_register_scan") return "price_aggregation"; return stage; }
@@ -363,6 +394,7 @@ function safeIntegrationError(error: unknown): string | undefined {
 function observation(event: string, syncId: string | null, stage: PriceSyncStage | null, details: Record<string, unknown> = {}) { return { event, syncId, stage, correlationId: syncId, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local", ...details }; }
 function errorCategory(error: unknown, stage: PriceSyncStage): string { if (isRecord(error) && typeof error.errorCategory === "string") return error.errorCategory; if (stage === "price_publication" || stage === "price_aggregation") return "publication_failure"; return "odata_failure"; }
 function databaseCode(error: unknown): string | undefined { return isRecord(error) && typeof error.code === "string" ? error.code : undefined; }
+function isRetryableTerminalError(error: unknown, stage: PriceSyncStage): boolean { return isRetryablePageError(error) || databaseCode(error) === "57014" || stage === "price_publication" && databaseCode(error) === "57014"; }
 function persistenceError(error: unknown): Error { const source = isRecord(error) ? error : {}; return Object.assign(new Error("Price synchronization persistence failed."), { name: "PriceSyncPersistenceError", errorCategory: "staging_failure", code: stringValue(source.code), databaseMessage: sanitizeDatabaseField(source.message), databaseDetails: sanitizeDatabaseField(source.details), databaseHint: sanitizeDatabaseField(source.hint) }); }
 function safeDatabaseError(error: unknown): string | undefined { if (!isRecord(error)) return undefined; const fields = [error.databaseMessage, error.databaseDetails, error.databaseHint].filter((value): value is string => typeof value === "string" && value.length > 0); return fields.length ? fields.join(" ").slice(0, 500) : undefined; }
 function sanitizeDatabaseField(value: unknown): string | undefined { if (typeof value !== "string" || !value.trim()) return undefined; return value.trim().replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "[redacted]").replace(/'[^']*'/g, "'[redacted]'").replace(/\b\d+(?:\.\d+)?\b/g, "[number]").slice(0, 180); }
@@ -375,6 +407,19 @@ function mapState(row: Record<string, unknown>): PriceSyncState {
     startedAt: stringOrNull(row.started_at),
     finishedAt: stringOrNull(row.finished_at),
     lastSuccessfulSyncAt: stringOrNull(row.last_successful_sync_at),
+    syncMode: row.sync_mode === "incremental" ? "incremental" : "full_reconciliation",
+    triggerKind: row.trigger_kind === "manual" || row.trigger_kind === "watchdog" ? row.trigger_kind : "scheduled",
+    sourceWatermark: stringOrNull(row.source_watermark),
+    sourceQueryFrom: stringOrNull(row.source_query_from),
+    sourceInspectedThrough: stringOrNull(row.source_inspected_through),
+    runLatestSourcePeriod: stringOrNull(row.run_latest_source_period),
+    lastSchedulerSeenAt: stringOrNull(row.last_scheduler_seen_at),
+    expectedNextRunAt: stringOrNull(row.expected_next_run_at),
+    lastSourceSuccessAt: stringOrNull(row.last_source_success_at),
+    lastPublicationSuccessAt: stringOrNull(row.last_publication_success_at),
+    nextRecoveryAttemptAt: stringOrNull(row.next_recovery_attempt_at),
+    recoveryAttemptCount: number(row.recovery_attempt_count),
+    lastFailureRetryable: row.last_failure_retryable === true,
     currentStage: row.current_stage as PriceSyncStage | null,
     nextSkip: number(row.next_skip),
     pageSize: number(row.page_size),
@@ -434,6 +479,8 @@ function stringOrNull(value: unknown): string | null { return typeof value === "
 function stringValue(value: unknown): string | undefined { return typeof value === "string" && value ? value : undefined; }
 function number(value: unknown): number { return typeof value === "number" ? value : 0; }
 function numberArray(value: unknown): number[] { return Array.isArray(value) ? value.filter((item): item is number => typeof item === "number" && item >= 0) : []; }
+function latestTimestamp(left: string | null | undefined, right: string | null | undefined): string | null { const values = [left, right].filter((value): value is string => Boolean(value) && Number.isFinite(Date.parse(value!))); return values.sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null; }
+function latestSourcePeriod(rows: PriceRegisterStageRow[]): string | null { return latestTimestamp(null, rows.reduce<string | null>((latest, row) => latestTimestamp(latest, row.effectiveAt), null)); }
 function durationBetween(startedAt: string | null, finishedAt: string | null): number { const start = startedAt ? Date.parse(startedAt) : Number.NaN; const finish = finishedAt ? Date.parse(finishedAt) : Date.now(); return Number.isFinite(start) && Number.isFinite(finish) ? Math.max(0, finish - start) : 0; }
 function sum(values: number[]): number { return values.reduce((total, value) => total + value, 0); }
 export function durationMetrics(values: number[]): { average: number; p50: number; p95: number; max: number } { const sorted = [...values].sort((left, right) => left - right); if (!sorted.length) return { average: 0, p50: 0, p95: 0, max: 0 }; const percentile = (value: number) => sorted[Math.max(0, Math.ceil(sorted.length * value) - 1)] ?? 0; return { average: Math.round(sum(sorted) / sorted.length), p50: percentile(0.5), p95: percentile(0.95), max: sorted[sorted.length - 1] ?? 0 }; }

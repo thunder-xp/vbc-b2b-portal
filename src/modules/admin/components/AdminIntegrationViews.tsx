@@ -99,7 +99,27 @@ function PricePublicationDiagnostics({
         <Row label="Время БД" value={`${diagnostics.databaseDurationMs} ms`} />
         <Row label="Лимит БД" value={`${diagnostics.timeoutBudgetMs} ms`} />
         <Row label="Запас времени" value={`${diagnostics.headroomPercent}%`} />
+        <Row label="Режим / триггер" value={`${diagnostics.syncMode ?? "—"} / ${diagnostics.triggerKind ?? "—"}`} />
+        <Row label="Scheduler" value={diagnostics.schedulerState ?? "—"} />
+        <Row label="Последний heartbeat" value={formatOptionalDate(diagnostics.lastSchedulerSeenAt ?? null)} />
+        <Row label="Проверка 1С" value={formatOptionalDate(diagnostics.lastSourceSuccessAt ?? null)} />
+        <Row label="Публикация" value={formatOptionalDate(diagnostics.lastPublicationSuccessAt ?? null)} />
+        <Row label="Source watermark" value={formatOptionalDate(diagnostics.sourceWatermark ?? null)} />
+        <Row label="Повторы" value={diagnostics.retryCount ?? 0} />
       </dl>
+      <div className="mt-3 space-y-2" data-testid="price-domain-freshness">
+        {(diagnostics.domains ?? []).map((domain) => (
+          <div className="border border-zinc-200 bg-zinc-50 p-2 text-xs" key={domain.scope}>
+            <div className="flex justify-between gap-3">
+              <span className="font-medium">{domain.scope}</span>
+              <span>{domain.state}</span>
+            </div>
+            <p className="mt-1 text-zinc-600">
+              1С: {formatOptionalDate(domain.latestSourcePeriodSeen)} · опубликовано: {formatOptionalDate(domain.latestPublishedPeriod)} · строк: {domain.sourceRowCount}
+            </p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -185,4 +205,8 @@ function formatDate(value: string): string {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function formatOptionalDate(value: string | null): string {
+  return value ? formatDate(value) : "—";
 }

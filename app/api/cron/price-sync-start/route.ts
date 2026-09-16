@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   }
 
   const service = createChunkedPriceSyncService(getOneCEnv());
-  const start = await service.start();
+  const start = await service.start("scheduled", "full_reconciliation");
   const syncId = start.state.activeSyncId;
 
   if (!start.started || !syncId) {

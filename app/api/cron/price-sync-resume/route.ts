@@ -21,10 +21,30 @@ export async function GET(request: Request) {
   }
 
   const service = createChunkedPriceSyncService(getOneCEnv());
-  const state = await service.getState();
+  const heartbeat = await service.heartbeat();
+  let state = await service.getState();
   if (!state.activeSyncId || !["queued", "running"].includes(state.status)) {
     const projection = await service.resumePendingProjection();
-    return NextResponse.json({ resumed: false, status: state.status, publicRetail: projection?.status ?? "no_pending" });
+    if (heartbeat.recoveryRequired && heartbeat.recoveryAllowed) {
+      const recovery = await service.start("watchdog", "incremental");
+      state = recovery.state;
+      if (recovery.started && state.activeSyncId) {
+        try {
+          await launchPriceSync(state.activeSyncId, new URL(request.url).origin);
+        } catch {
+          console.warn({ event: "price_sync_watchdog_launch_deferred", syncId: state.activeSyncId });
+        }
+      }
+      return NextResponse.json({
+        resumed: false,
+        recoveryStarted: recovery.started,
+        status: state.status,
+        syncId: state.activeSyncId,
+        scheduler: heartbeat.schedulerState,
+        publicRetail: projection?.status ?? "no_pending",
+      });
+    }
+    return NextResponse.json({ resumed: false, recoveryStarted: false, status: state.status, scheduler: heartbeat.schedulerState, publicRetail: projection?.status ?? "no_pending" });
   }
 
   console.info({

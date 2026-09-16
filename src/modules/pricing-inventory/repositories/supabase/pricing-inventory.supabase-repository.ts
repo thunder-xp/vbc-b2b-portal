@@ -51,6 +51,14 @@ export class PricingInventoryRepositoryUnexpectedError extends Error {
 export class SupabasePricingInventoryRepository
   implements PricingInventoryRepository
 {
+  async areDerivedPriceDomainsFresh(): Promise<boolean> {
+    const { data, error } = await (await createClient()).rpc(
+      "are_price_derived_indicators_fresh",
+    );
+    if (error) throw new PricingInventoryRepositoryUnexpectedError({ code: error.code, message: error.message });
+    return data === true;
+  }
+
   async getRetailPriceHistory(
     productId: string,
     range: RetailPriceHistoryRange,

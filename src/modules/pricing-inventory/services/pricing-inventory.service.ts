@@ -234,7 +234,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       authoritativePartnerPricing || visibility.canViewPartnerPrice;
     const canViewRetailPrice = visibility.canViewRetailPrice;
     const governedPriceTypeRef = externalPriceTypeRef ?? company.external1cPriceTypeId;
-    const [partnerPrices, retailReferencePrices, stockBalances, supplierArrivals, commercialRates] = await Promise.all([
+    const [partnerPrices, retailReferencePrices, stockBalances, supplierArrivals, commercialRates, derivedPriceDomainsFresh] = await Promise.all([
       canViewPartnerPrice && governedPriceTypeRef
         ? (
           authoritativePartnerPricing
@@ -276,6 +276,9 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
               .getAuthoritativeCommercialRateSnapshot!()
           : this.pricingInventoryRepository.getActiveCommercialRateSnapshot!()
         : Promise.resolve<CommercialRateSnapshot>({ partnerPriceUsdToMdl: null, retailPriceUsdToMdl: null }),
+      canViewPartnerPrice && canViewRetailPrice
+        ? this.pricingInventoryRepository.areDerivedPriceDomainsFresh?.() ?? Promise.resolve(false)
+        : Promise.resolve(false),
     ]);
 
     const views = normalizedProductIds.map((productId) => {
@@ -319,7 +322,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         partnerPriceMdl,
         msrpPriceUsd,
         retailPrice: retailPriceMdl,
-        commercialOpportunity: canViewPartnerPrice
+        commercialOpportunity: canViewPartnerPrice && derivedPriceDomainsFresh
           ? createCommercialOpportunity(
               partnerPriceMdl,
               retailPriceMdl,
@@ -330,7 +333,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         commercialRateFreshness: createCommercialRateFreshness(commercialRates),
         stock,
         isDemoData: false,
-        retailBelowPartnerPrice: canViewPartnerPrice
+        retailBelowPartnerPrice: canViewPartnerPrice && derivedPriceDomainsFresh
           && Boolean(partnerPriceMdl && retailPriceMdl && retailPriceMdl.amount < partnerPriceMdl.amount),
       };
     });

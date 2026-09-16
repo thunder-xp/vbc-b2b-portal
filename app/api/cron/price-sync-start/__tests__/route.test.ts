@@ -46,6 +46,7 @@ describe("price synchronization daily start", () => {
   it("acknowledges the start before launching the resumable worker", async () => {
     const response = await GET(request());
     expect(response.status).toBe(202);
+    expect(mocks.start).toHaveBeenCalledWith("scheduled", "full_reconciliation");
     expect(mocks.launch).not.toHaveBeenCalled();
     await mocks.afterCallbacks[0]!();
     expect(mocks.launch).toHaveBeenCalledWith("price-sync-1", "https://portal.example");

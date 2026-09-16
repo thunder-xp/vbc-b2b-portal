@@ -257,6 +257,20 @@ describe("DefaultPricingInventoryService", () => {
     expect(result.commercialOpportunity).toMatchObject({ grossProfitMdl: -1200, formattedGrossProfitMdl: "-1\u00a0200 MDL", formattedMarkup: "-60.00%" });
   });
 
+  it("suppresses derived profit while keeping last-good prices visible when price domains are stale", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
+      makePrice(null, 100, goldPriceType, "USD"),
+      makePrice(null, 800, RETAIL_PRICE_TYPE_EXTERNAL_REF, "MDL"),
+    ], [], [], 20, 20, false), new FakeCompanyAccessService(), new FakePermissionService());
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerPrice).not.toBeNull();
+    expect(result.retailPrice).not.toBeNull();
+    expect(result.commercialOpportunity).toBeNull();
+    expect(result.retailBelowPartnerPrice).toBe(false);
+  });
+
   it("maps stock quantities to visible service-owned stock statuses", async () => {
     const repository = new FakePricingInventoryRepository([], [
       makeStock("product-in-stock", 24, null),
@@ -474,7 +488,10 @@ class FakePricingInventoryRepository implements PricingInventoryRepository {
     private readonly supplierArrivals: ProductSupplierArrival[] = [],
     private readonly mdlPerUsdRate: number | null = null,
     private readonly retailUsdToMdlRate: number | null = mdlPerUsdRate,
+    private readonly derivedPriceDomainsFresh = true,
   ) {}
+
+  async areDerivedPriceDomainsFresh() { return this.derivedPriceDomainsFresh; }
 
   async getActiveCommercialRateSnapshot() {
     this.exchangeRateReads += 1;

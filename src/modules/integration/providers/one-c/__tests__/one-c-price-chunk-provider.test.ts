@@ -14,6 +14,15 @@ describe("OneCPriceChunkProvider", () => {
     expect(request.searchParams.get("$filter")).toBeNull();
     expect(result).toMatchObject({ rowCount: 1, items: [{ amount: 125, isCurrent: false }] });
   });
+
+  it("uses an overlap watermark without changing deterministic pagination", async () => {
+    const fetchMock = vi.fn<(input: URL | RequestInfo, init?: RequestInit) => Promise<Response>>(async () => new Response(JSON.stringify({ value: [] }), { headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await provider().fetchPrices(0, 500, "2026-09-14T10:20:30.456Z");
+    const request = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(request.searchParams.get("$filter")).toBe("Period ge datetime'2026-09-14T10:20:30'");
+    expect(request.searchParams.get("$orderby")).toContain("Period asc");
+  });
 });
 
 function provider() { return new OneCPriceChunkProvider({ baseUrl: "https://erp.example/odata/", username: "user", password: "secret", requestTimeoutMs: 10000 }); }

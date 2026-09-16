@@ -21,7 +21,7 @@ export type PriceSyncPage<T> = { items: T[]; rowCount: number; integrity: PriceP
 export interface PriceChunkProvider {
   fetchPriceTypes(skip: number, limit: number): Promise<PriceSyncPage<PriceTypeStageRow>>;
   fetchCurrencies(skip: number, limit: number): Promise<PriceSyncPage<CurrencyStageRow>>;
-  fetchPrices(skip: number, limit: number): Promise<PriceSyncPage<PriceRegisterStageRow>>;
+  fetchPrices(skip: number, limit: number, sourceFrom?: string | null): Promise<PriceSyncPage<PriceRegisterStageRow>>;
 }
 
 export class OneCPriceChunkProvider implements PriceChunkProvider {
@@ -30,10 +30,27 @@ export class OneCPriceChunkProvider implements PriceChunkProvider {
 
   fetchPriceTypes(skip: number, limit: number) { return this.page(PRICE_TYPE_RESOURCE, PRICE_TYPE_FIELDS, "Ref_Key asc", skip, limit, mapPriceType, catalogStableKey); }
   fetchCurrencies(skip: number, limit: number) { return this.page(CURRENCY_RESOURCE, CURRENCY_FIELDS, "Ref_Key asc", skip, limit, mapCurrency, catalogStableKey); }
-  fetchPrices(skip: number, limit: number) { return this.page(PRICE_RESOURCE, PRICE_FIELDS, PRICE_ORDER, skip, limit, mapPrice, priceStableKey); }
+  fetchPrices(skip: number, limit: number, sourceFrom?: string | null) {
+    return this.page(
+      PRICE_RESOURCE,
+      PRICE_FIELDS,
+      PRICE_ORDER,
+      skip,
+      limit,
+      mapPrice,
+      priceStableKey,
+      sourceFrom ? `Period ge datetime'${oneCDateTimeLiteral(sourceFrom)}'` : null,
+    );
+  }
 
-  private async page<T>(resource: string, select: string, orderby: string, skip: number, limit: number, mapper: (value: unknown) => T | null, stableKey: (value: unknown) => string | null): Promise<PriceSyncPage<T>> {
-    const payload = await this.client.get(resource, { "$select": select, "$orderby": orderby, "$top": String(limit), "$skip": String(skip) }, { requestKind: "pricing_chunk_scan" });
+  private async page<T>(resource: string, select: string, orderby: string, skip: number, limit: number, mapper: (value: unknown) => T | null, stableKey: (value: unknown) => string | null, filter: string | null = null): Promise<PriceSyncPage<T>> {
+    const payload = await this.client.get(resource, {
+      "$select": select,
+      "$orderby": orderby,
+      "$top": String(limit),
+      "$skip": String(skip),
+      ...(filter ? { "$filter": filter } : {}),
+    }, { requestKind: "pricing_chunk_scan" });
     if (!isRecord(payload) || !Array.isArray(payload.value)) throw new IntegrationValidationError("1C pricing page is invalid.");
     if (payload.value.length > limit) throw pageIntegrityError("1C pricing page exceeded the requested bound.");
     const keys = payload.value.map(stableKey);
@@ -70,5 +87,10 @@ function mapCurrency(value: unknown): CurrencyStageRow | null { if (!isRecord(va
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function nullableText(value: unknown): string | null { return text(value) || null; }
+function oneCDateTimeLiteral(value: string): string {
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) throw new IntegrationValidationError("1C pricing watermark is invalid.");
+  return new Date(parsed).toISOString().slice(0, 19);
+}
 export const PRICE_SYNC_ZERO_CHARACTERISTIC = ONE_C_ZERO_GUID;
 export const ONE_C_PRICE_CHUNK_QUERY = { resource: PRICE_RESOURCE, select: PRICE_FIELDS, orderby: PRICE_ORDER };
