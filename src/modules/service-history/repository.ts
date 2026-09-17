@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
-import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, PartnerServiceWorkspace, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
+import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, PartnerServiceWorkspace, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceMonthExport, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
 
 export class ServiceHistoryRepositoryError extends Error {
   constructor(readonly operation: string, readonly code: string | null = null) {
@@ -49,6 +49,12 @@ export class ServiceHistoryRepository {
       p_filter: input.filter,
       p_page: input.page,
       p_page_size: 20,
+      p_month: `${input.month}-01`,
+    });
+  }
+  getPartnerMonthExport(input: { companyId: string; month: string }) {
+    return this.userRpc<ServiceMonthExport>("get_partner_service_month_export", {
+      p_company_id: input.companyId,
       p_month: `${input.month}-01`,
     });
   }

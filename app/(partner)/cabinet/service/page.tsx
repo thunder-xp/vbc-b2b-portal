@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import {
+  ServiceAnalyticsPanel,
   UnifiedServiceHistoryList,
   ServiceMonthlySummaryCard,
   getPartnerServiceWorkspaceAction,
@@ -45,6 +46,7 @@ export default async function ServicePage({
           summary={result.data.monthlySummary}
         />
       ) : null}
+      {result.success ? <ServiceAnalyticsPanel analytics={result.data.analytics} locale={locale} /> : null}
       <section aria-labelledby="warranty-check-title">
         <h2 className="mb-3 text-lg font-semibold" id="warranty-check-title">
           {copy.warrantyCheck}

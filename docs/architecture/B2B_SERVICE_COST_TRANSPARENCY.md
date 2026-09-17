@@ -51,3 +51,23 @@ Localized status descriptions are display metadata only and are not used for eli
 The projection tables retain RLS and remain inaccessible to `anon` and `authenticated`; only server-owned RPCs expose bounded DTOs. Every partner RPC checks `service.view` against the requested company, so a browser-supplied company identifier cannot bypass membership authorization. The v3 sync claim/publication functions are executable only by `service_role` and preserve the existing lease, batch-size, fingerprint, and reconciliation contracts.
 
 Corrections replace the current amount, VAT, currency, status, and completion facts. Unposted/deleted rows become inactive through the existing publisher; rows that lose the canonical completion conditions also lose `completed_service_eligible`, so stale values leave the monthly total without an accounting-style adjustment ledger in Portal.
+
+## V2 analytics semantics
+
+`get_partner_service_analytics` extends the existing Partner workspace RPC with a bounded twelve-calendar-month window ending in the selected month. It returns exact monthly document count, gross service amount and authoritative included-VAT amount as separate currency series. It also returns the selected-month average (`numeric` total divided by eligible document count, rounded to two decimals) and factual deltas against the immediately preceding calendar month. When the previous month is zero, the UI shows only the absolute delta and does not invent a percentage.
+
+The default scope remains the authenticated Partner company across all its contracts. Contract is not part of the aggregation key. Product breakdown uses the existing canonical product link/snapshots, and work breakdown groups the exact non-empty `completed_work_summary` supplied by 1C. It does not classify free text or infer failure reasons. “Frequently serviced equipment” means document frequency only and is explicitly not a reliability or failure-rate metric because no installed-base denominator exists.
+
+Currencies are independent buckets in the selected summary, trend, average, product breakdown, work breakdown, XLSX and PDF. No FX conversion or cross-currency total exists. VAT is summed only from the synchronized `СуммаНДС`; the Portal does not recalculate a rate.
+
+## V2 export contract
+
+`get_partner_service_month_export` returns at most one selected calendar month of eligible completed rows plus database-calculated totals. The server resolves `auth user → active membership → company`; neither export route accepts a company identifier. The RPC repeats `service.view`, company, visibility, active and completion eligibility checks. Anonymous execution is revoked. A governed 5,000-row limit fails closed instead of generating a partial statement.
+
+The XLSX contains document number, completion date, product/SKU, masked serial, exact work description, normalized status, contract metadata, amount, VAT and currency, followed by per-currency totals. Text cells are stored as inline strings, so source-authored text cannot become a spreadsheet formula. The PDF uses the neutral localized titles `Сводка сервисных услуг` / `Sumar servicii` and states that it is an operational summary, not an accounting document. UI and both exports derive from the same eligibility and exact-decimal SQL contract.
+
+## V2 query and performance model
+
+The page still performs one `get_partner_service_workspace` RPC. That RPC combines the paginated service list, V1 selected-month summary and V2 bounded analytics. It does not load the complete history into React. The analytics query uses the existing partial `(company_id, repair_completed_at, currency_code)` index and limits product/work rankings to five entries per currency. Exports perform one additional RPC only when the Partner explicitly downloads a file; PDF/XLSX generation is server-only and does not call 1C.
+
+Service cost remains operational transparency. It is not debt, payment, balance, paid/unpaid state, invoice, act or accounting statement. Any future payment reconciliation must enter through an explicit authoritative Finance/1C integration and must not be inferred from these service amounts.

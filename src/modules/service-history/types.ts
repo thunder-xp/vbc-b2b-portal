@@ -96,9 +96,85 @@ export type ServiceMonthlySummary = {
   unknownCurrencyCount: number;
 };
 
+export type ServiceAnalyticsCurrencySummary = {
+  currency: string;
+  completedServiceCount: number;
+  totalServiceAmount: string;
+  totalVatAmount: string;
+  averageServiceAmount: string;
+  previousCompletedServiceCount: number;
+  previousTotalServiceAmount: string;
+  countDelta: number;
+  amountDelta: string;
+};
+
+export type ServiceAnalyticsTrendPoint = {
+  month: string;
+  currency: string;
+  completedServiceCount: number;
+  totalServiceAmount: string;
+  totalVatAmount: string;
+  relativeAmountBps: number;
+};
+
+export type ServiceAnalyticsProductBreakdown = {
+  productId: string | null;
+  productSku: string | null;
+  productName: string | null;
+  currency: string;
+  completedServiceCount: number;
+  totalServiceAmount: string;
+};
+
+export type ServiceAnalyticsWorkBreakdown = {
+  workDescription: string;
+  currency: string;
+  completedServiceCount: number;
+  totalServiceAmount: string;
+};
+
+export type ServiceAnalytics = {
+  month: string;
+  trendStart: string;
+  previousMonth: string;
+  summaries: ServiceAnalyticsCurrencySummary[];
+  trend: ServiceAnalyticsTrendPoint[];
+  productBreakdown: ServiceAnalyticsProductBreakdown[];
+  workBreakdown: ServiceAnalyticsWorkBreakdown[];
+  missingProductCount: number;
+  missingWorkCount: number;
+  unknownCurrencyCount: number;
+};
+
+export type ServiceMonthExportRow = {
+  id: string;
+  documentNumber: string;
+  completionDate: string;
+  productId: string | null;
+  productSku: string | null;
+  productName: string | null;
+  maskedSerial: string | null;
+  workDescription: string | null;
+  status: OneCServiceStatus;
+  contract: string | null;
+  serviceAmount: string | null;
+  vatAmount: string | null;
+  currency: string | null;
+};
+
+export type ServiceMonthExport = {
+  companyName: string;
+  month: string;
+  rows: ServiceMonthExportRow[];
+  totals: ServiceMonthlyCurrencySummary[];
+  rowCount: number;
+  truncated: boolean;
+};
+
 export type PartnerServiceWorkspace = {
   history: UnifiedServiceHistoryPage;
   monthlySummary: ServiceMonthlySummary;
+  analytics: ServiceAnalytics;
 };
 
 export type ServiceHistoryDiagnostics = {

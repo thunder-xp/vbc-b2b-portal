@@ -20,6 +20,14 @@ export class ServiceHistoryService {
       month: normalizeServiceMonth(input.month),
     });
   }
+  async getPartnerMonthExport(userId: string, input: { month?: string }) {
+    const result = await this.repository.getPartnerMonthExport({
+      companyId: await this.companyId(userId),
+      month: normalizeServiceMonth(input.month),
+    });
+    if (result.truncated || result.rowCount > 5000) throw new Error("Service export exceeds the governed row limit.");
+    return result;
+  }
   async getPartner(_userId: string, id: string) { return this.repository.getPartner(uuid(id)); }
   listAdmin(input: { query?: string; status?: string; page?: string | number }) { return this.repository.listAdmin({ query: trim(input.query,100), status: ONE_C_SERVICE_STATUSES.includes(input.status as never) ? input.status! : null, page: page(input.page) }); }
   async getAdmin(id: string) {
