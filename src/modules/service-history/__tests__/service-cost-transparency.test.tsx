@@ -12,7 +12,7 @@ const migration = readFileSync(
   "utf8",
 );
 const backfillScopeMigration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260917063612_service_history_financial_backfill_active_scope.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260917063742_service_history_financial_backfill_active_scope.sql"),
   "utf8",
 );
 
