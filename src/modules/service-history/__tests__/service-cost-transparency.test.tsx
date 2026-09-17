@@ -8,7 +8,7 @@ import { normalizeServiceMonth } from "../service";
 import type { OneCServiceHistoryDetail, UnifiedServiceHistoryItem } from "../types";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20260917055715_b2b_service_center_cost_transparency_v1.sql"),
+  resolve(process.cwd(), "supabase/migrations/20260917062913_b2b_service_center_cost_transparency_v1.sql"),
   "utf8",
 );
 
