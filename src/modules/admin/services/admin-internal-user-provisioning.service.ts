@@ -29,6 +29,23 @@ export class AdminInternalUserProvisioningService {
     const normalizedEmail = requiredEmail(email);
     const normalizedName = requiredDisplayName(displayName);
     const normalizedReason = requiredReason(reason);
+    const existing = await this.repository.getReissueCandidate(normalizedEmail);
+    if (existing?.status === "active") {
+      return { requestId: existing.requestId, authUserId: existing.authUserId, invited: false };
+    }
+    if (existing?.status === "invited") {
+      try {
+        await this.invitationProvider.reissue(
+          existing.email,
+          existing.authUserId,
+          existing.emailConfirmed,
+        );
+        await this.repository.markReissued(existing.requestId);
+        return { requestId: existing.requestId, authUserId: existing.authUserId, invited: true };
+      } catch {
+        throw new InvalidStateError("Internal finance invitation could not be reissued.");
+      }
+    }
     const begun = await this.repository.begin(normalizedEmail, normalizedName, normalizedReason);
     if (!begun.newlyCreated) {
       return { requestId: begun.requestId, authUserId: null, invited: false };

@@ -6,6 +6,7 @@ import { RepositoryUnexpectedError } from "@/src/modules/access-control/reposito
 import type {
   AdminInternalUserProvisioningRepository,
   BeginFinanceOperatorProvisioningResult,
+  FinanceOperatorReissueCandidate,
   InternalUserProvisioningState,
 } from "../admin-internal-user-provisioning.repository";
 
@@ -15,6 +16,13 @@ type StateRow = {
   email: string;
   display_name: string;
   role_code: string;
+  provisioning_status: "invited" | "active";
+};
+type ReissueRow = {
+  request_id: string;
+  email: string;
+  auth_user_id: string;
+  email_confirmed: boolean;
   provisioning_status: "invited" | "active";
 };
 
@@ -40,6 +48,26 @@ export class SupabaseAdminInternalUserProvisioningRepository
     await this.call("mark_finance_operator_invited", {
       p_request_id: requestId,
       p_auth_user_id: authUserId,
+    });
+  }
+
+  async getReissueCandidate(email: string): Promise<FinanceOperatorReissueCandidate | null> {
+    const rows = await this.call<ReissueRow[]>("get_finance_operator_reissue_candidate", {
+      p_email: email,
+    });
+    const row = rows[0];
+    return row ? {
+      requestId: row.request_id,
+      email: row.email,
+      authUserId: row.auth_user_id,
+      emailConfirmed: row.email_confirmed,
+      status: row.provisioning_status,
+    } : null;
+  }
+
+  async markReissued(requestId: string): Promise<void> {
+    await this.call("mark_finance_operator_invitation_reissued", {
+      p_request_id: requestId,
     });
   }
 

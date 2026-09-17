@@ -17,13 +17,16 @@ describe("AdminInternalUserProvisioningService", () => {
   beforeEach(() => {
     repository = {
       begin: vi.fn().mockResolvedValue({ requestId, newlyCreated: true }),
+      getReissueCandidate: vi.fn().mockResolvedValue(null),
       markInvited: vi.fn().mockResolvedValue(undefined),
+      markReissued: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
       activateCurrent: vi.fn().mockResolvedValue("assignment-id"),
       getCurrent: vi.fn().mockResolvedValue(null),
     };
     provider = {
       invite: vi.fn().mockResolvedValue({ authUserId }),
+      reissue: vi.fn().mockResolvedValue(undefined),
       remove: vi.fn().mockResolvedValue(undefined),
     };
     service = new AdminInternalUserProvisioningService(repository, provider);
@@ -41,13 +44,38 @@ describe("AdminInternalUserProvisioningService", () => {
   });
 
   it("does not resend an already-open provisioning request", async () => {
-    vi.mocked(repository.begin).mockResolvedValue({ requestId, newlyCreated: false });
+    vi.mocked(repository.getReissueCandidate).mockResolvedValue({
+      requestId,
+      email: "finance@novotech.local",
+      authUserId,
+      emailConfirmed: true,
+      status: "active",
+    });
     await expect(service.invite("finance@novotech.local", "finance", "Approved")).resolves.toEqual({
       requestId,
-      authUserId: null,
+      authUserId,
       invited: false,
     });
     expect(provider.invite).not.toHaveBeenCalled();
+  });
+
+  it("reissues a consumed invitation for the same canonical Auth identity", async () => {
+    vi.mocked(repository.getReissueCandidate).mockResolvedValue({
+      requestId,
+      email: "finance@novotech.local",
+      authUserId,
+      emailConfirmed: true,
+      status: "invited",
+    });
+
+    await expect(service.invite("finance@novotech.local", "finance", "Approved")).resolves.toEqual({
+      requestId,
+      authUserId,
+      invited: true,
+    });
+    expect(provider.reissue).toHaveBeenCalledWith("finance@novotech.local", authUserId, true);
+    expect(repository.markReissued).toHaveBeenCalledWith(requestId);
+    expect(repository.begin).not.toHaveBeenCalled();
   });
 
   it("compensates the exact Auth identity when DB finalization fails", async () => {

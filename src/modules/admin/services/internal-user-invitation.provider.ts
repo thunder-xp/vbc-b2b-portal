@@ -6,11 +6,12 @@ export type InternalUserInvitation = { authUserId: string };
 
 export interface InternalUserInvitationProvider {
   invite(email: string, displayName: string): Promise<InternalUserInvitation>;
+  reissue(email: string, authUserId: string, emailConfirmed: boolean): Promise<void>;
   remove(authUserId: string): Promise<void>;
 }
 
 export class InternalUserInvitationProviderError extends Error {
-  constructor(public readonly safeCode: "AUTH_INVITE_FAILED" | "AUTH_INVITE_RESULT_INVALID" | "AUTH_CLEANUP_FAILED") {
+  constructor(public readonly safeCode: "AUTH_INVITE_FAILED" | "AUTH_INVITE_RESULT_INVALID" | "AUTH_REISSUE_FAILED" | "AUTH_CLEANUP_FAILED") {
     super(safeCode);
     this.name = "InternalUserInvitationProviderError";
   }
@@ -25,6 +26,24 @@ export class SupabaseInternalUserInvitationProvider implements InternalUserInvit
     if (error) throw new InternalUserInvitationProviderError("AUTH_INVITE_FAILED");
     if (!data.user?.id) throw new InternalUserInvitationProviderError("AUTH_INVITE_RESULT_INVALID");
     return { authUserId: data.user.id };
+  }
+
+  async reissue(email: string, authUserId: string, emailConfirmed: boolean): Promise<void> {
+    const client = createAdminClient();
+    if (emailConfirmed) {
+      const { error } = await client.auth.resetPasswordForEmail(email, {
+        redirectTo: internalInvitationRedirectUrl(),
+      });
+      if (error) throw new InternalUserInvitationProviderError("AUTH_REISSUE_FAILED");
+      return;
+    }
+
+    const { data, error } = await client.auth.admin.inviteUserByEmail(email, {
+      redirectTo: internalInvitationRedirectUrl(),
+    });
+    if (error || data.user?.id !== authUserId) {
+      throw new InternalUserInvitationProviderError("AUTH_REISSUE_FAILED");
+    }
   }
 
   async remove(authUserId: string): Promise<void> {

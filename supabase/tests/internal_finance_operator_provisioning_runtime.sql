@@ -24,6 +24,24 @@ select public.mark_finance_operator_invited(
   '20000000-0000-4000-8000-000000000002'
 );
 
+create temporary table runtime_reissue as
+select * from public.get_finance_operator_reissue_candidate('finance@novotech.local');
+
+do $$
+begin
+  if (select count(*) from runtime_reissue) <> 1
+    or (select auth_user_id from runtime_reissue) <> '20000000-0000-4000-8000-000000000002'
+    or (select email_confirmed from runtime_reissue)
+    or (select provisioning_status from runtime_reissue) <> 'invited' then
+    raise exception 'Governed reissue candidate did not preserve the exact pending Auth identity.';
+  end if;
+end;
+$$;
+
+select public.mark_finance_operator_invitation_reissued(
+  (select request_id from runtime_request)
+);
+
 do $$
 begin
   if exists (
@@ -61,8 +79,8 @@ begin
   select count(*) into audit_count
   from public.internal_user_provisioning_audit_events event
   where event.request_id = (select request_id from runtime_request)
-    and event.event_type in ('requested', 'invite_sent', 'activated');
-  if audit_count <> 3 then
+    and event.event_type in ('requested', 'invite_sent', 'invite_reissued', 'activated');
+  if audit_count <> 4 then
     raise exception 'Provisioning audit is incomplete.';
   end if;
   if (select count(*) from public.internal_role_assignment_audit_events event
