@@ -61,17 +61,15 @@ export function InternalInvitationActivationForm({ initialState }: Props) {
     }
 
     setState("ACTIVATING");
-    const { error: passwordError } = await supabase.auth.updateUser({ password });
-    if (passwordError) {
-      setState("ERROR");
-      setError("Не удалось установить пароль. Запросите новое приглашение у администратора.");
-      return;
-    }
-
-    const activation = await activateInternalInvitationAction();
+    const activation = await activateInternalInvitationAction(password);
     if (!activation.success) {
-      setState("ERROR");
-      setError("Пароль сохранён, но внутренний доступ не активирован. Обратитесь к администратору.");
+      if (activation.error === "invalid_password") {
+        setState("READY");
+        setError(`Пароль должен содержать не менее ${PASSWORD_MIN_LENGTH} символов.`);
+      } else {
+        setState("ERROR");
+        setError("Не удалось активировать внутренний доступ. Войдите с уже установленным паролем, чтобы безопасно завершить активацию.");
+      }
       return;
     }
 
@@ -82,7 +80,7 @@ export function InternalInvitationActivationForm({ initialState }: Props) {
 
   const ready = state === "READY";
   const activating = state === "ACTIVATING";
-  const showForm = state === "VERIFYING" || ready || activating || state === "ERROR";
+  const showForm = state === "VERIFYING" || ready || activating;
 
   return (
     <div className="mt-6">
@@ -97,7 +95,6 @@ export function InternalInvitationActivationForm({ initialState }: Props) {
             <input autoComplete="new-password" className="min-h-11 border border-zinc-300 px-3" disabled={!ready || activating} minLength={PASSWORD_MIN_LENGTH} name="confirmation" required type="password" />
           </label>
           {state === "VERIFYING" ? <Status tone="pending">Проверяем защищённую ссылку приглашения…</Status> : null}
-          {state === "ERROR" ? <Status tone="error">Не удалось проверить приглашение. Запросите новое приглашение у администратора.</Status> : null}
           {error ? <Status tone="error">{error}</Status> : null}
           <button className="min-h-11 bg-zinc-950 px-4 text-sm font-semibold text-white disabled:bg-zinc-400" disabled={!ready || activating}>
             {activating ? "Активация…" : "Установить пароль и активировать доступ"}
@@ -108,9 +105,13 @@ export function InternalInvitationActivationForm({ initialState }: Props) {
       {state === "INVALID_INVITE" ? <TerminalMessage>Ссылка приглашения недействительна. Запросите новое приглашение у администратора.</TerminalMessage> : null}
       {state === "EXPIRED_INVITE" ? <TerminalMessage>Ссылка приглашения недействительна или истекла. Запросите новое приглашение у администратора.</TerminalMessage> : null}
       {state === "ALREADY_USED" ? <TerminalMessage>Учётная запись уже активирована. Войдите с установленным паролем.</TerminalMessage> : null}
+      {state === "ERROR" ? <TerminalMessage>{error ?? "Не удалось завершить активацию."}</TerminalMessage> : null}
       {state === "COMPLETED" ? <Status tone="success">Доступ активирован. Открываем рабочее пространство…</Status> : null}
       {state === "INVALID_INVITE" || state === "EXPIRED_INVITE" || state === "ALREADY_USED" ? (
         <Link className="mt-4 flex min-h-11 items-center justify-center border border-zinc-300 px-4 text-sm font-semibold" href="/auth/sign-in">Перейти ко входу</Link>
+      ) : null}
+      {state === "ERROR" ? (
+        <Link className="mt-4 flex min-h-11 items-center justify-center border border-zinc-300 px-4 text-sm font-semibold" href="/auth/sign-in?next=%2Fauth%2Finternal-invitation">Войти и завершить активацию</Link>
       ) : null}
     </div>
   );

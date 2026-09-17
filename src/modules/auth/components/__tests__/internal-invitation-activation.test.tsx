@@ -6,7 +6,6 @@ import { InternalInvitationActivationForm } from "../InternalInvitationActivatio
 const replace = vi.fn();
 const refresh = vi.fn();
 const setSession = vi.fn();
-const updateUser = vi.fn();
 const readiness = vi.fn();
 const activate = vi.fn();
 
@@ -16,7 +15,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/src/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: { setSession, updateUser },
+    auth: { setSession },
   }),
 }));
 
@@ -30,7 +29,6 @@ describe("InternalInvitationActivationForm", () => {
     replace.mockReset();
     refresh.mockReset();
     setSession.mockReset().mockResolvedValue({ error: null });
-    updateUser.mockReset().mockResolvedValue({ error: null });
     readiness.mockReset().mockResolvedValue({ state: "READY" });
     activate.mockReset().mockResolvedValue({ success: true, error: null });
     window.history.replaceState(null, "", "/auth/internal-invitation");
@@ -77,15 +75,13 @@ describe("InternalInvitationActivationForm", () => {
     expect(window.location.hash).toBe("");
   });
 
-  it("sets the password through Supabase before governed activation", async () => {
+  it("submits the password once to the atomic governed activation action", async () => {
     render(<InternalInvitationActivationForm initialState="READY" />);
     fireEvent.change(screen.getByLabelText("Новый пароль"), { target: { value: "StrongPass1" } });
     fireEvent.change(screen.getByLabelText("Повторите пароль"), { target: { value: "StrongPass1" } });
     fireEvent.click(screen.getByRole("button", { name: "Установить пароль и активировать доступ" }));
 
-    await waitFor(() => expect(updateUser).toHaveBeenCalledWith({ password: "StrongPass1" }));
-    expect(activate).toHaveBeenCalledOnce();
-    expect(updateUser.mock.invocationCallOrder[0]).toBeLessThan(activate.mock.invocationCallOrder[0]);
+    await waitFor(() => expect(activate).toHaveBeenCalledWith("StrongPass1"));
     expect(replace).toHaveBeenCalledWith("/admin");
   });
 });

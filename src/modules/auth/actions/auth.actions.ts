@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/src/lib/supabase/server";
 import { createCompanyUserManagementService, createUserProfileService } from "@/src/modules/access-control/actions/service-factory";
+import { createAdminInternalUserProvisioningService } from "@/src/modules/admin/services";
 import { isPartnerLocale } from "@/src/modules/partner-locale";
 import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
 
@@ -28,6 +29,17 @@ export async function signInAction(
 
   if (error) {
     return { error: "Email or password is incorrect." };
+  }
+
+  if (nextPath === "/auth/internal-invitation") {
+    let activationFailed = false;
+    try {
+      await createAdminInternalUserProvisioningService().activateCurrent();
+    } catch {
+      activationFailed = true;
+    }
+    if (activationFailed) redirect("/auth/internal-invitation?invite_error=invalid");
+    redirect("/admin");
   }
 
   if (data.user?.id) {

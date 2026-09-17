@@ -14,6 +14,14 @@ const component = readFileSync(
   join(process.cwd(), "src/modules/auth/components/InternalInvitationActivationForm.tsx"),
   "utf8",
 );
+const activationActions = readFileSync(
+  join(process.cwd(), "src/modules/auth/actions/internal-invitation.actions.ts"),
+  "utf8",
+);
+const authActions = readFileSync(
+  join(process.cwd(), "src/modules/auth/actions/auth.actions.ts"),
+  "utf8",
+);
 const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260917200347_internal_invite_activation_flow_fix_v1.sql"),
   "utf8",
@@ -43,6 +51,21 @@ describe("internal invitation activation contract", () => {
     expect(component).toContain("window.history.replaceState");
     expect(component).toContain("supabase.auth.setSession");
     expect(component).not.toMatch(/console\.(?:log|error|warn)/);
+  });
+
+  it("keeps password setup and governed role activation in one SSR action", () => {
+    const updatePosition = activationActions.indexOf("supabase.auth.updateUser({ password })");
+    const activationPosition = activationActions.indexOf("service.activateCurrent()");
+    expect(updatePosition).toBeGreaterThan(0);
+    expect(activationPosition).toBeGreaterThan(updatePosition);
+    expect(component).not.toContain("supabase.auth.updateUser");
+  });
+
+  it("can resume a password-saved invitation only after normal password authentication", () => {
+    expect(authActions).toContain('nextPath === "/auth/internal-invitation"');
+    expect(authActions.indexOf("signInWithPassword")).toBeLessThan(
+      authActions.indexOf("createAdminInternalUserProvisioningService().activateCurrent()"),
+    );
   });
 
   it("reissues only the same governed pending identity and audits the event", () => {
