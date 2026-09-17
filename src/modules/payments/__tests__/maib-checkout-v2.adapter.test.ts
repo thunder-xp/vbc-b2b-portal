@@ -4,6 +4,7 @@ import { createMaibCheckoutV2Adapter, maibConfigurationSummary } from "../provid
 import { PaymentProviderError } from "../providers/payment-provider";
 
 const environment = {
+  MAIB_PAYMENT_MODE: "SANDBOX",
   MAIB_CLIENT_ID: "client-id",
   MAIB_CLIENT_SECRET: "client-secret",
   MAIB_SIGNATURE_KEY: "signature-key",
@@ -77,9 +78,28 @@ describe("MAIB Checkout API v2 adapter", () => {
   });
 
   it("requires complete server-only sandbox configuration", () => {
-    expect(maibConfigurationSummary(environment)).toEqual({ ready: true, sandbox: true, missing: [] });
+    expect(maibConfigurationSummary(environment)).toMatchObject({ ready: true, mode: "SANDBOX", sandbox: true, production: false, apiOrigin: "https://sandbox.maibmerchants.md", publicOrigin: "https://www.nsd.md", missing: [] });
     expect(maibConfigurationSummary({ ...environment, MAIB_CLIENT_SECRET: undefined }).ready).toBe(false);
     expect(() => createMaibCheckoutV2Adapter({ ...environment, MAIB_API_BASE_URL: "https://api.maibmerchants.md" })).toThrow(PaymentProviderError);
+  });
+
+  it("keeps production and sandbox hosts strictly separated", async () => {
+    const production = {
+      ...environment,
+      MAIB_PAYMENT_MODE: "PRODUCTION",
+      MAIB_API_BASE_URL: "https://api.maibmerchants.md",
+    };
+    expect(maibConfigurationSummary(production)).toMatchObject({ ready: true, mode: "PRODUCTION", sandbox: false, production: true });
+    expect(maibConfigurationSummary({ ...production, MAIB_API_BASE_URL: "https://sandbox.maibmerchants.md" }).ready).toBe(false);
+    expect(maibConfigurationSummary({ ...production, PUBLIC_APP_URL: "https://preview.example" }).ready).toBe(false);
+    expect(maibConfigurationSummary({ ...environment, MAIB_PAYMENT_MODE: undefined })).toMatchObject({ ready: false, mode: "DISABLED" });
+
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, result: { accessToken: "access-token", expiresIn: 300, tokenType: "Bearer" } }))
+      .mockResolvedValueOnce(json({ ok: true, result: { checkoutId: "22222222-2222-4222-8222-222222222222", checkoutUrl: "https://checkout.maib.md/222" } }));
+    const result = await createMaibCheckoutV2Adapter(production, fetcher).createCheckout(checkoutInput);
+    expect(String(fetcher.mock.calls[0]![0])).toBe("https://api.maibmerchants.md/v2/auth/token");
+    expect(result.checkoutUrl).toBe("https://checkout.maib.md/222");
   });
 
   it("creates a full refund with only authoritative amount and reason", async () => {

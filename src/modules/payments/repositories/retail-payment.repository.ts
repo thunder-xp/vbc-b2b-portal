@@ -8,6 +8,7 @@ import type {
   PaymentRefundResult,
   PaymentProviderRefundState,
   PaymentReturnState,
+  RetailOrderPaymentState,
 } from "../types";
 
 export type MaibReconciliationContext = Readonly<{
@@ -27,6 +28,9 @@ export interface RetailPaymentRepository {
   getMaibReconciliationContext(attemptId: string): Promise<MaibReconciliationContext | null>;
   retryMaibActivation(attemptId: string): Promise<PaymentConfirmationResult>;
   getReturnState(paymentAttemptId: string): Promise<PaymentReturnState | null>;
+  listOrderPaymentStates(retailOrderIds: string[]): Promise<RetailOrderPaymentState[]>;
+  getOrderPaymentStateByNumber(orderNumber: string): Promise<RetailOrderPaymentState | null>;
+  listRecentPaymentStates(limit: number): Promise<RetailOrderPaymentState[]>;
   claimRefund(input: Readonly<{ paymentAttemptId: string; reason: string; idempotencyKey: string }>): Promise<PaymentRefundClaim>;
   startRefundRequest(refundId: string): Promise<boolean>;
   assignProviderRefund(input: Readonly<{ refundId: string; providerRefundId: string; providerStatus: string }>): Promise<boolean>;

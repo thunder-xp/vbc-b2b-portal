@@ -1,5 +1,7 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
 import type { PaymentProvider } from "../payment-provider";
 import { PaymentProviderError } from "../payment-provider";
 import type {
@@ -13,10 +15,13 @@ import type {
 } from "../../types";
 
 const SANDBOX_ORIGIN = "https://sandbox.maibmerchants.md";
+const PRODUCTION_ORIGIN = "https://api.maibmerchants.md";
+const PRODUCTION_PUBLIC_ORIGIN = "https://www.nsd.md";
 const CHECKOUT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SAFE_CODE = /^[A-Za-z0-9_.:-]{1,80}$/;
 
 type MaibConfiguration = Readonly<{
+  mode: Exclude<MaibPaymentMode, "DISABLED">;
   clientId: string;
   clientSecret: string;
   signatureKey: string;
@@ -24,10 +29,27 @@ type MaibConfiguration = Readonly<{
   publicAppUrl: string;
 }>;
 
+export type MaibPaymentMode = "DISABLED" | "SANDBOX" | "PRODUCTION";
+
 export type MaibConfigurationSummary = Readonly<{
   ready: boolean;
+  mode: MaibPaymentMode;
   sandbox: boolean;
+  production: boolean;
+  apiOrigin: string | null;
+  publicOrigin: string | null;
+  callbackUrl: string | null;
+  returnUrl: string | null;
+  clientIdFingerprint: string | null;
   missing: string[];
+}>;
+
+export type MaibConnectivityResult = Readonly<{
+  status: "PASS";
+  mode: Exclude<MaibPaymentMode, "DISABLED">;
+  apiOrigin: string;
+  clientIdFingerprint: string;
+  authLatencyMs: number;
 }>;
 
 export class MaibCheckoutV2Adapter implements PaymentProvider {
@@ -38,6 +60,18 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
     private readonly configuration: MaibConfiguration,
     private readonly fetchImplementation: typeof fetch = fetch,
   ) {}
+
+  async verifyConnectivity(): Promise<MaibConnectivityResult> {
+    const startedAt = performance.now();
+    await this.getAccessToken();
+    return {
+      status: "PASS",
+      mode: this.configuration.mode,
+      apiOrigin: this.configuration.apiBaseUrl,
+      clientIdFingerprint: fingerprint(this.configuration.clientId),
+      authLatencyMs: Math.round(performance.now() - startedAt),
+    };
+  }
 
   async createCheckout(input: PaymentCheckoutInput): Promise<PaymentCheckoutResult> {
     const authStart = performance.now();
@@ -73,7 +107,7 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
     const result = objectValue(payload.result);
     const checkoutId = stringValue(result.checkoutId);
     const checkoutUrl = stringValue(result.checkoutUrl);
-    if (!checkoutId || !CHECKOUT_ID.test(checkoutId) || !checkoutUrl || !isSafeMaibCheckoutUrl(checkoutUrl)) {
+    if (!checkoutId || !CHECKOUT_ID.test(checkoutId) || !checkoutUrl || !isSafeMaibCheckoutUrl(checkoutUrl, this.configuration.mode)) {
       throw new PaymentProviderError("checkout", "INVALID_CHECKOUT_RESPONSE", true, response.status);
     }
     return { checkoutId: checkoutId.toLowerCase(), checkoutUrl, providerStatus: "WaitingForInit", authLatencyMs, checkoutLatencyMs, httpCalls: 2 };
@@ -242,48 +276,73 @@ export function createMaibCheckoutV2Adapter(
 }
 
 export function maibConfigurationSummary(environment: Readonly<Record<string, string | undefined>> = process.env): MaibConfigurationSummary {
+  const mode = normalizeMode(environment.MAIB_PAYMENT_MODE);
   const required = ["MAIB_CLIENT_ID", "MAIB_CLIENT_SECRET", "MAIB_SIGNATURE_KEY", "MAIB_API_BASE_URL", "PUBLIC_APP_URL"] as const;
-  const missing = required.filter((name) => !environment[name]?.trim());
-  let sandbox = false;
-  try { sandbox = normalizeSandboxBaseUrl(environment.MAIB_API_BASE_URL) === SANDBOX_ORIGIN; } catch { sandbox = false; }
-  return { ready: missing.length === 0 && sandbox && isSafePublicAppUrl(environment.PUBLIC_APP_URL), sandbox, missing };
+  const missing = mode === "DISABLED" ? [] : required.filter((name) => !environment[name]?.trim());
+  let apiOrigin: string | null = null;
+  let publicOrigin: string | null = null;
+  if (mode !== "DISABLED") {
+    try { apiOrigin = normalizeApiBaseUrl(environment.MAIB_API_BASE_URL, mode); } catch { apiOrigin = null; }
+    try { publicOrigin = normalizePublicAppUrl(environment.PUBLIC_APP_URL, mode); } catch { publicOrigin = null; }
+  }
+  const ready = mode !== "DISABLED" && missing.length === 0 && apiOrigin !== null && publicOrigin !== null;
+  return {
+    ready,
+    mode,
+    sandbox: mode === "SANDBOX",
+    production: mode === "PRODUCTION",
+    apiOrigin,
+    publicOrigin,
+    callbackUrl: publicOrigin ? new URL("/api/payments/maib/callback", `${publicOrigin}/`).toString() : null,
+    returnUrl: publicOrigin ? new URL("/payment/return", `${publicOrigin}/`).toString() : null,
+    clientIdFingerprint: environment.MAIB_CLIENT_ID?.trim() ? fingerprint(environment.MAIB_CLIENT_ID.trim()) : null,
+    missing,
+  };
 }
 
 function maibConfigurationFromEnvironment(environment: Readonly<Record<string, string | undefined>>): MaibConfiguration {
   const summary = maibConfigurationSummary(environment);
   if (!summary.ready) throw new PaymentProviderError("configuration", summary.missing.length ? "MAIB_CONFIGURATION_MISSING" : "MAIB_CONFIGURATION_INVALID", false);
   return Object.freeze({
+    mode: summary.mode as Exclude<MaibPaymentMode, "DISABLED">,
     clientId: environment.MAIB_CLIENT_ID!.trim(),
     clientSecret: environment.MAIB_CLIENT_SECRET!.trim(),
     signatureKey: environment.MAIB_SIGNATURE_KEY!.trim(),
-    apiBaseUrl: normalizeSandboxBaseUrl(environment.MAIB_API_BASE_URL),
-    publicAppUrl: normalizePublicAppUrl(environment.PUBLIC_APP_URL),
+    apiBaseUrl: summary.apiOrigin!,
+    publicAppUrl: summary.publicOrigin!,
   });
 }
 
-function normalizeSandboxBaseUrl(value: string | undefined) {
+function normalizeMode(value: string | undefined): MaibPaymentMode {
+  const candidate = value?.trim().toUpperCase();
+  return candidate === "SANDBOX" || candidate === "PRODUCTION" || candidate === "DISABLED" ? candidate : "DISABLED";
+}
+
+function normalizeApiBaseUrl(value: string | undefined, mode: Exclude<MaibPaymentMode, "DISABLED">) {
   const url = new URL(value?.trim() ?? "");
-  if (url.origin !== SANDBOX_ORIGIN || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash || url.username || url.password) throw new Error("invalid sandbox url");
+  const expectedOrigin = mode === "SANDBOX" ? SANDBOX_ORIGIN : PRODUCTION_ORIGIN;
+  if (url.origin !== expectedOrigin || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash || url.username || url.password) throw new Error("invalid MAIB API url");
   return url.origin;
 }
 
-function normalizePublicAppUrl(value: string | undefined) {
+function normalizePublicAppUrl(value: string | undefined, mode: Exclude<MaibPaymentMode, "DISABLED">) {
   const url = new URL(value?.trim() ?? "");
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw new Error("invalid public app url");
-  url.pathname = url.pathname.replace(/\/+$/, "") || "/";
-  return url.toString().replace(/\/$/, "");
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash
+    || (url.pathname !== "/" && url.pathname !== "")
+    || (mode === "PRODUCTION" && url.origin !== PRODUCTION_PUBLIC_ORIGIN)) throw new Error("invalid public app url");
+  return url.origin;
 }
 
-function isSafePublicAppUrl(value: string | undefined) { try { normalizePublicAppUrl(value); return true; } catch { return false; } }
-function isSafeMaibCheckoutUrl(value: string) {
+function isSafeMaibCheckoutUrl(value: string, mode: Exclude<MaibPaymentMode, "DISABLED">) {
   try {
     const url = new URL(value);
     return url.protocol === "https:"
       && !url.username
       && !url.password
-      && (url.hostname === "checkout-sandbox.maib.md" || url.hostname === "checkout.maib.md");
+      && url.hostname === (mode === "SANDBOX" ? "checkout-sandbox.maib.md" : "checkout.maib.md");
   } catch { return false; }
 }
+function fingerprint(value: string) { return createHash("sha256").update(value, "utf8").digest("hex").slice(0, 12); }
 function objectValue(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
 function stringValue(value: unknown) { return typeof value === "string" && value.length > 0 ? value : null; }
 function numberValue(value: unknown) { return typeof value === "number" && Number.isFinite(value) ? value : null; }

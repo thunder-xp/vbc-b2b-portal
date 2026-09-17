@@ -57,6 +57,17 @@ describe("Final Customer account service", () => {
     expect(result[0].currentProduct?.price).toBe(120);
   });
 
+  it("adds effective payment truth to owned orders with one bounded batch", async () => {
+    const repo = repository();
+    const order = { id: "11111111-1111-4111-8111-111111111111", number: "R-2026-000001", status: "confirmed", createdAt: "2026-09-15T00:00:00Z", total: 100, currency: "MDL", itemCount: 1, paidAt: "2026-09-15T01:00:00Z", paymentState: "PAID" as const };
+    vi.mocked(repo.listOrders).mockResolvedValue([order]);
+    const paymentStateReader = { listOrderPaymentStates: vi.fn().mockResolvedValue([{ retailOrderId: order.id, orderNumber: order.number, paymentAttemptId: "22222222-2222-4222-8222-222222222222", provider: "maib" as const, attemptStatus: "paid" as const, paymentState: "REFUNDED" as const, amount: "100.00", currency: "MDL", providerStatus: "Refunded", providerCheckoutId: null, providerPaymentId: null, providerRrn: null, failureCode: null, paymentCreatedAt: null, paymentConfirmedAt: null, refundId: null, refundStatus: "refunded" as const, refundProviderStatus: "Accepted", providerRefundId: null, refundFailureCode: null, refundRequestedAt: null, refundConfirmedAt: null, remainingRefundable: "0.00" }]) };
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+    const result = await new FinalCustomerAccountService(repo, undefined, paymentStateReader).listOrders(account);
+    expect(result[0]?.paymentState).toBe("REFUNDED");
+    expect(paymentStateReader.listOrderPaymentStates).toHaveBeenCalledWith([order.id]);
+  });
+
   it("rejects cross-customer service references before mutation", async () => {
     const repo = repository();
     vi.mocked(repo.findOrder).mockResolvedValue(null);

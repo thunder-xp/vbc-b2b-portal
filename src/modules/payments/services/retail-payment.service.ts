@@ -72,6 +72,21 @@ export class RetailPaymentService {
     return this.repository.getReturnState(paymentAttemptId);
   }
 
+  async listOrderPaymentStates(retailOrderIds: string[]) {
+    const ids = [...new Set(retailOrderIds.filter((id) => UUID.test(id)))];
+    return ids.length ? this.repository.listOrderPaymentStates(ids) : [];
+  }
+
+  async listRecentPaymentStates(limit = 50) {
+    return this.repository.listRecentPaymentStates(Math.min(Math.max(Math.trunc(limit), 1), 100));
+  }
+
+  async getOrderPaymentStateByNumber(orderNumber: string) {
+    return /^R-[0-9]{4}-[0-9]{6}$/.test(orderNumber)
+      ? this.repository.getOrderPaymentStateByNumber(orderNumber)
+      : null;
+  }
+
   async refundRetailPayment(input: Readonly<{ paymentAttemptId: string; reason: string; idempotencyKey: string }>): Promise<PaymentRefundResult> {
     const reason = input.reason.trim();
     if (!UUID.test(input.paymentAttemptId) || !UUID.test(input.idempotencyKey) || reason.length < 1 || reason.length > 500) {

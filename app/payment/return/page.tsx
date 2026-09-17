@@ -25,9 +25,11 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
   </main>;
 }
 
-function paymentCopy(status: "PROCESSING" | "PAID" | "FAILED" | "CANCELLED", locale: "ru" | "ro") {
+function paymentCopy(status: "PROCESSING" | "PAID" | "REFUND_PENDING" | "REFUNDED" | "FAILED" | "CANCELLED", locale: "ru" | "ro") {
   const ro = locale === "ro";
   if (status === "PAID") return { title: ro ? "Plata a fost efectuată cu succes" : "Оплата прошла успешно", detail: ro ? "Comanda a fost confirmată pe baza stării verificate a plății." : "Заказ подтверждён на основании проверенного статуса платежа." };
+  if (status === "REFUND_PENDING") return { title: ro ? "Rambursarea este procesată" : "Возврат обрабатывается", detail: ro ? "Starea finală va fi afișată după confirmarea MAIB." : "Итоговый статус появится после подтверждения MAIB." };
+  if (status === "REFUNDED") return { title: ro ? "Rambursarea a fost efectuată" : "Возврат выполнен", detail: ro ? "Plata inițială rămâne în istoric, iar suma rambursabilă rămasă este zero." : "Первичная оплата сохранена в истории, остаток к возврату равен нулю." };
   if (status === "FAILED") return { title: ro ? "Plata nu a fost finalizată" : "Платёж не завершён", detail: ro ? "Comanda nu a fost activată. Puteți reveni la catalog." : "Заказ не был активирован. Вы можете вернуться в каталог." };
   if (status === "CANCELLED") return { title: ro ? "Plata a fost anulată" : "Платёж отменён", detail: ro ? "Comanda nu a fost activată." : "Заказ не был активирован." };
   return { title: ro ? "Plata este în curs de procesare" : "Платёж обрабатывается", detail: ro ? "Așteptăm confirmarea verificată de la MAIB. Revenirea în browser nu confirmă plata." : "Ожидаем проверенное подтверждение от MAIB. Возврат в браузер не подтверждает оплату." };

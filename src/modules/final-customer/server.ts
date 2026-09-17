@@ -2,12 +2,17 @@ import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
 import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
+import { createRetailPaymentService } from "@/src/modules/payments/server";
 
 import { SupabaseFinalCustomerRepository } from "./supabase.repository";
 import { FinalCustomerAccountService, FinalCustomerAuthenticationError } from "./service";
 
 export function createFinalCustomerService() {
-  return new FinalCustomerAccountService(new SupabaseFinalCustomerRepository());
+  return new FinalCustomerAccountService(
+    new SupabaseFinalCustomerRepository(),
+    undefined,
+    createRetailPaymentService(),
+  );
 }
 
 export async function getFinalCustomerContext() {

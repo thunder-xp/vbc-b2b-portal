@@ -95,7 +95,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     const latestRequest = value.latestRequest as Record<string, unknown> | null;
     return {
       displayName: typeof value.displayName === "string" ? value.displayName : null,
-      latestOrder: latestOrder ? { id: String(latestOrder.id), number: String(latestOrder.number), status: String(latestOrder.status), createdAt: String(latestOrder.createdAt), total: Number(latestOrder.total), currency: String(latestOrder.currency), itemCount: Number(latestOrder.itemCount), paidAt: latestOrder.paidAt ? String(latestOrder.paidAt) : null } : null,
+      latestOrder: latestOrder ? { id: String(latestOrder.id), number: String(latestOrder.number), status: String(latestOrder.status), createdAt: String(latestOrder.createdAt), total: Number(latestOrder.total), currency: String(latestOrder.currency), itemCount: Number(latestOrder.itemCount), paidAt: latestOrder.paidAt ? String(latestOrder.paidAt) : null, paymentState: latestOrder.paidAt ? "PAID" as const : "UNPAID" as const } : null,
       recentPurchases: Array.isArray(value.recentPurchases) ? value.recentPurchases.flatMap((item) => item && typeof item === "object" ? [{ id: String((item as Row).id), name: String((item as Row).name), sku: String((item as Row).sku) }] : []) : [],
       equipmentCount: Number(value.equipmentCount ?? 0), documentCount: Number(value.documentCount ?? 0),
       latestRequest: latestRequest ? { id: String(latestRequest.id), number: String(latestRequest.number), status: latestRequest.status as CustomerServiceRequestStatus } : null,
@@ -398,7 +398,7 @@ function mapAccount(row: Row): FinalCustomerAccount {
 }
 
 function mapOrder(row: Row, itemCount: number): FinalCustomerOrderSummary {
-  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, paidAt: row.paid_at ? String(row.paid_at) : null };
+  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, paidAt: row.paid_at ? String(row.paid_at) : null, paymentState: row.paid_at ? "PAID" : "UNPAID" };
 }
 
 function mapOrderLine(row: Row): FinalCustomerOrderLine {

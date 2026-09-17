@@ -14,6 +14,11 @@ import {
   type CustomerServiceRequestStatus, type FinalCustomerAccount,
 } from "./types";
 import { customerServiceCancelAllowed, customerServiceReplyAllowed } from "./service-lifecycle";
+import type { RetailOrderPaymentState } from "@/src/modules/payments/types";
+
+type PaymentStateReader = Readonly<{
+  listOrderPaymentStates(orderIds: string[]): Promise<RetailOrderPaymentState[]>;
+}>;
 
 export class FinalCustomerAuthenticationError extends Error {
   constructor() {
@@ -28,6 +33,7 @@ export class FinalCustomerAccountService {
     private readonly identityResolver = new CustomerIdentityResolutionService(
       new SupabaseCustomerIdentityRepository(),
     ),
+    private readonly paymentStateReader: PaymentStateReader | null = null,
   ) {}
 
   async ensureAccount(user: User): Promise<FinalCustomerAccount> {
@@ -55,24 +61,35 @@ export class FinalCustomerAccountService {
   async overview(account: FinalCustomerAccount) {
     const [resolvedName, orders] = await Promise.all([
       account.displayName ? Promise.resolve(account.displayName) : this.repository.findDisplayName(account.customerIdentityId),
-      account.status === "ACTIVE" ? this.repository.listOrders(account.customerIdentityId, 5) : Promise.resolve([]),
+      this.listOrders(account, 5),
     ]);
     return { displayName: resolvedName, orders, latestOrder: orders[0] ?? null };
   }
 
-  listOrders(account: FinalCustomerAccount, limit = 20, offset = 0) {
-    return account.status === "ACTIVE"
-      ? this.repository.listOrders(account.customerIdentityId, limit, offset)
-      : Promise.resolve([]);
+  async listOrders(account: FinalCustomerAccount, limit = 20, offset = 0) {
+    if (account.status !== "ACTIVE") return [];
+    return this.withPaymentStates(await this.repository.listOrders(account.customerIdentityId, limit, offset));
   }
 
-  commandCenter(account: FinalCustomerAccount) {
-    return account.status === "ACTIVE" ? this.repository.getCommandCenter(account.customerIdentityId) : Promise.resolve({ displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0 });
+  async commandCenter(account: FinalCustomerAccount) {
+    if (account.status !== "ACTIVE") return { displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0 };
+    const result = await this.repository.getCommandCenter(account.customerIdentityId);
+    if (!result.latestOrder) return result;
+    return { ...result, latestOrder: (await this.withPaymentStates([result.latestOrder]))[0] ?? result.latestOrder };
   }
 
   async orderDetail(account: FinalCustomerAccount, orderId: string) {
     if (account.status !== "ACTIVE" || !UUID.test(orderId)) return null;
-    return this.repository.findOrder(account.customerIdentityId, orderId);
+    const order = await this.repository.findOrder(account.customerIdentityId, orderId);
+    if (!order) return null;
+    return (await this.withPaymentStates([order]))[0] ?? null;
+  }
+
+  private async withPaymentStates<T extends { id: string; paidAt: string | null; paymentState: import("@/src/modules/payments/types").EffectivePaymentState }>(orders: T[]): Promise<T[]> {
+    if (!orders.length || !this.paymentStateReader) return orders;
+    const states = await this.paymentStateReader.listOrderPaymentStates(orders.map((order) => order.id));
+    const byOrder = new Map(states.map((state) => [state.retailOrderId, state.paymentState]));
+    return orders.map((order) => ({ ...order, paymentState: byOrder.get(order.id) ?? (order.paidAt ? "PAID" : "UNPAID") }));
   }
 
   async purchases(account: FinalCustomerAccount, limit = 20, offset = 0) {

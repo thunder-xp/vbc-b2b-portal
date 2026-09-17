@@ -12,4 +12,20 @@ export async function getRetailPaymentReturnState(paymentAttemptId: string) {
   return new SupabaseRetailPaymentRepository().getReturnState(paymentAttemptId);
 }
 
+export async function getRetailOrderPaymentStates(retailOrderIds: string[]) {
+  return new SupabaseRetailPaymentRepository().listOrderPaymentStates(retailOrderIds);
+}
+
+export async function getRecentRetailPaymentStates(limit = 50) {
+  return new SupabaseRetailPaymentRepository().listRecentPaymentStates(limit);
+}
+
+export async function getRetailOrderPaymentStateByNumber(orderNumber: string) {
+  return createRetailPaymentService().getOrderPaymentStateByNumber(orderNumber);
+}
+
+export async function verifyMaibConnectivity() {
+  return createMaibCheckoutV2Adapter().verifyConnectivity();
+}
+
 export { maibConfigurationSummary };

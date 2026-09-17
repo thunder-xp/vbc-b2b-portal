@@ -1,3 +1,4 @@
+import type { EffectivePaymentState } from "@/src/modules/payments/types";
 import type { CustomerServiceRequestStatus, CustomerServiceRequestType } from "./types";
 
 export type CustomerLocale = "ru" | "ro";
@@ -15,6 +16,19 @@ export function orderStatus(status: string, locale: CustomerLocale) {
     draft: ["Черновик", "Ciornă"], awaiting_payment: ["Ожидает оплаты", "Așteaptă plata"], confirmed: ["Оплачен и подтверждён", "Plătită și confirmată"],
   };
   return labels[status]?.[locale === "ro" ? 1 : 0] ?? status;
+}
+
+export function paymentStatus(state: EffectivePaymentState, locale: CustomerLocale) {
+  const labels: Record<EffectivePaymentState, [string, string]> = {
+    UNPAID: ["Не оплачено", "Neachitat"],
+    PAYMENT_PENDING: ["Платёж обрабатывается", "Plata este procesată"],
+    PAID: ["Оплачено", "Achitat"],
+    REFUND_PENDING: ["Возврат обрабатывается", "Rambursarea este procesată"],
+    REFUNDED: ["Возврат выполнен", "Rambursarea a fost efectuată"],
+    FAILED: ["Платёж не выполнен", "Plata nu a fost efectuată"],
+    CANCELLED: ["Платёж отменён", "Plata a fost anulată"],
+  };
+  return labels[state][locale === "ro" ? 1 : 0];
 }
 
 export function serviceTypeLabel(type: CustomerServiceRequestType, locale: CustomerLocale) {

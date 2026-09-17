@@ -20,7 +20,7 @@ import type {
   PublicRetailLocale,
   RetailAddressDto,
 } from "@/src/modules/public-retail/types";
-import { maibConfigurationSummary } from "@/src/modules/payments/server";
+import { getRetailOrderPaymentStateByNumber, maibConfigurationSummary } from "@/src/modules/payments/server";
 
 export const metadata: Metadata = {
   title: "Order | Novotech",
@@ -49,6 +49,8 @@ export default async function PublicRetailOrderPage({
     hasRetailCheckoutAccess(),
   ]);
   if (!order) notFound();
+  const paymentState = (await getRetailOrderPaymentStateByNumber(order.orderNumber).catch(() => null))?.paymentState
+    ?? (order.status === "confirmed" ? "PAID" : "UNPAID");
   const ru = locale === "ru";
   const paymentReady = checkoutAccess && maibConfigurationSummary().ready;
   const installationRequested = order.installationIntent.some((entry) =>
@@ -76,13 +78,7 @@ export default async function PublicRetailOrderPage({
             <div className="flex items-center gap-3 text-emerald-700">
               <ShieldCheck aria-hidden="true" className="size-6" />
               <span className="text-sm font-semibold">
-                {order.status === "confirmed"
-                  ? ru
-                    ? "Оплата подтверждена"
-                    : "Plata a fost confirmată"
-                  : ru
-                    ? "Заказ подготовлен"
-                    : "Comanda a fost pregătită"}
+                {publicPaymentLabel(paymentState, ru)}
               </span>
             </div>
             <h1 className="mt-3 text-3xl font-semibold">{order.orderNumber}</h1>
@@ -411,4 +407,17 @@ function address(value: RetailAddressDto) {
   ]
     .filter(Boolean)
     .join(", ");
+}
+
+function publicPaymentLabel(state: string, ru: boolean) {
+  const labels: Record<string, [string, string]> = {
+    UNPAID: ["Не оплачено", "Neachitat"],
+    PAYMENT_PENDING: ["Платёж обрабатывается", "Plata este procesată"],
+    PAID: ["Оплачено", "Achitat"],
+    REFUND_PENDING: ["Возврат обрабатывается", "Rambursarea este procesată"],
+    REFUNDED: ["Возврат выполнен", "Rambursarea a fost efectuată"],
+    FAILED: ["Платёж не выполнен", "Plata nu a fost efectuată"],
+    CANCELLED: ["Платёж отменён", "Plata a fost anulată"],
+  };
+  return (labels[state] ?? labels.UNPAID)![ru ? 0 : 1];
 }

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
-import type { PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentRefundClaim, PaymentRefundClaimOutcome, PaymentRefundResult, PaymentRefundStatus, PaymentReturnState } from "../../types";
+import type { EffectivePaymentState, PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentRefundClaim, PaymentRefundClaimOutcome, PaymentRefundResult, PaymentRefundStatus, PaymentReturnState, RetailOrderPaymentState } from "../../types";
 import type { MaibReconciliationContext } from "../retail-payment.repository";
 import type { RetailPaymentRepository } from "../retail-payment.repository";
 
@@ -76,6 +76,37 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
 
   async getReturnState(paymentAttemptId: string) {
     return parseReturnState(await this.rpc("get_retail_payment_return_state_v1", { p_payment_attempt_id: paymentAttemptId }));
+  }
+
+  async listOrderPaymentStates(retailOrderIds: string[]) {
+    const ids = [...new Set(retailOrderIds.filter(isUuid))];
+    if (!ids.length) return [];
+    const { data, error } = await createAdminClient()
+      .from("retail_payment_current_states_v1")
+      .select(PAYMENT_STATE_COLUMNS)
+      .in("retail_order_id", ids);
+    if (error) throw new RetailPaymentRepositoryError(error.code);
+    return (data ?? []).map(parsePaymentState);
+  }
+
+  async listRecentPaymentStates(limit: number) {
+    const { data, error } = await createAdminClient()
+      .from("retail_payment_current_states_v1")
+      .select(PAYMENT_STATE_COLUMNS)
+      .order("payment_created_at", { ascending: false })
+      .limit(Math.min(Math.max(limit, 1), 100));
+    if (error) throw new RetailPaymentRepositoryError(error.code);
+    return (data ?? []).map(parsePaymentState);
+  }
+
+  async getOrderPaymentStateByNumber(orderNumber: string) {
+    const { data, error } = await createAdminClient()
+      .from("retail_payment_current_states_v1")
+      .select(PAYMENT_STATE_COLUMNS)
+      .eq("order_number", orderNumber)
+      .maybeSingle();
+    if (error) throw new RetailPaymentRepositoryError(error.code);
+    return data ? parsePaymentState(data) : null;
   }
 
   async claimRefund(input: Parameters<RetailPaymentRepository["claimRefund"]>[0]) {
@@ -187,8 +218,58 @@ function parseReturnState(value: unknown): PaymentReturnState | null {
   if (value === null) return null;
   if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
   const row = value as Record<string, unknown>;
-  if ((row.status !== "PROCESSING" && row.status !== "PAID" && row.status !== "FAILED" && row.status !== "CANCELLED") || (row.locale !== "ru" && row.locale !== "ro")) throw new RetailPaymentRepositoryError("invalid_response");
+  if ((row.status !== "PROCESSING" && row.status !== "PAID" && row.status !== "REFUND_PENDING" && row.status !== "REFUNDED" && row.status !== "FAILED" && row.status !== "CANCELLED") || (row.locale !== "ru" && row.locale !== "ro")) throw new RetailPaymentRepositoryError("invalid_response");
   return { status: row.status, locale: row.locale };
+}
+
+const PAYMENT_STATE_COLUMNS = "retail_order_id,order_number,payment_attempt_id,provider,attempt_status,payment_state,amount,currency,provider_status,provider_checkout_id,provider_payment_id,provider_rrn,failure_code,payment_created_at,payment_confirmed_at,refund_id,refund_status,refund_provider_status,provider_refund_id,refund_failure_code,refund_requested_at,refund_confirmed_at,remaining_refundable";
+const PAYMENT_STATES = new Set<EffectivePaymentState>(["UNPAID", "PAYMENT_PENDING", "PAID", "REFUND_PENDING", "REFUNDED", "FAILED", "CANCELLED"]);
+
+function parsePaymentState(value: unknown): RetailOrderPaymentState {
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  if (!isUuid(row.retail_order_id) || typeof row.order_number !== "string" || !row.order_number
+    || !isUuid(row.payment_attempt_id) || row.provider !== "maib"
+    || typeof row.attempt_status !== "string" || !ATTEMPT_STATUSES.has(row.attempt_status as PaymentAttemptStatus)
+    || typeof row.payment_state !== "string" || !PAYMENT_STATES.has(row.payment_state as EffectivePaymentState)
+    || !isMoney(row.amount) || typeof row.currency !== "string") {
+    throw new RetailPaymentRepositoryError("invalid_response");
+  }
+  return {
+    retailOrderId: row.retail_order_id,
+    orderNumber: row.order_number,
+    paymentAttemptId: row.payment_attempt_id,
+    provider: "maib",
+    attemptStatus: row.attempt_status as PaymentAttemptStatus,
+    paymentState: row.payment_state as EffectivePaymentState,
+    amount: Number(row.amount).toFixed(2),
+    currency: row.currency,
+    providerStatus: nullableString(row.provider_status),
+    providerCheckoutId: nullableString(row.provider_checkout_id),
+    providerPaymentId: nullableString(row.provider_payment_id),
+    providerRrn: nullableString(row.provider_rrn),
+    failureCode: nullableString(row.failure_code),
+    paymentCreatedAt: nullableDate(row.payment_created_at),
+    paymentConfirmedAt: nullableDate(row.payment_confirmed_at),
+    refundId: isUuid(row.refund_id) ? row.refund_id : null,
+    refundStatus: typeof row.refund_status === "string" && REFUND_STATUSES.has(row.refund_status as PaymentRefundStatus) ? row.refund_status as PaymentRefundStatus : null,
+    refundProviderStatus: nullableString(row.refund_provider_status),
+    providerRefundId: nullableString(row.provider_refund_id),
+    refundFailureCode: nullableString(row.refund_failure_code),
+    refundRequestedAt: nullableDate(row.refund_requested_at),
+    refundConfirmedAt: nullableDate(row.refund_confirmed_at),
+    remainingRefundable: row.remaining_refundable === null || row.remaining_refundable === undefined
+      ? null
+      : nonNegativeMoney(row.remaining_refundable),
+  };
+}
+
+function nullableString(value: unknown) { return typeof value === "string" && value.length > 0 ? value : null; }
+function nullableDate(value: unknown) { return value === null || value === undefined ? null : isIsoDate(value) ? value : null; }
+function nonNegativeMoney(value: unknown) {
+  const normalized = String(value);
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) throw new RetailPaymentRepositoryError("invalid_response");
+  return Number(normalized).toFixed(2);
 }
 
 const REFUND_CLAIM_OUTCOMES = new Set<PaymentRefundClaimOutcome>([

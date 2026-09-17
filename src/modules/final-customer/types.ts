@@ -21,6 +21,7 @@ export type FinalCustomerOrderSummary = Readonly<{
   currency: string;
   itemCount: number;
   paidAt: string | null;
+  paymentState: EffectivePaymentState;
 }>;
 
 export type FinalCustomerOrderLine = Readonly<{
@@ -159,3 +160,4 @@ export type FinalCustomerContext = Readonly<{
   displayName: string | null;
   aal: "aal1" | "aal2" | null;
 }>;
+import type { EffectivePaymentState } from "@/src/modules/payments/types";

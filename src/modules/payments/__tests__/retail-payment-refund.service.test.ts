@@ -95,6 +95,7 @@ function dependencies(claimResult: PaymentRefundClaim = claim) {
   const repository: RetailPaymentRepository = {
     claim: vi.fn(), completeCheckout: vi.fn(), recordFailure: vi.fn(), confirmMaib: vi.fn(),
     getMaibReconciliationContext: vi.fn(), retryMaibActivation: vi.fn(), getReturnState: vi.fn(),
+    listOrderPaymentStates: vi.fn().mockResolvedValue([]), getOrderPaymentStateByNumber: vi.fn().mockResolvedValue(null), listRecentPaymentStates: vi.fn().mockResolvedValue([]),
     claimRefund: vi.fn().mockResolvedValue(claimResult),
     startRefundRequest: vi.fn().mockResolvedValue(true),
     assignProviderRefund: vi.fn().mockResolvedValue(true),

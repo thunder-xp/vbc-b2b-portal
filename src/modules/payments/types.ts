@@ -1,6 +1,33 @@
 export type PaymentProviderName = "maib";
 export type PaymentAttemptStatus = "created" | "pending" | "paid_pending_activation" | "paid" | "failed" | "cancelled" | "expired";
 export type PaymentRefundStatus = "created" | "pending" | "refunded" | "failed";
+export type EffectivePaymentState = "UNPAID" | "PAYMENT_PENDING" | "PAID" | "REFUND_PENDING" | "REFUNDED" | "FAILED" | "CANCELLED";
+
+export type RetailOrderPaymentState = Readonly<{
+  retailOrderId: string;
+  orderNumber: string;
+  paymentAttemptId: string | null;
+  provider: PaymentProviderName | null;
+  attemptStatus: PaymentAttemptStatus | null;
+  paymentState: EffectivePaymentState;
+  amount: string | null;
+  currency: string | null;
+  providerStatus: string | null;
+  providerCheckoutId: string | null;
+  providerPaymentId: string | null;
+  providerRrn: string | null;
+  failureCode: string | null;
+  paymentCreatedAt: string | null;
+  paymentConfirmedAt: string | null;
+  refundId: string | null;
+  refundStatus: PaymentRefundStatus | null;
+  refundProviderStatus: string | null;
+  providerRefundId: string | null;
+  refundFailureCode: string | null;
+  refundRequestedAt: string | null;
+  refundConfirmedAt: string | null;
+  remainingRefundable: string | null;
+}>;
 
 export type PaymentInitiationOutcome =
   | "NOT_ELIGIBLE"
@@ -92,7 +119,7 @@ export type PaymentConfirmationResult = Readonly<{
 }>;
 
 export type PaymentReturnState = Readonly<{
-  status: "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
+  status: "PROCESSING" | "PAID" | "REFUND_PENDING" | "REFUNDED" | "FAILED" | "CANCELLED";
   locale: "ru" | "ro";
 }>;
 
