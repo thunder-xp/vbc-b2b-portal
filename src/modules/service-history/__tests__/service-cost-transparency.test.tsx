@@ -11,6 +11,10 @@ const migration = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260917062913_b2b_service_center_cost_transparency_v1.sql"),
   "utf8",
 );
+const backfillScopeMigration = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260917063612_service_history_financial_backfill_active_scope.sql"),
+  "utf8",
+);
 
 describe("service cost transparency", () => {
   it("renders authoritative amount in the list and a gross/VAT breakdown in detail", () => {
@@ -75,6 +79,8 @@ describe("service cost transparency", () => {
     expect(migration).toContain("financial_backfill");
     expect(migration).toContain("one_c_service_history_company_completed_month_idx");
     expect(migration).not.toMatch(/http|odata/i);
+    expect(backfillScopeMigration).toContain("service_financial_checked_at is null and is_active");
+    expect(backfillScopeMigration).not.toContain("service_financial_checked_at is null and partner_visible");
   });
 });
 
