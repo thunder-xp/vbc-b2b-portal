@@ -7,6 +7,7 @@ export { AdminCompanyOverviewView } from "./AdminCompanyOverview";
 export { AdminCompanyContractMapping } from "./AdminCompanyContractMapping";
 export { AdminCompanyCashContractMapping } from "./AdminCompanyCashContractMapping";
 export { AdminUserDirectory } from "./AdminUserDirectory";
+export { AdminFinanceOperatorInvite } from "./AdminFinanceOperatorInvite";
 export { AdminInvitationDirectory } from "./AdminInvitationDirectory";
 export { AdminAccessInspector } from "./AdminAccessInspector";
 export { AdminCompanyAccessSubjects } from "./AdminCompanyAccessSubjects";

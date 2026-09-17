@@ -11,6 +11,11 @@ export type {
 export type { AdminAccessRepository } from "./admin-access.repository";
 export type { AdminRoleManagementRepository } from "./admin-role-management.repository";
 export type {
+  AdminInternalUserProvisioningRepository,
+  BeginFinanceOperatorProvisioningResult,
+  InternalUserProvisioningState,
+} from "./admin-internal-user-provisioning.repository";
+export type {
   AdminHistoryRepository,
   ListAdminHistoryInput,
 } from "./admin-history.repository";

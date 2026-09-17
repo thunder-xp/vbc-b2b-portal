@@ -7,5 +7,6 @@ export { SupabaseAdminIdentityRepository } from "./admin-identity.supabase-repos
 export { SupabaseAdminAccessRepository } from "./admin-access.supabase-repository";
 export { SupabaseAdminDashboardRepository } from "./admin-dashboard.supabase-repository";
 export { SupabaseAdminRoleManagementRepository } from "./admin-role-management.supabase-repository";
+export { SupabaseAdminInternalUserProvisioningRepository } from "./admin-internal-user-provisioning.supabase-repository";
 export { SupabaseAdminHistoryRepository } from "./admin-history.supabase-repository";
 export { SupabaseAdminOperationsRepository } from "./admin-operations.supabase-repository";

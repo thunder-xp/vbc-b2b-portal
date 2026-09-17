@@ -10,6 +10,7 @@ import {
 import { ASSIGNABLE_INTERNAL_ROLES } from "../services";
 import type { AdminUserFilter, AdminUserPage } from "../types";
 import { AdminPageHeader } from "./AdminPageHeader";
+import { AdminFinanceOperatorInvite } from "./AdminFinanceOperatorInvite";
 
 const FILTER_LABELS: Record<AdminUserFilter, string> = {
   all: "Все пользователи",
@@ -41,6 +42,7 @@ export function AdminUserDirectory({
         eyebrow="Доступ"
         title="Пользователи"
       />
+      {canManageInternalRoles ? <AdminFinanceOperatorInvite /> : null}
       <form className="grid gap-3 border border-zinc-200 bg-white p-4 md:grid-cols-[minmax(0,1fr)_15rem_auto]">
         <label className="grid gap-1 text-sm font-medium">
           Поиск

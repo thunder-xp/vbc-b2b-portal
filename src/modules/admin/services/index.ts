@@ -33,6 +33,11 @@ export {
   type AssignableInternalRole,
 } from "./admin-role-management.service";
 export {
+  AdminInternalUserProvisioningService,
+  createAdminInternalUserProvisioningService,
+  type InviteFinanceOperatorResult,
+} from "./admin-internal-user-provisioning.service";
+export {
   AdminHistoryService,
   createAdminHistoryService,
 } from "./admin-history.service";
