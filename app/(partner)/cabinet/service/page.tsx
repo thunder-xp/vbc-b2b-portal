@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import {
   UnifiedServiceHistoryList,
-  listUnifiedServiceHistoryAction,
+  ServiceMonthlySummaryCard,
+  getPartnerServiceWorkspaceAction,
 } from "@/src/modules/service-history";
 import { serviceCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -11,14 +12,14 @@ import { PartnerWarrantySerialLookup } from "@/src/modules/warranty-serials";
 export default async function ServicePage({
   searchParams,
 }: {
-  searchParams: Promise<{ query?: string; filter?: string; page?: string }>;
+  searchParams: Promise<{ query?: string; filter?: string; page?: string; month?: string }>;
 }) {
   const [params, locale] = await Promise.all([
     searchParams,
     getPartnerLocale(),
   ]);
   const copy = serviceCopy(locale);
-  const result = await listUnifiedServiceHistoryAction(params);
+  const result = await getPartnerServiceWorkspaceAction(params);
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -36,6 +37,14 @@ export default async function ServicePage({
           {copy.create}
         </Link>
       </header>
+      {result.success ? (
+        <ServiceMonthlySummaryCard
+          filter={params.filter}
+          locale={locale}
+          query={params.query}
+          summary={result.data.monthlySummary}
+        />
+      ) : null}
       <section aria-labelledby="warranty-check-title">
         <h2 className="mb-3 text-lg font-semibold" id="warranty-check-title">
           {copy.warrantyCheck}
@@ -52,6 +61,7 @@ export default async function ServicePage({
           </p>
         </div>
         <form className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px_auto]">
+          {result.success ? <input name="month" type="hidden" value={result.data.monthlySummary.month} /> : null}
           <input
             className="min-h-11 rounded-md border border-zinc-300 px-3 text-sm"
             defaultValue={params.query}
@@ -77,7 +87,8 @@ export default async function ServicePage({
           <UnifiedServiceHistoryList
             filter={params.filter}
             locale={locale}
-            page={result.data}
+            month={result.data.monthlySummary.month}
+            page={result.data.history}
             query={params.query}
           />
         ) : (

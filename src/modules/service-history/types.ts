@@ -37,6 +37,10 @@ export type UnifiedServiceHistoryItem = {
   productHref: string | null;
   maskedSerial: string | null;
   reportedFault: string | null;
+  workSummary: string | null;
+  serviceAmount: string | null;
+  vatAmount: string | null;
+  currency: string | null;
   warrantyState: string | null;
   warrantyEndDate: string | null;
   updatedAt: string;
@@ -62,12 +66,39 @@ export type OneCServiceHistoryDetail = {
   reportedFault: string | null;
   completedWorkSummary: string | null;
   resolution: string | null;
+  serviceAmount: string | null;
+  vatAmount: string | null;
+  currency: string | null;
+  sumIncludesVat: boolean | null;
+  repairCompletedAt: string | null;
+  issuedAt: string | null;
+  contract: string | null;
   warrantyState: string | null;
   warrantyStartDate: string | null;
   warrantyEndDate: string | null;
   serviceCenter: string | null;
   updatedAt: string;
   events: Array<{ id: string; type: string; status: OneCServiceStatus; occurredAt: string }>;
+};
+
+export type ServiceMonthlyCurrencySummary = {
+  currency: string;
+  completedServiceCount: number;
+  totalServiceAmount: string;
+  totalVatAmount: string;
+};
+
+export type ServiceMonthlySummary = {
+  month: string;
+  previousMonth: string | null;
+  nextMonth: string | null;
+  currencies: ServiceMonthlyCurrencySummary[];
+  unknownCurrencyCount: number;
+};
+
+export type PartnerServiceWorkspace = {
+  history: UnifiedServiceHistoryPage;
+  monthlySummary: ServiceMonthlySummary;
 };
 
 export type ServiceHistoryDiagnostics = {
@@ -90,6 +121,13 @@ export type ServiceHistoryDiagnostics = {
   conflicts: number;
   latestSourceDate: string | null;
   latestSync: Record<string, unknown> | null;
+  serviceDocumentsRead: number;
+  costPresent: number;
+  costMissing: number;
+  vatPresent: number;
+  statusMapped: number;
+  completedEligible: number;
+  currencyCounts: Record<string, number>;
 };
 
 export type AdminOneCServiceHistoryItem = {
@@ -151,6 +189,22 @@ export type OneCServiceSourceRow = {
   reportedFault: string | null;
   sourceRepairDescription: string | null;
   completedWorkSummary: string | null;
+  organizationRef: string | null;
+  contractSnapshot: string | null;
+  serviceAmount: string | null;
+  vatAmount: string | null;
+  currencyRef: string | null;
+  currencyCode: string | null;
+  sumIncludesVat: boolean | null;
+  vatIncludedInCost: boolean | null;
+  repairCompleted: boolean;
+  issuedToCustomer: boolean;
+  repairResult: boolean | null;
+  repairCompletionVariant: string | null;
+  repairVariant: string | null;
+  taxationMode: string | null;
+  repairCompletedAt: string | null;
+  issuedAt: string | null;
   sourceSaleReference: string | null;
   sourceFingerprint: string;
 };

@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { OneCServiceHistoryProvider, normalizeCompletedWork, normalizeOneCServiceStatus, oneCServiceHistoryEntities } from "../one-c-service-history.provider";
+import { ONE_C_SERVICE_STATUS_REFS, OneCServiceHistoryProvider, normalizeCompletedWork, normalizeOneCServiceStatus, oneCServiceHistoryEntities } from "../one-c-service-history.provider";
 
 const DOCUMENT = "11111111-1111-1111-1111-111111111111";
 const COMPANY = "22222222-2222-2222-2222-222222222222";
 const PRODUCT = "33333333-3333-3333-3333-333333333333";
-const STATUS = "44444444-4444-4444-4444-444444444444";
+const STATUS = ONE_C_SERVICE_STATUS_REFS.readyForPickup;
+const CURRENCY = "cf53f667-77a3-4c69-8146-2fd58525bbfc";
+const CONTRACT = "77777777-7777-7777-7777-777777777777";
 
 describe("OneCServiceHistoryProvider", () => {
   it.each([
@@ -33,13 +35,13 @@ describe("OneCServiceHistoryProvider", () => {
     expect(result.pageComplete).toBe(true);
   });
 
-  it("uses one header read and one cached status-catalog read across pages", async () => {
+  it("uses one header read and cached status/currency catalog reads across pages", async () => {
     const client = fakeClient([sourceRow()]);
     const provider = new OneCServiceHistoryProvider(client as never);
     await provider.fetchPage({ skip: 0, top: 1, rangeStart: "2021-08-08", rangeEnd: "2026-08-08" });
     await provider.fetchPage({ skip: 1, top: 1, rangeStart: "2021-08-08", rangeEnd: "2026-08-08" });
     expect(client.getLiteralDateRange).toHaveBeenCalledTimes(2);
-    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(client.get).toHaveBeenCalledTimes(2);
     expect(client.getLiteralDateRange).toHaveBeenCalledWith(oneCServiceHistoryEntities.source, expect.objectContaining({ top: 1 }), expect.anything());
   });
 
@@ -56,12 +58,50 @@ describe("OneCServiceHistoryProvider", () => {
     expect(result.rows[0]?.completedWorkSummary).toBe("Тест\nв ремонте не нуждается");
     expect(normalizeCompletedWork(" \u0000 \r\n ")).toBeNull();
   });
+
+  it("projects authoritative gross cost, VAT, currency, completion dates, and contract metadata", async () => {
+    const result = await new OneCServiceHistoryProvider(fakeClient([
+      sourceRow({
+        Договор_Key: CONTRACT,
+        ВалютаДокумента_Key: CURRENCY,
+        СуммаДокумента: 250,
+        СуммаНДС: 41.67,
+        СуммаВключаетНДС: true,
+        НДСВключатьВСтоимость: true,
+        РемонтВыполнен: true,
+        ВыдачаИзРемонта: false,
+        РезультатРемонта: true,
+        ДатаРемонтВыполнен: "2026-09-10T12:30:00",
+        ДатаВыдачаИзРемонта: "0001-01-01T00:00:00",
+      }),
+    ]) as never).fetchPage({ skip: 0, top: 100, rangeStart: "2021-08-08", rangeEnd: "2026-08-08" });
+
+    expect(result.rows[0]).toMatchObject({
+      contractRef: CONTRACT,
+      contractSnapshot: "Service agreement",
+      serviceAmount: "250.00",
+      vatAmount: "41.67",
+      currencyRef: CURRENCY,
+      currencyCode: "MDL",
+      sumIncludesVat: true,
+      vatIncludedInCost: true,
+      repairCompleted: true,
+      issuedToCustomer: false,
+      repairResult: true,
+      repairCompletedAt: "2026-09-10T12:30:00.000Z",
+      issuedAt: null,
+      normalizedStatus: "ready_for_pickup",
+    });
+  });
 });
 
 function fakeClient(rows: Record<string, unknown>[]) {
   return {
     getLiteralDateRange: vi.fn().mockResolvedValue({ value: rows }),
-    get: vi.fn().mockResolvedValue({ value: [{ Ref_Key: STATUS, Description: "К выдаче", DeletionMark: false }] }),
+    get: vi.fn(async (resource: string) => resource === oneCServiceHistoryEntities.currency
+      ? { value: [{ Ref_Key: CURRENCY, Code: "MDL", Description: "MDL", DeletionMark: false }] }
+      : { value: [{ Ref_Key: STATUS, Description: "К выдаче", DeletionMark: false }] }),
+    getLiteralGuidBatch: vi.fn().mockResolvedValue({ value: [{ Ref_Key: CONTRACT, Description: "Service agreement", DeletionMark: false }] }),
   };
 }
 
@@ -70,6 +110,9 @@ function sourceRow(overrides: Record<string, unknown> = {}) {
     Ref_Key: DOCUMENT, DataVersion: "AAAA", Number: "NSUU-000105", Date: "2026-08-01T10:00:00", Posted: true, DeletionMark: false,
     Контрагент_Key: COMPANY, Договор_Key: null, Номенклатура_Key: PRODUCT, Характеристика_Key: null, Серия_Key: null,
     СостояниеРемонта_Key: STATUS, СервисЦентр_Key: null, ОписаниеНеисправности: "Не включается", ОписаниеРемонта: "internal source text",
-    ДокументПродажи: null, ...overrides,
+    Организация_Key: null, ДокументПродажи: null, ВалютаДокумента_Key: CURRENCY, СуммаДокумента: 0, СуммаНДС: 0,
+    СуммаВключаетНДС: true, НДСВключатьВСтоимость: true, РемонтВыполнен: false, ВыдачаИзРемонта: false,
+    РезультатРемонта: null, ВариантЗавершенияРемонта: null, ВариантРемонта: null, НалогообложениеНДС: "ОблагаетсяНДС",
+    ДатаРемонтВыполнен: "0001-01-01T00:00:00", ДатаВыдачаИзРемонта: "0001-01-01T00:00:00", ...overrides,
   };
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import {
@@ -11,6 +12,7 @@ import {
   ONE_C_SERVICE_STATUS_LABELS,
   type AdminOneCServiceHistoryPage,
   type OneCServiceHistoryDetail,
+  type ServiceMonthlySummary,
   type UnifiedServiceHistoryPage,
 } from "./types";
 
@@ -35,11 +37,13 @@ export function UnifiedServiceHistoryList({
   query = "",
   filter = "all",
   locale = "ru",
+  month,
 }: {
   page: UnifiedServiceHistoryPage;
   query?: string;
   filter?: string;
   locale?: PartnerLocale;
+  month?: string;
 }) {
   const copy = historyCopy(locale);
   if (!page.items.length) {
@@ -58,7 +62,7 @@ export function UnifiedServiceHistoryList({
         <ul className="divide-y divide-zinc-200">
           {page.items.map((item) => (
             <li key={`${item.sourceType}:${item.id}`}>
-              <div className="grid min-h-28 grid-cols-[64px_minmax(0,1fr)] items-start gap-3 p-4 hover:bg-zinc-50 sm:grid-cols-[64px_minmax(0,1fr)_180px_auto] sm:items-center">
+              <div className="grid min-h-28 grid-cols-[64px_minmax(0,1fr)] items-start gap-3 p-4 hover:bg-zinc-50 sm:grid-cols-[64px_minmax(0,1fr)_170px_140px_auto] sm:items-center">
                 <ProductLineThumbnail
                   href={item.productHref ?? undefined}
                   imageUrl={item.productImageUrl}
@@ -91,11 +95,19 @@ export function UnifiedServiceHistoryList({
                       .filter(Boolean)
                       .join(" · ") || copy.noMarking}
                   </p>
-                  {item.reportedFault ? (
+                  {item.workSummary ?? item.reportedFault ? (
                     <p className="mt-2 line-clamp-2 text-sm text-zinc-600">
-                      {item.reportedFault}
+                      {item.workSummary ?? item.reportedFault}
                     </p>
                   ) : null}
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <p className="text-xs font-semibold uppercase text-zinc-500">{copy.serviceCost}</p>
+                  <p className="mt-1 whitespace-nowrap text-sm font-semibold text-zinc-900">
+                    {item.serviceAmount !== null && item.currency
+                      ? formatDecimalMoney(item.serviceAmount, item.currency)
+                      : copy.notProvided}
+                  </p>
                 </div>
                 <div className="col-span-2 sm:col-span-1">
                   <p className="text-sm font-medium text-zinc-900">
@@ -130,6 +142,7 @@ export function UnifiedServiceHistoryList({
           <PaginationLink
             disabled={page.page <= 1}
             filter={filter}
+            month={month}
             page={page.page - 1}
             query={query}
           >
@@ -141,6 +154,7 @@ export function UnifiedServiceHistoryList({
           <PaginationLink
             disabled={page.page >= pages}
             filter={filter}
+            month={month}
             page={page.page + 1}
             query={query}
           >
@@ -212,6 +226,24 @@ export function OneCServiceHistorySummary({
           ) : null}
         </div>
       </section>
+      <section aria-labelledby="service-financial-title" className="rounded-md border border-zinc-200 bg-zinc-50 p-4">
+        <h2 className="text-base font-semibold" id="service-financial-title">{copy.serviceCost}</h2>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <Metric
+            label={copy.total}
+            value={detail.serviceAmount !== null && detail.currency
+              ? formatDecimalMoney(detail.serviceAmount, detail.currency)
+              : copy.notProvided}
+          />
+          <Metric
+            label={copy.includingVat}
+            value={detail.vatAmount !== null && detail.currency
+              ? formatDecimalMoney(detail.vatAmount, detail.currency)
+              : copy.notProvided}
+          />
+        </div>
+        {detail.sumIncludesVat === true ? <p className="mt-3 text-xs text-zinc-500">{copy.grossVatNote}</p> : null}
+      </section>
       <TextSection
         title={copy.reportedFault}
         value={detail.reportedFault ?? copy.noDescription}
@@ -226,6 +258,9 @@ export function OneCServiceHistorySummary({
         <TextSection title={copy.serviceResult} value={detail.resolution} />
       ) : null}
       <section className="grid gap-4 sm:grid-cols-2">
+        <Metric label={copy.completedOn} value={formatOptionalDate(detail.repairCompletedAt, locale, copy.notProvided)} />
+        <Metric label={copy.issuedOn} value={formatOptionalDate(detail.issuedAt, locale, copy.notProvided)} />
+        {detail.contract ? <Metric label={copy.contract} value={detail.contract} /> : null}
         <Metric
           label={copy.warrantyUntil}
           value={formatOptionalDate(
@@ -263,6 +298,55 @@ export function OneCServiceHistorySummary({
         </section>
       ) : null}
     </div>
+  );
+}
+
+export function ServiceMonthlySummaryCard({
+  filter,
+  locale,
+  query,
+  summary,
+}: {
+  filter?: string;
+  locale: PartnerLocale;
+  query?: string;
+  summary: ServiceMonthlySummary;
+}) {
+  const copy = historyCopy(locale);
+  const hasData = summary.currencies.length > 0;
+  return (
+    <section aria-labelledby="service-month-summary-title" className="rounded-md border border-zinc-200 bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase text-emerald-700">{copy.monthlyTitle}</p>
+          <h2 className="mt-1 text-lg font-semibold capitalize" id="service-month-summary-title">{formatMonth(summary.month, locale)}</h2>
+        </div>
+        <div className="flex gap-2">
+          <MonthLink ariaLabel={copy.previousMonth} disabled={!summary.previousMonth} href={monthHref(summary.previousMonth, query, filter)}>
+            <ChevronLeft aria-hidden="true" className="size-4" />
+          </MonthLink>
+          <MonthLink ariaLabel={copy.nextMonth} disabled={!summary.nextMonth} href={monthHref(summary.nextMonth, query, filter)}>
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </MonthLink>
+        </div>
+      </div>
+      {hasData ? (
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {summary.currencies.map((bucket) => (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md bg-zinc-50 p-4 text-sm lg:grid-cols-1" key={bucket.currency}>
+              <Metric label={copy.servicesProvided} value={String(bucket.completedServiceCount)} />
+              <Metric label={copy.monthlyTotal} value={formatDecimalMoney(bucket.totalServiceAmount, bucket.currency)} />
+              <div className="col-span-2 lg:col-span-1">
+                <Metric label={copy.includingVat} value={formatDecimalMoney(bucket.totalVatAmount, bucket.currency)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-4 text-sm text-zinc-600">{copy.noCompletedServices}</p>
+      )}
+      {summary.unknownCurrencyCount > 0 ? <p className="mt-3 text-sm text-amber-700">{copy.currencyPending}</p> : null}
+    </section>
   );
 }
 
@@ -358,6 +442,33 @@ function Metric({ label, value }: { label: string; value: string }) {
     </dl>
   );
 }
+
+function MonthLink({ ariaLabel, children, disabled, href }: { ariaLabel: string; children: React.ReactNode; disabled: boolean; href: string }) {
+  if (disabled) return <span aria-disabled="true" aria-label={ariaLabel} className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-200 text-zinc-300">{children}</span>;
+  return <Link aria-label={ariaLabel} className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={href}>{children}</Link>;
+}
+
+function monthHref(month: string | null, query?: string, filter?: string) {
+  if (!month) return "/cabinet/service";
+  const params = new URLSearchParams({ month });
+  if (query) params.set("query", query);
+  if (filter) params.set("filter", filter);
+  return `/cabinet/service?${params}`;
+}
+
+function formatMonth(month: string, locale: PartnerLocale) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-RU", { month: "long", year: "numeric", timeZone: "UTC" })
+    .format(new Date(Date.UTC(year!, monthNumber! - 1, 1)));
+}
+
+export function formatDecimalMoney(amount: string, currency: string) {
+  const match = amount.match(/^(-?)(\d+)(?:\.(\d+))?$/);
+  if (!match) return `${amount} ${currency}`;
+  const integer = match[2]!.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  const fraction = (match[3] ?? "").padEnd(2, "0").slice(0, 2);
+  return `${match[1]}${integer},${fraction} ${currency}`;
+}
 function TextSection({ title, value }: { title: string; value: string }) {
   return (
     <section>
@@ -372,12 +483,14 @@ function PaginationLink({
   filter,
   page,
   query,
+  month,
 }: {
   children: React.ReactNode;
   disabled: boolean;
   filter: string;
   page: number;
   query: string;
+  month?: string;
 }) {
   if (disabled)
     return (
@@ -390,6 +503,7 @@ function PaginationLink({
     );
   const params = new URLSearchParams({ filter, page: String(page) });
   if (query) params.set("query", query);
+  if (month) params.set("month", month);
   return (
     <Link
       className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-3 text-sm font-semibold"
@@ -429,6 +543,20 @@ function historyCopy(locale: PartnerLocale) {
         warrantyUntil: "Garanție până la",
         serviceCenter: "Centru de service",
         statusHistory: "Istoricul statutelor",
+        serviceCost: "Cost servicii",
+        total: "Total",
+        includingVat: "Inclusiv TVA",
+        grossVatNote: "Suma din 1C include TVA.",
+        completedOn: "Reparație finalizată",
+        issuedOn: "Eliberat clientului",
+        contract: "Contract",
+        monthlyTitle: "Valoarea totală pentru lună",
+        servicesProvided: "Servicii prestate",
+        monthlyTotal: "Valoarea totală",
+        noCompletedServices: "Nu există servicii prestate în această lună.",
+        previousMonth: "Luna precedentă",
+        nextMonth: "Luna următoare",
+        currencyPending: "Valuta unor documente este în curs de clarificare.",
       }
     : {
         empty: "История пока пуста",
@@ -457,5 +585,19 @@ function historyCopy(locale: PartnerLocale) {
         warrantyUntil: "Гарантия до",
         serviceCenter: "Сервисный центр",
         statusHistory: "История статусов",
+        serviceCost: "Стоимость услуг",
+        total: "Итого",
+        includingVat: "В т.ч. НДС",
+        grossVatNote: "Сумма из 1С включает НДС.",
+        completedOn: "Ремонт выполнен",
+        issuedOn: "Выдано клиенту",
+        contract: "Договор",
+        monthlyTitle: "Общая стоимость за месяц",
+        servicesProvided: "Оказано услуг",
+        monthlyTotal: "Общая стоимость",
+        noCompletedServices: "Оказанных услуг за этот месяц нет.",
+        previousMonth: "Предыдущий месяц",
+        nextMonth: "Следующий месяц",
+        currencyPending: "Валюта части документов уточняется.",
       };
 }

@@ -3,7 +3,7 @@ import { getServiceDiagnosticsAction } from "@/src/modules/service-center";
 import { getOneCServiceHistoryDiagnosticsAction } from "@/src/modules/service-history";
 
 const portalLabels: Record<string, string> = { totalCases: "Все заявки", active: "Активные", unassigned: "Без исполнителя", waitingForPartner: "Ожидают партнёра", waitingForEquipment: "Ожидают оборудование", diagnosis: "Диагностика", repair: "Ремонт", replacement: "Замена", readyForPickup: "Готовы к выдаче", overdue: "Просрочены", closed: "Закрыты", notificationFailures: "Ошибки уведомлений", missingRequiredDocuments: "Нет итогового документа", attachmentFailures: "Отклонённые вложения" };
-const historyLabels: Record<string, string> = { imported: "Импортировано", mappedCompanies: "Компании сопоставлены", unmappedCompanies: "Компании не сопоставлены", mappedProducts: "Товары сопоставлены", unmappedProducts: "Товары не сопоставлены", serialLinked: "Серийные номера связаны", serialUnlinked: "Серийные номера не связаны", activeRepairs: "Активный ремонт", readyForPickup: "Готово к выдаче", issued: "Выдано", unknownStatuses: "Неизвестные статусы", inactive: "Неактивные документы", conflicts: "Конфликты" };
+const historyLabels: Record<string, string> = { imported: "Импортировано", mappedCompanies: "Компании сопоставлены", unmappedCompanies: "Компании не сопоставлены", mappedProducts: "Товары сопоставлены", unmappedProducts: "Товары не сопоставлены", serialLinked: "Серийные номера связаны", serialUnlinked: "Серийные номера не связаны", activeRepairs: "Активный ремонт", readyForPickup: "Готово к выдаче", issued: "Выдано", unknownStatuses: "Неизвестные статусы", inactive: "Неактивные документы", conflicts: "Конфликты", serviceDocumentsRead: "Сервисные документы", costPresent: "Стоимость получена", costMissing: "Стоимость отсутствует", vatPresent: "НДС получен", statusMapped: "Статус сопоставлен", completedEligible: "Завершённые услуги", currencyCounts: "Валюты" };
 
 export default async function ServiceIntegrationPage() {
   await requireAdminPagePermission("admin.service.view");
@@ -17,5 +17,10 @@ export default async function ServiceIntegrationPage() {
 }
 
 function DiagnosticSection({ data, labels, title }: { data: Record<string, unknown> | null; labels: Record<string, string>; title: string }) {
-  return <section className="space-y-3"><h2 className="text-lg font-semibold">{title}</h2>{data ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(labels).map(([key, label]) => <article className="rounded-md border border-zinc-200 bg-white p-4" key={key}><p className="text-sm text-zinc-600">{label}</p><p className="mt-1 text-2xl font-semibold">{String(data[key] ?? 0)}</p></article>)}</div> : <p className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Диагностика временно недоступна.</p>}</section>;
+  return <section className="space-y-3"><h2 className="text-lg font-semibold">{title}</h2>{data ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{Object.entries(labels).map(([key, label]) => <article className="rounded-md border border-zinc-200 bg-white p-4" key={key}><p className="text-sm text-zinc-600">{label}</p><p className="mt-1 text-2xl font-semibold">{diagnosticValue(data[key])}</p></article>)}</div> : <p className="rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Диагностика временно недоступна.</p>}</section>;
+}
+
+function diagnosticValue(value: unknown) {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return String(value ?? 0);
+  return Object.entries(value).map(([key, count]) => `${key}: ${String(count)}`).join(" · ") || "0";
 }

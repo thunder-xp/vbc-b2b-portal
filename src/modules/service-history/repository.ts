@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
-import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
+import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, PartnerServiceWorkspace, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
 
 export class ServiceHistoryRepositoryError extends Error {
   constructor(readonly operation: string, readonly code: string | null = null) {
@@ -12,9 +12,9 @@ export class ServiceHistoryRepositoryError extends Error {
 }
 
 export class ServiceHistoryRepository {
-  claim() { return this.adminRpc<ServiceHistorySyncClaim | null>("claim_one_c_service_history_sync_v2", { p_page_size: 100 }); }
+  claim() { return this.adminRpc<ServiceHistorySyncClaim | null>("claim_one_c_service_history_sync_v3", { p_page_size: 100 }); }
   publish(input: { claim: ServiceHistorySyncClaim; rows: unknown[]; pageComplete: boolean }) {
-    return this.adminRpc<Record<string, unknown>>("publish_one_c_service_history_page_v2", {
+    return this.adminRpc<Record<string, unknown>>("publish_one_c_service_history_page_v3", {
       p_run_id: input.claim.runId,
       p_lock_token: input.claim.lockToken,
       p_skip: input.claim.skip,
@@ -41,6 +41,16 @@ export class ServiceHistoryRepository {
   }
   listPartner(input: { companyId: string; query: string; filter: string; page: number }) {
     return this.userRpc<UnifiedServiceHistoryPage>("list_partner_service_history", { p_company_id: input.companyId, p_query: input.query, p_filter: input.filter, p_page: input.page, p_page_size: 20 });
+  }
+  getPartnerWorkspace(input: { companyId: string; query: string; filter: string; page: number; month: string }) {
+    return this.userRpc<PartnerServiceWorkspace>("get_partner_service_workspace", {
+      p_company_id: input.companyId,
+      p_query: input.query,
+      p_filter: input.filter,
+      p_page: input.page,
+      p_page_size: 20,
+      p_month: `${input.month}-01`,
+    });
   }
   getPartner(id: string) { return this.userRpc<OneCServiceHistoryDetail | null>("get_partner_one_c_service_history", { p_id: id }); }
   getAdmin(id: string) { return this.userRpc<OneCServiceHistoryDetail | null>("get_admin_one_c_service_history", { p_id: id }); }

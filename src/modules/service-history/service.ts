@@ -11,6 +11,15 @@ export class ServiceHistoryService {
   async listPartner(userId: string, input: { query?: string; filter?: string; page?: string | number }) {
     return this.repository.listPartner({ companyId: await this.companyId(userId), query: trim(input.query,100), filter: ["active","ready","completed","all"].includes(input.filter ?? "") ? input.filter! : "all", page: page(input.page) });
   }
+  async getPartnerWorkspace(userId: string, input: { query?: string; filter?: string; page?: string | number; month?: string }) {
+    return this.repository.getPartnerWorkspace({
+      companyId: await this.companyId(userId),
+      query: trim(input.query, 100),
+      filter: ["active", "ready", "completed", "all"].includes(input.filter ?? "") ? input.filter! : "all",
+      page: page(input.page),
+      month: normalizeServiceMonth(input.month),
+    });
+  }
   async getPartner(_userId: string, id: string) { return this.repository.getPartner(uuid(id)); }
   listAdmin(input: { query?: string; status?: string; page?: string | number }) { return this.repository.listAdmin({ query: trim(input.query,100), status: ONE_C_SERVICE_STATUSES.includes(input.status as never) ? input.status! : null, page: page(input.page) }); }
   async getAdmin(id: string) {
@@ -25,3 +34,15 @@ export class ServiceHistoryService {
 function trim(value: unknown,max:number){return typeof value==="string"?value.trim().slice(0,max):"";}
 function page(value:unknown){const parsed=Number(value);return Number.isSafeInteger(parsed)&&parsed>0?Math.min(parsed,100000):1;}
 function uuid(value:string){const normalized=value.trim();if(!/^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(normalized))throw new Error("Invalid service history identifier.");return normalized;}
+
+export function normalizeServiceMonth(value: unknown, now = new Date()): string {
+  const current = monthKey(now.getUTCFullYear(), now.getUTCMonth() + 1);
+  const minimumDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 59, 1));
+  const minimum = monthKey(minimumDate.getUTCFullYear(), minimumDate.getUTCMonth() + 1);
+  const candidate = typeof value === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : current;
+  return candidate < minimum ? minimum : candidate > current ? current : candidate;
+}
+
+function monthKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}

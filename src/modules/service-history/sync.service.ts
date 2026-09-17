@@ -36,11 +36,27 @@ export class ServiceHistorySyncService {
           product_ref: row.productRef,
           characteristic_ref: row.characteristicRef,
           serial_ref: row.serialRef,
+          organization_ref: row.organizationRef,
           contract_ref: row.contractRef,
+          contract_snapshot: row.contractSnapshot,
           service_center_ref: row.serviceCenterRef,
           reported_fault: row.reportedFault,
           source_repair_description: row.sourceRepairDescription,
           completed_work_summary: row.completedWorkSummary,
+          service_amount: row.serviceAmount,
+          vat_amount: row.vatAmount,
+          currency_ref: row.currencyRef,
+          currency_code: row.currencyCode,
+          sum_includes_vat: row.sumIncludesVat,
+          vat_included_in_cost: row.vatIncludedInCost,
+          repair_completed: row.repairCompleted,
+          issued_to_customer: row.issuedToCustomer,
+          repair_result: row.repairResult,
+          repair_completion_variant: row.repairCompletionVariant,
+          repair_variant: row.repairVariant,
+          taxation_mode: row.taxationMode,
+          repair_completed_at: row.repairCompletedAt,
+          issued_at: row.issuedAt,
           source_sale_reference: row.sourceSaleReference,
           source_fingerprint: row.sourceFingerprint,
         })),
@@ -63,6 +79,11 @@ export class ServiceHistorySyncService {
     let rowsReceived = 0;
     let completedWorkChecked = 0;
     let completedWorkPopulated = 0;
+    let costPresent = 0;
+    let costMissing = 0;
+    let vatPresent = 0;
+    let statusMapped = 0;
+    let completedEligible = 0;
     let runId: string | undefined;
     while (steps < maxSteps && performance.now() - started < maxDurationMs) {
       const result = await this.runStep();
@@ -72,10 +93,15 @@ export class ServiceHistorySyncService {
       rowsReceived += result.rowsReceived;
       completedWorkChecked += numericResult(result.publication.completedWorkChecked);
       completedWorkPopulated += numericResult(result.publication.completedWorkPopulated);
-      if (result.status === "completed") return { status: "completed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
-      if (result.status === "superseded") return { status: "superseded", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
+      costPresent += numericResult(result.publication.costPresent);
+      costMissing += numericResult(result.publication.costMissing);
+      vatPresent += numericResult(result.publication.vatPresent);
+      statusMapped += numericResult(result.publication.statusMapped);
+      completedEligible += numericResult(result.publication.completedEligible);
+      if (result.status === "completed") return { status: "completed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, costPresent, costMissing, vatPresent, statusMapped, completedEligible, runId, durationMs: elapsed(started) };
+      if (result.status === "superseded") return { status: "superseded", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, costPresent, costMissing, vatPresent, statusMapped, completedEligible, runId, durationMs: elapsed(started) };
     }
-    return { status: "progressed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, runId, durationMs: elapsed(started) };
+    return { status: "progressed", steps, rowsReceived, completedWorkChecked, completedWorkPopulated, completedWorkEmpty: completedWorkChecked - completedWorkPopulated, costPresent, costMissing, vatPresent, statusMapped, completedEligible, runId, durationMs: elapsed(started) };
   }
 
   async runSerialEnrichmentStep() {

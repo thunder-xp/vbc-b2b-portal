@@ -24,6 +24,8 @@ function detail(overrides: Partial<OneCServiceHistoryDetail>): OneCServiceHistor
     id: "11111111-1111-1111-1111-111111111111", number: "NSUU-000229", date: "2026-07-24T10:00:00Z",
     status: "accepted", sourceStatus: "Принят в ремонт", product: { id: null, sku: "190023", name: "Test", imageUrl: null, href: null },
     maskedSerial: null, reportedFault: null, completedWorkSummary: null, resolution: null, warrantyState: null, warrantyStartDate: null, warrantyEndDate: null,
-    serviceCenter: null, updatedAt: "2026-08-08T08:30:00Z", events: [], ...overrides,
+    serviceCenter: null, serviceAmount: "0.00", vatAmount: "0.00", currency: "MDL", sumIncludesVat: true,
+    repairCompletedAt: null, issuedAt: null, contract: null,
+    updatedAt: "2026-08-08T08:30:00Z", events: [], ...overrides,
   };
 }
