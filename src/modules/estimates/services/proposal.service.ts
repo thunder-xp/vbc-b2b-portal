@@ -32,6 +32,7 @@ export type VersionProposalPreviewDto = {
 };
 
 export const DEFAULT_PROPOSAL_SETTINGS: ProposalSettings = {
+  senderDisplayName: "",
   title: "Коммерческое предложение",
   introduction: "Предлагаем решение для вашего проекта на следующих условиях.",
   deliveryTerms: "Срок поставки согласовывается после подтверждения заказа.",
@@ -246,7 +247,9 @@ export function normalizeSettings(input: Partial<ProposalSettings>): ProposalSet
   const flag = (key: keyof ProposalSettings) => typeof input[key] === "boolean" ? Boolean(input[key]) : Boolean(DEFAULT_PROPOSAL_SETTINGS[key]);
   const title = text("title", 200);
   if (!title) throw new InvalidStateError("Укажите заголовок предложения.");
-  return { title, introduction: text("introduction", 4000), deliveryTerms: text("deliveryTerms", 2000), paymentTerms: text("paymentTerms", 2000), warrantyTerms: text("warrantyTerms", 2000), validityText: text("validityText", 1000), installationNotes: text("installationNotes", 2000), exclusions: text("exclusions", 2000), customerNote: text("customerNote", 2000), footerNote: text("footerNote", 1000), showProductImages: flag("showProductImages"), showSku: flag("showSku"), showProductName: flag("showProductName"), showDescription: flag("showDescription"), showHeadingGreeting: flag("showHeadingGreeting"), showUnitPrice: flag("showUnitPrice"), showLineDiscount: flag("showLineDiscount"), showSectionSubtotals: flag("showSectionSubtotals"), showVatBreakdown: flag("showVatBreakdown"), showPartnerLogo: flag("showPartnerLogo") };
+  const senderDisplayName = text("senderDisplayName", 120);
+  if (/[<>]/.test(senderDisplayName)) throw new InvalidStateError("Название компании / бренда должно быть обычным текстом без разметки.");
+  return { senderDisplayName, title, introduction: text("introduction", 4000), deliveryTerms: text("deliveryTerms", 2000), paymentTerms: text("paymentTerms", 2000), warrantyTerms: text("warrantyTerms", 2000), validityText: text("validityText", 1000), installationNotes: text("installationNotes", 2000), exclusions: text("exclusions", 2000), customerNote: text("customerNote", 2000), footerNote: text("footerNote", 1000), showProductImages: flag("showProductImages"), showSku: flag("showSku"), showProductName: flag("showProductName"), showDescription: flag("showDescription"), showHeadingGreeting: flag("showHeadingGreeting"), showUnitPrice: flag("showUnitPrice"), showLineDiscount: flag("showLineDiscount"), showSectionSubtotals: flag("showSectionSubtotals"), showVatBreakdown: flag("showVatBreakdown"), showPartnerLogo: flag("showPartnerLogo") };
 }
 
 export function stableJson(value: unknown): string {

@@ -2,6 +2,10 @@ import type { CustomerProposalDto } from "../types";
 
 const MAX_VISIBLE_DESCRIPTION_LENGTH = 220;
 
+export function effectiveProposalSenderDisplayName(proposal: CustomerProposalDto): string {
+  return proposal.settings.senderDisplayName?.trim() || proposal.branding.companyName;
+}
+
 export function conciseProposalDescription(value: string): string {
   const normalized = value.replace(/\s+/g, " ").trim();
   if (normalized.length <= MAX_VISIBLE_DESCRIPTION_LENGTH) return normalized;

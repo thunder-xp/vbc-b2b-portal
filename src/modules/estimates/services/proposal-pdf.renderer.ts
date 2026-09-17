@@ -5,7 +5,7 @@ import pdfMake from "pdfmake/build/pdfmake";
 import robotoFonts from "pdfmake/build/vfs_fonts";
 
 import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
-import { proposalLineNumber, proposalLinePresentation, proposalVatLabels, sectionSubtotalLabel } from "./proposal-presentation";
+import { effectiveProposalSenderDisplayName, proposalLineNumber, proposalLinePresentation, proposalVatLabels, sectionSubtotalLabel } from "./proposal-presentation";
 import type { CustomerProposalDto, CustomerProposalLine } from "../types";
 
 type PdfMakeRuntime = { addVirtualFileSystem(vfs: unknown): void; setUrlAccessPolicy(callback: (url: string) => boolean): void; createPdf(definition: unknown): { getBuffer(): Promise<Buffer> } };
@@ -62,6 +62,7 @@ export async function renderProposalPdf(proposal: CustomerProposalDto): Promise<
 }
 
 export function createDocumentDefinition(proposal: CustomerProposalDto, images = new Map<string, string>()): TDocumentDefinitions {
+  const senderDisplayName = effectiveProposalSenderDisplayName(proposal);
   const content: Array<Record<string, unknown>> = [
     { columns: [brandingBlock(proposal, images), documentHeadingBlock(proposal)], margin: [0, 0, 0, 9] },
   ];
@@ -80,14 +81,15 @@ export function createDocumentDefinition(proposal: CustomerProposalDto, images =
     pageSize: "A4", pageMargins: [32, 32, 32, 40], content,
     defaultStyle: { font: "Roboto", fontSize: 8.25, color: "#27272a" },
     styles: { title: { fontSize: 18, bold: true, color: "#14532d", alignment: "right" }, documentNumber: { fontSize: 10, bold: true, alignment: "right", margin: [0, 3, 0, 0] }, section: { fontSize: 10, bold: true, color: "#14532d" } },
-    footer: (currentPage: number, pageCount: number) => ({ columns: [{ text: proposal.settings.footerNote || proposal.branding.companyName, color: "#71717a", fontSize: 7 }, { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#71717a", fontSize: 7 }], margin: [38, 18, 38, 0] }),
-    info: { title: `${proposal.settings.title} ${proposal.estimateNumber}`, author: proposal.branding.companyName, subject: "Коммерческое предложение" },
+    footer: (currentPage: number, pageCount: number) => ({ columns: [{ text: proposal.settings.footerNote || senderDisplayName, color: "#71717a", fontSize: 7 }, { text: `${currentPage} / ${pageCount}`, alignment: "right", color: "#71717a", fontSize: 7 }], margin: [38, 18, 38, 0] }),
+    info: { title: `${proposal.settings.title} ${proposal.estimateNumber}`, author: senderDisplayName, subject: "Коммерческое предложение" },
   } as unknown as TDocumentDefinitions;
 }
 
 function brandingBlock(proposal: CustomerProposalDto, images: Map<string, string>): Record<string, unknown> {
-  const lines = [proposal.branding.legalName || proposal.branding.companyName, proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.website].filter(Boolean) as string[];
-  const stack: Array<Record<string, unknown>> = [{ text: proposal.branding.companyName, fontSize: 14, bold: true, color: "#166534" }, ...lines.map((text) => ({ text, fontSize: 7, color: "#52525b", margin: [0, 1, 0, 0] }))];
+  const senderDisplayName = effectiveProposalSenderDisplayName(proposal);
+  const lines = [proposal.branding.legalName, proposal.branding.contactName ? `Ответственный: ${proposal.branding.contactName}` : null, proposal.branding.phone, proposal.branding.email, proposal.branding.address, proposal.branding.fiscalInformation, proposal.branding.website].filter(Boolean) as string[];
+  const stack: Array<Record<string, unknown>> = [{ text: senderDisplayName, fontSize: 14, bold: true, color: "#166534" }, ...lines.map((text) => ({ text, fontSize: 7, color: "#52525b", margin: [0, 1, 0, 0] }))];
   if (proposal.settings.showPartnerLogo && proposal.branding.logoUrl && images.has(proposal.branding.logoUrl)) stack.unshift({ image: images.get(proposal.branding.logoUrl), width: 64, height: 32, fit: [64, 32], margin: [0, 0, 0, 3] });
   return { stack };
 }

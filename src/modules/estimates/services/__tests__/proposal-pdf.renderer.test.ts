@@ -8,6 +8,17 @@ import { createDocumentDefinition, loadProposalImages, renderProposalPdf, resolv
 vi.mock("server-only", () => ({}));
 
 describe("proposal PDF renderer", () => {
+  it("uses the same sender override as preview and keeps the responsible contact separate", () => {
+    const value = fixture(1);
+    const definition = JSON.stringify(createDocumentDefinition({ ...value, settings: { ...value.settings, senderDisplayName: "XVISION" } }));
+    expect(definition).toContain('"text":"XVISION","fontSize":14');
+    expect(definition).toContain("Ответственный: Ivan Partner");
+    expect(definition).not.toContain('"text":"Партнёр SRL","fontSize":14');
+
+    const fallback = JSON.stringify(createDocumentDefinition({ ...value, settings: { ...value.settings, senderDisplayName: "" } }));
+    expect(fallback).toContain('"text":"Партнёр SRL","fontSize":14');
+    expect(fallback.match(/Партнёр SRL/g)).toHaveLength(2);
+  });
   it("keeps SKU and product name in the description block without dedicated code or unit columns", () => {
     const current = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-12-v4" }));
     const historical = JSON.stringify(createDocumentDefinition({ ...fixture(1), schemaVersion: "2026-08-08-v2" }));

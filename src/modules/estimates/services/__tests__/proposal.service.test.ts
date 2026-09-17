@@ -4,7 +4,7 @@ import { InvalidStateError, NotFoundError } from "../../../access-control/servic
 import type { EstimateRepository, ProposalRepository } from "../../repositories";
 import type { EstimateAggregate, GeneratedEstimateDocument, ProposalTemplate } from "../../types";
 import { renderProposalPdf } from "../proposal-pdf.renderer";
-import { DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, stableJson } from "../proposal.service";
+import { DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, normalizeSettings, stableJson } from "../proposal.service";
 
 vi.mock("../proposal-pdf.renderer", () => ({ renderProposalPdf: vi.fn().mockResolvedValue({ bytes: new Uint8Array([37, 80, 68, 70]), pageCount: 1 }) }));
 
@@ -61,6 +61,24 @@ describe("DefaultProposalService", () => {
       showDescription: false,
       showHeadingGreeting: false,
     }));
+  });
+
+  it("keeps a presentation-only sender override in the proposal snapshot without changing canonical branding", async () => {
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(aggregate({
+      proposalSettings: { ...DEFAULT_PROPOSAL_SETTINGS, senderDisplayName: "  XVISION SECURITY  " },
+    }));
+
+    const preview = await service.preparePreview("user-1", "estimate-1");
+
+    expect(preview.proposal.settings.senderDisplayName).toBe("XVISION SECURITY");
+    expect(preview.proposal.branding.companyName).toBe("Partner SRL");
+    expect(preview.proposal.branding.contactName).toBe("Ivan");
+  });
+
+  it("normalizes a bounded Unicode sender name and rejects markup", () => {
+    expect(normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, senderDisplayName: "  Viziune Chișinău  " }).senderDisplayName).toBe("Viziune Chișinău");
+    expect(normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, senderDisplayName: "X".repeat(140) }).senderDisplayName).toHaveLength(120);
+    expect(() => normalizeSettings({ ...DEFAULT_PROPOSAL_SETTINGS, senderDisplayName: "<script>brand</script>" })).toThrow(InvalidStateError);
   });
 
   it("enforces company boundary and complete pricing", async () => {
@@ -138,6 +156,14 @@ describe("DefaultProposalService", () => {
     await service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS);
     expect(proposals.saveSettings).toHaveBeenCalledTimes(1);
     expect(estimates.findAggregateById).not.toHaveBeenCalled();
+  });
+
+  it("denies a cross-company presentation-settings mutation before persistence", async () => {
+    vi.mocked(estimates.findById).mockResolvedValue({ ...aggregate().estimate, companyId: "company-2" });
+
+    await expect(service.saveSettings("user-1", "estimate-1", 3, template.id, { ...DEFAULT_PROPOSAL_SETTINGS, senderDisplayName: "XVISION" })).rejects.toBeInstanceOf(NotFoundError);
+
+    expect(proposals.saveSettings).not.toHaveBeenCalled();
   });
 
   it("blocks PDF generation from a mutable draft", async () => {

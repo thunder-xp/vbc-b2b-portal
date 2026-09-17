@@ -2,6 +2,7 @@ export type ProposalTemplateKey = "equipment_supply" | "equipment_installation" 
 export type GeneratedDocumentStatus = "queued" | "generating" | "ready" | "failed";
 
 export type ProposalSettings = {
+  senderDisplayName?: string;
   title: string;
   introduction: string;
   deliveryTerms: string;

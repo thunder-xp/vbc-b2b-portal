@@ -59,6 +59,7 @@ Future slices add immutable estimate versions, status workflow, and cart convers
 
 - `CustomerProposalDto` is the single immutable, customer-safe allowlist used by browser preview, PDF rendering, artifact snapshots, and future delivery channels. It excludes internal cost, margin, permissions, portal/ERP identifiers, and integration diagnostics.
 - `proposal_settings` stores bounded structured document text and visibility toggles. It never accepts HTML.
+- `proposal_settings.senderDisplayName` is an optional per-proposal presentation override used by Preview and PDF. It is not the Partner legal name, company master data, auth identity, 1C counterparty name, or commercial profile. Empty values fall back to the company display name captured by the proposal DTO; immutable versions therefore remain stable without a live profile dependency.
 - `proposal_templates` contains four structured system templates and company-owned copies. Applying a template changes proposal settings only and never replaces estimate sections or lines.
 - `company_proposal_profiles` is an optional portal-owned presentation profile. Missing values fall back to the active company and user profile without blocking generation.
 - `generated_estimate_documents` stores generation status, fingerprint, customer-safe DTO snapshot, and private object metadata. The PDF bytes live in the private `estimate-proposals` storage bucket.

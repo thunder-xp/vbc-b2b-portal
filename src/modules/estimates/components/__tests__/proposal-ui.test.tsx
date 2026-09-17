@@ -11,7 +11,7 @@ import { ProposalDocument } from "../ProposalDocument";
 vi.mock("../../actions/proposal.actions", () => ({ saveEstimateProposalSettingsAction: vi.fn(), generateEstimateProposalPdfAction: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const settings: ProposalSettings = { title: "Коммерческое предложение", introduction: "Предложение", deliveryTerms: "Поставка", paymentTerms: "Оплата", warrantyTerms: "Гарантия", validityText: "14 дней", installationNotes: "", exclusions: "", customerNote: "", footerNote: "", showProductImages: true, showSku: true, showProductName: true, showDescription: true, showHeadingGreeting: true, showUnitPrice: true, showLineDiscount: true, showSectionSubtotals: true, showVatBreakdown: true, showPartnerLogo: true };
+const settings: ProposalSettings = { senderDisplayName: "", title: "Коммерческое предложение", introduction: "Предложение", deliveryTerms: "Поставка", paymentTerms: "Оплата", warrantyTerms: "Гарантия", validityText: "14 дней", installationNotes: "", exclusions: "", customerNote: "", footerNote: "", showProductImages: true, showSku: true, showProductName: true, showDescription: true, showHeadingGreeting: true, showUnitPrice: true, showLineDiscount: true, showSectionSubtotals: true, showVatBreakdown: true, showPartnerLogo: true };
 const template: ProposalTemplate = { id: "template-1", companyId: null, key: "equipment_supply", name: "Поставка оборудования", configuration: settings, isSystem: true };
 
 describe("proposal UI", () => {
@@ -160,6 +160,19 @@ describe("proposal UI", () => {
     expect(screen.getAllByText("sales@example.md")).toHaveLength(1);
   });
 
+  it("uses a sender override without replacing or duplicating the responsible contact", () => {
+    const value = proposal();
+    const { rerender } = render(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, senderDisplayName: "XVISION" } }} />);
+
+    expect(screen.getByText("XVISION")).toBeInTheDocument();
+    expect(screen.queryByText("Partner SRL")).not.toBeInTheDocument();
+    expect(screen.getByText("Ответственный: Ivan Partner")).toBeInTheDocument();
+
+    rerender(<ProposalDocument proposal={{ ...value, settings: { ...value.settings, senderDisplayName: "" } }} />);
+    expect(screen.getByText("Partner SRL")).toBeInTheDocument();
+    expect(screen.queryByText("XVISION")).not.toBeInTheDocument();
+  });
+
   it("omits a zero VAT row when VAT does not apply", () => {
     const value = proposal();
     render(<ProposalDocument proposal={{ ...value, vatMode: "none", vatRatePercent: 0 }} />);
@@ -171,15 +184,31 @@ describe("proposal UI", () => {
   it("applies a template and saves all settings in one action", async () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
-    render(<ProposalControls estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
     await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
     expect(screen.getByRole("combobox", { name: "Шаблон" })).toHaveValue(template.id);
+    const senderName = screen.getByRole("textbox", { name: "Название компании / бренда" });
+    expect(senderName).toHaveAttribute("maxlength", "120");
+    expect(senderName).toHaveAttribute("placeholder", "Partner SRL");
+    await user.type(senderName, "XVISION");
     expect(screen.queryByRole("textbox", { name: "Условия поставки" })).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Условия оплаты" })).not.toBeInTheDocument();
     for (const label of ["Артикулы SKU", "Наименование", "Описание", "Заголовок и обращение"]) expect(screen.getByRole("checkbox", { name: label })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledTimes(1);
-    expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ expectedRevision: 3, templateId: template.id, settings: expect.objectContaining({ showSku: true }) }));
+    expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ expectedRevision: 3, templateId: template.id, settings: expect.objectContaining({ senderDisplayName: "XVISION", showSku: true }) }));
+  });
+
+  it("preserves the proposal-specific sender override when another template is selected", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
+    const secondTemplate: ProposalTemplate = { ...template, id: "template-2", key: "service_offer", name: "Сервисное предложение", configuration: { ...settings, title: "Сервис" } };
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={{ ...settings, senderDisplayName: "XVISION" }} revision={3} selectedTemplateId={template.id} templates={[template, secondTemplate]} />);
+    await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Шаблон" }), secondTemplate.id);
+    expect(screen.getByRole("textbox", { name: "Название компании / бренда" })).toHaveValue("XVISION");
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ templateId: secondTemplate.id, settings: expect.objectContaining({ senderDisplayName: "XVISION", title: "Сервис" }) }));
   });
 
   it("server-renders long previews without client calculation", () => {

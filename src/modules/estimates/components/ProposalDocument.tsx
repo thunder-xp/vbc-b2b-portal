@@ -1,14 +1,15 @@
 import Image from "next/image";
 
 import { ProductLineThumbnail } from "../../catalog/components/ProductLineThumbnail";
-import { proposalLineNumber, proposalLinePresentation, proposalVatLabels, sectionSubtotalLabel } from "../services/proposal-presentation";
+import { effectiveProposalSenderDisplayName, proposalLineNumber, proposalLinePresentation, proposalVatLabels, sectionSubtotalLabel } from "../services/proposal-presentation";
 import type { CustomerProposalDto } from "../types";
 
 export function ProposalDocument({ proposal }: { proposal: CustomerProposalDto }) {
   const settings = proposal.settings;
+  const senderDisplayName = effectiveProposalSenderDisplayName(proposal);
   return <article aria-label={`Коммерческое предложение ${proposal.estimateNumber}`} className="mx-auto min-h-[297mm] w-full max-w-[210mm] overflow-hidden bg-white px-4 py-6 text-zinc-800 shadow-sm sm:px-8 sm:py-8" role="document">
     <header className="flex flex-col justify-between gap-3 border-b-2 border-emerald-700 pb-3 sm:flex-row">
-      <div className="flex gap-3">{settings.showPartnerLogo && proposal.branding.logoUrl && <Image alt="" className="size-14 object-contain" height={56} referrerPolicy="no-referrer" src={proposal.branding.logoUrl} unoptimized width={56} />}<div><p className="text-xl font-bold text-emerald-800">{proposal.branding.companyName}</p>{proposal.branding.legalName && <p className="mt-1 text-xs text-zinc-500">{proposal.branding.legalName}</p>}<BrandingLines proposal={proposal} /></div></div>
+      <div className="flex gap-3">{settings.showPartnerLogo && proposal.branding.logoUrl && <Image alt="" className="size-14 object-contain" height={56} referrerPolicy="no-referrer" src={proposal.branding.logoUrl} unoptimized width={56} />}<div><p className="text-xl font-bold text-emerald-800">{senderDisplayName}</p>{proposal.branding.legalName && <p className="mt-1 text-xs text-zinc-500">{proposal.branding.legalName}</p>}<BrandingLines proposal={proposal} /></div></div>
       <div className="sm:max-w-[48%] sm:text-right">{settings.showHeadingGreeting !== false && <><h1 className="text-xl font-semibold text-zinc-950">{settings.title}</h1>{settings.introduction && <p className="mt-1 text-[10px] font-normal leading-[1.25] text-zinc-600">{settings.introduction}</p>}</>}<p className={`${settings.showHeadingGreeting === false ? "" : "mt-1.5 "}font-mono text-sm font-semibold`}>{proposal.estimateNumber}</p><dl className="mt-1.5 space-y-0.5 text-xs text-zinc-500"><Meta label="Дата" value={formatDate(proposal.generatedForDate)} />{proposal.validUntilDate && <Meta label="Действительно до" value={formatDate(proposal.validUntilDate)} />}</dl></div>
     </header>
     <div className="space-y-3 py-3">{proposal.sections.map((section) => {
