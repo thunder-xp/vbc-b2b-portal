@@ -3,7 +3,8 @@ import "server-only";
 import { MembershipStatus } from "../access-control/types";
 import type { CompanyAccessService } from "../access-control/services";
 import { revealSerial } from "../warranty-serials/serial-security";
-import { ONE_C_SERVICE_STATUSES } from "./types";
+import { ONE_C_SERVICE_STATUSES, SERVICE_WORKSPACE_VIEWS } from "./types";
+import type { PartnerServiceWorkspaceView, ServiceWorkspaceView } from "./types";
 import type { ServiceHistoryRepository } from "./repository";
 
 export class ServiceHistoryService {
@@ -19,6 +20,54 @@ export class ServiceHistoryService {
       page: page(input.page),
       month: normalizeServiceMonth(input.month),
     });
+  }
+  async getPartnerWorkspaceView(
+    userId: string,
+    input: { view?: string; query?: string; filter?: string; page?: string | number; month?: string },
+  ): Promise<PartnerServiceWorkspaceView> {
+    const companyId = await this.companyId(userId);
+    const view = normalizeServiceWorkspaceView(input.view);
+    const month = normalizeServiceMonth(input.month);
+
+    if (view === "overview") {
+      const [monthlySummary, activePreview, completedPreview] = await Promise.all([
+        this.repository.getPartnerMonthSummary({ companyId, month }),
+        this.repository.listPartner({ companyId, query: "", filter: "active", page: 1, pageSize: 4 }),
+        this.repository.listPartner({ companyId, query: "", filter: "completed", page: 1, pageSize: 4 }),
+      ]);
+      return {
+        view,
+        monthlySummary,
+        activePreview,
+        completedPreview,
+        monthlyDocumentCount:
+          monthlySummary.currencies.reduce(
+            (total, bucket) => total + bucket.completedServiceCount,
+            0,
+          ) + monthlySummary.unknownCurrencyCount,
+      };
+    }
+
+    if (view === "analytics") {
+      const [monthlySummary, analytics] = await Promise.all([
+        this.repository.getPartnerMonthSummary({ companyId, month }),
+        this.repository.getPartnerAnalytics({ companyId, month }),
+      ]);
+      return { view, monthlySummary, analytics };
+    }
+
+    const filter = view === "all"
+      ? (["active", "ready", "completed", "all"].includes(input.filter ?? "") ? input.filter! : "all")
+      : view;
+    return {
+      view,
+      history: await this.repository.listPartner({
+        companyId,
+        query: trim(input.query, 100),
+        filter,
+        page: page(input.page),
+      }),
+    };
   }
   async getPartnerMonthExport(userId: string, input: { month?: string }) {
     const result = await this.repository.getPartnerMonthExport({
@@ -53,4 +102,10 @@ export function normalizeServiceMonth(value: unknown, now = new Date()): string 
 
 function monthKey(year: number, month: number) {
   return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+export function normalizeServiceWorkspaceView(value: unknown): ServiceWorkspaceView {
+  return SERVICE_WORKSPACE_VIEWS.includes(value as ServiceWorkspaceView)
+    ? (value as ServiceWorkspaceView)
+    : "overview";
 }

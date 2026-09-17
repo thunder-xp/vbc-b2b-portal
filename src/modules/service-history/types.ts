@@ -177,6 +177,34 @@ export type PartnerServiceWorkspace = {
   analytics: ServiceAnalytics;
 };
 
+export const SERVICE_WORKSPACE_VIEWS = [
+  "overview",
+  "active",
+  "completed",
+  "all",
+  "analytics",
+] as const;
+
+export type ServiceWorkspaceView = (typeof SERVICE_WORKSPACE_VIEWS)[number];
+
+export type PartnerServiceWorkspaceView =
+  | {
+      view: "overview";
+      monthlySummary: ServiceMonthlySummary;
+      activePreview: UnifiedServiceHistoryPage;
+      completedPreview: UnifiedServiceHistoryPage;
+      monthlyDocumentCount: number;
+    }
+  | {
+      view: "active" | "completed" | "all";
+      history: UnifiedServiceHistoryPage;
+    }
+  | {
+      view: "analytics";
+      monthlySummary: ServiceMonthlySummary;
+      analytics: ServiceAnalytics;
+    };
+
 export type ServiceHistoryDiagnostics = {
   imported: number;
   mappedCompanies: number;

@@ -14,6 +14,7 @@ import {
   type OneCServiceHistoryDetail,
   type ServiceAnalytics,
   type ServiceMonthlySummary,
+  type ServiceWorkspaceView,
   type UnifiedServiceHistoryPage,
 } from "./types";
 
@@ -39,19 +40,27 @@ export function UnifiedServiceHistoryList({
   filter = "all",
   locale = "ru",
   month,
+  view,
+  emptyTitle,
+  emptyHint,
+  paginated = true,
 }: {
   page: UnifiedServiceHistoryPage;
   query?: string;
   filter?: string;
   locale?: PartnerLocale;
   month?: string;
+  view?: ServiceWorkspaceView;
+  emptyTitle?: string;
+  emptyHint?: string;
+  paginated?: boolean;
 }) {
   const copy = historyCopy(locale);
   if (!page.items.length) {
     return (
       <div className="rounded-md border border-dashed border-zinc-300 p-8 text-center">
-        <h3 className="font-semibold">{copy.empty}</h3>
-        <p className="mt-2 text-sm text-zinc-600">{copy.emptyHint}</p>
+        <h3 className="font-semibold">{emptyTitle ?? copy.empty}</h3>
+        <p className="mt-2 text-sm text-zinc-600">{emptyHint ?? copy.emptyHint}</p>
       </div>
     );
   }
@@ -111,7 +120,7 @@ export function UnifiedServiceHistoryList({
                   </p>
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <p className="text-sm font-medium text-zinc-900">
+                  <p className="inline-flex rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-800">
                     {statusLabel(item.status, locale)}
                   </p>
                   {item.status === "ready_for_pickup" ? (
@@ -125,7 +134,7 @@ export function UnifiedServiceHistoryList({
                 </div>
                 <Link
                   className="col-span-2 inline-flex min-h-11 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 sm:col-span-1"
-                  href={item.href}
+                  href={serviceDetailHref(item.href, view)}
                   prefetch={false}
                 >
                   {copy.open}
@@ -135,7 +144,7 @@ export function UnifiedServiceHistoryList({
           ))}
         </ul>
       </div>
-      {pages > 1 ? (
+      {paginated && pages > 1 ? (
         <nav
           aria-label={copy.pages}
           className="flex items-center justify-between gap-3"
@@ -146,6 +155,7 @@ export function UnifiedServiceHistoryList({
             month={month}
             page={page.page - 1}
             query={query}
+            view={view}
           >
             {copy.back}
           </PaginationLink>
@@ -158,6 +168,7 @@ export function UnifiedServiceHistoryList({
             month={month}
             page={page.page + 1}
             query={query}
+            view={view}
           >
             {copy.next}
           </PaginationLink>
@@ -307,11 +318,13 @@ export function ServiceMonthlySummaryCard({
   locale,
   query,
   summary,
+  view,
 }: {
   filter?: string;
   locale: PartnerLocale;
   query?: string;
   summary: ServiceMonthlySummary;
+  view?: ServiceWorkspaceView;
 }) {
   const copy = historyCopy(locale);
   const hasData = summary.currencies.length > 0;
@@ -323,10 +336,10 @@ export function ServiceMonthlySummaryCard({
           <h2 className="mt-1 text-lg font-semibold capitalize" id="service-month-summary-title">{formatMonth(summary.month, locale)}</h2>
         </div>
         <div className="flex gap-2">
-          <MonthLink ariaLabel={copy.previousMonth} disabled={!summary.previousMonth} href={monthHref(summary.previousMonth, query, filter)}>
+          <MonthLink ariaLabel={copy.previousMonth} disabled={!summary.previousMonth} href={monthHref(summary.previousMonth, query, filter, view)}>
             <ChevronLeft aria-hidden="true" className="size-4" />
           </MonthLink>
-          <MonthLink ariaLabel={copy.nextMonth} disabled={!summary.nextMonth} href={monthHref(summary.nextMonth, query, filter)}>
+          <MonthLink ariaLabel={copy.nextMonth} disabled={!summary.nextMonth} href={monthHref(summary.nextMonth, query, filter, view)}>
             <ChevronRight aria-hidden="true" className="size-4" />
           </MonthLink>
         </div>
@@ -587,11 +600,12 @@ function MonthLink({ ariaLabel, children, disabled, href }: { ariaLabel: string;
   return <Link aria-label={ariaLabel} className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 text-zinc-700 hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600" href={href}>{children}</Link>;
 }
 
-function monthHref(month: string | null, query?: string, filter?: string) {
+function monthHref(month: string | null, query?: string, filter?: string, view?: ServiceWorkspaceView) {
   if (!month) return "/cabinet/service";
   const params = new URLSearchParams({ month });
   if (query) params.set("query", query);
   if (filter) params.set("filter", filter);
+  if (view) params.set("view", view);
   return `/cabinet/service?${params}`;
 }
 
@@ -630,6 +644,7 @@ function PaginationLink({
   page,
   query,
   month,
+  view,
 }: {
   children: React.ReactNode;
   disabled: boolean;
@@ -637,6 +652,7 @@ function PaginationLink({
   page: number;
   query: string;
   month?: string;
+  view?: ServiceWorkspaceView;
 }) {
   if (disabled)
     return (
@@ -650,6 +666,7 @@ function PaginationLink({
   const params = new URLSearchParams({ filter, page: String(page) });
   if (query) params.set("query", query);
   if (month) params.set("month", month);
+  if (view) params.set("view", view);
   return (
     <Link
       className="inline-flex min-h-11 items-center rounded-md border border-zinc-300 px-3 text-sm font-semibold"
@@ -658,6 +675,12 @@ function PaginationLink({
       {children}
     </Link>
   );
+}
+
+function serviceDetailHref(href: string, view?: ServiceWorkspaceView) {
+  if (!view) return href;
+  const separator = href.includes("?") ? "&" : "?";
+  return `${href}${separator}from=${view}`;
 }
 
 function historyCopy(locale: PartnerLocale) {

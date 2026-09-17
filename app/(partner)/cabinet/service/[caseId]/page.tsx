@@ -13,13 +13,17 @@ import {
   serviceTypeLabel,
 } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { normalizeServiceWorkspaceView } from "@/src/modules/service-history";
 
 export default async function ServiceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ caseId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
-  const [{ caseId }, locale] = await Promise.all([params, getPartnerLocale()]);
+  const [{ caseId }, locale, query] = await Promise.all([params, getPartnerLocale(), searchParams]);
+  const from = normalizeServiceWorkspaceView(query.from);
   const copy = serviceCopy(locale);
   const result = await getServiceCaseAction(caseId);
   if (!result.success || !result.data) notFound();
@@ -28,8 +32,8 @@ export default async function ServiceDetailPage({
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
         <Link
-          className="text-sm font-medium text-emerald-700"
-          href="/cabinet/service"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-emerald-700"
+          href={`/cabinet/service?view=${from}`}
         >
           ← {copy.backCases}
         </Link>

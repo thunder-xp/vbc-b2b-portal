@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { PartnerWorkspaceTabs } from "@/src/modules/partner-cabinet/components/PartnerWorkspaceTabs";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { getInstallationAssignmentDispatcher } from "@/src/modules/retail-marketplace/server";
@@ -74,9 +75,7 @@ export default async function InstallationMarketplaceActivationPage({ searchPara
   ]) : [[], []];
   return <main className="mx-auto max-w-6xl space-y-6">
     <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold">{workspace.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{workspace.intro}</p></div><span className="rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold">{t.status}: {state.status}</span></header>
-    <nav aria-label={workspace.title} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-      {workspaceViews.map((entry)=><a aria-current={view===entry?"page":undefined} className={`inline-flex min-h-11 shrink-0 items-center rounded-md border px-4 text-sm font-semibold ${view===entry?"border-emerald-700 bg-emerald-700 text-white":"border-zinc-300 bg-white"}`} href={`/cabinet/installation-marketplace?view=${entry}`} key={entry}>{workspace.tabs[entry]}</a>)}
-    </nav>
+    <PartnerWorkspaceTabs activeKey={view} ariaLabel={workspace.title} tabs={workspaceViews.map((entry) => ({ key: entry, label: workspace.tabs[entry], href: `/cabinet/installation-marketplace?view=${entry}` }))} />
     {query.result && <p role="status" className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">{query.result === "saved" ? t.saved : query.result === "submitted" ? t.submitted : t.enrolled}</p>}
     {view === "overview" ? <Overview locale={locale} state={state} workspace={workspace} /> : null}
     {assignmentView ? <PartnerInstallationLists assignments={assignments} locale={locale} marketplaceProjects={marketplaceProjects} view={assignmentView} /> : null}

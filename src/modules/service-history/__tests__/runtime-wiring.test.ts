@@ -11,7 +11,7 @@ const imageProjection = read("supabase/migrations/20260808233000_service_center_
 
 describe("1C service-history runtime wiring", () => {
   it("renders portal and 1C history through one bounded aggregate", () => {
-    expect(partnerPage).toContain("listUnifiedServiceHistoryAction");
+    expect(partnerPage).toContain("getPartnerServiceWorkspaceViewAction");
     expect(repository).toContain('"list_partner_service_history"');
     expect(partnerPage).not.toContain("OneCODataClient");
     expect(partnerPage).not.toContain("createAdminClient");

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
-import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, PartnerServiceWorkspace, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceMonthExport, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
+import type { AdminOneCServiceHistoryPage, OneCServiceHistoryDetail, PartnerServiceWorkspace, ServiceAnalytics, ServiceHistoryDiagnostics, ServiceHistorySyncClaim, ServiceMonthExport, ServiceMonthlySummary, ServiceSerialEnrichmentClaim, UnifiedServiceHistoryPage } from "./types";
 
 export class ServiceHistoryRepositoryError extends Error {
   constructor(readonly operation: string, readonly code: string | null = null) {
@@ -39,8 +39,20 @@ export class ServiceHistoryRepository {
   async failSerialEnrichment(claim: ServiceSerialEnrichmentClaim, code: string) {
     await this.adminRpc("fail_one_c_service_serial_enrichment", { p_run_id: claim.runId, p_lock_token: claim.lockToken, p_error_code: code });
   }
-  listPartner(input: { companyId: string; query: string; filter: string; page: number }) {
-    return this.userRpc<UnifiedServiceHistoryPage>("list_partner_service_history", { p_company_id: input.companyId, p_query: input.query, p_filter: input.filter, p_page: input.page, p_page_size: 20 });
+  listPartner(input: { companyId: string; query: string; filter: string; page: number; pageSize?: number }) {
+    return this.userRpc<UnifiedServiceHistoryPage>("list_partner_service_history", { p_company_id: input.companyId, p_query: input.query, p_filter: input.filter, p_page: input.page, p_page_size: input.pageSize ?? 20 });
+  }
+  getPartnerMonthSummary(input: { companyId: string; month: string }) {
+    return this.userRpc<ServiceMonthlySummary>("get_partner_service_month_summary", {
+      p_company_id: input.companyId,
+      p_month: `${input.month}-01`,
+    });
+  }
+  getPartnerAnalytics(input: { companyId: string; month: string }) {
+    return this.userRpc<ServiceAnalytics>("get_partner_service_analytics", {
+      p_company_id: input.companyId,
+      p_month: `${input.month}-01`,
+    });
   }
   getPartnerWorkspace(input: { companyId: string; query: string; filter: string; page: number; month: string }) {
     return this.userRpc<PartnerServiceWorkspace>("get_partner_service_workspace", {

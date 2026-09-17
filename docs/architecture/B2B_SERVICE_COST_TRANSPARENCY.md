@@ -68,6 +68,17 @@ The XLSX contains document number, completion date, product/SKU, masked serial, 
 
 ## V2 query and performance model
 
-The page still performs one `get_partner_service_workspace` RPC. That RPC combines the paginated service list, V1 selected-month summary and V2 bounded analytics. It does not load the complete history into React. The analytics query uses the existing partial `(company_id, repair_completed_at, currency_code)` index and limits product/work rankings to five entries per currency. Exports perform one additional RPC only when the Partner explicitly downloads a file; PDF/XLSX generation is server-only and does not call 1C.
+The V2 `get_partner_service_workspace` RPC combines the paginated service list, V1 selected-month summary and V2 bounded analytics. The V3 segmented workspace invokes the underlying bounded reads selectively, as described below. The analytics query uses the existing partial `(company_id, repair_completed_at, currency_code)` index and limits product/work rankings to five entries per currency. Exports perform one additional RPC only when the Partner explicitly downloads a file; PDF/XLSX generation is server-only and does not call 1C.
 
 Service cost remains operational transparency. It is not debt, payment, balance, paid/unpaid state, invoice, act or accounting statement. Any future payment reconciliation must enter through an explicit authoritative Finance/1C integration and must not be inferred from these service amounts.
+## Service Center workspace V3
+
+`/cabinet/service` is one Partner workspace with stable server-rendered `view` states: `overview`, `active`, `completed`, `all`, and `analytics`. Invalid state falls back to `overview`.
+
+- Overview reads the existing monthly summary plus bounded four-row active and completed previews. It does not read the 12-month analytics projection or full history.
+- Active and Completed reuse the canonical `list_partner_service_history` status mapping and pagination.
+- All Documents keeps the existing bounded search/filter/history read.
+- Analytics alone reads the accepted monthly summary and V2 analytics projection and owns XLSX/PDF controls.
+- Both Portal and imported 1C document detail pages remain canonical. A validated `from` query value restores the originating workspace section on Back.
+
+The workspace does not change 1C synchronization, service identity, qualifying statuses, amounts, VAT, dates, currency grouping, RLS, or company resolution. Partner company identity continues to be derived server-side from the active membership. No page-render path calls 1C.

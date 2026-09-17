@@ -4,16 +4,20 @@ import { notFound } from "next/navigation";
 import {
   OneCServiceHistorySummary,
   getOneCServiceHistoryAction,
+  normalizeServiceWorkspaceView,
 } from "@/src/modules/service-history";
 import { serviceCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
 export default async function ServiceHistoryDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
-  const [{ id }, locale] = await Promise.all([params, getPartnerLocale()]);
+  const [{ id }, locale, query] = await Promise.all([params, getPartnerLocale(), searchParams]);
+  const from = normalizeServiceWorkspaceView(query.from);
   const copy = serviceCopy(locale);
   const result = await getOneCServiceHistoryAction(id);
   if (!result.success || !result.data) notFound();
@@ -22,7 +26,7 @@ export default async function ServiceHistoryDetailPage({
       <header>
         <Link
           className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700"
-          href="/cabinet/service"
+          href={`/cabinet/service?view=${from}`}
         >
           ← {copy.historyBack}
         </Link>
