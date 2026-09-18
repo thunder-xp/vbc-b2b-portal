@@ -6,7 +6,7 @@ import type { EffectivePaymentState, PaymentAttemptStatus, PaymentClaim, Payment
 import type { MaibReconciliationContext } from "../retail-payment.repository";
 import type { RetailPaymentRepository } from "../retail-payment.repository";
 
-const OUTCOMES = new Set<PaymentClaimOutcome>(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED", "CLAIMED", "REUSE_PENDING"]);
+const OUTCOMES = new Set<PaymentClaimOutcome>(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED", "CONTENT_NOT_ELIGIBLE", "CLAIMED", "REUSE_PENDING"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class RetailPaymentRepositoryError extends Error {

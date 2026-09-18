@@ -34,7 +34,7 @@ describe("RetailPaymentService", () => {
     expect(repository.claim).toHaveBeenCalledWith(expect.objectContaining({ returnAccessTokenHash: expect.stringMatching(/^[0-9a-f]{64}$/) }));
   });
 
-  it.each(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED"] as const)("does not call MAIB for %s", async (outcome) => {
+  it.each(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED", "CONTENT_NOT_ELIGIBLE"] as const)("does not call MAIB for %s", async (outcome) => {
     const { repository, provider } = dependencies({ ...claim, outcome });
     const result = await new RetailPaymentService(repository, provider).initiate(input);
     expect(result.outcome).toBe(outcome);

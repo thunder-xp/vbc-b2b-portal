@@ -23,5 +23,10 @@ describe("public contacts page", () => {
     expect(screen.getAllByText((_, element) => element?.tagName === "SPAN" && element.textContent?.includes("Сб: 10:00–14:00") === true)).toHaveLength(2);
     expect(screen.getAllByRole("link", { name: "info@nsd.md" }).length).toBeGreaterThan(0);
     expect(publicCompanyContent.stores.map((store) => store.phone.href)).toEqual(["tel:+37379313353", "tel:+37378999495"]);
+    expect(screen.getByRole("heading", { name: "Юридические данные" })).toBeInTheDocument();
+    expect(screen.getAllByText("NOVOTECH SYSTEMS S.R.L.").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("1018600013048")).toBeInTheDocument();
+    expect(screen.getByText("0209950")).toBeInTheDocument();
+    expect(screen.getAllByText("MD-2001, mun. Chișinău, str. Mihail Kogălniceanu 9, of. 17").length).toBeGreaterThanOrEqual(2);
   });
 });

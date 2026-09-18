@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { normalizeProductImageUrl } from "../catalog/components/product-image-source";
 import { publicCompanyContent } from "./public-company-content";
+import { publicMerchantLegalProfile } from "./legal/public-legal-content";
 import { resolvePublicProductDescription } from "./content";
 import type { PublicRetailLocale, PublicRetailMediaDto, PublicRetailProductDetailDto } from "./types";
 
@@ -202,11 +203,15 @@ export function publicOrganizationSchemas(
     {
       "@type": "Organization",
       "@id": organizationId,
-      name: "Novotech",
+      name: publicMerchantLegalProfile.legalName,
+      legalName: publicMerchantLegalProfile.legalName,
+      taxID: publicMerchantLegalProfile.idno,
+      vatID: publicMerchantLegalProfile.vatNumber,
       url: publicLocalizedUrl("/", locale),
       email: publicCompanyContent.email,
       telephone: publicCompanyContent.customerPhone.href.replace("tel:", ""),
       description: publicCompanyContent.descriptor[locale],
+      address: { "@type": "PostalAddress", streetAddress: publicMerchantLegalProfile.registeredAddress[locale], addressCountry: "MD" },
       contactPoint: [{ "@type": "ContactPoint", contactType: "customer service", telephone: publicCompanyContent.customerPhone.href.replace("tel:", ""), areaServed: "MD", availableLanguage: ["ru", "ro"] }],
     },
     ...(includeWebsite ? [{

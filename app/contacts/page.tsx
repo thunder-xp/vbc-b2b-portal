@@ -5,6 +5,7 @@ import { PublicRetailShell } from "@/src/modules/public-retail/components/Public
 import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { publicCompanyContent } from "@/src/modules/public-retail/public-company-content";
+import { publicMerchantLegalProfile } from "@/src/modules/public-retail/legal/public-legal-content";
 import { buildPublicMetadata, publicBreadcrumbSchema, publicLocalizedUrl, publicOrganizationSchemas } from "@/src/modules/public-retail/seo";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
@@ -59,6 +60,17 @@ export default async function ContactsPage({ searchParams }: { searchParams: Par
           <a className="flex min-h-11 w-fit items-center gap-3 font-semibold text-blue-800 hover:text-blue-950" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-4" />{publicCompanyContent.customerPhone.display}</a>
           <a className="flex min-h-11 w-fit items-center gap-3 font-semibold text-blue-800 hover:text-blue-950" href={`mailto:${publicCompanyContent.email}`}><Mail aria-hidden="true" className="size-4" />{publicCompanyContent.email}</a>
         </div>
+      </section>
+
+      <section aria-labelledby="legal-contact-heading" className="border-t border-zinc-200 py-8">
+        <h2 className="text-xl font-semibold" id="legal-contact-heading">{ru ? "Юридические данные" : "Date juridice"}</h2>
+        <dl className="mt-5 grid gap-px border border-zinc-200 bg-zinc-200 text-sm sm:grid-cols-2">
+          <div className="bg-white p-5"><dt className="text-zinc-500">{ru ? "Юридическое лицо" : "Persoana juridică"}</dt><dd className="mt-1 font-semibold">{publicMerchantLegalProfile.legalName}</dd></div>
+          <div className="bg-white p-5"><dt className="text-zinc-500">IDNO</dt><dd className="mt-1 font-semibold tabular-nums">{publicMerchantLegalProfile.idno}</dd></div>
+          <div className="bg-white p-5"><dt className="text-zinc-500">TVA</dt><dd className="mt-1 font-semibold tabular-nums">{publicMerchantLegalProfile.vatNumber}</dd></div>
+          <div className="bg-white p-5"><dt className="text-zinc-500">{ru ? "Юридический адрес" : "Adresa juridică"}</dt><dd className="mt-1 font-semibold">{publicMerchantLegalProfile.registeredAddress[locale]}</dd></div>
+        </dl>
+        <p className="mt-3 text-xs leading-5 text-zinc-500">{ru ? "Юридический адрес указан отдельно от адресов магазинов выше." : "Adresa juridică este indicată separat de adresele magazinelor de mai sus."}</p>
       </section>
     </main>
   </PublicRetailShell>;

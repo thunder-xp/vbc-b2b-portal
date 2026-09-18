@@ -76,6 +76,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
         <div className="space-y-1 text-xs leading-5 text-zinc-400">
           {publicMerchantLegalProfile.legalName ? <p className="font-medium text-zinc-200">{publicMerchantLegalProfile.legalName}</p> : null}
           {publicMerchantLegalProfile.idno ? <p>IDNO: {publicMerchantLegalProfile.idno}</p> : null}
+          <p>TVA: {publicMerchantLegalProfile.vatNumber}</p>
           {publicMerchantLegalProfile.registeredAddress ? <p>{publicMerchantLegalProfile.registeredAddress[locale]}</p> : null}
           <p>© 2010–{new Date().getFullYear()} Novotech. {ru ? "Все права защищены." : "Toate drepturile rezervate."}</p>
         </div>
@@ -83,6 +84,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
           <Image alt="MAIB" className="h-7 object-contain" height={28} src="/payment/official/maib.png" style={{ width: "auto" }} width={74} />
           {publicPaymentBranding.supportedInternationalPaymentSystems.includes("visa") ? <Image alt="Visa" className="h-6 object-contain" height={24} src="/payment/official/visa.png" style={{ width: "auto" }} width={72} /> : null}
           {publicPaymentBranding.supportedInternationalPaymentSystems.includes("mastercard") ? <Image alt="Mastercard" className="h-7 object-contain" height={28} src="/payment/official/mastercard.png" style={{ width: "auto" }} width={48} /> : null}
+          {publicPaymentBranding.supportedInternationalPaymentSystems.includes("amex") ? <Image alt="American Express" className="h-7 object-contain" height={28} src="/payment/official/amex.png" style={{ width: "auto" }} width={58} /> : null}
         </div>
       </div>
     </footer>

@@ -38,6 +38,7 @@ function paymentError(outcome: string, ru: boolean) {
   if (outcome === "INVALID_ORDER_STATE") return ru ? "Этот заказ больше не ожидает оплату." : "Această comandă nu mai așteaptă plata.";
   if (outcome === "TERMS_NOT_ACCEPTED") return ru ? "Для оплаты требуется принять актуальные Условия и Политику конфиденциальности." : "Pentru plată trebuie acceptate Termenii și Politica de confidențialitate actuale.";
   if (outcome === "EMAIL_REQUIRED") return ru ? "Для подтверждения оплаты нужен корректный email заказа." : "Pentru confirmarea plății este necesar un email corect al comenzii.";
+  if (outcome === "CONTENT_NOT_ELIGIBLE") return ru ? "Один или несколько товаров пока недоступны для онлайн-оплаты. Свяжитесь с Novotech для оформления заказа." : "Unul sau mai multe produse nu sunt încă eligibile pentru plata online. Contactați Novotech pentru plasarea comenzii.";
   if (outcome === "UNPRICED_ORDER" || outcome === "NOT_ELIGIBLE") return ru ? "Заказ сейчас нельзя оплатить картой." : "Comanda nu poate fi plătită acum cu cardul.";
   return ru ? "Не удалось подготовить платёж. Попробуйте позже." : "Plata nu a putut fi pregătită. Încercați mai târziu.";
 }

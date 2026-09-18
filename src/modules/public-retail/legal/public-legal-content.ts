@@ -5,23 +5,28 @@ export const PUBLIC_PRIVACY_VERSION = "2026-09-18";
 export const PUBLIC_LEGAL_EFFECTIVE_AT = "2026-09-18T00:00:00+03:00";
 
 type MerchantLegalProfile = Readonly<{
-  legalName: string | null;
-  idno: string | null;
-  registeredAddress: Readonly<Record<PublicRetailLocale, string>> | null;
-  ownerInputRequired: readonly ("legalName" | "idno" | "registeredAddress")[];
+  legalName: string;
+  idno: string;
+  vatNumber: string;
+  registeredAddress: Readonly<Record<PublicRetailLocale, string>>;
+  ownerInputRequired: readonly [];
 }>;
 
 export const publicMerchantLegalProfile: MerchantLegalProfile = Object.freeze({
-  legalName: null,
-  idno: null,
-  registeredAddress: null,
-  ownerInputRequired: ["legalName", "idno", "registeredAddress"] as const,
+  legalName: "NOVOTECH SYSTEMS S.R.L.",
+  idno: "1018600013048",
+  vatNumber: "0209950",
+  registeredAddress: {
+    ru: "MD-2001, mun. Chișinău, str. Mihail Kogălniceanu 9, of. 17",
+    ro: "MD-2001, mun. Chișinău, str. Mihail Kogălniceanu 9, of. 17",
+  },
+  ownerInputRequired: [] as const,
 });
 
 export const publicPaymentBranding = Object.freeze({
   maib: true,
-  supportedInternationalPaymentSystems: [] as readonly ("visa" | "mastercard" | "amex")[],
-  maibLiberApplicable: "UNKNOWN" as const,
+  supportedInternationalPaymentSystems: ["visa", "mastercard", "amex"] as const,
+  maibLiberApplicable: "NO" as const,
 });
 
 type LegalSection = Readonly<{ title: string; paragraphs: readonly string[] }>;
@@ -44,15 +49,15 @@ export const legalDocuments: Record<"terms" | "privacy" | "delivery" | "returns"
       effectiveAt: PUBLIC_LEGAL_EFFECTIVE_AT,
       sections: [
         { title: "1. Общие положения", paragraphs: ["Эти условия регулируют использование публичного сайта nsd.md, оформление розничного заказа и взаимодействие клиента с Novotech.", "Оформляя заказ, клиент подтверждает, что предоставленные им контактные и адресные данные являются достоверными."] },
-        { title: "2. Продавец и контакты", paragraphs: ["Публичный бренд продавца — Novotech. Контактные данные и адреса магазинов опубликованы на странице «Контакты»."] },
+        { title: "2. Продавец и контакты", paragraphs: ["Продавец — NOVOTECH SYSTEMS S.R.L., IDNO 1018600013048, TVA 0209950. Юридический адрес: MD-2001, mun. Chișinău, str. Mihail Kogălniceanu 9, of. 17. Публичный бренд — Novotech. Контактные данные и адреса магазинов опубликованы на странице «Контакты»."] },
         { title: "3. Товары и услуги", paragraphs: ["Каталог содержит оборудование, материалы и связанные услуги для систем безопасности. Актуальные состав, цена и доступность показываются до оформления заказа.", "Параметры монтажа и окончательные условия работ согласовываются с учётом объекта; сайт не обещает неподтверждённые сроки или стоимость работ."] },
         { title: "4. Оформление заказа", paragraphs: ["Клиент выбирает товары, проверяет состав корзины и передаёт необходимые контактные и адресные данные. Заказ создаётся по актуальному коммерческому снимку и получает уникальный номер.", "Если цена, доступность или состав изменились, заказ не создаётся по устаревшим данным."] },
         { title: "5. Способы и условия оплаты", paragraphs: ["Доступные способы оплаты показываются в интерфейсе заказа. Онлайн-оплата картой становится доступной только после активации соответствующей функции Novotech.", "Сумма онлайн-платежа формируется на сервере из подтверждённого состава заказа и не принимается из браузера."] },
         { title: "6. Онлайн-оплата через MAIB", paragraphs: ["При выборе оплаты картой клиент переходит на защищённую страницу MAIB. Novotech не получает и не хранит номер карты, CVV/CVC или данные авторизации карты.", "Возврат браузера на nsd.md сам по себе не подтверждает оплату. Статус меняется только после проверенного подтверждения платёжного провайдера."] },
         { title: "7. Персональные данные", paragraphs: ["Данные обрабатываются для оформления и исполнения заказа, связи с клиентом, доставки, монтажа, сервиса и подтверждения оплаты. Подробнее — в Политике конфиденциальности."] },
         { title: "8. Доставка и получение", paragraphs: ["Доступны получение в магазинах Novotech и согласованная доставка в Молдове. Конкретные условия подтверждаются при обработке заказа и описаны на странице «Доставка»."] },
-        { title: "9. Отмена и возврат", paragraphs: ["Запрос на отмену или возврат направляется Novotech по публичным контактам. Применимость, состояние товара и последующие действия проверяются до возврата товара или денежных средств.", "Подробный порядок опубликован на странице «Возврат»; неподтверждённые сроки и исключения на сайте не устанавливаются."] },
-        { title: "10. Гарантия", paragraphs: ["Гарантийные обращения рассматриваются по документам покупки и условиям, применимым к конкретному товару или услуге. Клиент может обратиться в сервис Novotech по публичным контактам."] },
+        { title: "9. Отмена, отказ и возврат", paragraphs: ["При дистанционной продаже потребитель вправе отказаться от соответствующего товара в течение 14 календарных дней; для товара срок исчисляется с момента его получения или перехода в физическое владение согласно применимому законодательству Республики Молдова. Заявление направляется Novotech по опубликованным контактам.", "Товар возвращается в установленный законом срок в согласованный пункт или согласованным способом. Применяются предусмотренные законом исключения. Возврат производится без неоправданной задержки и не позднее 14 календарных дней с уведомления об отказе, в той же валюте и тем же способом оплаты, если закон или отдельное правомерное соглашение не допускает иное. Прямые расходы на возврат распределяются по применимому закону и опубликованным условиям."] },
+        { title: "10. Несоответствие и гарантия", paragraphs: ["Требования по дефектному или несоответствующему товару и гарантийные обращения являются отдельными законными способами защиты и не смешиваются с отказом от соответствующего товара при дистанционной продаже. Они рассматриваются по документам покупки, применимому законодательству и условиям конкретного товара или услуги через сервис Novotech."] },
         { title: "11. Обязанности клиента", paragraphs: ["Клиент проверяет состав заказа, предоставляет корректные контакты и адрес, соблюдает инструкции по эксплуатации и сообщает об ошибках до подтверждения заказа или выполнения работ."] },
         { title: "12. Обязанности продавца", paragraphs: ["Novotech предоставляет достоверную доступную информацию, сохраняет коммерческий снимок заказа и не признаёт оплату без авторитетного подтверждения платёжной системы."] },
         { title: "13. Связь", paragraphs: ["Телефон: 0 79 31 33 53. Email: info@nsd.md. Адреса магазинов и часы работы доступны на странице «Контакты»."] },
@@ -66,15 +71,15 @@ export const legalDocuments: Record<"terms" | "privacy" | "delivery" | "returns"
       effectiveAt: PUBLIC_LEGAL_EFFECTIVE_AT,
       sections: [
         { title: "1. Dispoziții generale", paragraphs: ["Acești termeni reglementează utilizarea site-ului public nsd.md, plasarea unei comenzi cu amănuntul și relația clientului cu Novotech.", "Prin plasarea comenzii, clientul confirmă corectitudinea datelor de contact și de adresă furnizate."] },
-        { title: "2. Vânzătorul și contactele", paragraphs: ["Marca publică a vânzătorului este Novotech. Datele de contact și adresele magazinelor sunt publicate pe pagina „Contacte”."] },
+        { title: "2. Vânzătorul și contactele", paragraphs: ["Vânzătorul este NOVOTECH SYSTEMS S.R.L., IDNO 1018600013048, TVA 0209950. Adresa juridică: MD-2001, mun. Chișinău, str. Mihail Kogălniceanu 9, of. 17. Marca publică este Novotech. Datele de contact și adresele magazinelor sunt publicate pe pagina „Contacte”."] },
         { title: "3. Produse și servicii", paragraphs: ["Catalogul include echipamente, materiale și servicii conexe pentru sisteme de securitate. Componența, prețul și disponibilitatea actuale sunt afișate înainte de plasarea comenzii.", "Parametrii instalării și condițiile finale ale lucrărilor se coordonează potrivit obiectivului; site-ul nu promite termene sau costuri neconfirmate."] },
         { title: "4. Plasarea comenzii", paragraphs: ["Clientul selectează produsele, verifică coșul și furnizează datele de contact și de adresă necesare. Comanda este creată dintr-un instantaneu comercial actual și primește un număr unic.", "Dacă prețul, disponibilitatea sau componența s-au schimbat, comanda nu este creată folosind date învechite."] },
         { title: "5. Metode și condiții de plată", paragraphs: ["Metodele disponibile sunt afișate în interfața comenzii. Plata online cu cardul devine disponibilă numai după activarea funcției corespunzătoare de către Novotech.", "Suma plății online este calculată pe server din componența confirmată a comenzii și nu este preluată din browser."] },
         { title: "6. Plata online prin MAIB", paragraphs: ["La plata cu cardul, clientul este redirecționat către pagina securizată MAIB. Novotech nu primește și nu stochează numărul cardului, CVV/CVC sau datele de autorizare ale cardului.", "Revenirea browserului pe nsd.md nu confirmă plata. Starea se modifică numai după confirmarea verificată a prestatorului de plată."] },
         { title: "7. Date cu caracter personal", paragraphs: ["Datele sunt prelucrate pentru plasarea și executarea comenzii, comunicare, livrare, instalare, service și confirmarea plății. Detaliile sunt în Politica de confidențialitate."] },
         { title: "8. Livrare și ridicare", paragraphs: ["Sunt disponibile ridicarea din magazinele Novotech și livrarea coordonată în Moldova. Condițiile concrete sunt confirmate la procesarea comenzii și descrise pe pagina „Livrare”."] },
-        { title: "9. Anulare și retur", paragraphs: ["Solicitarea de anulare sau retur se transmite Novotech prin contactele publice. Eligibilitatea, starea produsului și pașii următori sunt verificate înaintea returnării produsului sau banilor.", "Procedura este publicată pe pagina „Retur”; site-ul nu stabilește termene sau excluderi neconfirmate."] },
-        { title: "10. Garanție", paragraphs: ["Solicitările de garanție sunt examinate pe baza documentelor de cumpărare și a condițiilor aplicabile produsului sau serviciului concret. Clientul poate contacta service-ul Novotech."] },
+        { title: "9. Anulare, retragere și retur", paragraphs: ["În vânzarea la distanță, consumatorul are dreptul să se retragă din contractul pentru un produs conform în termen de 14 zile calendaristice; pentru bunuri, termenul începe de la primirea sau intrarea în posesia fizică a acestora, potrivit legislației aplicabile a Republicii Moldova. Notificarea se transmite Novotech prin contactele publicate.", "Bunul se returnează în termenul legal la punctul sau prin metoda coordonată. Se aplică excepțiile prevăzute de lege. Rambursarea se face fără întârzieri nejustificate și cel târziu în 14 zile calendaristice de la notificarea retragerii, în aceeași monedă și prin aceeași metodă de plată, dacă legea sau un acord legal expres nu permite altfel. Costurile directe de returnare sunt suportate potrivit legii aplicabile și condițiilor publicate."] },
+        { title: "10. Neconformitate și garanție", paragraphs: ["Reclamațiile pentru produse defecte sau neconforme și cazurile de garanție sunt remedii legale separate și nu sunt confundate cu retragerea din vânzarea la distanță a unui produs conform. Ele sunt examinate pe baza documentelor de cumpărare, legislației aplicabile și condițiilor produsului sau serviciului concret prin service-ul Novotech."] },
         { title: "11. Obligațiile clientului", paragraphs: ["Clientul verifică componența comenzii, furnizează date corecte, respectă instrucțiunile de utilizare și anunță erorile înainte de confirmarea comenzii sau executarea lucrărilor."] },
         { title: "12. Obligațiile vânzătorului", paragraphs: ["Novotech furnizează informațiile disponibile în mod corect, păstrează instantaneul comercial al comenzii și nu recunoaște plata fără confirmarea autoritară a sistemului de plată."] },
         { title: "13. Contact", paragraphs: ["Telefon: 0 79 31 33 53. Email: info@nsd.md. Adresele magazinelor și programul sunt disponibile pe pagina „Contacte”."] },
@@ -130,17 +135,17 @@ export const legalDocuments: Record<"terms" | "privacy" | "delivery" | "returns"
     ] },
   },
   returns: {
-    ru: { eyebrow: "ПОСЛЕ ПОКУПКИ", title: "Возврат и отмена", summary: "Как направить запрос и какие данные нужны Novotech для проверки конкретной покупки.", version: PUBLIC_TERMS_VERSION, effectiveAt: PUBLIC_LEGAL_EFFECTIVE_AT, sections: [
-      { title: "Как обратиться", paragraphs: ["До отправки товара свяжитесь с Novotech по телефону 0 79 31 33 53 или email info@nsd.md. Укажите номер заказа, товар и причину обращения."] },
-      { title: "Проверка запроса", paragraphs: ["Novotech проверяет документы покупки, состояние и комплектность товара, категорию продукта и применимые требования. Не отправляйте товар без согласования места и способа передачи."] },
-      { title: "Отмена заказа", paragraphs: ["Если заказ ещё не исполнен, возможность отмены проверяется по его текущему состоянию. Уже подтверждённая оплата не отменяется только возвратом браузера или сообщением в интерфейсе."] },
-      { title: "Возврат денежных средств", paragraphs: ["Способ и срок возврата денежных средств сообщаются после проверки и в соответствии с фактическим способом оплаты и применимыми требованиями."] },
+    ru: { eyebrow: "ПОСЛЕ ПОКУПКИ", title: "Возврат и отмена", summary: "Отказ от дистанционного договора, возврат денежных средств и отдельный порядок для несоответствия и гарантии.", version: PUBLIC_TERMS_VERSION, effectiveAt: PUBLIC_LEGAL_EFFECTIVE_AT, sections: [
+      { title: "A. Отказ от дистанционного договора", paragraphs: ["Потребитель вправе отказаться от соответствующего товара, приобретённого дистанционно, в течение 14 календарных дней. Для товара срок начинается с его получения или перехода в физическое владение согласно применимому законодательству Республики Молдова. Применяются предусмотренные законом исключения."] },
+      { title: "B. Порядок возврата и возмещения", paragraphs: ["1. Свяжитесь с Novotech по телефону 0 79 31 33 53 или email info@nsd.md и укажите номер заказа и товар. 2. Novotech идентифицирует заказ и проверяет применимость права по закону и опубликованным условиям. 3. Передайте товар в согласованный пункт Novotech или согласованным способом в установленный законом срок.", "Возврат денежных средств производится без неоправданной задержки и не позднее 14 календарных дней с даты уведомления об отказе, в той же валюте и тем же способом оплаты, если применимый закон или отдельное правомерное соглашение не допускает иное. Прямые расходы на возврат распределяются по применимому закону и опубликованным условиям; неподтверждённые логистические тарифы не устанавливаются."] },
+      { title: "C. Дефектный или несоответствующий товар", paragraphs: ["Требования, связанные с дефектом или несоответствием товара, рассматриваются отдельно от добровольного отказа от соответствующего товара. Клиент передаёт сведения о заказе и несоответствии; Novotech применяет предусмотренные законом средства защиты потребителя."] },
+      { title: "D. Гарантия и сервис", paragraphs: ["Гарантийные и сервисные случаи рассматриваются по документам покупки, применимому законодательству и условиям конкретного товара или услуги. Обращение направляется в сервис Novotech по публичным контактам."] },
     ] },
-    ro: { eyebrow: "DUPĂ CUMPĂRARE", title: "Retur și anulare", summary: "Cum se transmite o solicitare și ce date sunt necesare pentru verificarea cumpărăturii.", version: PUBLIC_TERMS_VERSION, effectiveAt: PUBLIC_LEGAL_EFFECTIVE_AT, sections: [
-      { title: "Cum ne contactați", paragraphs: ["Înainte de expedierea produsului, contactați Novotech la 0 79 31 33 53 sau info@nsd.md. Indicați numărul comenzii, produsul și motivul solicitării."] },
-      { title: "Verificarea solicitării", paragraphs: ["Novotech verifică documentele cumpărării, starea și completitudinea produsului, categoria și cerințele aplicabile. Nu expediați produsul fără coordonarea locului și modului de predare."] },
-      { title: "Anularea comenzii", paragraphs: ["Dacă o comandă nu a fost executată, posibilitatea anulării este verificată după starea ei curentă. O plată confirmată nu este anulată prin simpla revenire a browserului sau printr-un mesaj din interfață."] },
-      { title: "Rambursarea banilor", paragraphs: ["Metoda și termenul rambursării sunt comunicate după verificare, potrivit metodei reale de plată și cerințelor aplicabile."] },
+    ro: { eyebrow: "DUPĂ CUMPĂRARE", title: "Retur și anulare", summary: "Retragerea din contractul la distanță, rambursarea și procedura separată pentru neconformitate și garanție.", version: PUBLIC_TERMS_VERSION, effectiveAt: PUBLIC_LEGAL_EFFECTIVE_AT, sections: [
+      { title: "A. Retragerea din contractul la distanță", paragraphs: ["Consumatorul se poate retrage din contractul la distanță pentru un produs conform în termen de 14 zile calendaristice. Pentru bunuri, termenul începe de la primirea sau intrarea în posesia fizică, potrivit legislației aplicabile a Republicii Moldova. Se aplică excepțiile prevăzute de lege."] },
+      { title: "B. Procedura de retur și rambursare", paragraphs: ["1. Contactați Novotech la 0 79 31 33 53 sau info@nsd.md și indicați comanda și produsul. 2. Novotech identifică achiziția și verifică eligibilitatea potrivit legii și condițiilor publicate. 3. Predați produsul la punctul Novotech desemnat sau prin metoda coordonată, în termenul legal.", "Rambursarea se efectuează fără întârzieri nejustificate și cel târziu în 14 zile calendaristice de la notificarea retragerii, în aceeași monedă și prin aceeași metodă de plată, dacă legea aplicabilă sau un acord legal expres nu permite altfel. Costurile directe de returnare sunt suportate potrivit legii și condițiilor publicate; nu sunt stabilite tarife logistice neconfirmate."] },
+      { title: "C. Produs defect sau neconform", paragraphs: ["Reclamațiile privind defectele sau neconformitatea se examinează separat de retragerea voluntară pentru un produs conform. Clientul comunică datele comenzii și neconformitatea, iar Novotech aplică remediile prevăzute de lege."] },
+      { title: "D. Garanție și service", paragraphs: ["Cazurile de garanție și service sunt examinate potrivit documentelor de cumpărare, legislației aplicabile și condițiilor produsului sau serviciului concret. Solicitarea se transmite service-ului Novotech prin contactele publice."] },
     ] },
   },
 };

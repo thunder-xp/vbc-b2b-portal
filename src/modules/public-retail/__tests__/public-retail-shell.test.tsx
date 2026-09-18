@@ -65,6 +65,11 @@ describe("Public Retail shell", () => {
     expect(screen.getByRole("heading", { name: "Информация" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Контакты" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Контакты и магазины" })).not.toBeInTheDocument();
+    const payments = within(screen.getByRole("group", { name: "Поддерживаемые платёжные системы" }));
+    for (const name of ["MAIB", "Visa", "Mastercard", "American Express"]) expect(payments.getByRole("img", { name })).toBeInTheDocument();
+    expect(screen.getByText("NOVOTECH SYSTEMS S.R.L.")).toBeInTheDocument();
+    expect(screen.getByText("IDNO: 1018600013048")).toBeInTheDocument();
+    expect(screen.getByText("TVA: 0209950")).toBeInTheDocument();
   });
 
   it("keeps authored Romanian labels and complete mobile navigation", () => {
@@ -86,6 +91,7 @@ describe("Public Retail shell", () => {
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contacte" })).toBeInTheDocument();
     expect(within(screen.getByRole("banner")).getByRole("link", { name: "Comută în limba rusă" })).toHaveTextContent("RU");
+    expect(screen.getByText("MD-2001, mun. Chișinău, str. Mihail Kogălniceanu 9, of. 17")).toBeInTheDocument();
   });
 
   it("renders the real cart utility as an icon-and-label button with its bounded count", () => {

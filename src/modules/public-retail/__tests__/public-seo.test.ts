@@ -255,7 +255,9 @@ describe("public SEO contract", () => {
     expect(serialized).toContain("+37379313353");
     expect(serialized).toContain("+37378999495");
     expect(serialized).toContain("str. Lev Tolstoi 4");
-    expect(serialized).not.toMatch(/latitude|longitude|vat|registration/i);
+    expect(serialized).toContain('"taxID":"1018600013048"');
+    expect(serialized).toContain('"vatID":"0209950"');
+    expect(serialized).not.toMatch(/latitude|longitude|registration/i);
     expect(() => JSON.parse(serialized)).not.toThrow();
   });
 

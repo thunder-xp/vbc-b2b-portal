@@ -53,6 +53,14 @@ create table public.retail_payment_return_tokens (
 create unique index retail_payment_return_tokens_hash_idx
   on public.retail_payment_return_tokens(token_hash);
 
+create table public.public_retail_online_payment_blocks (
+  public_product_id uuid not null references public.public_retail_product_identities(public_id) on delete cascade,
+  reason_code text not null check (reason_code in ('PROHIBITED_CATEGORY','CONTENT_REVIEW')),
+  safe_reason text null check (safe_reason is null or char_length(safe_reason) between 3 and 500),
+  created_at timestamptz not null default now(),
+  primary key(public_product_id,reason_code)
+);
+
 create function public.prevent_retail_legal_acceptance_mutation()
 returns trigger language plpgsql set search_path = '' as $$
 begin
@@ -67,10 +75,98 @@ for each row execute function public.prevent_retail_legal_acceptance_mutation();
 alter table public.public_legal_document_versions enable row level security;
 alter table public.retail_legal_acceptances enable row level security;
 alter table public.retail_payment_return_tokens enable row level security;
-revoke all on public.public_legal_document_versions,public.retail_legal_acceptances,public.retail_payment_return_tokens from public,anon,authenticated,service_role;
+alter table public.public_retail_online_payment_blocks enable row level security;
+revoke all on public.public_legal_document_versions,public.retail_legal_acceptances,public.retail_payment_return_tokens,public.public_retail_online_payment_blocks from public,anon,authenticated,service_role;
 grant select on public.public_legal_document_versions to service_role;
 grant select,insert on public.retail_legal_acceptances to service_role;
 grant select,insert on public.retail_payment_return_tokens to service_role;
+grant select on public.public_retail_online_payment_blocks to service_role;
+
+create function public.assess_public_retail_online_payment_content_v1(
+  p_publication_id uuid,
+  p_locale text,
+  p_public_product_ids uuid[] default null
+) returns table(
+  public_product_id uuid,
+  sku text,
+  product_name text,
+  reason_codes text[],
+  online_payment_eligible boolean
+) language sql stable security invoker set search_path = '' as $$
+  with facts as (
+    select product.public_id,
+      product.sku,
+      coalesce(nullif(btrim(case when p_locale='ro' then product.name_ro else product.name_ru end),''),product.name_ru) product_name,
+      nullif(btrim(case when p_locale='ro'
+        then coalesce(product.description_ro,product.short_description_ro)
+        else coalesce(product.description_ru,product.short_description_ru) end),'') locale_description,
+      case when p_locale='ro' then nullif(btrim(product.name_ro),'') is not null
+        else nullif(btrim(product.name_ru),'') is not null end has_locale_name,
+      (select count(*) from jsonb_array_elements(product.specifications) specification
+        where nullif(btrim(specification->>'value'),'') is not null
+          and (p_locale='ru' or nullif(btrim(specification->>'labelRo'),'') is not null)) localized_specification_count,
+      product.primary_image_url is not null has_image,
+      product.retail_price_amount>0 and product.retail_price_currency~'^[A-Z]{3}$' has_price,
+      coalesce(blocks.reason_codes,array[]::text[]) governed_blocks
+    from public.public_retail_products product
+    left join lateral (
+      select array_agg(block.reason_code order by block.reason_code) reason_codes
+      from public.public_retail_online_payment_blocks block
+      where block.public_product_id=product.public_id
+    ) blocks on true
+    where product.publication_id=p_publication_id
+      and p_locale in ('ru','ro')
+      and (p_public_product_ids is null or product.public_id=any(p_public_product_ids))
+  ), evaluated as (
+    select facts.*,
+      array_remove(array[
+        case when not facts.has_locale_name
+          or (facts.locale_description is null and facts.localized_specification_count<3)
+          then 'MISSING_LOCALE_CONTENT' end,
+        case when not facts.has_image then 'MISSING_IMAGE' end,
+        case when not facts.has_price then 'INVALID_PRICE' end,
+        case when not (
+          facts.locale_description is not null
+          and char_length(facts.locale_description)>=24
+          and lower(regexp_replace(facts.locale_description,'\s+',' ','g'))
+            not in ('нет описания','описание отсутствует','no description','n/a','-','–','—')
+          or facts.localized_specification_count>=3
+        ) then 'INSUFFICIENT_CONTENT' end
+      ]::text[],null) || facts.governed_blocks reason_codes
+    from facts
+  )
+  select evaluated.public_id,evaluated.sku,evaluated.product_name,evaluated.reason_codes,
+    cardinality(evaluated.reason_codes)=0
+  from evaluated;
+$$;
+
+create function public.get_public_retail_online_payment_compliance_v1(p_locale text default 'ru')
+returns jsonb language sql stable security invoker set search_path = '' as $$
+  with publication as (
+    select id from public.public_retail_publications where status='published'
+  ), assessment as (
+    select result.* from publication
+    cross join lateral public.assess_public_retail_online_payment_content_v1(publication.id,p_locale,null) result
+  )
+  select jsonb_build_object(
+    'locale',p_locale,
+    'totalProducts',count(*),
+    'onlinePaymentEligible',count(*) filter(where online_payment_eligible),
+    'blockedByMissingLocaleContent',count(*) filter(where 'MISSING_LOCALE_CONTENT'=any(reason_codes)),
+    'blockedByMissingImage',count(*) filter(where 'MISSING_IMAGE'=any(reason_codes)),
+    'blockedByInsufficientContent',count(*) filter(where 'INSUFFICIENT_CONTENT'=any(reason_codes)),
+    'blockedByProhibitedCategory',count(*) filter(where 'PROHIBITED_CATEGORY'=any(reason_codes)),
+    'remediation',coalesce(jsonb_agg(jsonb_build_object(
+      'publicProductId',public_product_id,'sku',sku,'name',product_name,'reasons',reason_codes
+    ) order by sku) filter(where not online_payment_eligible),'[]'::jsonb)
+  ) from assessment
+  where p_locale in ('ru','ro');
+$$;
+
+revoke all on function public.assess_public_retail_online_payment_content_v1(uuid,text,uuid[]),
+  public.get_public_retail_online_payment_compliance_v1(text) from public,anon,authenticated;
+grant execute on function public.assess_public_retail_online_payment_content_v1(uuid,text,uuid[]),
+  public.get_public_retail_online_payment_compliance_v1(text) to service_role;
 
 create function public.create_public_retail_order_v3(
   p_token_hash text,p_locale text,p_checkout_fingerprint text,p_submission_key uuid,p_request_fingerprint text,
@@ -136,6 +232,16 @@ begin
   if coalesce(btrim(target_customer.email),'') !~* '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
     return jsonb_build_object('outcome','EMAIL_REQUIRED');
   end if;
+  if exists(
+    select 1
+    from public.assess_public_retail_online_payment_content_v1(
+      target_order.publication_id,
+      target_order.locale,
+      array(select line.public_product_id from public.retail_order_lines line
+        where line.order_id=target_order.id and line.public_product_id is not null and line.unit_code<>'service')
+    ) assessment
+    where not assessment.online_payment_eligible
+  ) then return jsonb_build_object('outcome','CONTENT_NOT_ELIGIBLE'); end if;
   result:=public.claim_retail_payment_attempt(p_access_token_hash,p_provider,p_idempotency_key);
   if result->>'outcome' in ('CLAIMED','REUSE_PENDING') then
     insert into public.retail_payment_return_tokens(payment_attempt_id,token_hash)
@@ -242,7 +348,7 @@ begin
   v_intent_id:='retail.payment_confirmed:'||v_attempt.id::text;
   v_delivery_identity:=encode(extensions.digest(v_intent_id||'|email|'||lower(btrim(v_customer.email))||'|v1','sha256'),'hex');
   v_rendered:=jsonb_build_object(
-    'orderNumber',v_order.public_number,'merchantName','Novotech','website','nsd.md',
+    'orderNumber',v_order.public_number,'merchantName','NOVOTECH SYSTEMS S.R.L.','website','www.nsd.md',
     'amount',v_attempt.amount,'currency',v_attempt.currency,'confirmedAt',v_attempt.confirmed_at,
     'locale',v_order.locale,'items',coalesce((select jsonb_agg(jsonb_build_object(
       'name',line.product_name,'sku',line.sku,'quantity',line.quantity) order by line.line_number)
@@ -318,6 +424,8 @@ end;
 $$;
 
 comment on table public.retail_legal_acceptances is 'Append-only evidence that the Retail order accepted the exact published legal-document versions.';
+comment on table public.public_retail_online_payment_blocks is 'Explicit Portal-owned online-payment compliance blocks; this does not alter B2B, Admin, catalog publication, or 1C product truth.';
+comment on function public.assess_public_retail_online_payment_content_v1(uuid,text,uuid[]) is 'Locale-aware MAIB content assessment over a bounded public publication/product set; no product visibility mutation.';
 comment on function public.claim_retail_payment_attempt_v2(text,text,uuid,text) is 'Fail-closed payment claim requiring current legal acceptance and an authoritative customer email before any PaymentAttempt mutation; issues a separate scoped return-page capability.';
 comment on function public.persist_retail_payment_confirmation_email_v1(uuid) is 'Idempotent adapter from authoritative paid Retail state into the durable Omnichannel email outbox.';
 
