@@ -316,6 +316,21 @@ function renderDeliveryMessage(delivery: ClaimedNotificationDelivery) {
       delivery.payloadVersion,
     );
   }
+  if (delivery.channel === "email") {
+    const snapshot = delivery.renderedSnapshot;
+    if (snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)) {
+      const value = snapshot as Record<string, unknown>;
+      if (typeof value.subject === "string" && typeof value.textBody === "string"
+        && (value.htmlBody === undefined || typeof value.htmlBody === "string")) {
+        return {
+          recipient: delivery.recipient,
+          subject: value.subject,
+          text: value.textBody,
+          html: value.htmlBody ?? "",
+        };
+      }
+    }
+  }
   if (delivery.channel === "sms"
     && delivery.channelMode === "SANDBOX"
     && delivery.purpose === "SUPPORT"

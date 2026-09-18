@@ -117,6 +117,30 @@ describe("NotificationDeliveryWorkerService", () => {
     }));
   });
 
+  it("delivers a governed transactional email from its durable rendered snapshot", async () => {
+    const invitationDelivery: ClaimedNotificationDelivery = {
+      ...delivery,
+      eventType: "marketplace.invitation",
+      purpose: "TRANSACTIONAL",
+      templateKey: "installation_marketplace_invitation",
+      templateVersion: 1,
+      renderedSnapshot: {
+        subject: "Marketplace invitation",
+        textBody: "Open the installation marketplace.",
+        htmlBody: "<p>Open the installation marketplace.</p>",
+      },
+    };
+    const dependencies = makeDependencies(invitationDelivery);
+
+    await expect(dependencies.worker.run()).resolves.toMatchObject({ sent: 1, failed: 0, deadLetter: 0 });
+    expect(dependencies.adapter.send).toHaveBeenCalledWith(expect.objectContaining({
+      recipient: invitationDelivery.recipient,
+      subject: "Marketplace invitation",
+      text: "Open the installation marketplace.",
+      html: "<p>Open the installation marketplace.</p>",
+    }));
+  });
+
   it("persists a bounded batch in one repository call", async () => {
     const second = {
       ...delivery,
