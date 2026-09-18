@@ -7,13 +7,12 @@ import { getInstallationAssignmentDispatcher } from "@/src/modules/retail-market
 import type { InstallationAssignmentView } from "@/src/modules/retail-marketplace/types";
 import {
   optInInstallationMarketplaceAction,
-  saveInstallationMarketplaceActivationAction,
   submitInstallationMarketplaceActivationAction,
 } from "@/src/modules/installation-marketplace/actions";
 import { getInstallationMarketplaceService } from "@/src/modules/installation-marketplace/server";
-import { INSTALLATION_PARTNER_CAPABILITIES } from "@/src/modules/installation-marketplace/types";
-import type { InstallationPartnerActivation, InstallationPartnerCapability } from "@/src/modules/installation-marketplace/types";
+import type { InstallationPartnerActivation } from "@/src/modules/installation-marketplace/types";
 import { PartnerInstallationLists } from "@/src/modules/installation-marketplace/partner-installation-lists";
+import { PartnerActivationForm } from "@/src/modules/installation-marketplace/partner-activation-form";
 
 type WorkspaceView = "overview" | "new" | "active" | "completed" | "profile";
 
@@ -55,10 +54,6 @@ const copy = {
   },
 } as const;
 
-const capabilityLabels: Record<"ru" | "ro", Record<InstallationPartnerCapability, string>> = {
-  ru: { cctv: "Видеонаблюдение", intercom: "Домофония", access_control: "Контроль доступа", alarm: "Сигнализация", network: "Сети / Wi-Fi", other: "Другие монтажные системы" },
-  ro: { cctv: "Supraveghere video", intercom: "Interfonie", access_control: "Control acces", alarm: "Alarmă", network: "Rețele / Wi-Fi", other: "Alte sisteme de instalare" },
-};
 const readinessLabels = { PUBLIC_PROFILE: "profile", INSTALLATION_SERVICES: "service", CAPABILITIES: "capabilities", SERVICE_AREA: "area", CONTACT_PERSON: "contact", RESPONSE_CHANNEL: "response", MARKETPLACE_TERMS: "terms", CUSTOMER_PRIVACY: "privacy", ADMIN_VERIFICATION: "admin", AVAILABILITY: "availability" } as const;
 
 export default async function InstallationMarketplaceActivationPage({ searchParams }: { searchParams: Promise<{ result?: string; view?: string }> }) {
@@ -104,18 +99,7 @@ function ActivationWorkspace({ locale, state, t }: { locale: "ru" | "ro"; state:
     {state.status === "REJECTED" && <p className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm"><strong>{t.rejected}.</strong>{state.rejectionNote ? ` ${state.rejectionNote}` : ""}</p>}
     {state.status === "SUSPENDED" && <p className="border-l-4 border-red-600 bg-red-50 p-3 text-sm">{t.suspend}</p>}
     <section className="border border-zinc-200 bg-white p-5"><h2 className="text-lg font-semibold">{t.checklist}</h2><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{state.readiness.items.map((item)=>{const key=readinessLabels[item.code as keyof typeof readinessLabels];return <div className="flex min-h-11 items-center justify-between gap-3 border border-zinc-200 px-3 text-sm" key={item.code}><span>{key ? t[key] : item.code}</span><span className={item.ready ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>{item.ready ? t.ready : t.missing}</span></div>;})}</div></section>
-    {locked ? <p className="border border-zinc-200 bg-white p-5 text-sm text-zinc-600">{t.locked}</p> : <ActivationForm locale={locale} state={state} t={t} />}
+    {locked ? <p className="border border-zinc-200 bg-white p-5 text-sm text-zinc-600">{t.locked}</p> : <PartnerActivationForm activation={state} locale={locale} />}
     {!locked && state.readiness.preAdminReady && !["ACTIVE","APPROVED"].includes(state.status) ? <form action={submitInstallationMarketplaceActivationAction} className="flex justify-end"><input name="revision" type="hidden" value={state.revision}/><button className="min-h-11 rounded-md bg-emerald-700 px-5 text-sm font-semibold text-white">{t.submit}</button></form> : null}
   </>;
-}
-
-function ActivationForm({ locale, state, t }: { locale: "ru" | "ro"; state: InstallationPartnerActivation; t: typeof copy.ru | typeof copy.ro }) {
-  return <form action={saveInstallationMarketplaceActivationAction} className="space-y-5 border border-zinc-200 bg-white p-5"><input name="revision" type="hidden" value={state.revision}/><h2 className="text-lg font-semibold">{t.details}</h2>
-    <div className="grid gap-4 md:grid-cols-2"><label className="grid gap-1 text-sm"><span className="font-medium">{t.descriptionRu}</span><textarea className="min-h-28 border border-zinc-300 p-3" defaultValue={state.descriptionRu ?? ""} maxLength={1000} name="descriptionRu"/></label><label className="grid gap-1 text-sm"><span className="font-medium">{t.descriptionRo}</span><textarea className="min-h-28 border border-zinc-300 p-3" defaultValue={state.descriptionRo ?? ""} maxLength={1000} name="descriptionRo"/></label></div>
-    <div className="grid gap-4 md:grid-cols-2"><label className="grid gap-1 text-sm"><span className="font-medium">{t.availability}</span><select className="min-h-11 border border-zinc-300 px-3" defaultValue={state.availability} name="availability"><option value="available">{t.available}</option><option value="limited">{t.limited}</option><option value="unavailable">{t.unavailable}</option></select></label><label className="grid gap-1 text-sm"><span className="font-medium">{t.capacity}</span><input className="min-h-11 border border-zinc-300 px-3" defaultValue={state.maxConcurrentJobs ?? ""} max={100} min={1} name="maxConcurrentJobs" type="number"/></label></div>
-    <fieldset><legend className="font-semibold">{t.capabilities}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{INSTALLATION_PARTNER_CAPABILITIES.map((code)=>{const selected=state.capabilities.find((value)=>value.code===code);return <label className="flex min-h-11 items-center gap-3 border border-zinc-200 px-3 text-sm" key={code}><input defaultChecked={Boolean(selected)} name="capabilities" type="checkbox" value={code}/><span className="flex-1">{capabilityLabels[locale][code]}</span>{selected && <small className={selected.verificationStatus === "verified" ? "text-emerald-700" : "text-zinc-500"}>{selected.verificationStatus === "verified" ? t.verified : t.selfDeclared}</small>}</label>;})}</div></fieldset>
-    <fieldset><legend className="font-semibold">{t.regions}</legend><div className="mt-2 grid max-h-72 gap-2 overflow-y-auto border border-zinc-200 p-2 sm:grid-cols-2 lg:grid-cols-3">{state.regions.map((region)=><label className="flex min-h-11 items-center gap-3 px-2 text-sm" key={region.code}><input defaultChecked={state.serviceAreaCodes.includes(region.code)} name="regions" type="checkbox" value={region.code}/><span>{region.name}</span></label>)}</div></fieldset>
-    <div className="grid gap-2"><label className="flex min-h-11 items-start gap-3 text-sm"><input className="mt-1" defaultChecked={state.termsAccepted} name="acceptTerms" type="checkbox"/><span>{t.termsAccept}<small className="block text-zinc-500">{state.termsVersion}</small></span></label><label className="flex min-h-11 items-start gap-3 text-sm"><input className="mt-1" defaultChecked={state.privacyAccepted} name="acceptPrivacy" type="checkbox"/><span>{t.privacyAccept}<small className="block text-zinc-500">{state.privacyVersion}</small></span></label></div>
-    <div className="flex justify-end"><button className="min-h-11 rounded-md border border-zinc-900 px-5 text-sm font-semibold">{t.save}</button></div>
-  </form>;
 }

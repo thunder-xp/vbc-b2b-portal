@@ -7,6 +7,8 @@ import { requireAdminPermission } from "@/src/modules/admin/services";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getFinalCustomerContext } from "@/src/modules/final-customer/server";
 import { getInstallationMarketplaceService } from "./server";
+import { InstallationMarketplaceInputError } from "./service";
+import { InstallationMarketplaceRepositoryError } from "./supabase.repository";
 import { persistInstallationMarketplaceInvitationEmail } from "./marketplace-invitation.communication";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "");
@@ -86,18 +88,54 @@ export async function optInInstallationMarketplaceAction() {
   redirect("/cabinet/installation-marketplace?result=enrolled");
 }
 
-export async function saveInstallationMarketplaceActivationAction(formData: FormData) {
+export type PartnerActivationSaveActionState = {
+  status: "idle" | "success" | "error" | "conflict";
+  message: string;
+  revision: number;
+};
+
+export async function saveInstallationMarketplaceActivationAction(
+  previousState: PartnerActivationSaveActionState,
+  formData: FormData,
+): Promise<PartnerActivationSaveActionState> {
   const companyId=await requirePartnerCompany();
   const capacity=text(formData,"maxConcurrentJobs").trim();
-  await getInstallationMarketplaceService().savePartnerActivation({
-    companyId, descriptionRu:nullable(formData,"descriptionRu"), descriptionRo:nullable(formData,"descriptionRo"),
-    availability:text(formData,"availability"), maxConcurrentJobs:capacity?Number(capacity):null,
-    capabilities:formData.getAll("capabilities").map(String), regionCodes:formData.getAll("regions").map(String),
-    acceptTerms:formData.get("acceptTerms")==="on", acceptPrivacy:formData.get("acceptPrivacy")==="on",
-    expectedRevision:Number(text(formData,"revision")),
-  });
-  revalidatePath("/cabinet/installation-marketplace");
-  redirect("/cabinet/installation-marketplace?result=saved");
+  const locale=text(formData,"locale")==="ro"?"ro":"ru";
+  try {
+    const result=await getInstallationMarketplaceService().savePartnerActivation({
+      companyId, descriptionRu:nullable(formData,"descriptionRu"), descriptionRo:nullable(formData,"descriptionRo"),
+      availability:text(formData,"availability"), maxConcurrentJobs:capacity?Number(capacity):null,
+      capabilities:formData.getAll("capabilities").map(String), regionCodes:formData.getAll("regions").map(String),
+      acceptTerms:formData.get("acceptTerms")==="on", acceptPrivacy:formData.get("acceptPrivacy")==="on",
+      expectedRevision:Number(text(formData,"revision")),
+    });
+    revalidatePath("/cabinet/installation-marketplace");
+    return {
+      status:"success",
+      message:locale==="ro"?"Modificările au fost salvate.":"Изменения сохранены.",
+      revision:result.revision,
+    };
+  } catch(error) {
+    if(error instanceof InstallationMarketplaceRepositoryError) {
+      if(error.code==="conflict") return {
+        status:"conflict",
+        message:locale==="ro"?"Datele au fost modificate într-o altă sesiune. Reîncărcați pagina și verificați modificările.":"Данные были изменены в другой сессии. Обновите страницу и проверьте изменения.",
+        revision:previousState.revision,
+      };
+      if(error.code==="forbidden") return {
+        status:"error",
+        message:locale==="ro"?"Nu aveți acces pentru a salva acest profil.":"Недостаточно прав для сохранения профиля.",
+        revision:previousState.revision,
+      };
+    }
+    return {
+      status:"error",
+      message:error instanceof InstallationMarketplaceInputError
+        ? locale==="ro"?"Verificați datele introduse și încercați din nou.":"Проверьте введённые данные и повторите попытку."
+        : locale==="ro"?"Modificările nu au putut fi salvate. Încercați din nou.":"Не удалось сохранить изменения. Попробуйте ещё раз.",
+      revision:previousState.revision,
+    };
+  }
 }
 
 export async function submitInstallationMarketplaceActivationAction(formData: FormData) {

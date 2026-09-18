@@ -13,7 +13,7 @@ export class InstallationMarketplaceRepositoryError extends Error {
 }
 
 function fail(code?: string): never {
-  throw new InstallationMarketplaceRepositoryError(code === "22023" ? "invalid" : code === "PT409" || code === "23505" ? "conflict" : code === "42501" ? "forbidden" : "unavailable");
+  throw new InstallationMarketplaceRepositoryError(code === "22023" ? "invalid" : code === "40001" || code === "PT409" || code === "23505" ? "conflict" : code === "42501" ? "forbidden" : "unavailable");
 }
 
 async function rpc<T>(name: string, parameters: Record<string, unknown>): Promise<T> {
