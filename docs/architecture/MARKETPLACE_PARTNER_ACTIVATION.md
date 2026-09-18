@@ -14,6 +14,7 @@ Only an authorized Partner user can explicitly opt in. Existing B2B companies ar
 - `SUSPENDED` stops new exposure without deleting assignments, projects, reviews, or history.
 - `APPROVED` records Admin approval but is not rankable while operational availability remains unavailable.
 - `ACTIVE` is the only Partner participation state allowed to set `marketplace_enabled=true`.
+- `APPROVED → DRAFT` is allowed only through the Admin-only `RETURN_FOR_CORRECTION` command. It requires the expected revision and bounded RU/RO correction reasons, preserves Partner-owned profile data, removes current approval/Marketplace eligibility, and appends immutable evidence. It is neither rejection nor suspension. `ACTIVE → DRAFT` is not permitted by this command.
 
 The invariant is enforced in PostgreSQL. The existing Ranking V2 filter continues to consume the same approved/active/enabled provider projection, so no ranking formula changed.
 
@@ -44,6 +45,8 @@ Capability evidence explicitly distinguishes `self_declared` from `verified`; UI
 ## Approval, audit and notifications
 
 Admin review is permission-gated by `admin.retail_marketplace.manage`. Approval and reactivation require all pre-Admin readiness checks. Rejection uses bounded reason codes. Every opt-in, acceptance, material profile/capability/geography/availability change, submission, approval, rejection, suspension and reactivation writes an append-only `retail_marketplace_events` fact.
+
+Returning an approved application for correction uses the dedicated `admin_return_installation_partner_for_correction_v1` RPC rather than a generic status mutation. The event references the prior approval and submission when available. A retry with the same source revision returns the first result without adding another event. The Partner must save and submit again; the latest immutable submission snapshot remains the only input accepted by the approval gate.
 
 Meaningful lifecycle events use the existing in-app Partner notification projection. Email and SMS remain off for these events.
 

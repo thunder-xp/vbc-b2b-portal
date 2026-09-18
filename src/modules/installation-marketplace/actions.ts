@@ -155,6 +155,17 @@ export async function reviewInstallationMarketplaceActivationAction(formData: Fo
   redirect("/admin/retail/installation?section=supply&activation=updated");
 }
 
+export async function returnInstallationMarketplaceForCorrectionAction(formData: FormData) {
+  await requireAdminPermission("admin.retail_marketplace.manage");
+  await getInstallationMarketplaceService().returnPartnerForCorrection({
+    providerId:text(formData,"providerId"), reasonRu:text(formData,"reasonRu"),
+    reasonRo:text(formData,"reasonRo"), expectedRevision:Number(text(formData,"revision")),
+  });
+  revalidatePath("/admin/retail/installation");
+  revalidatePath("/cabinet/installation-marketplace");
+  redirect("/admin/retail/installation?activation=correction-requested");
+}
+
 export async function saveInstallationMarketplacePilotConfigurationAction(formData: FormData) {
   await requireAdminPermission("admin.retail_marketplace.manage");
   await getInstallationMarketplaceService().savePilotConfiguration({

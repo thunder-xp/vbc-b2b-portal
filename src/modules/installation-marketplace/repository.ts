@@ -23,6 +23,7 @@ export interface InstallationMarketplaceRepository {
   submitPartnerActivation(companyId: string, expectedRevision: number): Promise<{ providerId: string; revision: number; status: string; repeated: boolean }>;
   getPartnerActivationAdminReport(): Promise<InstallationPartnerActivationAdminReport>;
   reviewPartnerActivation(input: { providerId: string; action: "APPROVE" | "REJECT" | "SUSPEND" | "REACTIVATE"; rejectionReason: InstallationPartnerRejectionReason | null; note: string | null; expectedRevision: number }): Promise<{ providerId: string; revision: number; status: string }>;
+  returnPartnerForCorrection(input: { providerId: string; reasonRu: string; reasonRo: string; expectedRevision: number }): Promise<{ providerId: string; revision: number; status: "DRAFT"; repeated: boolean }>;
   getSupplyReport(input: { search: string | null; filter: InstallationMarketplaceSupplyFilter; limit: number; offset: number }): Promise<InstallationMarketplaceSupplyReport>;
   savePilotConfiguration(input: { regionCode: string; capability: InstallationPartnerCapability; enabled: boolean; threshold: number; expectedRevision: number; correlationId: string }): Promise<{ regionCode: string; capability: string; revision: number; enabled: boolean }>;
   prepareInvitation(input: { companyId: string; locale: "ru" | "ro"; channels: Array<"IN_APP" | "EMAIL">; expiresAt: string | null; expectedRevision: number; readyToSend: boolean; correlationId: string }): Promise<{ invitationId: string; revision: number; status: string }>;

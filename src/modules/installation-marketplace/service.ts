@@ -81,6 +81,13 @@ export class InstallationMarketplaceService {
       || input.action === "REJECT" && !INSTALLATION_PARTNER_REJECTION_REASONS.includes(reason as InstallationPartnerRejectionReason)) throw new InstallationMarketplaceInputError();
     return this.repository.reviewPartnerActivation({ ...input, rejectionReason: reason as InstallationPartnerRejectionReason | null, note: optionalText(input.note, 500) });
   }
+  returnPartnerForCorrection(input: { providerId: string; reasonRu: string; reasonRo: string; expectedRevision: number }) {
+    requireUuid(input.providerId); revision(input.expectedRevision);
+    const reasonRu=bounded(input.reasonRu,5,500);
+    const reasonRo=bounded(input.reasonRo,5,500);
+    if (!reasonRu || !reasonRo) throw new InstallationMarketplaceInputError();
+    return this.repository.returnPartnerForCorrection({ ...input, reasonRu, reasonRo });
+  }
   getSupplyReport(input: { search?: string | null; filter?: string | null; limit?: number; offset?: number }) {
     const allowedFilters: InstallationMarketplaceSupplyFilter[] = ["all","potential","invited","started","pending","active","suspended"];
     const filter = (input.filter?.trim() || "all") as InstallationMarketplaceSupplyFilter;

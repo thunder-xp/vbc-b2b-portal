@@ -112,6 +112,12 @@ export class SupabaseInstallationMarketplaceRepository implements InstallationMa
       p_note: input.note, p_expected_revision: input.expectedRevision,
     });
   }
+  returnPartnerForCorrection(input: Parameters<InstallationMarketplaceRepository["returnPartnerForCorrection"]>[0]) {
+    return rpc<{ providerId: string; revision: number; status: "DRAFT"; repeated: boolean }>("admin_return_installation_partner_for_correction_v1", {
+      p_provider_id: input.providerId, p_reason_ru: input.reasonRu, p_reason_ro: input.reasonRo,
+      p_expected_revision: input.expectedRevision,
+    });
+  }
   getSupplyReport(input: Parameters<InstallationMarketplaceRepository["getSupplyReport"]>[0]) {
     return rpc<InstallationMarketplaceSupplyReport>("admin_get_installation_marketplace_supply_v1", {
       p_search: input.search, p_filter: input.filter, p_limit: input.limit, p_offset: input.offset,

@@ -135,6 +135,7 @@ export type InstallationPartnerActivation = Readonly<{
   contactUserId: string | null; responseChannel: "portal";
   termsVersion: string; termsAccepted: boolean; privacyVersion: string; privacyAccepted: boolean;
   rejectionReasonCode: InstallationPartnerRejectionReason | null; rejectionNote: string | null;
+  correctionReason: string | null;
   readiness: Readonly<{ preAdminReady: boolean; submissionReady: boolean; eligibleNow: boolean; blockers: string[]; items: InstallationPartnerReadinessItem[] }>;
   capabilities: ReadonlyArray<{ code: InstallationPartnerCapability; verificationStatus: "self_declared" | "verified" }>;
   serviceAreaCodes: string[];
@@ -166,6 +167,10 @@ export type InstallationPartnerActivationAdminReport = Readonly<{
       readiness: InstallationPartnerActivation["readiness"];
     }> | null;
     submissionHistory: ReadonlyArray<{ eventId: string; submittedAt: string; submissionRevision: number; snapshotComplete: boolean }>;
+    correctionHistory: ReadonlyArray<{
+      eventId: string; returnedAt: string; sourceRevision: number; resultingRevision: number;
+      reasonRu: string; reasonRo: string; previousApprovalEventId: string | null; previousSubmissionEventId: string | null;
+    }>;
   }>;
   coverage: ReadonlyArray<{ regionCode: string; regionNameRu: string; regionNameRo: string; capability: InstallationPartnerCapability; installerCount: number }>;
   pilotFacts: Readonly<{ eligibleInstallerCount: number; coveredCapabilityCount: number; coveredServiceAreaCount: number }>;

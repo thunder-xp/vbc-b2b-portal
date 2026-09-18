@@ -29,6 +29,7 @@ function repository(): InstallationMarketplaceRepository {
     submitPartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 2, status: "PENDING_REVIEW", repeated: false }),
     getPartnerActivationAdminReport: vi.fn().mockResolvedValue({ metrics: {}, applications: [], coverage: [], pilotFacts: {} }),
     reviewPartnerActivation: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 3, status: "ACTIVE" }),
+    returnPartnerForCorrection: vi.fn().mockResolvedValue({ providerId: id("5"), revision: 6, status: "DRAFT", repeated: false }),
     getSupplyReport: vi.fn().mockResolvedValue({ metrics:{}, totalCount:0, limit:25, offset:0, pilotReadiness:"NOT_READY", candidates:[], coverage:[] }),
     savePilotConfiguration: vi.fn().mockResolvedValue({ regionCode:"MD-CU", capability:"cctv", revision:1, enabled:true }),
     prepareInvitation: vi.fn().mockResolvedValue({ invitationId:id("6"), revision:1, status:"READY_TO_SEND" }),
@@ -100,6 +101,13 @@ describe("InstallationMarketplaceService", () => {
     const service=new InstallationMarketplaceService(repository());
     expect(()=>service.savePartnerActivation({ companyId:id("5"), availability:"available", maxConcurrentJobs:101, capabilities:["plumbing"], regionCodes:["MD-CU"], acceptTerms:false, acceptPrivacy:false, expectedRevision:0 })).toThrow(InstallationMarketplaceInputError);
     expect(()=>service.reviewPartnerActivation({ providerId:id("5"), action:"REJECT", rejectionReason:"UNBOUNDED", expectedRevision:1 })).toThrow(InstallationMarketplaceInputError);
+  });
+
+  it("requires bounded bilingual reasons for governed return to correction", async()=>{
+    const repo=repository(); const service=new InstallationMarketplaceService(repo);
+    await service.returnPartnerForCorrection({providerId:id("5"),reasonRu:" Требуется уточнение ",reasonRo:" Este necesară completarea ",expectedRevision:5});
+    expect(repo.returnPartnerForCorrection).toHaveBeenCalledWith({providerId:id("5"),reasonRu:"Требуется уточнение",reasonRo:"Este necesară completarea",expectedRevision:5});
+    expect(()=>service.returnPartnerForCorrection({providerId:id("5"),reasonRu:"",reasonRo:"Este necesară completarea",expectedRevision:5})).toThrow(InstallationMarketplaceInputError);
   });
 
   it("bounds the supply projection and validates pilot thresholds", async()=>{
