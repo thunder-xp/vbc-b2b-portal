@@ -36,6 +36,10 @@ describe("Installation Partner workspace UI",()=>{
     expect(form).toContain('aria-live="polite"');
     expect(form).toContain('value={result.revision}');
     expect(form).toContain('router.refresh()');
+    expect(form).toContain('onChange={()=>setDirty(true)}');
+    expect(form).toContain('disabled={!submissionReady}');
+    expect(form).toContain('submitInstallationMarketplaceActivationAction');
+    expect(page).not.toContain('<form action={submitInstallationMarketplaceActivationAction}');
     expect(actions).toContain('status:"success"');
     expect(actions).toContain('revision:result.revision');
     expect(actions).toContain('error.code==="conflict"');

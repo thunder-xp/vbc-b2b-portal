@@ -135,7 +135,7 @@ export type InstallationPartnerActivation = Readonly<{
   contactUserId: string | null; responseChannel: "portal";
   termsVersion: string; termsAccepted: boolean; privacyVersion: string; privacyAccepted: boolean;
   rejectionReasonCode: InstallationPartnerRejectionReason | null; rejectionNote: string | null;
-  readiness: Readonly<{ preAdminReady: boolean; eligibleNow: boolean; blockers: string[]; items: InstallationPartnerReadinessItem[] }>;
+  readiness: Readonly<{ preAdminReady: boolean; submissionReady: boolean; eligibleNow: boolean; blockers: string[]; items: InstallationPartnerReadinessItem[] }>;
   capabilities: ReadonlyArray<{ code: InstallationPartnerCapability; verificationStatus: "self_declared" | "verified" }>;
   serviceAreaCodes: string[];
   regions: ReadonlyArray<{ code: string; name: string; type: string }>;
@@ -147,11 +147,25 @@ export type InstallationPartnerActivationAdminReport = Readonly<{
   applications: ReadonlyArray<{
     providerId: string; companyId: string; companyName: string; status: InstallationParticipationStatus;
     revision: number; availability: InstallationPartnerAvailability; publicProfileVisible: boolean;
+    maxConcurrentJobs: number | null; descriptionRu: string | null; descriptionRo: string | null;
     publicDisplayName: string | null; publicLogoPath: string | null; termsAccepted: boolean; privacyAccepted: boolean;
     rejectionReasonCode: InstallationPartnerRejectionReason | null; rejectionNote: string | null;
     readiness: InstallationPartnerActivation["readiness"];
     capabilities: InstallationPartnerActivation["capabilities"];
     serviceAreas: ReadonlyArray<{ code: string; nameRu: string; nameRo: string }>;
+    submissionSnapshotComplete: boolean;
+    submissionSnapshot: Readonly<{
+      snapshotVersion: number; sourceRevision: number; submissionRevision: number;
+      profile: Readonly<{
+        descriptionRu: string | null; descriptionRo: string | null;
+        availability: InstallationPartnerAvailability; maxConcurrentJobs: number | null;
+        capabilities: InstallationPartnerActivation["capabilities"];
+        serviceAreaCodes: string[]; termsVersion: string | null; termsAccepted: boolean;
+        privacyVersion: string | null; privacyAccepted: boolean;
+      }>;
+      readiness: InstallationPartnerActivation["readiness"];
+    }> | null;
+    submissionHistory: ReadonlyArray<{ eventId: string; submittedAt: string; submissionRevision: number; snapshotComplete: boolean }>;
   }>;
   coverage: ReadonlyArray<{ regionCode: string; regionNameRu: string; regionNameRo: string; capability: InstallationPartnerCapability; installerCount: number }>;
   pilotFacts: Readonly<{ eligibleInstallerCount: number; coveredCapabilityCount: number; coveredServiceAreaCount: number }>;

@@ -79,6 +79,23 @@ describe("InstallationMarketplaceService", () => {
     expect(repo.savePartnerActivation).toHaveBeenCalledWith(expect.objectContaining({ companyId:id("5"), descriptionRu:"Монтаж", capabilities:["cctv","network"], regionCodes:["MD-CU"] }));
   });
 
+  it("preserves the complete real onboarding payload through the service boundary",async()=>{
+    const repo=repository();
+    const service=new InstallationMarketplaceService(repo);
+    await service.savePartnerActivation({
+      companyId:id("5"),descriptionRu:"Монтаж систем",descriptionRo:"Instalarea sistemelor",
+      availability:"available",maxConcurrentJobs:2,
+      capabilities:["cctv","intercom","access_control","alarm","network","other"],
+      regionCodes:["MD-CU"],acceptTerms:true,acceptPrivacy:true,expectedRevision:3,
+    });
+    expect(repo.savePartnerActivation).toHaveBeenCalledWith({
+      companyId:id("5"),descriptionRu:"Монтаж систем",descriptionRo:"Instalarea sistemelor",
+      availability:"available",maxConcurrentJobs:2,
+      capabilities:["cctv","intercom","access_control","alarm","network","other"],
+      regionCodes:["MD-CU"],acceptTerms:true,acceptPrivacy:true,expectedRevision:3,
+    });
+  });
+
   it("rejects unsupported capabilities, capacity and Admin rejection reasons", () => {
     const service=new InstallationMarketplaceService(repository());
     expect(()=>service.savePartnerActivation({ companyId:id("5"), availability:"available", maxConcurrentJobs:101, capabilities:["plumbing"], regionCodes:["MD-CU"], acceptTerms:false, acceptPrivacy:false, expectedRevision:0 })).toThrow(InstallationMarketplaceInputError);
