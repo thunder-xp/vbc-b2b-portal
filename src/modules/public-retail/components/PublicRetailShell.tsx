@@ -53,8 +53,8 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
     </header>
     {children}
     <footer className="border-t border-zinc-800 bg-zinc-950 text-zinc-400" id="support">
-      <div className="mx-auto grid max-w-[1440px] gap-x-7 gap-y-8 px-4 py-9 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8 xl:grid-cols-[1.2fr_.7fr_.7fr_1fr_1.25fr]">
-        <div><PublicBrandLockup background="dark" /><p className="mt-4 max-w-sm text-xs leading-5">{publicCompanyContent.slogan[locale]}</p></div>
+      <div className="mx-auto grid max-w-[1440px] items-start gap-x-6 gap-y-6 px-4 py-7 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:gap-y-5 lg:px-8 lg:py-6 xl:grid-cols-[1.2fr_.7fr_.7fr_1fr_1.25fr]">
+        <div><PublicBrandLockup background="dark" /><p className="mt-3 max-w-sm text-xs leading-4">{publicCompanyContent.slogan[locale]}</p></div>
         <FooterGroup title={catalogLabel}><FooterLink href={`/catalog?lang=${locale}&view=all`}>{catalogLabel}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
         <FooterGroup title={ru ? "Услуги" : "Servicii"}><FooterLink href={`/installation?lang=${locale}`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
         <FooterGroup title={ru ? "Информация" : "Informații"}>
@@ -66,21 +66,21 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
           <FooterLink href={`/contacts?lang=${locale}`}>{copy.contacts}</FooterLink>
         </FooterGroup>
         <FooterGroup title={ru ? "Контакты" : "Contacte"}>
-          {publicCompanyContent.stores.map((store) => <a className="flex min-h-11 w-fit items-center gap-2 text-xs leading-5 hover:text-white" href={store.mapsHref} key={store.mapsHref} rel="noopener noreferrer" target="_blank"><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{store.city[locale]}, {store.address[locale]}</a>)}
-          <a className="flex min-h-11 w-fit items-center gap-2 text-xs hover:text-white" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-3.5" />{publicCompanyContent.customerPhone.display}</a>
-          <a className="flex min-h-11 w-fit items-center gap-2 text-xs hover:text-white" href={`mailto:${publicCompanyContent.email}`}><Mail aria-hidden="true" className="size-3.5" />{publicCompanyContent.email}</a>
-          <p className="text-xs leading-5 text-zinc-400">{publicCompanyContent.hours.weekdays[locale]} · {publicCompanyContent.hours.saturday[locale]}</p>
+          {publicCompanyContent.stores.map((store) => <a className="flex min-h-11 w-fit items-center gap-2 text-xs leading-4 hover:text-white lg:min-h-8" href={store.mapsHref} key={store.mapsHref} rel="noopener noreferrer" target="_blank"><MapPin aria-hidden="true" className="size-3.5 shrink-0" />{store.city[locale]}, {store.address[locale]}</a>)}
+          <a className="flex min-h-11 w-fit items-center gap-2 text-xs hover:text-white lg:min-h-8" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-3.5" />{publicCompanyContent.customerPhone.display}</a>
+          <a className="flex min-h-11 w-fit items-center gap-2 text-xs hover:text-white lg:min-h-8" href={`mailto:${publicCompanyContent.email}`}><Mail aria-hidden="true" className="size-3.5" />{publicCompanyContent.email}</a>
+          <p className="text-xs leading-4 text-zinc-400">{publicCompanyContent.hours.weekdays[locale]} · {publicCompanyContent.hours.saturday[locale]}</p>
         </FooterGroup>
       </div>
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-5 border-t border-zinc-800 px-4 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between lg:px-8">
-        <div className="space-y-1 text-xs leading-5 text-zinc-400">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-4 border-t border-zinc-800 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="grid gap-x-5 gap-y-1 text-xs leading-4 text-zinc-400 sm:grid-cols-2 lg:flex lg:max-w-4xl lg:flex-wrap lg:items-center">
           {publicMerchantLegalProfile.legalName ? <p className="font-medium text-zinc-200">{publicMerchantLegalProfile.legalName}</p> : null}
           {publicMerchantLegalProfile.idno ? <p>IDNO: {publicMerchantLegalProfile.idno}</p> : null}
           <p>TVA: {publicMerchantLegalProfile.vatNumber}</p>
-          {publicMerchantLegalProfile.registeredAddress ? <p>{publicMerchantLegalProfile.registeredAddress[locale]}</p> : null}
-          <p>© 2010–{new Date().getFullYear()} Novotech. {ru ? "Все права защищены." : "Toate drepturile rezervate."}</p>
+          {publicMerchantLegalProfile.registeredAddress ? <p className="lg:basis-full">{publicMerchantLegalProfile.registeredAddress[locale]}</p> : null}
+          <p className="lg:basis-full">© 2010–{new Date().getFullYear()} Novotech. {ru ? "Все права защищены." : "Toate drepturile rezervate."}</p>
         </div>
-        <div aria-label={ru ? "Поддерживаемые платёжные системы" : "Sisteme de plată acceptate"} className="flex min-h-12 flex-wrap items-center gap-4 rounded-sm bg-white px-3 py-2" role="group">
+        <div aria-label={ru ? "Поддерживаемые платёжные системы" : "Sisteme de plată acceptate"} className="flex min-h-12 w-fit flex-wrap items-center gap-3 rounded-sm bg-white px-3 py-2" role="group">
           <Image alt="MAIB" className="h-7 object-contain" height={28} src="/payment/official/maib.png" style={{ width: "auto" }} width={74} />
           {publicPaymentBranding.supportedInternationalPaymentSystems.includes("visa") ? <Image alt="Visa" className="h-6 object-contain" height={24} src="/payment/official/visa.png" style={{ width: "auto" }} width={72} /> : null}
           {publicPaymentBranding.supportedInternationalPaymentSystems.includes("mastercard") ? <Image alt="Mastercard" className="h-7 object-contain" height={28} src="/payment/official/mastercard.png" style={{ width: "auto" }} width={48} /> : null}
@@ -92,7 +92,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
 }
 
 function FooterGroup({ children, title }: { children: ReactNode; title: string }) {
-  return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-3 grid gap-2 text-sm">{children}</div></section>;
+  return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-3 grid gap-0 text-sm leading-snug">{children}</div></section>;
 }
 
 function OfficialLogo({ background, priority = false }: { background: "light" | "dark"; priority?: boolean }) {
@@ -111,5 +111,5 @@ function PublicBrandLockup({ background, priority = false }: { background: "ligh
 }
 
 function FooterLink({ children, href }: { children: ReactNode; href: string }) {
-  return <Link className="inline-flex min-h-11 w-fit items-center hover:text-white" href={href} prefetch={false}>{children}</Link>;
+  return <Link className="inline-flex min-h-11 w-fit items-center hover:text-white lg:min-h-8" href={href} prefetch={false}>{children}</Link>;
 }

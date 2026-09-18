@@ -123,9 +123,13 @@ describe("Public Retail shell", () => {
     const shell = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailShell.tsx"), "utf8");
     const cart = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailCartBadgeClient.tsx"), "utf8");
 
-    expect(shell).toContain('text-xs leading-5 text-zinc-400');
-    expect(shell).toContain('border-t border-zinc-800 px-4 py-5');
-    expect(shell).toContain('inline-flex min-h-11 w-fit items-center');
+    expect(shell).toContain('text-xs leading-4 text-zinc-400');
+    expect(shell).toContain('border-t border-zinc-800 px-4 py-4');
+    expect(shell).toContain('inline-flex min-h-11 w-fit items-center hover:text-white lg:min-h-8');
+    expect(shell).toContain('gap-y-6 px-4 py-7');
+    expect(shell).toContain('lg:gap-y-5 lg:px-8 lg:py-6');
+    expect(shell).toContain('mt-3 grid gap-0 text-sm leading-snug');
+    expect(shell).not.toMatch(/<footer[^>]*\bh-(?:screen|full|\[)/);
     expect(shell).not.toContain('text-xs leading-5 text-zinc-500');
     expect(shell).toContain('href="/cabinet" prefetch={false}');
     expect(shell).toContain('href={href} prefetch={false}');
