@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const migration=readFileSync(resolve("supabase/migrations/20260916173444_installation_marketplace_supply_pilot_ux_v1.sql"),"utf8");
+const expiryRepair=readFileSync(resolve("supabase/migrations/20260918144018_installation_marketplace_invitation_expiry_repair.sql"),"utf8");
 const admin=readFileSync(resolve("src/modules/installation-marketplace/admin-supply-pilot.tsx"),"utf8");
 
 describe("Installation Marketplace supply pilot contract",()=>{
@@ -24,5 +25,10 @@ describe("Installation Marketplace supply pilot contract",()=>{
     expect(migration).toContain("min_active_installers");
     expect(migration).toContain("NOT_READY");
     expect(migration).not.toContain("installation-ranking-v2");
+  });
+  it("keeps optional invitation expiry compatible with the bounded notification lifecycle",()=>{
+    expect(expiryRepair).toContain("coalesce(invitation.expires_at,event_time+interval '90 days')");
+    expect(expiryRepair).toContain("event_time+interval '13 months'");
+    expect(expiryRepair).toContain("admin_send_installation_marketplace_invitation_v1");
   });
 });
