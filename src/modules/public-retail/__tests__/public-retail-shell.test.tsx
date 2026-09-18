@@ -118,7 +118,8 @@ describe("Public Retail shell", () => {
     const cart = readFileSync(join(process.cwd(), "src/modules/public-retail/components/PublicRetailCartBadgeClient.tsx"), "utf8");
 
     expect(shell).toContain('text-xs leading-5 text-zinc-400');
-    expect(shell).toContain('py-4 text-xs text-zinc-400');
+    expect(shell).toContain('border-t border-zinc-800 px-4 py-5');
+    expect(shell).toContain('inline-flex min-h-11 w-fit items-center');
     expect(shell).not.toContain('text-xs leading-5 text-zinc-500');
     expect(shell).toContain('href="/cabinet" prefetch={false}');
     expect(shell).toContain('href={href} prefetch={false}');

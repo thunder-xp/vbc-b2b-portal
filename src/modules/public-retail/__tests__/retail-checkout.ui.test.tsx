@@ -22,6 +22,9 @@ describe("PublicRetailCheckoutForm", () => {
     render(<PublicRetailCheckoutForm checkout={checkout} locale="ru" />);
     expect(screen.getByLabelText("Имя и фамилия")).toBeRequired();
     expect(screen.getByLabelText("Телефон")).toHaveAttribute("inputmode", "tel");
+    expect(screen.getByLabelText("Email для заказа и подтверждения оплаты")).toBeRequired();
+    expect(screen.getByLabelText(/Я принимаю Условия и положения/)).not.toBeChecked();
+    expect(screen.getByRole("link", { name: "Условия и положения" })).toHaveAttribute("href", "/terms?lang=ru");
     expect(screen.getByText("Кто выполнит монтаж?")).toBeInTheDocument();
     expect(screen.getByText("Монтаж и настройка")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Подтвердить заказ" })).toBeEnabled();
@@ -31,6 +34,7 @@ describe("PublicRetailCheckoutForm", () => {
   it("renders Romanian labels and keeps installation address collapsed by default", () => {
     render(<PublicRetailCheckoutForm checkout={checkout} locale="ro" />);
     expect(screen.getByLabelText("Nume și prenume")).toBeRequired();
+    expect(screen.getByLabelText(/Accept Termenii și condițiile/)).not.toBeChecked();
     expect(screen.getByLabelText("Adresa instalării coincide cu adresa de livrare")).toBeChecked();
     expect(screen.getByRole("button", { name: "Confirmă comanda" })).toBeEnabled();
   });

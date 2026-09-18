@@ -37,7 +37,7 @@ export class SupabaseRetailCheckoutRepository implements RetailCheckoutRepositor
   }
 
   async createOrder(tokenHash: string, command: Parameters<RetailCheckoutRepository["createOrder"]>[1]) {
-    return parsePublicRetailOrderCreated(await this.rpc("create_public_retail_order_v2", {
+    return parsePublicRetailOrderCreated(await this.rpc("create_public_retail_order_v3", {
       p_token_hash: tokenHash,
       p_locale: command.locale,
       p_checkout_fingerprint: command.checkoutFingerprint,
@@ -51,6 +51,9 @@ export class SupabaseRetailCheckoutRepository implements RetailCheckoutRepositor
       p_installation_selection_mode: command.installationSelectionMode,
       p_preferred_provider_id: command.preferredProviderId,
       p_installation_region_code: command.installationRegionCode,
+      p_terms_version: command.legalAcceptance.termsVersion,
+      p_privacy_version: command.legalAcceptance.privacyVersion,
+      p_legal_locale: command.legalAcceptance.locale,
     }));
   }
 

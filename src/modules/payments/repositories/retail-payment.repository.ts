@@ -21,13 +21,14 @@ export type MaibReconciliationContext = Readonly<{
 }>;
 
 export interface RetailPaymentRepository {
-  claim(input: Readonly<{ accessTokenHash: string; provider: PaymentProviderName; idempotencyKey: string }>): Promise<PaymentClaim>;
+  claim(input: Readonly<{ accessTokenHash: string; provider: PaymentProviderName; idempotencyKey: string; returnAccessTokenHash: string }>): Promise<PaymentClaim>;
   completeCheckout(input: Readonly<{ attemptId: string; idempotencyKey: string; checkoutId: string; checkoutUrl: string; providerStatus: string }>): Promise<boolean>;
   recordFailure(input: Readonly<{ attemptId: string; idempotencyKey: string; failureCode: string; terminal: boolean }>): Promise<boolean>;
   confirmMaib(input: Readonly<{ evidence: MaibPaymentEvidence; source: "callback" | "reconciliation" }>): Promise<PaymentConfirmationResult>;
   getMaibReconciliationContext(attemptId: string): Promise<MaibReconciliationContext | null>;
   retryMaibActivation(attemptId: string): Promise<PaymentConfirmationResult>;
-  getReturnState(paymentAttemptId: string): Promise<PaymentReturnState | null>;
+  getReturnState(paymentAttemptId: string, returnAccessTokenHash: string): Promise<PaymentReturnState | null>;
+  persistPaidConfirmationEmail(paymentAttemptId: string): Promise<"QUEUED" | "NOT_PAID" | "EMAIL_UNAVAILABLE">;
   listOrderPaymentStates(retailOrderIds: string[]): Promise<RetailOrderPaymentState[]>;
   getOrderPaymentStateByNumber(orderNumber: string): Promise<RetailOrderPaymentState | null>;
   listRecentPaymentStates(limit: number): Promise<RetailOrderPaymentState[]>;

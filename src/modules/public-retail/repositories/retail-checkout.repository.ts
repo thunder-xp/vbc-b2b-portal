@@ -13,6 +13,7 @@ export type RetailCheckoutCreateCommand = {
   installationSelectionMode: "customer_selected" | "automatic" | null;
   preferredProviderId: string | null;
   installationRegionCode: string | null;
+  legalAcceptance: { termsVersion: string; privacyVersion: string; locale: PublicRetailLocale };
 };
 
 export interface RetailCheckoutRepository {

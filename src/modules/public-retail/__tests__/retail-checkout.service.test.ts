@@ -15,7 +15,7 @@ const created = { orderNumber: "R-2026-000001", status: "awaiting_payment" as co
 function repository(): RetailCheckoutRepository {
   return { getCheckout: vi.fn(), createCommercialOffer: vi.fn(), getCommercialOffer: vi.fn(), createOrder: vi.fn().mockResolvedValue(created), getOrder: vi.fn(), getInstallationStatus: vi.fn(), transitionInstallation: vi.fn() };
 }
-function input() { return { locale: "ru" as const, checkoutFingerprint: fingerprint, submissionKey, name: " Ivan Test ", phone: "060 123 456", email: "TEST@EXAMPLE.COM", deliveryAddress: { locality: "Chișinău", street: "Test", building: "1" }, installationSameAsDelivery: true, processingAcknowledged: true }; }
+function input() { return { locale: "ru" as const, checkoutFingerprint: fingerprint, submissionKey, name: " Ivan Test ", phone: "060 123 456", email: "TEST@EXAMPLE.COM", deliveryAddress: { locality: "Chișinău", street: "Test", building: "1" }, installationSameAsDelivery: true, processingAcknowledged: true, legalAccepted: true, termsVersion: "2026-09-18", privacyVersion: "2026-09-18" }; }
 
 describe("RetailCheckoutService", () => {
   it("normalizes Moldova contact data and delegates no browser price fields", async () => {
@@ -26,6 +26,7 @@ describe("RetailCheckoutService", () => {
       customer: { name: "Ivan Test", phone: "+37360123456", email: "test@example.com", processingAcknowledged: true },
       deliveryAddress: { locality: "Chișinău", street: "Test", building: "1", unit: null, postalCode: null, instructions: null },
       requestFingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+      legalAcceptance: { termsVersion: "2026-09-18", privacyVersion: "2026-09-18", locale: "ru" },
     }));
     expect(JSON.stringify(vi.mocked(repo.createOrder).mock.calls[0])).not.toContain("unitPrice");
   });
@@ -38,6 +39,7 @@ describe("RetailCheckoutService", () => {
 
   it("requires consent and rejects stale checkout conflicts safely", async () => {
     await expect(new RetailCheckoutService(repository()).createOrder(hash, "c".repeat(64), { ...input(), processingAcknowledged: false })).rejects.toBeInstanceOf(RetailCheckoutInputError);
+    await expect(new RetailCheckoutService(repository()).createOrder(hash, "c".repeat(64), { ...input(), legalAccepted: false })).rejects.toBeInstanceOf(RetailCheckoutInputError);
     const repo = repository(); vi.mocked(repo.createOrder).mockRejectedValue(new RetailCheckoutRepositoryError("PT409"));
     await expect(new RetailCheckoutService(repo).createOrder(hash, "c".repeat(64), input())).rejects.toBeInstanceOf(RetailCheckoutConflictError);
   });

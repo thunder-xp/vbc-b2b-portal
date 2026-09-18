@@ -8,8 +8,8 @@ export function createRetailPaymentService() {
   return new RetailPaymentService(new SupabaseRetailPaymentRepository(), createMaibCheckoutV2Adapter());
 }
 
-export async function getRetailPaymentReturnState(paymentAttemptId: string) {
-  return new SupabaseRetailPaymentRepository().getReturnState(paymentAttemptId);
+export async function getRetailPaymentReturnState(paymentAttemptId: string, returnAccessToken: string) {
+  return createRetailPaymentService().getReturnState(paymentAttemptId, returnAccessToken);
 }
 
 export async function getRetailOrderPaymentStates(retailOrderIds: string[]) {

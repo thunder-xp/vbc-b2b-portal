@@ -7,6 +7,7 @@ import type {
   NotificationDeliveryRepository,
 } from "./notification-delivery.repository";
 import { renderOrderConfirmedEmail } from "./order-confirmed.email";
+import { renderRetailPaymentConfirmedEmail } from "./retail-payment-confirmed.email";
 import {
   communicationActivationPolicyFromEnvironment,
   evaluateCommunicationPolicy,
@@ -125,6 +126,7 @@ export class NotificationDeliveryWorkerService {
     const startedAt = performance.now();
     const adapter = this.adapters.get(delivery.channel);
     const customerAccountId = delivery.customerAccountId ?? customerAccountIdFromPayload(delivery.payload);
+    const retailCustomerId = retailCustomerIdFromPayload(delivery.payload);
     console.info(logFields("notification_delivery_claimed", delivery));
     try {
       const purpose = delivery.purpose ?? (delivery.eventType === "order.registered_in_1c" ? "TRANSACTIONAL" : undefined);
@@ -136,10 +138,12 @@ export class NotificationDeliveryWorkerService {
           businessEventType: delivery.eventType,
           companyId: delivery.companyId,
           customerAccountId,
+          retailCustomerId,
           recipient: {
             userId: "governed-recipient",
             companyId: delivery.companyId,
             customerAccountId,
+            retailCustomerId,
             locale: delivery.recipientLocale ?? "ru",
             email: delivery.channel === "email" ? delivery.recipient : null,
             phone: delivery.channel === "sms" ? delivery.recipient : null,
@@ -164,10 +168,12 @@ export class NotificationDeliveryWorkerService {
           businessEventType: delivery.eventType,
           companyId: delivery.companyId,
           customerAccountId,
+          retailCustomerId,
           recipient: {
             userId: "governed-recipient",
             companyId: delivery.companyId,
             customerAccountId,
+            retailCustomerId,
             locale: delivery.recipientLocale ?? "ru",
             email: delivery.channel === "email" ? delivery.recipient : null,
             phone: delivery.channel === "sms" ? delivery.recipient : null,
@@ -288,7 +294,17 @@ function customerAccountIdFromPayload(payload: unknown): string | null {
   return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
 }
 
+function retailCustomerIdFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = (payload as Record<string, unknown>).retailCustomerId;
+  return typeof value === "string" && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+}
+
 function renderDeliveryMessage(delivery: ClaimedNotificationDelivery) {
+  if (delivery.channel === "email" && delivery.eventType === "retail.payment_confirmed"
+    && delivery.payloadVersion === 1 && delivery.templateVersion === 1) {
+    return renderRetailPaymentConfirmedEmail(delivery);
+  }
   if (delivery.channel === "email"
     && delivery.eventType === "order.registered_in_1c"
     && [1, 2].includes(delivery.payloadVersion)

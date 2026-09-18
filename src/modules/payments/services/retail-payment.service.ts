@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from "node:crypto";
+
 import type { PaymentProvider } from "../providers/payment-provider";
 import { PaymentProviderError } from "../providers/payment-provider";
 import type { RetailPaymentRepository } from "../repositories/retail-payment.repository";
@@ -14,11 +16,13 @@ export class RetailPaymentService {
 
   async initiate(input: Readonly<{ accessTokenHash: string; idempotencyKey: string }>): Promise<PaymentInitiationResult> {
     if (!TOKEN_HASH.test(input.accessTokenHash) || !UUID.test(input.idempotencyKey)) return result("NOT_ELIGIBLE");
+    const returnAccessToken = randomBytes(32).toString("hex");
+    const returnAccessTokenHash = createHash("sha256").update(returnAccessToken).digest("hex");
     let claim;
-    try { claim = await this.repository.claim({ ...input, provider: this.provider.provider }); }
+    try { claim = await this.repository.claim({ ...input, provider: this.provider.provider, returnAccessTokenHash }); }
     catch { return result("PERSISTENCE_FAILED"); }
 
-    if (claim.outcome === "REUSE_PENDING") return { outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: claim.checkoutUrl, reused: true };
+    if (claim.outcome === "REUSE_PENDING") return { outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: claim.checkoutUrl, reused: true, returnAccessToken };
     if (claim.outcome !== "CLAIMED") return result(claim.outcome);
     if (!claim.attemptId || !claim.amount || claim.currency !== "MDL" || !claim.orderNumber || !claim.orderCreatedAt || !claim.locale) return result("PERSISTENCE_FAILED", claim.attemptId);
 
@@ -39,7 +43,7 @@ export class RetailPaymentService {
         providerStatus: checkout.providerStatus,
       });
       if (!persisted) return result("PERSISTENCE_FAILED", claim.attemptId);
-      return { outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: checkout.checkoutUrl, reused: false };
+      return { outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: checkout.checkoutUrl, reused: false, returnAccessToken };
     } catch (error) {
       if (!(error instanceof PaymentProviderError)) return this.recordFailure(claim.attemptId, input.idempotencyKey, "UNEXPECTED_PROVIDER_ERROR", false, "MAIB_CHECKOUT_FAILED");
       if (error.stage === "configuration") return this.recordFailure(claim.attemptId, input.idempotencyKey, error.safeCode, true, "CONFIGURATION_ERROR");
@@ -54,22 +58,23 @@ export class RetailPaymentService {
   }
 
   async confirmMaibCallback(evidence: MaibPaymentEvidence): Promise<PaymentConfirmationResult> {
-    return this.repository.confirmMaib({ evidence, source: "callback" });
+    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "callback" }));
   }
 
   async reconcileMaibPayment(paymentAttemptId: string): Promise<PaymentConfirmationResult> {
     if (!UUID.test(paymentAttemptId)) return confirmation("INVALID_EVIDENCE");
     const context = await this.repository.getMaibReconciliationContext(paymentAttemptId);
     if (!context) return confirmation("INVALID_EVIDENCE");
-    if (context.status === "paid") return { ...confirmation("DUPLICATE"), attemptId: context.attemptId, paymentStatus: "paid", activationRepeated: true };
-    if (context.status === "paid_pending_activation") return this.repository.retryMaibActivation(context.attemptId);
+    if (context.status === "paid") return this.withPaidConfirmation({ ...confirmation("DUPLICATE"), attemptId: context.attemptId, paymentStatus: "paid", activationRepeated: true });
+    if (context.status === "paid_pending_activation") return this.withPaidConfirmation(await this.repository.retryMaibActivation(context.attemptId));
     const evidence = await this.provider.getCheckoutEvidence(context.checkoutId);
-    return this.repository.confirmMaib({ evidence, source: "reconciliation" });
+    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "reconciliation" }));
   }
 
-  async getReturnState(paymentAttemptId: string): Promise<PaymentReturnState | null> {
-    if (!UUID.test(paymentAttemptId)) return null;
-    return this.repository.getReturnState(paymentAttemptId);
+  async getReturnState(paymentAttemptId: string, returnAccessToken: string): Promise<PaymentReturnState | null> {
+    if (!UUID.test(paymentAttemptId) || !TOKEN_HASH.test(returnAccessToken)) return null;
+    const returnAccessTokenHash = createHash("sha256").update(returnAccessToken).digest("hex");
+    return this.repository.getReturnState(paymentAttemptId, returnAccessTokenHash);
   }
 
   async listOrderPaymentStates(retailOrderIds: string[]) {
@@ -170,10 +175,18 @@ export class RetailPaymentService {
       return persisted ? result(outcome, attemptId) : result("PERSISTENCE_FAILED", attemptId);
     } catch { return result("PERSISTENCE_FAILED", attemptId); }
   }
+
+  private async withPaidConfirmation(result: PaymentConfirmationResult): Promise<PaymentConfirmationResult> {
+    if ((result.outcome === "PAID" || result.outcome === "DUPLICATE") && result.attemptId) {
+      try { await this.repository.persistPaidConfirmationEmail(result.attemptId); }
+      catch (error) { console.error({ event: "retail_payment_confirmation_email_queue_failed", errorName: error instanceof Error ? error.name : typeof error }); }
+    }
+    return result;
+  }
 }
 
 function normalizeFailureCode(value: string) { return value.toUpperCase().replace(/[^A-Z0-9_:-]/g, "_").slice(0, 100) || "UNKNOWN"; }
-function result(outcome: Exclude<PaymentInitiationResult["outcome"], "SUCCESS">, paymentAttemptId: string | null = null): PaymentInitiationResult { return { outcome, paymentAttemptId, checkoutUrl: null, reused: false }; }
+function result(outcome: Exclude<PaymentInitiationResult["outcome"], "SUCCESS">, paymentAttemptId: string | null = null): PaymentInitiationResult { return { outcome, paymentAttemptId, checkoutUrl: null, reused: false, returnAccessToken: null }; }
 function confirmation(outcome: PaymentConfirmationResult["outcome"]): PaymentConfirmationResult {
   return { outcome, attemptId: null, retailOrderId: null, paymentStatus: null, activationRepeated: null, installationRequirementId: null };
 }

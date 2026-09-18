@@ -37,6 +37,7 @@ export type CommunicationRecipient = Readonly<{
   userId: string;
   companyId: string | null;
   customerAccountId?: string | null;
+  retailCustomerId?: string | null;
   locale: CommunicationLocale;
   email?: string | null;
   phone?: string | null;
@@ -53,6 +54,7 @@ export type CommunicationIntent<TVariables extends Record<string, unknown> = Rec
   businessEntityReferences: readonly string[];
   companyId: string | null;
   customerAccountId?: string | null;
+  retailCustomerId?: string | null;
   recipient: CommunicationRecipient;
   templateKey: string;
   templateVersion: string;
@@ -102,6 +104,7 @@ export type CommunicationProjection = Readonly<{
   businessEntityReferences: readonly string[];
   companyId: string | null;
   customerAccountId: string | null;
+  retailCustomerId?: string | null;
   recipient: CommunicationRecipient;
   channel: CommunicationChannel;
   mode: CommunicationChannelMode;

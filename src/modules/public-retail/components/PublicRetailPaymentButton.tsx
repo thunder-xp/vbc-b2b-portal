@@ -36,6 +36,8 @@ export function PublicRetailPaymentButton({ orderToken, locale }: { orderToken: 
 function paymentError(outcome: string, ru: boolean) {
   if (outcome === "PAYMENT_ATTEMPT_EXISTS") return ru ? "Платёж уже подготавливается. Обновите страницу через несколько секунд." : "Plata este deja în curs de pregătire. Actualizați pagina peste câteva secunde.";
   if (outcome === "INVALID_ORDER_STATE") return ru ? "Этот заказ больше не ожидает оплату." : "Această comandă nu mai așteaptă plata.";
+  if (outcome === "TERMS_NOT_ACCEPTED") return ru ? "Для оплаты требуется принять актуальные Условия и Политику конфиденциальности." : "Pentru plată trebuie acceptate Termenii și Politica de confidențialitate actuale.";
+  if (outcome === "EMAIL_REQUIRED") return ru ? "Для подтверждения оплаты нужен корректный email заказа." : "Pentru confirmarea plății este necesar un email corect al comenzii.";
   if (outcome === "UNPRICED_ORDER" || outcome === "NOT_ELIGIBLE") return ru ? "Заказ сейчас нельзя оплатить картой." : "Comanda nu poate fi plătită acum cu cardul.";
   return ru ? "Не удалось подготовить платёж. Попробуйте позже." : "Plata nu a putut fi pregătită. Încercați mai târziu.";
 }

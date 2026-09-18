@@ -6,7 +6,7 @@ import type { EffectivePaymentState, PaymentAttemptStatus, PaymentClaim, Payment
 import type { MaibReconciliationContext } from "../retail-payment.repository";
 import type { RetailPaymentRepository } from "../retail-payment.repository";
 
-const OUTCOMES = new Set<PaymentClaimOutcome>(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "CLAIMED", "REUSE_PENDING"]);
+const OUTCOMES = new Set<PaymentClaimOutcome>(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED", "CLAIMED", "REUSE_PENDING"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class RetailPaymentRepositoryError extends Error {
@@ -24,10 +24,11 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
   }
 
   async claim(input: Parameters<RetailPaymentRepository["claim"]>[0]) {
-    return parseClaim(await this.rpc("claim_retail_payment_attempt", {
+    return parseClaim(await this.rpc("claim_retail_payment_attempt_v2", {
       p_access_token_hash: input.accessTokenHash,
       p_provider: input.provider,
       p_idempotency_key: input.idempotencyKey,
+      p_return_access_token_hash: input.returnAccessTokenHash,
     }));
   }
 
@@ -74,8 +75,15 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
     return parseConfirmation(await this.rpc("retry_maib_retail_payment_activation_v1", { p_attempt_id: attemptId }));
   }
 
-  async getReturnState(paymentAttemptId: string) {
-    return parseReturnState(await this.rpc("get_retail_payment_return_state_v1", { p_payment_attempt_id: paymentAttemptId }));
+  async getReturnState(paymentAttemptId: string, returnAccessTokenHash: string) {
+    return parseReturnState(await this.rpc("get_retail_payment_return_state_v2", { p_payment_attempt_id: paymentAttemptId, p_return_access_token_hash: returnAccessTokenHash }));
+  }
+
+  async persistPaidConfirmationEmail(paymentAttemptId: string) {
+    const value = await this.rpc("persist_retail_payment_confirmation_email_v1", { p_payment_attempt_id: paymentAttemptId });
+    const outcome = value && typeof value === "object" ? (value as Record<string, unknown>).outcome : null;
+    if (outcome !== "QUEUED" && outcome !== "NOT_PAID" && outcome !== "EMAIL_UNAVAILABLE") throw new RetailPaymentRepositoryError("invalid_response");
+    return outcome;
   }
 
   async listOrderPaymentStates(retailOrderIds: string[]) {
@@ -218,8 +226,17 @@ function parseReturnState(value: unknown): PaymentReturnState | null {
   if (value === null) return null;
   if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
   const row = value as Record<string, unknown>;
-  if ((row.status !== "PROCESSING" && row.status !== "PAID" && row.status !== "REFUND_PENDING" && row.status !== "REFUNDED" && row.status !== "FAILED" && row.status !== "CANCELLED") || (row.locale !== "ru" && row.locale !== "ro")) throw new RetailPaymentRepositoryError("invalid_response");
-  return { status: row.status, locale: row.locale };
+  if ((row.status !== "PROCESSING" && row.status !== "PAID" && row.status !== "REFUND_PENDING" && row.status !== "REFUNDED" && row.status !== "FAILED" && row.status !== "CANCELLED")
+    || (row.locale !== "ru" && row.locale !== "ro") || typeof row.orderNumber !== "string" || !isMoney(row.amount)
+    || typeof row.currency !== "string" || !Array.isArray(row.items)) throw new RetailPaymentRepositoryError("invalid_response");
+  const items = row.items.map((item) => {
+    if (!item || typeof item !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+    const value = item as Record<string, unknown>;
+    if (typeof value.name !== "string" || typeof value.sku !== "string" || !Number.isInteger(value.quantity) || Number(value.quantity) < 1) throw new RetailPaymentRepositoryError("invalid_response");
+    return { name: value.name, sku: value.sku, quantity: Number(value.quantity) };
+  });
+  return { status: row.status, locale: row.locale, orderNumber: row.orderNumber, amount: Number(row.amount).toFixed(2), currency: row.currency,
+    confirmedAt: nullableDate(row.confirmedAt), items };
 }
 
 const PAYMENT_STATE_COLUMNS = "retail_order_id,order_number,payment_attempt_id,provider,attempt_status,payment_state,amount,currency,provider_status,provider_checkout_id,provider_payment_id,provider_rrn,failure_code,payment_created_at,payment_confirmed_at,refund_id,refund_status,refund_provider_status,provider_refund_id,refund_failure_code,refund_requested_at,refund_confirmed_at,remaining_refundable";

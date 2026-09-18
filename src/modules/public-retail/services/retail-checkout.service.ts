@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import type { RetailCheckoutRepository } from "../repositories/retail-checkout.repository";
 import { RetailCheckoutRepositoryError } from "../repositories/supabase/retail-checkout.supabase-repository";
 import type { PublicRetailLocale, RetailAddressDto } from "../types";
+import { PUBLIC_PRIVACY_VERSION, PUBLIC_TERMS_VERSION } from "../legal/public-legal-content";
 
 const HASH = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -25,6 +26,9 @@ export type RetailCheckoutInput = {
   installationSameAsDelivery: boolean;
   installationAddress?: RetailCheckoutInput["deliveryAddress"] | null;
   processingAcknowledged: boolean;
+  legalAccepted: boolean;
+  termsVersion: string;
+  privacyVersion: string;
   commercialOfferId?: string | null;
   installationSelectionMode?: "customer_selected" | "automatic" | null;
   preferredProviderId?: string | null;
@@ -51,10 +55,12 @@ export class RetailCheckoutService {
     const customer = {
       name: boundedText(input.name, 2, 160),
       phone: normalizeMoldovaPhone(input.phone),
-      email: optionalEmail(input.email),
+      email: requiredEmail(input.email),
       processingAcknowledged: true as const,
     };
-    if (!input.processingAcknowledged || !UUID.test(input.submissionKey) || !HASH.test(input.checkoutFingerprint)) throw new RetailCheckoutInputError();
+    if (!input.processingAcknowledged || !input.legalAccepted
+      || input.termsVersion !== PUBLIC_TERMS_VERSION || input.privacyVersion !== PUBLIC_PRIVACY_VERSION
+      || !UUID.test(input.submissionKey) || !HASH.test(input.checkoutFingerprint)) throw new RetailCheckoutInputError();
     const deliveryAddress = normalizeAddress(input.deliveryAddress);
     const installationRequested = input.installationSelectionMode === "automatic" || input.installationSelectionMode === "customer_selected";
     const installationAddress = installationRequested
@@ -79,6 +85,7 @@ export class RetailCheckoutService {
       installationSelectionMode,
       preferredProviderId,
       installationRegionCode,
+      legalAcceptance: { termsVersion: input.termsVersion, privacyVersion: input.privacyVersion, locale: input.locale },
     };
     const requestFingerprint = fingerprint({ locale: command.locale, checkoutFingerprint: command.checkoutFingerprint, customer,
       deliveryAddress, installationAddress, commercialOfferId, installationSelectionMode, preferredProviderId, installationRegionCode });
@@ -120,6 +127,6 @@ function validHash(value: string) { if (!HASH.test(value)) throw new RetailCheck
 function optionalUuid(value: string | null | undefined) { const normalized = value?.trim() || null; if (normalized && !UUID.test(normalized)) throw new RetailCheckoutInputError(); return normalized?.toLowerCase() ?? null; }
 function boundedText(value: string, minimum: number, maximum: number) { const result = value.trim().replace(/\s+/g, " "); if (result.length < minimum || result.length > maximum) throw new RetailCheckoutInputError(); return result; }
 function optionalText(value: string | null | undefined, maximum: number) { const result = value?.trim() || null; if (result && result.length > maximum) throw new RetailCheckoutInputError(); return result; }
-function optionalEmail(value: string | null | undefined) { const result = value?.trim().toLowerCase() || null; if (result && (result.length > 254 || !EMAIL.test(result))) throw new RetailCheckoutInputError(); return result; }
+function requiredEmail(value: string | null | undefined) { const result = value?.trim().toLowerCase() || ""; if (result.length > 254 || !EMAIL.test(result)) throw new RetailCheckoutInputError(); return result; }
 function normalizeAddress(value: RetailCheckoutInput["deliveryAddress"]): RetailAddressDto { return { locality: boundedText(value.locality, 1, 120), street: boundedText(value.street, 1, 160), building: boundedText(value.building, 1, 40), unit: optionalText(value.unit, 80), postalCode: optionalText(value.postalCode, 20), instructions: optionalText(value.instructions, 500) }; }
 function fingerprint(value: unknown) { return createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex"); }

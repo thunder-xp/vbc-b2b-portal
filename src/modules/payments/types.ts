@@ -34,6 +34,8 @@ export type PaymentInitiationOutcome =
   | "INVALID_ORDER_STATE"
   | "UNPRICED_ORDER"
   | "PAYMENT_ATTEMPT_EXISTS"
+  | "TERMS_NOT_ACCEPTED"
+  | "EMAIL_REQUIRED"
   | "MAIB_AUTH_FAILED"
   | "MAIB_CHECKOUT_FAILED"
   | "PERSISTENCE_FAILED"
@@ -45,6 +47,8 @@ export type PaymentClaimOutcome =
   | "INVALID_ORDER_STATE"
   | "UNPRICED_ORDER"
   | "PAYMENT_ATTEMPT_EXISTS"
+  | "TERMS_NOT_ACCEPTED"
+  | "EMAIL_REQUIRED"
   | "CLAIMED"
   | "REUSE_PENDING";
 
@@ -82,6 +86,7 @@ export type PaymentInitiationResult = Readonly<{
   paymentAttemptId: string | null;
   checkoutUrl: string | null;
   reused: boolean;
+  returnAccessToken: string | null;
 }>;
 
 export type MaibPaymentEvidence = Readonly<{
@@ -121,6 +126,11 @@ export type PaymentConfirmationResult = Readonly<{
 export type PaymentReturnState = Readonly<{
   status: "PROCESSING" | "PAID" | "REFUND_PENDING" | "REFUNDED" | "FAILED" | "CANCELLED";
   locale: "ru" | "ro";
+  orderNumber: string;
+  amount: string;
+  currency: string;
+  confirmedAt: string | null;
+  items: ReadonlyArray<{ name: string; sku: string; quantity: number }>;
 }>;
 
 export type PaymentRefundClaimOutcome =

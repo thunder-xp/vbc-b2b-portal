@@ -30,10 +30,11 @@ describe("RetailPaymentService", () => {
     const result = await new RetailPaymentService(repository, provider).initiate(input);
     expect(provider.createCheckout).toHaveBeenCalledWith(expect.objectContaining({ amount: "99.50", currency: "MDL", paymentAttemptId: claim.attemptId }));
     expect(repository.completeCheckout).toHaveBeenCalledWith(expect.objectContaining({ attemptId: claim.attemptId, checkoutId: "33333333-3333-4333-8333-333333333333" }));
-    expect(result).toEqual({ outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: "https://sandbox.maibmerchants.md/checkout/333", reused: false });
+    expect(result).toEqual(expect.objectContaining({ outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: "https://sandbox.maibmerchants.md/checkout/333", reused: false, returnAccessToken: expect.stringMatching(/^[0-9a-f]{64}$/) }));
+    expect(repository.claim).toHaveBeenCalledWith(expect.objectContaining({ returnAccessTokenHash: expect.stringMatching(/^[0-9a-f]{64}$/) }));
   });
 
-  it.each(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS"] as const)("does not call MAIB for %s", async (outcome) => {
+  it.each(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED"] as const)("does not call MAIB for %s", async (outcome) => {
     const { repository, provider } = dependencies({ ...claim, outcome });
     const result = await new RetailPaymentService(repository, provider).initiate(input);
     expect(result.outcome).toBe(outcome);
@@ -44,7 +45,7 @@ describe("RetailPaymentService", () => {
     const pending = { ...claim, outcome: "REUSE_PENDING" as const, checkoutUrl: "https://sandbox.maibmerchants.md/checkout/existing" };
     const { repository, provider } = dependencies(pending);
     const result = await new RetailPaymentService(repository, provider).initiate(input);
-    expect(result).toEqual({ outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: pending.checkoutUrl, reused: true });
+    expect(result).toEqual(expect.objectContaining({ outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: pending.checkoutUrl, reused: true, returnAccessToken: expect.stringMatching(/^[0-9a-f]{64}$/) }));
     expect(provider.createCheckout).not.toHaveBeenCalled();
   });
 
@@ -104,6 +105,7 @@ function dependencies(claimResult: PaymentClaim = claim) {
     getMaibReconciliationContext: vi.fn().mockResolvedValue(null),
     retryMaibActivation: vi.fn().mockResolvedValue({ outcome: "PAID", attemptId: claim.attemptId, retailOrderId: "44444444-4444-4444-8444-444444444444", paymentStatus: "paid", activationRepeated: true, installationRequirementId: null }),
     getReturnState: vi.fn().mockResolvedValue(null),
+    persistPaidConfirmationEmail: vi.fn().mockResolvedValue("QUEUED"),
     listOrderPaymentStates: vi.fn().mockResolvedValue([]),
     getOrderPaymentStateByNumber: vi.fn().mockResolvedValue(null),
     listRecentPaymentStates: vi.fn().mockResolvedValue([]),

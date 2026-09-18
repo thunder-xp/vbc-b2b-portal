@@ -25,7 +25,8 @@ describe("RetailCheckoutService commercial orchestration", () => {
     const repo = repository();
     const base = { locale: "ru" as const, checkoutFingerprint: "b".repeat(64), submissionKey: "30000000-0000-4000-8000-000000000003",
       name: "Test Customer", phone: "+37360123456", deliveryAddress: { locality: "Chișinău", street: "Test", building: "1" },
-      installationSameAsDelivery: true, processingAcknowledged: true };
+      installationSameAsDelivery: true, processingAcknowledged: true, legalAccepted: true,
+      termsVersion: "2026-09-18", privacyVersion: "2026-09-18", email: "customer@example.com" };
     await expect(new RetailCheckoutService(repo).createOrder(hash, "c".repeat(64), { ...base, installationSelectionMode: "automatic", installationRegionCode: "MD-C" })).resolves.toBeUndefined();
     await expect(new RetailCheckoutService(repo).createOrder(hash, "c".repeat(64), { ...base, installationSelectionMode: "customer_selected", installationRegionCode: "MD-C" })).rejects.toBeInstanceOf(RetailCheckoutInputError);
   });

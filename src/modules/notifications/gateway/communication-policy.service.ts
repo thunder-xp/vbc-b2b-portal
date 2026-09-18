@@ -94,7 +94,7 @@ export function smsSandboxAllowlistFromEnvironment(
 }
 
 export function classifyCommunicationPurpose(eventType: string): CommunicationPurpose | null {
-  if (["order.registered_in_1c", "proposal.delivery", "company.invitation", "marketplace.invitation"].includes(eventType)) return "TRANSACTIONAL";
+  if (["order.registered_in_1c", "proposal.delivery", "company.invitation", "marketplace.invitation", "retail.payment_confirmed"].includes(eventType)) return "TRANSACTIONAL";
   if (eventType.startsWith("finance.")) return "FINANCE";
   if (eventType.startsWith("security.")) return "SECURITY";
   if (eventType.startsWith("support.")) return "SUPPORT";
@@ -104,7 +104,7 @@ export function classifyCommunicationPurpose(eventType: string): CommunicationPu
 }
 
 export function evaluateCommunicationPolicy(input: {
-  intent: Pick<CommunicationIntent, "purpose" | "businessEventType" | "companyId" | "customerAccountId" | "recipient">;
+  intent: Pick<CommunicationIntent, "purpose" | "businessEventType" | "companyId" | "customerAccountId" | "retailCustomerId" | "recipient">;
   channel: CommunicationChannel;
   mode: CommunicationChannelMode;
   activation: CommunicationActivationPolicy;
@@ -193,7 +193,12 @@ function defaultPreferenceOutcome(purpose: CommunicationPurpose, channel: Commun
   return "NOT_CONFIGURED";
 }
 
-function audienceMatches(intent: Pick<CommunicationIntent, "companyId" | "customerAccountId" | "recipient">): boolean {
+function audienceMatches(intent: Pick<CommunicationIntent, "companyId" | "customerAccountId" | "retailCustomerId" | "recipient">): boolean {
+  if (intent.retailCustomerId) {
+    return intent.companyId === null && !intent.customerAccountId
+      && intent.recipient.companyId === null
+      && intent.recipient.retailCustomerId === intent.retailCustomerId;
+  }
   if (intent.customerAccountId) {
     return intent.companyId === null
       && intent.recipient.companyId === null
