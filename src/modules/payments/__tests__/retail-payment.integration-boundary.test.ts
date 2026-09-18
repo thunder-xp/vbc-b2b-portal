@@ -25,6 +25,7 @@ describe("retail payment public integration boundary", () => {
     expect(returnPage).toContain("Оплата подтверждена");
     expect(returnPage).toContain("Plata este în curs de procesare");
     expect(returnPage).toContain("Plata a fost confirmată");
+    expect(returnPage).toContain("state?.locale ?? publicRetailLocale(query.lang)");
   });
 
   it("does not introduce provider work on ordinary retail routes", () => {

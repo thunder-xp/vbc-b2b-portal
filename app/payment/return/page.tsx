@@ -5,7 +5,7 @@ import Link from "next/link";
 import { paymentReturnCookieName } from "@/src/modules/payments/payment-return-access";
 import { getRetailPaymentReturnState } from "@/src/modules/payments/server";
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
-import { formatRetailPrice } from "@/src/modules/public-retail/presentation";
+import { formatRetailPrice, publicRetailLocale } from "@/src/modules/public-retail/presentation";
 
 export const metadata: Metadata = { title: "Payment status | Novotech", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
   const cookieName = paymentReturnCookieName(paymentAttemptId);
   const returnToken = cookieName ? (await cookies()).get(cookieName)?.value ?? "" : "";
   const state = paymentAttemptId && returnToken ? await getRetailPaymentReturnState(paymentAttemptId, returnToken).catch(() => null) : null;
-  const locale = state?.locale ?? "ru";
+  const locale = state?.locale ?? publicRetailLocale(query.lang);
   const status = state?.status ?? "PROCESSING";
   const copy = paymentCopy(status, locale);
   return <PublicRetailShell languagePath="/payment/return" locale={locale}><main className="grid min-h-[70vh] place-items-center bg-zinc-50 px-4 py-10">
