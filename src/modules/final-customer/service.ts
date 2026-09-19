@@ -72,10 +72,16 @@ export class FinalCustomerAccountService {
   }
 
   async commandCenter(account: FinalCustomerAccount) {
-    if (account.status !== "ACTIVE") return { displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0 };
-    const result = await this.repository.getCommandCenter(account.customerIdentityId);
+    if (account.status !== "ACTIVE") return { displayName: account.displayName, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0, attentionItems: [] };
+    const result = await this.repository.getCommandCenter(account.id, account.customerIdentityId);
     if (!result.latestOrder) return result;
     return { ...result, latestOrder: (await this.withPaymentStates([result.latestOrder]))[0] ?? result.latestOrder };
+  }
+
+  openAttention(account: FinalCustomerAccount, sourceKind: string, sourceId: string) {
+    if (account.status !== "ACTIVE" || !UUID.test(sourceId)) throw new Error("INVALID_ATTENTION");
+    if (!["SERVICE_NOTIFICATION", "PAYMENT_PAID", "PAYMENT_FAILED", "PAYMENT_REFUNDED"].includes(sourceKind)) throw new Error("INVALID_ATTENTION");
+    return this.repository.openAttention(account.id, account.authUserId, sourceKind, sourceId);
   }
 
   async orderDetail(account: FinalCustomerAccount, orderId: string) {

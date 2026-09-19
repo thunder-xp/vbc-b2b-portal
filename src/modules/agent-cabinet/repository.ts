@@ -7,6 +7,7 @@ import type { AgentCabinetContext, AgentCabinetOverview, AgentClientView, AgentP
 export class AgentCabinetRepository {
   async context(): Promise<AgentCabinetContext | null> { return this.rpc("get_agent_cabinet_context"); }
   async overview(): Promise<AgentCabinetOverview | null> { return this.rpc("get_agent_cabinet_overview"); }
+  async openAttention(eventId: string): Promise<string> { return this.rpc("open_agent_cabinet_attention_v1", { p_event_id: eventId }); }
   async referrals(page: number): Promise<PageResult<AgentReferralView>> {
     return this.rpc("list_agent_cabinet_referrals", { p_limit: 20, p_offset: (page - 1) * 20 });
   }

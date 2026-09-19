@@ -12,6 +12,7 @@ export class AgentCabinetService {
   constructor(private readonly repository = new AgentCabinetRepository()) {}
   context() { return this.repository.context(); }
   overview() { return this.repository.overview(); }
+  openAttention(eventId: string) { if (!UUID.test(eventId)) throw new Error("INVALID_ATTENTION"); return this.repository.openAttention(eventId); }
   referrals(page: number) { return this.repository.referrals(validPage(page)); }
   clients(page: number) { return this.repository.clients(validPage(page)); }
   referral(id: string) { return UUID.test(id) ? this.repository.referral(id) : Promise.resolve(null); }

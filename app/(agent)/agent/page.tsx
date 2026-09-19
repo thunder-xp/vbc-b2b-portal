@@ -2,7 +2,7 @@ import { ArrowRight, BookOpen, CircleAlert, Clock3, Plus, QrCode } from "lucide-
 import Link from "next/link";
 
 import {
-  AttentionItem,
+  AttentionActionItem,
   SectionHeader,
   WorkspaceHeader,
   cabinetPrimaryAction,
@@ -14,6 +14,7 @@ import {
   createAgentCabinetService,
   getAgentCabinetLocale,
 } from "@/src/modules/agent-cabinet";
+import { openAgentAttentionAction } from "@/src/modules/agent-cabinet/actions";
 import { ReferralStatusBadge } from "@/src/modules/agent-cabinet/components/StatusBadge";
 
 export default async function AgentHomePage() {
@@ -23,7 +24,6 @@ export default async function AgentHomePage() {
   ]);
   if (!overview) return null;
   const copy = agentCabinetCopy[locale];
-  const attention = overview.needsAttention[0] ?? null;
 
   return <main className="mx-auto max-w-6xl space-y-7 px-4 py-6 sm:py-8">
     <WorkspaceHeader
@@ -32,7 +32,7 @@ export default async function AgentHomePage() {
       actions={<><Link className={cabinetPrimaryAction} href="/agent/qr#referral-link"><Plus aria-hidden className="size-4" />{copy.primaryAction}</Link><Link className={cabinetSecondaryAction} href="/agent/qr"><QrCode aria-hidden className="size-4" />{copy.showQr}</Link></>}
     />
 
-    {attention ? <section className="space-y-3" aria-label={copy.attention}><SectionHeader title={copy.attention}/><AttentionItem Icon={CircleAlert} detail={copy.checkResult} href={`/agent/referrals/${attention.id}`} status={copy.open} title={attention.name}/></section> : null}
+    {overview.attentionItems.length ? <section className="space-y-3" aria-label={copy.attention}><SectionHeader title={copy.attention}/><div className="space-y-2">{overview.attentionItems.map((item) => <AttentionActionItem action={openAgentAttentionAction} fields={{ eventId: item.id }} Icon={CircleAlert} detail={item.referralName ?? copy.checkResult} key={item.id} priority={item.priority} status={copy.open} title={agentEventCopy[locale][item.eventCode] ?? copy.checkResult}/>)}</div></section> : null}
 
     <div className="grid gap-7 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
       <section className="space-y-3" aria-labelledby="active-referrals-heading">

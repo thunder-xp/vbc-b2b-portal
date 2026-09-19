@@ -12,7 +12,8 @@ export interface FinalCustomerRepository {
     resolutionStatus: "MATCHED" | "NEW" | "AMBIGUOUS" | "CONFLICT";
   }>): Promise<FinalCustomerAccount>;
   findDisplayName(customerIdentityId: string | null): Promise<string | null>;
-  getCommandCenter(customerIdentityId: string | null): Promise<import("./types").FinalCustomerCommandCenter>;
+  getCommandCenter(accountId: string, customerIdentityId: string | null): Promise<import("./types").FinalCustomerCommandCenter>;
+  openAttention(accountId: string, actorUserId: string, sourceKind: string, sourceId: string): Promise<string>;
   listOrders(customerIdentityId: string | null, limit: number, offset?: number): Promise<FinalCustomerOrderSummary[]>;
   findOrder(customerIdentityId: string | null, orderId: string): Promise<FinalCustomerOrderDetail | null>;
   listConfirmedPurchases(customerIdentityId: string | null, limit: number, offset?: number): Promise<FinalCustomerPurchase[]>;

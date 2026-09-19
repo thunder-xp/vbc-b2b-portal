@@ -249,6 +249,59 @@ begin
     ('29000000-0000-4000-8000-000000000002', fixture_order_id, 2, fixture_unavailable_public_product_id, 'catalog', 'equipment', '100078', 'Dahua DHI-ARA11', 'fixture-dhi-ara11', '/product-placeholder.svg', 2, 'piece', 499.50, 999, 'MDL', 'included', 'in_stock')
   on conflict (id) do nothing;
 
+  insert into public.retail_payment_attempts (
+    id, retail_order_id, provider, status, amount, currency, idempotency_key,
+    provider_checkout_id, provider_checkout_url, provider_payment_id,
+    provider_status, provider_request_started_at, confirmed_at
+  ) values (
+    '2c000000-0000-4000-8000-000000000001', fixture_order_id, 'maib', 'paid',
+    2198, 'MDL', '2c000000-0000-4000-8000-000000000002',
+    '2c000000-0000-4000-8000-000000000003',
+    'https://example.test/local-fixture-checkout',
+    '2c000000-0000-4000-8000-000000000004', 'Executed',
+    now() - interval '6 days', now() - interval '5 days'
+  ) on conflict (id) do nothing;
+
+  insert into public.retail_payment_events (
+    id, payment_attempt_id, event_type, safe_evidence, created_at
+  ) values (
+    '2d000000-0000-4000-8000-000000000001',
+    '2c000000-0000-4000-8000-000000000001', 'activation_completed',
+    jsonb_build_object('source', 'LOCAL_ACCEPTANCE_FIXTURE'), now() - interval '5 days'
+  ) on conflict (id) do nothing;
+
+  -- A historical terminal attempt proves that a failed payment becomes a
+  -- readable Customer attention fact without altering the later paid order.
+  insert into public.retail_payment_attempts (
+    id, retail_order_id, provider, status, amount, currency, idempotency_key,
+    failure_code, provider_request_started_at
+  ) values (
+    '2c000000-0000-4000-8000-000000000005', fixture_order_id, 'maib', 'failed',
+    2198, 'MDL', '2c000000-0000-4000-8000-000000000006',
+    'LOCAL_ACCEPTANCE_FAILURE', now() - interval '7 days'
+  ) on conflict (id) do nothing;
+
+  insert into public.retail_payment_refunds (
+    id, payment_attempt_id, provider, amount, currency, reason, status,
+    provider_refund_id, provider_status, idempotency_key,
+    provider_request_started_at, confirmed_at
+  ) values (
+    '2e000000-0000-4000-8000-000000000001',
+    '2c000000-0000-4000-8000-000000000001', 'maib', 2198, 'MDL',
+    'Local acceptance fixture only', 'refunded',
+    '2e000000-0000-4000-8000-000000000002', 'Executed',
+    '2e000000-0000-4000-8000-000000000003',
+    now() - interval '4 days', now() - interval '3 days'
+  ) on conflict (id) do nothing;
+
+  insert into public.retail_payment_refund_events (
+    id, refund_id, event_type, safe_evidence, created_at
+  ) values (
+    '2f000000-0000-4000-8000-000000000001',
+    '2e000000-0000-4000-8000-000000000001', 'refund_confirmed',
+    jsonb_build_object('source', 'LOCAL_ACCEPTANCE_FIXTURE'), now() - interval '3 days'
+  ) on conflict (id) do nothing;
+
   if not exists (
     select 1 from public.customer_service_requests request
     where request.customer_account_id = fixture_customer_account_id

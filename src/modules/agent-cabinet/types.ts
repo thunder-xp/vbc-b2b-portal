@@ -71,7 +71,15 @@ export type AgentClientView = {
 
 export type AgentCabinetOverview = {
   kpis: { myClients: number; activeReferrals: number; newReferrals: number; attributedToMe: number };
-  needsAttention: AgentReferralSummary[];
+  attentionItems: Array<{
+    id: string;
+    priority: "ACTION_REQUIRED" | "IMPORTANT_UPDATE" | "INFORMATIONAL";
+    eventCode: string;
+    createdAt: string;
+    referralId: string | null;
+    attributionId: string | null;
+    referralName: string | null;
+  }>;
   latestReferrals: AgentReferralSummary[];
   latestClients: Array<Pick<AgentClientView, "id" | "name" | "status" | "attributedAt" | "protectionUntil">>;
   latestActivity: Array<{

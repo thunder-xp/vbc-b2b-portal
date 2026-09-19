@@ -86,9 +86,9 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     return this.listOrdersPage(customerIdentityId, limit, offset);
   }
 
-  async getCommandCenter(customerIdentityId: string | null) {
-    if (!customerIdentityId) return { displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0 };
-    const { data, error } = await createAdminClient().rpc("get_final_customer_cabinet_overview_v1", { p_customer_identity_id: customerIdentityId });
+  async getCommandCenter(accountId: string, customerIdentityId: string | null) {
+    if (!customerIdentityId) return { displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0, attentionItems: [] };
+    const { data, error } = await createAdminClient().rpc("get_final_customer_cabinet_overview_v2", { p_customer_account_id: accountId, p_customer_identity_id: customerIdentityId });
     if (error) throw repositoryError("read command center", error.code);
     const value = (data ?? {}) as Record<string, unknown>;
     const latestOrder = value.latestOrder as Record<string, unknown> | null;
@@ -100,7 +100,21 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
       equipmentCount: Number(value.equipmentCount ?? 0), documentCount: Number(value.documentCount ?? 0),
       latestRequest: latestRequest ? { id: String(latestRequest.id), number: String(latestRequest.number), status: latestRequest.status as CustomerServiceRequestStatus } : null,
       serviceNeedsInfoCount: Number(value.serviceNeedsInfoCount ?? 0), activeServiceRequestCount: Number(value.activeServiceRequestCount ?? 0),
+      attentionItems: Array.isArray(value.attentionItems) ? value.attentionItems.flatMap((item) => item && typeof item === "object" ? [{
+        priority: String((item as Row).priority) as import("./types").CustomerAttentionItem["priority"],
+        sourceKind: String((item as Row).sourceKind) as import("./types").CustomerAttentionItem["sourceKind"],
+        sourceId: String((item as Row).sourceId), eventCode: String((item as Row).eventCode) as import("./types").CustomerAttentionItem["eventCode"],
+        contextLabel: String((item as Row).contextLabel), createdAt: String((item as Row).createdAt), actionPath: String((item as Row).actionPath),
+      }] : []) : [],
     };
+  }
+
+  async openAttention(accountId: string, actorUserId: string, sourceKind: string, sourceId: string) {
+    const { data, error } = await createAdminClient().rpc("open_final_customer_attention_v1", {
+      p_customer_account_id: accountId, p_source_kind: sourceKind, p_source_id: sourceId, p_actor_user_id: actorUserId,
+    });
+    if (error || typeof data !== "string") throw repositoryError("open attention", error?.code);
+    return data;
   }
 
   private async customerIds(customerIdentityId: string | null) {

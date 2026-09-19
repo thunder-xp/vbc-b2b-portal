@@ -161,6 +161,16 @@ export type CustomerServiceNotification = Readonly<{
   createdAt: string;
 }>;
 
+export type CustomerAttentionItem = Readonly<{
+  priority: "ACTION_REQUIRED" | "IMPORTANT_UPDATE" | "INFORMATIONAL";
+  sourceKind: "SERVICE_REQUEST" | "SERVICE_NOTIFICATION" | "PAYMENT_PAID" | "PAYMENT_FAILED" | "PAYMENT_REFUNDED";
+  sourceId: string;
+  eventCode: "CUSTOMER_SERVICE_NEED_INFO" | "CUSTOMER_SERVICE_REPLY_FROM_NOVOTECH" | "CUSTOMER_SERVICE_RESOLVED" | "CUSTOMER_PAYMENT_PAID" | "CUSTOMER_PAYMENT_FAILED" | "CUSTOMER_PAYMENT_REFUNDED";
+  contextLabel: string;
+  createdAt: string;
+  actionPath: string;
+}>;
+
 export type FinalCustomerCommandCenter = Readonly<{
   displayName: string | null;
   latestOrder: FinalCustomerOrderSummary | null;
@@ -170,6 +180,7 @@ export type FinalCustomerCommandCenter = Readonly<{
   latestRequest: { id: string; number: string; status: CustomerServiceRequestStatus } | null;
   serviceNeedsInfoCount: number;
   activeServiceRequestCount: number;
+  attentionItems: CustomerAttentionItem[];
 }>;
 
 export type FinalCustomerContext = Readonly<{

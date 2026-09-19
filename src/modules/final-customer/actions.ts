@@ -96,6 +96,17 @@ export async function markCustomerServiceNotificationReadAction(formData: FormDa
   revalidatePath("/account/service");
 }
 
+export async function openFinalCustomerAttentionAction(formData: FormData) {
+  const context = await getFinalCustomerContext();
+  const target = await createFinalCustomerService().openAttention(
+    context.account,
+    String(formData.get("sourceKind") ?? ""),
+    String(formData.get("sourceId") ?? ""),
+  );
+  revalidatePath("/account");
+  redirect(target);
+}
+
 export async function cancelCustomerServiceRequestAction(formData: FormData) {
   const context = await getFinalCustomerContext();
   await createFinalCustomerService().cancelServiceRequest(

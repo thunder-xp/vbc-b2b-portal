@@ -1,8 +1,9 @@
-import { ArrowRight, CircleAlert, FileText, Headphones, PackageOpen, ReceiptText, ShoppingBag } from "lucide-react";
+import { ArrowRight, CircleAlert, CreditCard, FileText, Headphones, MessageCircle, PackageOpen, ReceiptText, RotateCcw, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 
 import {
   AttentionItem,
+  AttentionActionItem,
   CabinetEmptyState,
   SectionHeader,
   WorkspaceHeader,
@@ -12,6 +13,8 @@ import {
 import { getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
 import { customerMoney, orderStatus, paymentStatus, serviceStatusLabel } from "@/src/modules/final-customer/presentation";
 import { createFinalCustomerService, getFinalCustomerContext } from "@/src/modules/final-customer/server";
+import { openFinalCustomerAttentionAction } from "@/src/modules/final-customer/actions";
+import { customerAttentionCopy } from "@/src/modules/final-customer/attention-copy";
 
 export default async function FinalCustomerOverviewPage() {
   const [context, locale] = await Promise.all([getFinalCustomerContext(), getFinalCustomerLocale()]);
@@ -33,16 +36,16 @@ export default async function FinalCustomerOverviewPage() {
         actions={hasActivity ? <Link className={cabinetPrimaryAction} href={`/catalog?lang=${locale}&view=all`}><ShoppingBag aria-hidden className="size-4" />{ro ? "În catalog" : "В каталог"}</Link> : undefined}
       />
 
-      {overview.serviceNeedsInfoCount > 0 && overview.latestRequest ? (
-        <section aria-labelledby="customer-attention-heading" className="space-y-3">
+      {overview.attentionItems.length ? (
+        <section aria-label={ro ? "Necesită atenție" : "Требует внимания"} className="space-y-3">
           <SectionHeader title={ro ? "Necesită atenție" : "Требует внимания"} />
-          <AttentionItem
-            Icon={CircleAlert}
-            detail={ro ? "Novotech așteaptă informații de la dvs." : "Novotech ожидает дополнительную информацию."}
-            href={`/account/service/${overview.latestRequest.id}`}
-            status={ro ? "Răspundeți" : "Ответить"}
-            title={`${ro ? "Solicitarea" : "Обращение"} ${overview.latestRequest.number}`}
-          />
+          <div className="space-y-2">{overview.attentionItems.map((item) => {
+            const copy = customerAttentionCopy(item, locale);
+            const Icon = item.eventCode === "CUSTOMER_SERVICE_NEED_INFO" ? CircleAlert : item.eventCode === "CUSTOMER_SERVICE_REPLY_FROM_NOVOTECH" ? MessageCircle : item.eventCode === "CUSTOMER_PAYMENT_PAID" ? CreditCard : item.eventCode === "CUSTOMER_PAYMENT_FAILED" ? CircleAlert : item.eventCode === "CUSTOMER_PAYMENT_REFUNDED" ? RotateCcw : Headphones;
+            return item.sourceKind === "SERVICE_REQUEST"
+              ? <AttentionItem Icon={Icon} detail={copy.detail} href={item.actionPath} key={`${item.sourceKind}:${item.sourceId}`} status={copy.action} title={copy.title} />
+              : <AttentionActionItem action={openFinalCustomerAttentionAction} fields={{ sourceKind: item.sourceKind, sourceId: item.sourceId }} Icon={Icon} detail={copy.detail} key={`${item.sourceKind}:${item.sourceId}`} priority={item.priority} status={copy.action} title={copy.title} />;
+          })}</div>
         </section>
       ) : null}
 

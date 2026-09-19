@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { getAuthenticatedUser } from "../access-control/actions/service-factory";
 import { createAgentCabinetService } from "./service";
@@ -17,5 +18,12 @@ export async function updateAgentProfileAction(_state: ProfileActionState, formD
     revalidatePath("/agent/profile");
     return { success: true, message: "Профиль сохранён." };
   } catch { return { success: false, message: "Не удалось сохранить профиль. Проверьте данные." }; }
+}
+
+export async function openAgentAttentionAction(formData: FormData) {
+  await getAuthenticatedUser();
+  const target = await createAgentCabinetService().openAttention(String(formData.get("eventId") ?? ""));
+  revalidatePath("/agent");
+  redirect(target);
 }
 function text(data: FormData, key: string) { return String(data.get(key) ?? ""); }
