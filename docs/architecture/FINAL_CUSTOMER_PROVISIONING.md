@@ -1,6 +1,21 @@
 # Final Customer Provisioning
 
-Status: proposed architecture; owner implementation approval required. This document separates authentication, identity correlation, cabinet entitlement, purchase ownership, and asynchronous 1C correlation.
+Status: Slice 2 implemented behind the `NEW_PURCHASE_PROVISIONING_ENABLED` compatibility gate. This document separates authentication, identity correlation, cabinet entitlement, purchase ownership, and asynchronous 1C correlation.
+
+## Implemented Slice 2 contract
+
+Migration `20260919201121_final_customer_first_purchase_provisioning_v1.sql` implements the approved local boundary:
+
+- authenticated checkout binds the locked order through the service-only `bind_retail_order_authenticated_owner_v1`; the Server Action derives the principal from `auth.getUser()`, and the RPC rechecks that Auth user's confirmed phone against the Retail customer while storing only keyed-HMAC evidence;
+- `activate_paid_retail_order` transactionally inserts one provider-neutral `FIRST_PURCHASE_CONFIRMED` outbox fact after the authoritative activation record exists, including on a safe replay that heals a missing event;
+- purchases without a verified owner remain in `AWAITING_OWNER`; the bounded worker claims only eligible purchases, using `FOR UPDATE SKIP LOCKED`, expiring leases and retry backoff;
+- `provision_final_customer_from_purchase_v1` validates and locks order, activation, binding, identity and account evidence, then creates or reuses the account, links the Retail customer root, writes immutable entitlement/audit evidence and queues the 1C seam atomically;
+- existing account uniqueness plus verified-key uniqueness and advisory locks serialize duplicate and concurrent processing;
+- `customer_external_provisioning_jobs` is the durable asynchronous 1C seam. No 1C call occurs in checkout, payment activation, provisioning, Auth or cabinet rendering.
+
+The existing `getFinalCustomerContext() -> ensureAccount()` compatibility path is intentionally retained outside checkout. Setting `NEW_PURCHASE_PROVISIONING_ENABLED=false` stops worker claims without removing additive evidence or changing legacy access. Enforcement/cutover remains a later slice.
+
+`ONE_C_CUSTOMER_WRITE_READY=NO`: the repository has no approved Final Customer Counterparty match/create provider contract, canonical DTO/write payload, or governed idempotency/reconciliation semantics. The job remains `PENDING`; this does not block an active local account.
 
 ## Non-negotiable invariant
 
@@ -64,7 +79,7 @@ The provider-neutral semantic event is `FIRST_PURCHASE_CONFIRMED`.
 
 Its authoritative precondition is the successful existing `activate_paid_retail_order(...)` boundary, not browser return, checkout creation, MAIB-specific callback presence, or `retail_orders` insertion. The activation function locks and transitions the order and records idempotent activation. MAIB Phase 2 first persists verified provider evidence as `paid_pending_activation`, invokes that boundary, and can retry local activation (`supabase/migrations/20260916182913_maib_verified_callback_phase2.sql:354-485`). Future cash, financing, or another provider must enter through the same normalized activation contract.
 
-Recommended integration:
+Implemented integration:
 
 1. The existing paid-order activation transaction emits a durable, unique `FIRST_PURCHASE_CONFIRMED` outbox row after the order is successfully confirmed.
 2. It does not call 1C and does not wait for external work.
@@ -84,8 +99,7 @@ Prefer an additive `retail_order_auth_bindings` table rather than changing immut
 | `retail_order_id` unique/FK | One entitlement binding per order |
 | `auth_user_id` FK | Supabase principal owning the verified phone session |
 | `phone_key_hash`, `key_version` | Server-derived HMAC evidence; no plaintext duplication |
-| `verified_at`, `verification_method` | Must represent Supabase phone confirmation/OTP |
-| `created_at`, `correlation_id` | Audit and recovery |
+| `binding_source`, `bound_at` | Bounded verified-phone-session provenance and audit time |
 
 The binding is written server-side after current-session verification and before payment initiation/confirmation. The server compares the verified session phone with normalized checkout contact data. Browser-supplied `auth_user_id`, phone hashes, or verification timestamps are ignored. Guest checkout may remain available, but it cannot auto-provision a cabinet until a governed post-purchase claim/reverification flow exists.
 
@@ -122,9 +136,7 @@ Responsibilities:
 
 Use a fixed-empty-`search_path`, service-only transaction function for locking and idempotent writes. TypeScript owns orchestration and error mapping; PostgreSQL owns atomic state transition and constraints. No service-role credential reaches the browser.
 
-## Proposed additive schema
-
-Names are proposals to approve, not implemented migrations.
+## Additive schema
 
 ### `retail_order_auth_bindings`
 
@@ -135,27 +147,26 @@ Verified ownership evidence described above. Unique `retail_order_id`; indexes o
 | Column/constraint | Contract |
 | --- | --- |
 | `retail_order_id` unique/FK | Exact purchase granting entitlement |
-| `payment_activation_id` unique/FK | Authoritative activation evidence |
+| `retail_payment_activation_id` unique/FK | Authoritative activation evidence |
 | `auth_user_id` FK | Verified owner |
 | `customer_identity_id` FK | Resolved root |
 | `customer_account_id` FK | Created/reused entitlement |
-| `source_event_id` unique | Delivery idempotency |
-| `status` | `ACTIVATED` or `REVIEW_REQUIRED`; append-only outcome |
-| timestamps/correlation | Audit |
+| `retail_order_auth_binding_id` FK | Exact verified ownership evidence |
+| `activated_at` | Immutable audit time |
 
 This table proves why the account exists. It does not store discounts, payment truth, or commercial conditions.
 
 ### `customer_provisioning_outbox`
 
-Unique `(event_type, aggregate_id)` for `FIRST_PURCHASE_CONFIRMED` and a deterministic event ID. States `PENDING`, `PROCESSING`, `SUCCEEDED`, `RETRYABLE_FAILURE`, `PERMANENT_FAILURE`; bounded attempts, lease owner/expiry, next-attempt time, last safe error code. The paid-order activation writes it transactionally.
+Unique Retail Order and payment-activation identities for `FIRST_PURCHASE_CONFIRMED`. States `AWAITING_OWNER`, `PENDING`, `PROCESSING`, `SUCCEEDED`, `FAILED_RETRYABLE`, `NEEDS_REVIEW`; bounded attempts, lease token/expiry, next-attempt time and last safe error code. The paid-order activation writes it transactionally.
 
 ### `customer_external_provisioning_jobs`
 
-Unique active job per `customer_identity_id` and source system. Outcomes `PENDING`, `MATCHED`, `NEW`, `AMBIGUOUS`, `CONFLICT`, `RETRYABLE_FAILURE`, `PERMANENT_FAILURE`. Exact successful 1C identity is stored through existing `customer_external_refs`, not duplicated here.
+Unique job per `customer_identity_id`. Outcomes `PENDING`, `PROCESSING`, `MATCHED`, `NEW`, `AMBIGUOUS`, `CONFLICT`, `FAILED_RETRYABLE`. Exact successful 1C identity will be stored through existing `customer_external_refs`, not duplicated here.
 
 ### Existing-table changes
 
-- Extend `customer_account_events` to allow `CUSTOMER_ACCOUNT_ACTIVATED` and safe provisioning/review outcomes.
+- `customer_account_events` allows `CUSTOMER_ACCOUNT_ACTIVATED_FROM_PURCHASE` and `PURCHASE_LINKED`, uniquely correlated per Retail Order.
 - Add explicit provisioning provenance/classification if required for legacy reporting; do not overload account status.
 - Do not store customer discounts/benefits in `customer_accounts`. Future benefits come from governed commercial projections.
 - No Customer Object/Digital Security Passport tables are required now. The stable `customer_identity_id` is the future seam to Customer → Object → Systems → Equipment → Installation → Warranty → Documents → Service.
@@ -168,7 +179,7 @@ The exact boundaries are:
 - Event: unique `(FIRST_PURCHASE_CONFIRMED, retail_order_id)` prevents duplicate outbox facts.
 - Ownership: unique `retail_order_auth_bindings.retail_order_id` prevents two principals claiming one order through this flow.
 - Account: existing unique `customer_accounts.auth_user_id` and unique identity link prevent duplicates.
-- Entitlement: unique `retail_order_id`, `payment_activation_id`, and `source_event_id` make replays return the existing outcome.
+- Entitlement: unique `retail_order_id` and `retail_payment_activation_id` make replays return the existing outcome.
 - Identity: existing verified-key uniqueness and advisory lock serialize same-phone resolution.
 - 1C: unique active job per root plus `customer_external_refs(system, entity_type, external_id)` prevents duplicate provisioning/linkage.
 
@@ -195,7 +206,7 @@ Phone ownership authorizes the current verified Auth principal and the new bound
 2. A bounded worker leases jobs and performs the governed 1C match/create operation.
 3. `MATCHED` or `NEW` records an exact `customer_external_refs` mapping and a safe lifecycle event.
 4. `AMBIGUOUS`/`CONFLICT` records diagnostic state without linking or revealing candidates to the customer.
-5. Transient outage records `RETRYABLE_FAILURE`, releases/extends the lease, and schedules bounded backoff.
+5. Transient outage records `FAILED_RETRYABLE`, releases/extends the lease, and schedules bounded backoff.
 6. Repeated runs inspect the existing external reference/job result and no-op.
 
 1C is not called during OTP, login, page render, payment callback verification, paid-order activation, or the local account transaction. Portal availability is independent of ERP availability.
@@ -237,7 +248,7 @@ sequenceDiagram
   W->>D: Lease bounded job
   W->>E: Governed match/create
   E--xW: Unavailable
-  W->>D: RETRYABLE_FAILURE + next attempt
+  W->>D: FAILED_RETRYABLE + next attempt
   Note over D: Purchase and /account remain valid
 ```
 
@@ -278,7 +289,7 @@ Classification must be repeatable and read-only first. Record counts and exact I
 
 ## RLS and grants
 
-- All proposed evidence/job tables use RLS and FORCE RLS consistent with adjacent identity/payment domains.
+- All evidence/job tables use RLS and FORCE RLS consistent with adjacent identity/payment domains.
 - Browser roles receive no direct mutation grants. Customer-visible reads, if any, are constrained through `auth.uid()` and the account/binding relationship.
 - Provisioning RPC is service-only, accepts only order/activation/event identifiers, derives user and identity server-side, has a fixed empty `search_path`, and validates every relation.
 - `customer_accounts` own-row read policy remains defense in depth. A context resolver cannot accept an arbitrary customer/account ID.

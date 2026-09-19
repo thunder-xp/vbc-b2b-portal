@@ -60,8 +60,9 @@ describe("Final Customer Cabinet value contract", () => {
 
   it("server-governs authenticated checkout identity while preserving guest input", () => {
     const action = read("src/modules/public-retail/actions/retail-checkout.actions.ts");
-    expect(action).toContain("getFinalCustomerContext().catch(() => null)");
-    expect(action).toContain("phone: customerContext.verifiedPhone");
+    expect(action).toContain("getVerifiedRetailOwner()");
+    expect(action).toContain("phone: verifiedOwner.verifiedPhone");
+    expect(action).toContain("bindRetailOrderToVerifiedOwner(access.hash, verifiedOwner)");
     expect(action).toContain(": input;");
   });
 

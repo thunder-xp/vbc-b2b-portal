@@ -1,6 +1,6 @@
 # Unified Auth and Access Contexts
 
-Status: Slice 1 implemented. Purchase-triggered Final Customer provisioning remains future work.
+Status: Slices 1 and 2 implemented. Purchase-triggered Final Customer provisioning is additive; legacy account creation remains available until the separately governed cutover.
 
 ## Canonical routes
 
@@ -119,3 +119,15 @@ Not implemented here:
 The later provisioning slice must establish purchase activation before removing the legacy compatibility creation path.
 
 `ARCHITECTURE_CHANGE_REQUEST=APPROVED_AND_IMPLEMENTED_FOR_SLICE_1`
+
+## Slice 2: first-purchase provisioning
+
+Authenticated Retail checkout now performs a read-only Auth/account lookup and no longer invokes `ensureAccount()` merely to prepare an order. The Server Action resolves the principal through `auth.getUser()` and invokes a service-only fixed-boundary RPC which rechecks confirmed Auth phone state, normalized order contact and keyed-HMAC evidence. Guest checkout remains compatible but cannot grant a cabinet through this path.
+
+The provider-neutral `activate_paid_retail_order` boundary emits one durable `FIRST_PURCHASE_CONFIRMED` event only after local paid activation succeeds. The existing two-minute order-reconciliation cron also performs one bounded, fast-no-op customer-provisioning claim; no extra scheduled invocation was introduced. `FinalCustomerProvisioningService` calls an atomic service-only RPC that creates or reuses `customer_identity` and `customer_account`, links the confirmed purchase, appends safe audit evidence and queues asynchronous 1C work.
+
+`CustomerAccessResolver` remains read-only. After the transaction, its existing indexed lookup returns `AVAILABLE`; OTP alone still returns `NOT_ACTIVE` through the new resolver. The global legacy `getFinalCustomerContext() -> ensureAccount()` behavior has not been removed, so rollback is `NEW_PURCHASE_PROVISIONING_ENABLED=false` while a later approved slice performs enforcement and legacy-policy cutover.
+
+No synchronous 1C, provider payment, email or reconciliation work occurs in the entitlement transaction. The unresolved 1C Final Customer write contract leaves the durable job in `PENDING` without affecting cabinet access.
+
+`ARCHITECTURE_CHANGE_REQUEST=APPROVED_AND_IMPLEMENTED_FOR_SLICE_2`

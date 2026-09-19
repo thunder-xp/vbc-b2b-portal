@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizeCronRequest } from "@/src/lib/cron-auth";
+import { createFinalCustomerProvisioningService } from "@/src/modules/final-customer-provisioning/server";
 import { createOrderReconciliationWorkerService } from "@/src/modules/orders/actions/service-factory";
 
 export const runtime = "nodejs";
@@ -13,16 +14,20 @@ export async function GET(request: Request) {
 
   const startedAt = performance.now();
   try {
-    const result = await createOrderReconciliationWorkerService().processBatch();
-    if (result.claimed > 0) {
+    const [result, customerProvisioning] = await Promise.all([
+      createOrderReconciliationWorkerService().processBatch(),
+      createFinalCustomerProvisioningService().processBatch(),
+    ]);
+    if (result.claimed > 0 || customerProvisioning.claimed > 0) {
       console.info({
         event: "partner_order_reconciliation_worker_completed",
         ...result,
+        customerProvisioning,
         totalDurationMs: Math.round(performance.now() - startedAt),
         deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local",
       });
     }
-    return NextResponse.json({ status: "succeeded", ...result }, {
+    return NextResponse.json({ status: "succeeded", ...result, customerProvisioning }, {
       headers: { "Cache-Control": "no-store" },
     });
   } catch (error) {
