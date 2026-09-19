@@ -35,9 +35,10 @@ describe("Final Customer Cabinet value contract", () => {
     const emptyState = read("src/modules/final-customer/components/CustomerEmptyState.tsx");
     expect(emptyState).toContain("/catalog?lang=${locale}&view=all");
     expect(emptyState).toContain("/account/service/new");
-    for (const page of ["orders", "purchases", "equipment", "documents"]) {
+    for (const page of ["orders", "purchases", "documents"]) {
       expect(read(`app/account/(private)/${page}/page.tsx`)).toContain("CustomerEmptyState");
     }
+    expect(read("app/account/(private)/equipment/page.tsx")).toContain('redirect("/account/purchases")');
   });
 
   it("links authoritative current products without exposing marketplace or provider state", () => {
@@ -69,6 +70,27 @@ describe("Final Customer Cabinet value contract", () => {
     expect(page).toContain("PublicRetailAddToCartButton");
     expect(page).toContain("buyAgainAllowed");
     expect(page).not.toContain("supabase");
+  });
+
+  it("keeps purchases product-led and contextualizes documents and service", () => {
+    const purchases = read("app/account/(private)/purchases/page.tsx");
+    const detail = read("app/account/(private)/equipment/[lineId]/page.tsx");
+    const documents = read("app/account/(private)/documents/page.tsx");
+    expect(purchases).toContain("purchaseWorkspace");
+    expect(purchases).toContain("line.currentProduct.price");
+    expect(purchases).toContain("orderLineId=${line.id}");
+    expect(detail).toContain("equipmentDetail");
+    expect(detail).toContain("PublicRetailAddToCartButton");
+    expect(documents).toContain("documentGroups");
+    expect(documents).not.toContain("providerPaymentId");
+  });
+
+  it("keeps document metadata on the server-owned read boundary", () => {
+    const repository = read("src/modules/final-customer/supabase.repository.ts");
+    const migration = read("supabase/migrations/20260919153000_final_customer_product_document_service_read.sql");
+    expect(repository).toContain('createAdminClient().from("catalog_product_documents")');
+    expect(migration).toContain("grant select on table public.catalog_product_documents to service_role");
+    expect(migration).not.toMatch(/to\s+(?:anon|authenticated)\b/i);
   });
 
   it("documents missing authoritative fulfillment, returns, serial, and warranty-expiry sources", () => {

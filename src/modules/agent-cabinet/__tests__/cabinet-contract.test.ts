@@ -37,7 +37,8 @@ describe("Agent Cabinet V1 contract", () => {
   it("keeps QR opaque and profile authority fields protected", () => {
     expect(migration).toContain("public_token ~ '^[A-Za-z0-9_-]{43}$'");
     expect(service).toContain("/a/${token.publicToken}");
-    expect(profilePage).toContain("Статус, уровень, результаты проверки и договорные данные изменяет только Novotech");
+    expect(profilePage).toContain("agentLifecycleStatusCopy");
+    expect(profilePage).not.toMatch(/complianceCopy|levelCopy|contractReady/);
     expect(migration).not.toContain("p_status text");
     expect(migration).not.toContain("p_level text");
   });

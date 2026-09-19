@@ -57,6 +57,46 @@ describe("Final Customer account service", () => {
     expect(result[0].currentProduct?.price).toBe(120);
   });
 
+  it("attaches factual document counts with one bounded document read", async () => {
+    const repo = repository();
+    vi.mocked(repo.listConfirmedPurchases).mockResolvedValue([{
+      id: "line", lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null,
+      quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", orderId: "11111111-1111-4111-8111-111111111111", orderNumber: "R-1", purchasedAt: "2026-09-15T00:00:00Z", currentProduct: null,
+    }]);
+    vi.mocked(repo.listCurrentProducts).mockResolvedValue([{ publicProductId: "public-product", sourceProductId: "source-product", slug: "camera", name: "Camera", price: 120, currency: "MDL", availability: "in_stock", imageUrl: null }]);
+    vi.mocked(repo.listProductDocuments).mockResolvedValue([
+      { id: "document-1", productId: "source-product", title: "Manual", type: "manual", url: "https://example.test/manual.pdf" },
+      { id: "document-2", productId: "source-product", title: "Datasheet", type: "datasheet", url: "https://example.test/datasheet.pdf" },
+    ]);
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    const result = await new FinalCustomerAccountService(repo).purchaseWorkspace(account);
+
+    expect(repo.listProductDocuments).toHaveBeenCalledOnce();
+    expect(repo.listProductDocuments).toHaveBeenCalledWith(["source-product"]);
+    expect(result[0]?.documentCount).toBe(2);
+  });
+
+  it("groups documents by owned order and product without per-line reads", async () => {
+    const repo = repository();
+    const orderId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(repo.listConfirmedPurchases).mockResolvedValue([{
+      id: "line", lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null,
+      quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", orderId, orderNumber: "R-1", purchasedAt: "2026-09-15T00:00:00Z", currentProduct: null,
+    }]);
+    vi.mocked(repo.listCurrentProducts).mockResolvedValue([{ publicProductId: "public-product", sourceProductId: "source-product", slug: "camera", name: "Camera", price: 120, currency: "MDL", availability: "in_stock", imageUrl: null }]);
+    vi.mocked(repo.listProductDocuments).mockResolvedValue([{ id: "document", productId: "source-product", title: "Manual", type: "manual", url: "https://example.test/manual.pdf" }]);
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    const result = await new FinalCustomerAccountService(repo).documentGroups(account, orderId);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ orderId, products: [{ lineId: "line", documents: [{ id: "document" }] }] });
+    expect(repo.listProductDocuments).toHaveBeenCalledOnce();
+    expect(await new FinalCustomerAccountService(repo).documentGroups(account, "invalid")).toEqual([]);
+    expect(repo.listConfirmedPurchases).toHaveBeenCalledOnce();
+  });
+
   it("adds effective payment truth to owned orders with one bounded batch", async () => {
     const repo = repository();
     const order = { id: "11111111-1111-4111-8111-111111111111", number: "R-2026-000001", status: "confirmed", createdAt: "2026-09-15T00:00:00Z", total: 100, currency: "MDL", itemCount: 1, itemSummary: ["Camera"], paidAt: "2026-09-15T01:00:00Z", paymentState: "PAID" as const };

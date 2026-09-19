@@ -1,5 +1,24 @@
 import type { AgentCabinetLocale } from "./copy";
-import type { AgentClientView, AgentReferralView } from "./types";
+import type { AgentCabinetContext, AgentClientView, AgentReferralView } from "./types";
+
+export type AgentOnboardingRequirement = "APPLICATION" | "COMPLIANCE" | "CONTRACT" | "ACTIVATION";
+export type AgentOnboardingNextAction = "WAIT_REVIEW" | "CONTACT_COORDINATOR" | "WAIT_CONTRACT" | "WAIT_ACTIVATION" | "NONE";
+
+export function agentOnboardingReadiness(context: AgentCabinetContext) {
+  const terminal = context.status === "TERMINATED" || context.status === "REJECTED";
+  const items: ReadonlyArray<{ code: AgentOnboardingRequirement; complete: boolean }> = [
+    { code: "APPLICATION", complete: true },
+    { code: "COMPLIANCE", complete: context.complianceStatus === "APPROVED" },
+    { code: "CONTRACT", complete: context.contractReady },
+    { code: "ACTIVATION", complete: context.status === "ACTIVE" },
+  ];
+  let nextAction: AgentOnboardingNextAction = "WAIT_ACTIVATION";
+  if (terminal || context.status === "ACTIVE") nextAction = "NONE";
+  else if (context.status === "SUSPENDED" || ["REVIEW_REQUIRED", "BLOCKED", "REJECTED"].includes(context.complianceStatus)) nextAction = "CONTACT_COORDINATOR";
+  else if (context.status === "APPLIED" || context.status === "COMPLIANCE_REVIEW") nextAction = "WAIT_REVIEW";
+  else if (!context.contractReady) nextAction = "WAIT_CONTRACT";
+  return { items, nextAction, terminal } as const;
+}
 
 export function agentDate(value: string, locale: AgentCabinetLocale, long = false) { return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", { day: "2-digit", month: long ? "long" : "short", year: "numeric" }).format(new Date(value)); }
 export function attributionStatus(status: AgentClientView["status"] | null | undefined, locale: AgentCabinetLocale) { const labels = locale === "ro" ? { ACTIVE: "Activă", EXPIRED: "Expirată", REASSIGNED: "Transferată", TERMINATED: "Încheiată" } : { ACTIVE: "Активно", EXPIRED: "Срок завершён", REASSIGNED: "Передано", TERMINATED: "Завершено" }; return status ? labels[status] : (locale === "ro" ? "Nu este atribuit" : "Не закреплён"); }

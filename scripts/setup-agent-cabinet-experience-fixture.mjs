@@ -85,7 +85,7 @@ console.log(JSON.stringify({
   customerPrincipal: {
     userId: identities[2].id,
     email: identities[2].email,
-    history: "EMPTY",
+    history: "CONTROLLED_PURCHASE_FIXTURE",
   },
   referralCount: referralsResult.count ?? 0,
   attributionCount: attributionsResult.count ?? 0,

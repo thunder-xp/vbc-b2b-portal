@@ -52,9 +52,13 @@ export default async function AgentHomePage() {
 
     <section className="space-y-3" aria-labelledby="activity-heading">
       <SectionHeader title={copy.recentActivity}/>
-      {overview.latestActivity.length ? <ol className="divide-y divide-zinc-100 border-y border-zinc-200">{overview.latestActivity.map((item)=><li className="flex min-h-14 items-center gap-3 py-3" key={item.id}><span className="size-2 shrink-0 rounded-full bg-emerald-600"/><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{agentEventCopy[locale][item.eventType] ?? (locale === "ro" ? "Actualizare" : "Обновление")}</span>{item.referralName ? <span className="block truncate text-xs text-zinc-500">{item.referralName}</span> : null}</span><time className="shrink-0 text-xs text-zinc-500" dateTime={item.createdAt}>{formatDate(item.createdAt, locale)}</time></li>)}</ol>:<p className="text-sm text-zinc-500">{copy.noActivity}</p>}
+      {overview.latestActivity.length ? <ol className="divide-y divide-zinc-100 border-y border-zinc-200">{overview.latestActivity.map((item)=><li key={item.id}>{item.referralId ? <Link className="flex min-h-14 items-center gap-3 py-3 outline-none hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-600" href={`/agent/referrals/${item.referralId}`}><ActivityContent item={item} locale={locale}/><ArrowRight aria-hidden className="size-4 shrink-0 text-zinc-400" /></Link> : <div className="flex min-h-14 items-center gap-3 py-3"><ActivityContent item={item} locale={locale}/></div>}</li>)}</ol>:<p className="text-sm text-zinc-500">{copy.noActivity}</p>}
     </section>
   </main>;
+}
+
+function ActivityContent({ item, locale }: { item: { eventType: string; referralName: string | null; createdAt: string }; locale: "ru" | "ro" }) {
+  return <><span aria-hidden className="size-2 shrink-0 rounded-full bg-emerald-600"/><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{agentEventCopy[locale][item.eventType] ?? (locale === "ro" ? "Actualizare" : "Обновление")}</span>{item.referralName ? <span className="block truncate text-xs text-zinc-500">{item.referralName}</span> : null}</span><time className="shrink-0 text-xs text-zinc-500" dateTime={item.createdAt}>{formatDate(item.createdAt, locale)}</time></>;
 }
 
 function formatDate(value: string, locale: "ru" | "ro") {

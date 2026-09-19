@@ -63,6 +63,7 @@ export type FinalCustomerPurchase = FinalCustomerOrderLine & Readonly<{
   orderNumber: string;
   purchasedAt: string;
   currentProduct: FinalCustomerCurrentProduct | null;
+  documentCount?: number;
 }>;
 
 export type FinalCustomerProductDocument = Readonly<{
@@ -71,6 +72,18 @@ export type FinalCustomerProductDocument = Readonly<{
   title: string;
   type: string;
   url: string;
+}>;
+
+export type FinalCustomerDocumentGroup = Readonly<{
+  orderId: string;
+  orderNumber: string;
+  purchasedAt: string;
+  products: ReadonlyArray<{
+    lineId: string;
+    sku: string;
+    name: string;
+    documents: ReadonlyArray<FinalCustomerProductDocument>;
+  }>;
 }>;
 
 export const CUSTOMER_SERVICE_REQUEST_TYPES = [

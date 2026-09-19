@@ -103,6 +103,20 @@ export class FinalCustomerAccountService {
     return purchases.map((line) => ({ ...line, currentProduct: byId.get(line.publicProductId) ?? null }));
   }
 
+  async purchaseWorkspace(account: FinalCustomerAccount, limit = 20, offset = 0) {
+    const purchases = await this.purchases(account, limit, offset);
+    const sourceIds = unique(purchases.flatMap((line) => line.currentProduct ? [line.currentProduct.sourceProductId] : []));
+    const documents = await this.repository.listProductDocuments(sourceIds);
+    const documentCountByProduct = new Map<string, number>();
+    for (const document of documents) {
+      documentCountByProduct.set(document.productId, (documentCountByProduct.get(document.productId) ?? 0) + 1);
+    }
+    return purchases.map((line) => ({
+      ...line,
+      documentCount: line.currentProduct ? (documentCountByProduct.get(line.currentProduct.sourceProductId) ?? 0) : 0,
+    }));
+  }
+
   async equipment(account: FinalCustomerAccount, limit = 20, offset = 0) {
     return (await this.purchases(account, limit, offset)).filter((line) => line.unitCode !== "service");
   }
@@ -122,6 +136,30 @@ export class FinalCustomerAccountService {
     const documents = await this.repository.listProductDocuments(sourceIds);
     const productBySource = new Map(purchases.flatMap((line) => line.currentProduct ? [[line.currentProduct.sourceProductId, line]] as const : []));
     return documents.map((document) => ({ ...document, purchase: productBySource.get(document.productId) ?? null }));
+  }
+
+  async documentGroups(account: FinalCustomerAccount, orderId?: string) {
+    if (orderId && !UUID.test(orderId)) return [];
+    const purchases = await this.purchases(account, 50);
+    const scoped = orderId ? purchases.filter((line) => line.orderId === orderId) : purchases;
+    const sourceIds = unique(scoped.flatMap((line) => line.currentProduct ? [line.currentProduct.sourceProductId] : []));
+    const documents = await this.repository.listProductDocuments(sourceIds);
+    const byProduct = new Map<string, typeof documents>();
+    for (const document of documents) {
+      const group = byProduct.get(document.productId) ?? [];
+      group.push(document);
+      byProduct.set(document.productId, group);
+    }
+    const byOrder = new Map<string, { orderId: string; orderNumber: string; purchasedAt: string; products: Array<{ lineId: string; sku: string; name: string; documents: typeof documents }> }>();
+    for (const line of scoped) {
+      if (!line.currentProduct) continue;
+      const productDocuments = byProduct.get(line.currentProduct.sourceProductId) ?? [];
+      if (!productDocuments.length) continue;
+      const group = byOrder.get(line.orderId) ?? { orderId: line.orderId, orderNumber: line.orderNumber, purchasedAt: line.purchasedAt, products: [] };
+      group.products.push({ lineId: line.id, sku: line.sku, name: line.name, documents: productDocuments });
+      byOrder.set(line.orderId, group);
+    }
+    return [...byOrder.values()];
   }
 
   listServiceRequests(account: FinalCustomerAccount, limit = 20, offset = 0) {
