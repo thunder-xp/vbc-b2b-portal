@@ -24,6 +24,7 @@ export type AgentReferralSummary = {
   id: string;
   name: string;
   submittedAt: string;
+  updatedAt?: string;
   status: AgentReferralStatus;
 };
 
@@ -62,6 +63,13 @@ export type AgentCabinetOverview = {
   needsAttention: AgentReferralSummary[];
   latestReferrals: AgentReferralSummary[];
   latestClients: Array<Pick<AgentClientView, "id" | "name" | "status" | "attributedAt" | "protectionUntil">>;
+  latestActivity: Array<{
+    id: string;
+    eventType: string;
+    createdAt: string;
+    referralId: string | null;
+    referralName: string | null;
+  }>;
 };
 
 export type PageResult<T> = { items: T[]; total: number };

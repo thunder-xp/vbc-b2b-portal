@@ -1,14 +1,62 @@
+import { ArrowRight, BookOpen, CircleAlert, Clock3, Plus, QrCode } from "lucide-react";
 import Link from "next/link";
-import { ArrowRight, Plus, QrCode } from "lucide-react";
 
-import { createAgentCabinetService, referralStatusCopy } from "@/src/modules/agent-cabinet";
-import { AgentPageHeader, primaryButton, secondaryButton } from "@/src/modules/agent-cabinet/components/PageHeader";
+import {
+  AttentionItem,
+  SectionHeader,
+  WorkspaceHeader,
+  cabinetPrimaryAction,
+  cabinetSecondaryAction,
+} from "@/src/modules/cabinet-experience/components";
+import {
+  agentCabinetCopy,
+  agentEventCopy,
+  createAgentCabinetService,
+  getAgentCabinetLocale,
+} from "@/src/modules/agent-cabinet";
 import { ReferralStatusBadge } from "@/src/modules/agent-cabinet/components/StatusBadge";
 
 export default async function AgentHomePage() {
-  const overview = await createAgentCabinetService().overview(); if (!overview) return null;
-  const kpis = [["Мои клиенты", overview.kpis.myClients], ["Активные заявки", overview.kpis.activeReferrals], ["Новые заявки", overview.kpis.newReferrals], ["Закреплено за мной", overview.kpis.attributedToMe]] as const;
-  return <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:py-8"><AgentPageHeader title="Обзор" actions={<><Link className={primaryButton} href="/agent/qr#referral-link"><Plus size={18}/>Добавить клиента</Link><Link className={secondaryButton} href="/agent/qr"><QrCode size={18}/>Показать мой QR</Link></>}/><section aria-label="Основные показатели" className="grid grid-cols-2 border-l border-t border-zinc-200 bg-white lg:grid-cols-4">{kpis.map(([label,value])=><div className="border-b border-r border-zinc-200 p-4" key={label}><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p></div>)}</section><div className="grid gap-5 lg:grid-cols-3"><OverviewList title="Требует внимания" empty="Сейчас всё в порядке." items={overview.needsAttention}/><OverviewList title="Последние заявки" empty="У вас пока нет заявок." items={overview.latestReferrals}/><section className="border border-zinc-200 bg-white"><h2 className="border-b border-zinc-200 px-4 py-3 font-semibold">Последние клиенты</h2>{overview.latestClients.length?<ul>{overview.latestClients.map(item=><li className="border-b border-zinc-100 last:border-0" key={item.id}><Link className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-50" href={`/agent/clients/${item.id}`}><span><span className="block text-sm font-medium">{item.name}</span><span className="text-xs text-zinc-500">до {date(item.protectionUntil)}</span></span><ArrowRight size={16}/></Link></li>)}</ul>:<p className="p-4 text-sm text-zinc-500">После подтверждения первой заявки клиент появится здесь.</p>}</section></div></main>;
+  const [overview, locale] = await Promise.all([
+    createAgentCabinetService().overview(),
+    getAgentCabinetLocale(),
+  ]);
+  if (!overview) return null;
+  const copy = agentCabinetCopy[locale];
+  const attention = overview.needsAttention[0] ?? null;
+
+  return <main className="mx-auto max-w-6xl space-y-7 px-4 py-6 sm:py-8">
+    <WorkspaceHeader
+      eyebrow={copy.today}
+      title={copy.cabinet}
+      actions={<><Link className={cabinetPrimaryAction} href="/agent/qr#referral-link"><Plus aria-hidden className="size-4" />{copy.primaryAction}</Link><Link className={cabinetSecondaryAction} href="/agent/qr"><QrCode aria-hidden className="size-4" />{copy.showQr}</Link></>}
+    />
+
+    {attention ? <section className="space-y-3" aria-label={copy.attention}><SectionHeader title={copy.attention}/><AttentionItem Icon={CircleAlert} detail={copy.checkResult} href={`/agent/referrals/${attention.id}`} status={copy.open} title={attention.name}/></section> : null}
+
+    <div className="grid gap-7 lg:grid-cols-[minmax(0,1.7fr)_minmax(280px,1fr)]">
+      <section className="space-y-3" aria-labelledby="active-referrals-heading">
+        <SectionHeader
+          action={<Link className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700" href="/agent/referrals">{copy.allReferrals}<ArrowRight aria-hidden className="size-4" /></Link>}
+          detail={`${overview.kpis.activeReferrals + overview.kpis.newReferrals} ${locale === "ro" ? "în lucru" : "в работе"}`}
+          title={copy.activeReferrals}
+        />
+        {overview.latestReferrals.length ? <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">{overview.latestReferrals.map((item)=><Link className="group grid min-h-[72px] gap-2 px-4 py-3 hover:bg-zinc-50 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" href={`/agent/referrals/${item.id}`} key={item.id}><span className="min-w-0"><strong className="block truncate text-sm">{item.name}</strong><span className="mt-1 flex items-center gap-1 text-xs text-zinc-500"><Clock3 aria-hidden className="size-3.5" />{formatDate(item.updatedAt ?? item.submittedAt, locale)}</span></span><span className="flex items-center justify-between gap-3"><ReferralStatusBadge locale={locale} status={item.status}/><ArrowRight aria-hidden className="size-4 text-zinc-400 transition-transform group-hover:translate-x-0.5" /></span></Link>)}</div>:<p className="rounded-xl border border-zinc-200 bg-white p-5 text-sm text-zinc-600">{copy.noReferrals}</p>}
+      </section>
+
+      <aside className="space-y-3" aria-labelledby="share-heading">
+        <SectionHeader title={copy.share}/>
+        <div className="rounded-xl bg-zinc-900 p-5 text-white"><QrCode aria-hidden className="size-6 text-emerald-300"/><p className="mt-4 text-sm leading-6 text-zinc-300">{copy.shareBody}</p><div className="mt-5 grid gap-2"><Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-white px-4 text-sm font-semibold text-zinc-950 hover:bg-zinc-100" href="/agent/qr"><QrCode aria-hidden className="size-4" />{copy.showQr}</Link><Link className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-zinc-700 px-4 text-sm font-semibold text-white hover:border-zinc-500" href="/agent/materials"><BookOpen aria-hidden className="size-4" />{copy.materials}</Link></div></div>
+      </aside>
+    </div>
+
+    <section className="space-y-3" aria-labelledby="activity-heading">
+      <SectionHeader title={copy.recentActivity}/>
+      {overview.latestActivity.length ? <ol className="divide-y divide-zinc-100 border-y border-zinc-200">{overview.latestActivity.map((item)=><li className="flex min-h-14 items-center gap-3 py-3" key={item.id}><span className="size-2 shrink-0 rounded-full bg-emerald-600"/><span className="min-w-0 flex-1"><span className="block text-sm font-medium">{agentEventCopy[locale][item.eventType] ?? (locale === "ro" ? "Actualizare" : "Обновление")}</span>{item.referralName ? <span className="block truncate text-xs text-zinc-500">{item.referralName}</span> : null}</span><time className="shrink-0 text-xs text-zinc-500" dateTime={item.createdAt}>{formatDate(item.createdAt, locale)}</time></li>)}</ol>:<p className="text-sm text-zinc-500">{copy.noActivity}</p>}
+    </section>
+  </main>;
 }
-function OverviewList({title,empty,items}:{title:string;empty:string;items:Array<{id:string;name:string;status:keyof typeof referralStatusCopy;submittedAt:string}>}){return <section className="border border-zinc-200 bg-white"><h2 className="border-b border-zinc-200 px-4 py-3 font-semibold">{title}</h2>{items.length?<ul>{items.map(item=><li className="border-b border-zinc-100 last:border-0" key={item.id}><Link className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 hover:bg-zinc-50" href={`/agent/referrals/${item.id}`}><span><span className="block text-sm font-medium">{item.name}</span><span className="text-xs text-zinc-500">{date(item.submittedAt)}</span></span><ReferralStatusBadge status={item.status}/></Link></li>)}</ul>:<p className="p-4 text-sm text-zinc-500">{empty}</p>}</section>}
-function date(v:string){return new Intl.DateTimeFormat("ru-MD",{day:"2-digit",month:"short",year:"numeric"}).format(new Date(v))}
+
+function formatDate(value: string, locale: "ru" | "ro") {
+  return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", { day: "2-digit", month: "short" }).format(new Date(value));
+}

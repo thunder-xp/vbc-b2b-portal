@@ -22,7 +22,7 @@ describe("Agent Cabinet V1 contract", () => {
 
   it("gates all child routes before operational content is rendered", () => {
     expect(layout).toContain('agent.accessMode === "OPERATIONAL"');
-    expect(layout).toContain("<StatusGate context={agent}/>");
+    expect(layout).toContain("<StatusGate context={agent} locale={locale}/>");
     expect(layout).not.toContain("/cabinet");
   });
 
@@ -51,5 +51,23 @@ describe("Agent Cabinet V1 contract", () => {
     expect(auditMigration).toContain("AGENT_PROFILE_UPDATED");
     expect(auditMigration).toContain("jsonb_build_object('fields', changed_fields)");
     expect(auditMigration).not.toContain("jsonb_build_object('phone'");
+  });
+
+  it("uses an action-first daily home without financial or KPI-dashboard claims", () => {
+    const home = readFileSync(join(root, "app/(agent)/agent/page.tsx"), "utf8");
+    expect(home).toContain("copy.primaryAction");
+    expect(home).toContain("overview.latestActivity");
+    expect(home).toContain("copy.showQr");
+    expect(home).not.toContain("const kpis =");
+    expect(home).not.toMatch(/balance|commission|payout|0 MDL/i);
+  });
+
+  it("keeps acceptance identities local-only and outside migration data", () => {
+    const fixture = readFileSync(join(root, "supabase/tests/customer_agent_cabinet_experience_fixture.sql"), "utf8");
+    const setup = readFileSync(join(root, "scripts/setup-agent-cabinet-experience-fixture.mjs"), "utf8");
+    expect(fixture).toContain("Local/acceptance-only fixture");
+    expect(setup).toContain("refusing a non-local Supabase URL");
+    expect(setup).toContain('productionMutation: false');
+    expect(migration).not.toContain("Test Agent Novotech");
   });
 });

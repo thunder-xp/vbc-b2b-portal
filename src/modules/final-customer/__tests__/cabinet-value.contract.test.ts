@@ -5,12 +5,23 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(join(process.cwd(), path), "utf8");
 
 describe("Final Customer Cabinet value contract", () => {
-  it("ships every functional navigation destination", () => {
+  it("keeps five daily destinations primary and preserves contextual utility access", () => {
     const navigation = read("src/modules/final-customer/components/CustomerNavigation.tsx");
-    for (const path of ["/account/orders", "/account/purchases", "/account/equipment", "/account/documents", "/account/service", "/account/profile", "/account/security"]) {
+    for (const path of ["/account", "/account/orders", "/account/purchases", "/account/service", "/account/profile"]) {
       expect(navigation).toContain(path);
     }
+    for (const path of ["/account/equipment", "/account/documents", "/account/security"]) expect(navigation).not.toContain(`href: "${path}"`);
+    const home = read("app/account/(private)/page.tsx");
+    expect(home).toContain('href="/account/documents"');
+    expect(home).toContain('href="/account/equipment"');
     expect(navigation).not.toContain("/account/installations");
+  });
+
+  it("renders an intentional zero-history home instead of a zero metric grid", () => {
+    const home = read("app/account/(private)/page.tsx");
+    expect(home).toContain("CabinetEmptyState");
+    expect(home).toContain("Добро пожаловать в NSD");
+    expect(home).not.toContain("const cards =");
   });
 
   it("keeps the paused Installation Marketplace out of customer commerce journeys", () => {

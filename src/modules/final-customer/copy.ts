@@ -1,6 +1,6 @@
 export const finalCustomerCopy = {
   ru: {
-    cabinet: "Личный кабинет", overview: "Обзор", orders: "Заказы", profile: "Профиль", security: "Безопасность", logout: "Выйти",
+    cabinet: "Личный кабинет", home: "Главная", overview: "Обзор", orders: "Заказы", purchases: "Покупки", service: "Сервис", documents: "Документы", equipment: "Оборудование", profile: "Профиль", security: "Безопасность", logout: "Выйти",
     greeting: "Здравствуйте", recentOrder: "Последний заказ",
     noOrders: "Здесь появятся ваши подтверждённо связанные розничные заказы.",
     review: "История покупок временно скрыта, пока мы безопасно проверяем связь с существующими данными.",
@@ -11,7 +11,7 @@ export const finalCustomerCopy = {
     phoneChange: "Изменение подтверждённого номера потребует повторной проверки и недоступно как обычное редактирование профиля.",
   },
   ro: {
-    cabinet: "Cont personal", overview: "Prezentare", orders: "Comenzi", profile: "Profil", security: "Securitate", logout: "Ieșire",
+    cabinet: "Cont personal", home: "Acasă", overview: "Prezentare", orders: "Comenzi", purchases: "Cumpărături", service: "Service", documents: "Documente", equipment: "Echipamente", profile: "Profil", security: "Securitate", logout: "Ieșire",
     greeting: "Bună ziua", recentOrder: "Ultima comandă",
     noOrders: "Aici vor apărea comenzile retail asociate în mod verificat contului dvs.",
     review: "Istoricul cumpărăturilor este ascuns temporar până verificăm în siguranță legătura cu datele existente.",
