@@ -23,6 +23,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
     [copy.delivery, `/?lang=${locale}#delivery`, false],
     [ru ? "О компании" : "Despre noi", `/about?lang=${locale}`, false],
     [copy.contacts, `/contacts?lang=${locale}`, false],
+    [copy.partnerCabinet, "/cabinet", false],
   ] as const;
 
   return <div className="public-retail min-h-screen bg-white text-zinc-950" lang={locale}>
@@ -36,7 +37,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
             {links.map(([label, href, prefetch]) => <Link className="text-[13px] font-medium text-zinc-700 hover:text-blue-700" href={href} key={href} prefetch={prefetch ? undefined : false}>{label}</Link>)}
           </nav>
           <div className="ml-auto flex items-center gap-1 xl:ml-0">
-            <Link aria-label={copy.partnerCabinet} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-zinc-100 hover:text-blue-700" href="/cabinet" prefetch={false}>
+            <Link aria-label={copy.customerAccount} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-zinc-100 hover:text-blue-700" href={`/account?lang=${locale}`} prefetch={false}>
               <CircleUserRound aria-hidden="true" className="size-5" />
             </Link>
             <Suspense fallback={<span aria-hidden className="size-11" />}><PublicLocaleSwitch locale={locale} /></Suspense>

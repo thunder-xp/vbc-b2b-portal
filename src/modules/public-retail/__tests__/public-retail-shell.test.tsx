@@ -29,6 +29,7 @@ describe("Public Retail shell", () => {
       "Доставка",
       "О компании",
       "Контакты",
+      "Кабинет партнёра",
     ]);
     expect(navigation.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru",
@@ -37,15 +38,16 @@ describe("Public Retail shell", () => {
       "/?lang=ru#delivery",
       "/about?lang=ru",
       "/contacts?lang=ru",
+      "/cabinet",
     ]);
 
     const header = screen.getByRole("banner");
-    const cabinet = within(header).getAllByRole("link", { name: "Кабинет партнёра" })[0];
+    const account = within(header).getByRole("link", { name: "Личный кабинет" });
     const language = within(header).getByRole("link", { name: "Переключить на румынский" });
     const cart = within(header).getByRole("link", { name: "Корзина: 11" });
-    expect(cabinet).toHaveAttribute("href", "/cabinet");
-    expect(cabinet.textContent).toBe("");
-    expect(cabinet.compareDocumentPosition(language) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(account).toHaveAttribute("href", "/account?lang=ru");
+    expect(account.textContent).toBe("");
+    expect(account.compareDocumentPosition(language) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(language).toHaveTextContent("RO");
     expect(language.compareDocumentPosition(cart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(cart).toHaveTextContent("Корзина");
@@ -83,10 +85,12 @@ describe("Public Retail shell", () => {
       "Livrare",
       "Despre noi",
       "Contacte",
+      "Cabinet partener",
     ]);
     expect(mobile.getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
     expect(within(screen.getByRole("banner")).queryByRole("search")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Cabinet partener" })[0]).toHaveAttribute("aria-label", "Cabinet partener");
+    expect(screen.getByRole("link", { name: "Cont personal" })).toHaveAttribute("href", "/account?lang=ro");
+    expect(mobile.getByRole("link", { name: "Cabinet partener" })).toHaveAttribute("href", "/cabinet");
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contacte" })).toBeInTheDocument();
@@ -131,7 +135,8 @@ describe("Public Retail shell", () => {
     expect(shell).toContain('mt-3 grid gap-0 text-sm leading-snug');
     expect(shell).not.toMatch(/<footer[^>]*\bh-(?:screen|full|\[)/);
     expect(shell).not.toContain('text-xs leading-5 text-zinc-500');
-    expect(shell).toContain('href="/cabinet" prefetch={false}');
+    expect(shell).toContain('[copy.partnerCabinet, "/cabinet", false]');
+    expect(shell).toContain('href={`/account?lang=${locale}`} prefetch={false}');
     expect(shell).toContain('href={href} prefetch={false}');
     expect(shell).toContain('prefetch={prefetch ? undefined : false}');
     expect(cart).toContain('prefetch={quantity > 0 ? undefined : false}');
