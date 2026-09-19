@@ -19,7 +19,7 @@ export function AuthPageShell({
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12 text-zinc-950">
       <section className={`w-full rounded-lg border border-zinc-200 bg-white p-6 shadow-sm ${maxWidth === "lg" ? "max-w-lg" : "max-w-md"}`}>
-        <Link className="text-sm font-medium text-emerald-700" href="/">
+        <Link className="inline-flex min-h-11 items-center text-sm font-medium text-emerald-700" href="/">
           {eyebrow}
         </Link>
         <h1 className="mt-5 text-2xl font-semibold">{title}</h1>

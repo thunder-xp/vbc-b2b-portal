@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { isUnifiedAuthCenterEnabled } from "@/src/modules/auth/access-context";
 import { PhoneOtpForm } from "@/src/modules/final-customer-auth/components";
 import { getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
 
 export default async function FinalCustomerSignInPage() {
+  if (isUnifiedAuthCenterEnabled()) redirect("/auth/customer");
   const locale = await getFinalCustomerLocale();
   const ru = locale === "ru";
   return (

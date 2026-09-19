@@ -38,9 +38,9 @@ export function SignInForm({ locale, nextPath }: { locale: PublicLocale; nextPat
           type="password"
         />
       </label>
-      <div className="flex items-center justify-between text-sm">
+      <div className="flex items-center justify-between gap-3 text-sm">
         <span className="text-zinc-500">{copy.forgotPassword}</span>
-        <Link className="font-medium text-emerald-700" href={nextPath ? `/auth/register?next=${encodeURIComponent(nextPath)}` : "/auth/register"}>
+        <Link className="inline-flex min-h-11 items-center text-right font-medium text-emerald-700" href={nextPath ? `/auth/register?next=${encodeURIComponent(nextPath)}` : "/auth/register"}>
           {copy.becomePartner}
         </Link>
       </div>

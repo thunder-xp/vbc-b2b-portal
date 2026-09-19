@@ -20,7 +20,7 @@ Portal owns Commercial Agent identity, onboarding/compliance workflow, opaque re
 
 ## Principal and access model
 
-An Agent account is an active `external` user linked one-to-one to `commercial_agents`. Database triggers prohibit an active/pending Partner membership for the same principal and prohibit assigning Partner membership to a live Agent. Admin operations require `admin.agents.view` or `admin.agents.manage`. Agent and identity tables expose no direct browser grants.
+An Agent account is an active `external` user linked one-to-one to `commercial_agents`. A principal may also hold governed Partner memberships under the Unified Business Access model; those relationships do not grant each other's permissions and are revalidated independently. The Agent principal eligibility trigger still requires an active external profile. Admin operations require `admin.agents.view` or `admin.agents.manage`. Agent and identity tables expose no direct browser grants.
 
 The `/agent` shell reads only the Agent's bounded profile/status. It cannot enumerate Partner companies, Retail history, customer commercial relationships, prices or finance.
 

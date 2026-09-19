@@ -133,7 +133,7 @@ export function LandingPage() {
             </div>
             <Link
               className="inline-flex h-10 items-center gap-2 rounded-md bg-zinc-950 px-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-800 sm:px-4"
-              href="/auth/sign-in"
+              href="/auth"
             >
               <LogIn aria-hidden="true" className="size-4" />
               <span className="hidden sm:inline">{copy.signIn}</span>
@@ -159,7 +159,7 @@ export function LandingPage() {
             <p className="mt-6 max-w-xl text-lg leading-8 text-zinc-600">{copy.hero.description}</p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-emerald-700 px-6 text-sm font-semibold text-white transition-colors hover:bg-emerald-800" href="/auth/sign-in">
+              <Link className="inline-flex h-12 items-center justify-center gap-2 rounded-md bg-emerald-700 px-6 text-sm font-semibold text-white transition-colors hover:bg-emerald-800" href="/auth">
                 {copy.signIn}
                 <ArrowRight aria-hidden="true" className="size-4" />
               </Link>

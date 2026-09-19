@@ -40,7 +40,13 @@ const copy = {
   },
 } as const;
 
-export function PhoneOtpForm({ locale }: { locale: PublicLocale }) {
+export function PhoneOtpForm({
+  locale,
+  successPath = "/account",
+}: {
+  locale: PublicLocale;
+  successPath?: "/account" | "/auth/customer/complete";
+}) {
   const router = useRouter();
   const labels = copy[locale];
   const [step, setStep] = useState<"PHONE" | "OTP">("PHONE");
@@ -76,7 +82,7 @@ export function PhoneOtpForm({ locale }: { locale: PublicLocale }) {
     setError(null);
     try {
       await verifyPhoneOtp(localDigits, otp.replace(/\D/g, ""));
-      router.replace("/account");
+      router.replace(successPath);
       router.refresh();
     } catch {
       setError(labels.verifyError);

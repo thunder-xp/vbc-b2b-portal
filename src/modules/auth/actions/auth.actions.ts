@@ -7,6 +7,12 @@ import { createCompanyUserManagementService, createUserProfileService } from "@/
 import { createAdminInternalUserProvisioningService } from "@/src/modules/admin/services";
 import { isPartnerLocale } from "@/src/modules/partner-locale";
 import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
+import {
+  createBusinessAccessResolver,
+  decideBusinessRoute,
+  isUnifiedBusinessRoutingEnabled,
+} from "../access-context";
+import { safeRelativeAuthRedirect } from "../redirects";
 
 export type AuthActionState = {
   error: string | null;
@@ -18,7 +24,7 @@ export async function signInAction(
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const nextPath = safeNextPath(formData.get("next"));
+  const nextPath = safeRelativeAuthRedirect(formData.get("next"));
 
   if (!email || !password) {
     return { error: "Enter your email and password." };
@@ -62,6 +68,22 @@ export async function signInAction(
     }
     redirect("/cabinet");
   }
+
+  // Internal/Admin authentication keeps its existing protected route. The
+  // destination guard remains authoritative; Unified Auth only resolves
+  // public Partner/Agent business contexts.
+  if (nextPath?.startsWith("/admin")) redirect(nextPath);
+
+  if (isUnifiedBusinessRoutingEnabled() && data.user?.id) {
+    let targetRoute: "/cabinet" | "/agent" | "/auth/select-context" | "/auth/business-access-state";
+    try {
+      const resolution = await createBusinessAccessResolver().resolve(data.user.id);
+      targetRoute = decideBusinessRoute(resolution).targetRoute;
+    } catch {
+      redirect("/auth/business-access-state?error=resolution");
+    }
+    redirect(targetRoute);
+  }
   redirect(nextPath ?? "/cabinet");
 }
 
@@ -74,7 +96,7 @@ export async function registerAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  const nextPath = safeNextPath(formData.get("next"));
+  const nextPath = safeRelativeAuthRedirect(formData.get("next"));
 
   if (!company || !country || !email || !password || !confirmPassword) {
     return { error: "Complete all fields." };
@@ -103,13 +125,6 @@ export async function registerAction(
   const query = new URLSearchParams({ registered: "1" });
   if (nextPath) query.set("next", nextPath);
   redirect(`/auth/sign-in?${query.toString()}`);
-}
-
-function safeNextPath(value: FormDataEntryValue | null): string | null {
-  const path = String(value ?? "");
-  return path.startsWith("/") && !path.startsWith("//") && path.length <= 500
-    ? path
-    : null;
 }
 
 function tokenFromInvitationPath(path: string | null): string | null {
