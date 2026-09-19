@@ -26,6 +26,11 @@ export type AgentReferralSummary = {
   submittedAt: string;
   updatedAt?: string;
   status: AgentReferralStatus;
+  attributionId?: string | null;
+  attributionStatus?: AgentClientView["status"] | null;
+  protectionUntil?: string | null;
+  lastEventType?: string | null;
+  lastEventAt?: string | null;
 };
 
 export type AgentReferralView = AgentReferralSummary & {
@@ -40,7 +45,10 @@ export type AgentReferralView = AgentReferralSummary & {
   duplicateReason: string | null;
   existingCustomerReason: string | null;
   reviewedAt: string | null;
+  events?: AgentOperationalEvent[];
 };
+
+export type AgentOperationalEvent = { id: string; type: string; createdAt: string };
 
 export type AgentClientView = {
   id: string;
@@ -56,6 +64,9 @@ export type AgentClientView = {
   attributedAt: string;
   protectionUntil: string;
   extendedUntil: string | null;
+  lastEventType?: string | null;
+  lastEventAt?: string | null;
+  events?: AgentOperationalEvent[];
 };
 
 export type AgentCabinetOverview = {

@@ -21,6 +21,7 @@ export type FinalCustomerOrderSummary = Readonly<{
   currency: string;
   itemCount: number;
   itemSummary: readonly string[];
+  previewImageUrl?: string | null;
   paidAt: string | null;
   paymentState: EffectivePaymentState;
 }>;
@@ -95,6 +96,9 @@ export type CustomerServiceRequest = Readonly<{
   createdAt: string;
   updatedAt: string;
   version: number;
+  latestMessage?: string | null;
+  latestMessageAuthor?: "CUSTOMER" | "NOVOTECH" | null;
+  latestMessageAt?: string | null;
 }>;
 
 export type CustomerServiceMessage = Readonly<{

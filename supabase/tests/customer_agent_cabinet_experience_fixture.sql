@@ -4,8 +4,12 @@ do $$
 declare
   active_user_id constant uuid := '22000000-0000-4000-8000-000000000001';
   onboarding_user_id constant uuid := '22000000-0000-4000-8000-000000000002';
+  customer_user_id constant uuid := '22000000-0000-4000-8000-000000000003';
   active_agent_id uuid;
   onboarding_agent_id uuid;
+  fixture_customer_identity_id uuid;
+  fixture_customer_account_id uuid;
+  service_request_id uuid;
   fixture_token_hash constant text := encode(digest(repeat('T', 43), 'sha256'), 'hex');
   referral_id uuid;
   customer_id uuid;
@@ -125,6 +129,68 @@ begin
         end if;
       end if;
     end loop;
+  end if;
+
+  select account.id, account.customer_identity_id
+  into fixture_customer_account_id, fixture_customer_identity_id
+  from public.customer_accounts account
+  where account.auth_user_id = customer_user_id;
+
+  if fixture_customer_account_id is null then
+    fixture_customer_identity_id := public.create_customer_identity_with_evidence(
+      'PERSON',
+      jsonb_build_array(jsonb_build_object(
+        'key_type', 'PHONE',
+        'key_hash', encode(digest('customer-cabinet-fixture-phone', 'sha256'), 'hex'),
+        'key_version', 1,
+        'verified', true
+      )),
+      null
+    );
+    insert into public.customer_accounts (
+      auth_user_id, customer_identity_id, status, identity_resolution_status,
+      display_name, email
+    ) values (
+      customer_user_id, fixture_customer_identity_id, 'ACTIVE', 'NEW',
+      'Test Customer Novotech', 'test.customer.novotech@example.test'
+    ) returning id into fixture_customer_account_id;
+  end if;
+
+  if not exists (
+    select 1 from public.customer_service_requests request
+    where request.customer_account_id = fixture_customer_account_id
+  ) then
+    service_request_id := public.create_customer_service_request_v2(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      'ORDER_QUESTION', 'Нужна дополнительная информация',
+      'Проверяем разговорный интерфейс обращения без связи с реальным заказом.',
+      'PHONE', 'ru', null, null
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 0, 'IN_REVIEW',
+      'Мы начали проверку обращения.', 'Local-only internal fixture note.', active_user_id
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 1, 'NEED_INFO',
+      'Уточните, пожалуйста, удобное время для звонка.', '', active_user_id
+    );
+
+    service_request_id := public.create_customer_service_request_v2(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      'PRODUCT_QUESTION', 'Вопрос решён',
+      'Проверяем спокойное представление завершённого обращения.',
+      'EMAIL', 'ru', null, null
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 0, 'IN_REVIEW', '', '', active_user_id
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 1, 'ACCEPTED', '', '', active_user_id
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 2, 'RESOLVED',
+      'Ответ предоставлен. Если понадобится помощь, создайте новое обращение.', '', active_user_id
+    );
   end if;
 end;
 $$;

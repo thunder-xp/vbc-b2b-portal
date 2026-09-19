@@ -130,17 +130,19 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     const orderIds = (data ?? []).map((row) => row.id);
     const counts = new Map<string, number>();
     const summaries = new Map<string, string[]>();
+    const previews = new Map<string, string>();
     if (orderIds.length) {
-      const { data: lines, error: lineError } = await admin.from("retail_order_lines").select("order_id,quantity,product_name,line_number").in("order_id", orderIds).order("line_number");
+      const { data: lines, error: lineError } = await admin.from("retail_order_lines").select("order_id,quantity,product_name,line_number,image_url_snapshot").in("order_id", orderIds).order("line_number");
       if (lineError) throw repositoryError("count retail order lines", lineError.code);
       for (const line of lines ?? []) {
         counts.set(line.order_id, (counts.get(line.order_id) ?? 0) + Number(line.quantity));
         const names = summaries.get(line.order_id) ?? [];
         if (names.length < 2 && line.product_name && !names.includes(line.product_name)) names.push(line.product_name);
         summaries.set(line.order_id, names);
+        if (!previews.has(line.order_id) && line.image_url_snapshot) previews.set(line.order_id, line.image_url_snapshot);
       }
     }
-    return (data ?? []).map((row): FinalCustomerOrderSummary => mapOrder(row, counts.get(row.id) ?? 0, summaries.get(row.id) ?? []));
+    return (data ?? []).map((row): FinalCustomerOrderSummary => mapOrder(row, counts.get(row.id) ?? 0, summaries.get(row.id) ?? [], previews.get(row.id) ?? null));
   }
 
   async findOrder(customerIdentityId: string | null, orderId: string) {
@@ -159,7 +161,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     if (lineError || eventError) throw repositoryError("read retail order detail", lineError?.code ?? eventError?.code);
     const mappedLines = (lines ?? []).map(mapOrderLine);
     return {
-      ...mapOrder(order, mappedLines.reduce((sum, line) => sum + line.quantity, 0), mappedLines.slice(0, 2).map((line) => line.name)),
+      ...mapOrder(order, mappedLines.reduce((sum, line) => sum + line.quantity, 0), mappedLines.slice(0, 2).map((line) => line.name), mappedLines.find((line) => line.imageUrl)?.imageUrl ?? null),
       lines: mappedLines.map((line) => ({ ...line, currentProduct: null })),
       events: (events ?? []).map((row) => ({ id: row.id, type: row.event_type, createdAt: row.created_at })),
       deliveryAddress: (order.delivery_address_snapshot ?? {}) as Record<string, unknown>,
@@ -230,11 +232,13 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
 
   async listServiceRequests(customerIdentityId: string | null, limit: number, offset = 0) {
     if (!customerIdentityId) return [];
-    const { data, error } = await createAdminClient().from("customer_service_requests")
-      .select(SERVICE_REQUEST_COLUMNS).eq("customer_identity_id", customerIdentityId)
-      .order("created_at", { ascending: false }).range(Math.max(offset, 0), Math.max(offset, 0) + Math.min(Math.max(limit, 1), 50) - 1);
+    const { data, error } = await createAdminClient().rpc("list_customer_service_requests_summary_v1", {
+      p_customer_identity_id: customerIdentityId,
+      p_limit: Math.min(Math.max(limit, 1), 50),
+      p_offset: Math.max(offset, 0),
+    });
     if (error) throw repositoryError("read customer service requests", error.code);
-    return (data ?? []).map(mapServiceRequest);
+    return ((data as Row[] | null) ?? []).map(mapServiceRequestSummary);
   }
 
   async findServiceRequest(customerIdentityId: string | null, requestId: string) {
@@ -403,8 +407,8 @@ function mapAccount(row: Row): FinalCustomerAccount {
   };
 }
 
-function mapOrder(row: Row, itemCount: number, itemSummary: readonly string[] = []): FinalCustomerOrderSummary {
-  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, itemSummary, paidAt: row.paid_at ? String(row.paid_at) : null, paymentState: row.paid_at ? "PAID" : "UNPAID" };
+function mapOrder(row: Row, itemCount: number, itemSummary: readonly string[] = [], previewImageUrl: string | null = null): FinalCustomerOrderSummary {
+  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, itemSummary, previewImageUrl, paidAt: row.paid_at ? String(row.paid_at) : null, paymentState: row.paid_at ? "PAID" : "UNPAID" };
 }
 
 function mapOrderLine(row: Row): FinalCustomerOrderLine {
@@ -413,6 +417,10 @@ function mapOrderLine(row: Row): FinalCustomerOrderLine {
 
 function mapServiceRequest(row: Row): CustomerServiceRequest {
   return { id: String(row.id), number: String(row.public_number), type: row.request_type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferred_contact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], orderId: row.retail_order_id ? String(row.retail_order_id) : null, orderLineId: row.retail_order_line_id ? String(row.retail_order_line_id) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at), version: Number(row.version) };
+}
+
+function mapServiceRequestSummary(row: Row): CustomerServiceRequest {
+  return { id: String(row.id), number: String(row.number), type: row.type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferredContact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], orderId: row.orderId ? String(row.orderId) : null, orderLineId: row.orderLineId ? String(row.orderLineId) : null, createdAt: String(row.createdAt), updatedAt: String(row.updatedAt), version: Number(row.version), latestMessage: row.latestMessage ? String(row.latestMessage) : null, latestMessageAuthor: row.latestMessageAuthor as CustomerServiceRequest["latestMessageAuthor"], latestMessageAt: row.latestMessageAt ? String(row.latestMessageAt) : null };
 }
 
 function mapServiceMessage(row: Row): CustomerServiceMessage { return { id: String(row.id), authorType: row.author_type as CustomerServiceMessage["authorType"], visibility: row.visibility as CustomerServiceMessage["visibility"], body: String(row.body), createdAt: String(row.created_at) }; }
