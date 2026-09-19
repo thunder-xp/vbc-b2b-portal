@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import type { ReactElement } from "react";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components/BehaviorViewEvent";
 import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
 import { OperationalDashboard } from "@/src/modules/partner-cabinet/components/OperationalDashboard";
@@ -7,7 +8,13 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { partnerText } from "@/src/modules/partner-locale";
 import { canonicalizeLegacyRollingPeriodParams, parseRollingPeriodState, resolveRollingPeriod } from "@/src/modules/commerce-period";
 
-export default async function CabinetPage({ searchParams = Promise.resolve({}) }: { searchParams?: Promise<{ period?: string | string[]; popularPeriod?: string | string[]; newPeriod?: string | string[]; hotPeriod?: string | string[] }> } = {}) {
+type CabinetPageProps = {
+  searchParams: Promise<{ period?: string | string[]; popularPeriod?: string | string[]; newPeriod?: string | string[]; hotPeriod?: string | string[] }>;
+};
+
+function CabinetPage(): Promise<ReactElement>;
+function CabinetPage(props: CabinetPageProps): Promise<ReactElement>;
+async function CabinetPage({ searchParams = Promise.resolve({}) }: Partial<CabinetPageProps> = {}) {
   const params = await searchParams;
   const repeatState = parseRollingPeriodState(single(params.period));
   if (params.popularPeriod || params.newPeriod || params.hotPeriod) {
@@ -34,6 +41,8 @@ export default async function CabinetPage({ searchParams = Promise.resolve({}) }
     </div>
   );
 }
+
+export default CabinetPage;
 
 function single(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;

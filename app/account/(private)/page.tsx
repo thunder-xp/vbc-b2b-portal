@@ -4,14 +4,20 @@ import Link from "next/link";
 import {
   AttentionItem,
   AttentionActionItem,
+  CabinetStatusBadge,
   CabinetEmptyState,
   SectionHeader,
   WorkspaceHeader,
   cabinetPrimaryAction,
+  cabinetPage,
+  cabinetList,
+  cabinetRow,
   cabinetSecondaryAction,
+  cabinetSurface,
+  cabinetTextAction,
 } from "@/src/modules/cabinet-experience/components";
 import { getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
-import { customerMoney, orderStatus, paymentStatus, serviceStatusLabel } from "@/src/modules/final-customer/presentation";
+import { customerMoney, orderStatus, orderStatusTone, paymentStatus, paymentStatusTone, serviceStatusLabel, serviceStatusTone } from "@/src/modules/final-customer/presentation";
 import { createFinalCustomerService, getFinalCustomerContext } from "@/src/modules/final-customer/server";
 import { openFinalCustomerAttentionAction } from "@/src/modules/final-customer/actions";
 import { customerAttentionCopy } from "@/src/modules/final-customer/attention-copy";
@@ -29,7 +35,7 @@ export default async function FinalCustomerOverviewPage() {
   );
 
   return (
-    <main className="mx-auto max-w-5xl space-y-7 px-4 py-6 sm:py-8">
+    <main className={cabinetPage}>
       <WorkspaceHeader
         eyebrow={ro ? "Astăzi" : "Сегодня"}
         title={overview.displayName ?? (ro ? "Cont personal" : "Личный кабинет")}
@@ -61,12 +67,12 @@ export default async function FinalCustomerOverviewPage() {
           {overview.latestOrder ? (
             <section className="space-y-3" aria-labelledby="current-order-heading">
               <SectionHeader
-                action={<Link className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700" href="/account/orders">{ro ? "Toate comenzile" : "Все заказы"}<ArrowRight aria-hidden className="size-4" /></Link>}
+                action={<Link className={cabinetTextAction} href="/account/orders">{ro ? "Toate comenzile" : "Все заказы"}<ArrowRight aria-hidden className="size-4" /></Link>}
                 title={ro ? "Comanda curentă" : "Текущий заказ"}
               />
-              <Link className="group grid gap-4 rounded-xl border border-zinc-200 bg-white p-4 hover:border-emerald-300 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" href={`/account/orders/${overview.latestOrder.id}`}>
-                <span className="min-w-0"><span className="flex items-center gap-2"><ReceiptText aria-hidden className="size-5 text-emerald-700" /><strong>{overview.latestOrder.number}</strong></span><span className="mt-2 block text-sm text-zinc-600">{orderStatus(overview.latestOrder.status, locale)} · {paymentStatus(overview.latestOrder.paymentState, locale)}</span></span>
-                <span className="flex items-center justify-between gap-4 sm:justify-end"><strong className="tabular-nums">{customerMoney(overview.latestOrder.total, overview.latestOrder.currency, locale)}</strong><ArrowRight aria-hidden className="size-4 text-zinc-500 transition-transform group-hover:translate-x-0.5" /></span>
+              <Link className={`group grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center ${cabinetSurface} ${cabinetRow}`} href={`/account/orders/${overview.latestOrder.id}`}>
+                <span className="min-w-0"><span className="flex items-center gap-2"><ReceiptText aria-hidden className="size-5 text-emerald-700" /><strong>{overview.latestOrder.number}</strong></span><span className="mt-2 flex flex-wrap gap-2"><CabinetStatusBadge label={orderStatus(overview.latestOrder.status, locale)} tone={orderStatusTone(overview.latestOrder.status)} /><CabinetStatusBadge label={paymentStatus(overview.latestOrder.paymentState, locale)} tone={paymentStatusTone(overview.latestOrder.paymentState)} /></span></span>
+                <span className="flex items-center justify-between gap-4 sm:justify-end"><strong className="tabular-nums">{customerMoney(overview.latestOrder.total, overview.latestOrder.currency, locale)}</strong><ArrowRight aria-hidden className="size-4 text-zinc-500 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" /></span>
               </Link>
             </section>
           ) : null}
@@ -74,11 +80,11 @@ export default async function FinalCustomerOverviewPage() {
           {overview.recentPurchases.length ? (
             <section className="space-y-3" aria-labelledby="recent-purchases-heading">
               <SectionHeader
-                action={<Link className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700" href="/account/purchases">{ro ? "Toate cumpărăturile" : "Все покупки"}<ArrowRight aria-hidden className="size-4" /></Link>}
+                action={<Link className={cabinetTextAction} href="/account/purchases">{ro ? "Toate cumpărăturile" : "Все покупки"}<ArrowRight aria-hidden className="size-4" /></Link>}
                 title={ro ? "Cumpărături recente" : "Недавние покупки"}
               />
-              <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
-                {overview.recentPurchases.map((item) => <div className="flex min-h-16 items-center gap-3 px-4 py-3" key={item.id}><span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-zinc-100"><PackageOpen aria-hidden className="size-5 text-zinc-600" /></span><span className="min-w-0"><strong className="block truncate text-sm">{item.name}</strong><span className="font-mono text-xs text-zinc-500">SKU {item.sku}</span></span></div>)}
+              <div className={cabinetList}>
+                {overview.recentPurchases.map((item) => <div className="flex min-h-16 items-center gap-3 px-4 py-3" key={item.id}><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-zinc-100"><PackageOpen aria-hidden className="size-4.5 text-zinc-600" /></span><span className="min-w-0"><strong className="block truncate text-sm">{item.name}</strong><span className="font-mono text-xs text-zinc-500">SKU {item.sku}</span></span></div>)}
               </div>
             </section>
           ) : null}
@@ -86,9 +92,9 @@ export default async function FinalCustomerOverviewPage() {
           <section className="space-y-3" aria-labelledby="service-heading">
             <SectionHeader title={ro ? "Service" : "Сервис"} />
             {overview.latestRequest ? (
-              <Link className="group flex min-h-16 items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 hover:border-emerald-300" href={`/account/service/${overview.latestRequest.id}`}><span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><Headphones aria-hidden className="size-5" /></span><span className="min-w-0 flex-1"><strong className="block text-sm">{overview.latestRequest.number}</strong><span className="text-sm text-zinc-600">{serviceStatusLabel(overview.latestRequest.status, locale)}</span></span><ArrowRight aria-hidden className="size-4 text-zinc-500 transition-transform group-hover:translate-x-0.5" /></Link>
+              <Link className={`group flex min-h-16 items-center gap-3 px-4 py-3 ${cabinetSurface} ${cabinetRow}`} href={`/account/service/${overview.latestRequest.id}`}><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><Headphones aria-hidden className="size-4.5" /></span><span className="min-w-0 flex-1"><strong className="block text-sm">{overview.latestRequest.number}</strong><span className="mt-1 block"><CabinetStatusBadge label={serviceStatusLabel(overview.latestRequest.status, locale)} tone={serviceStatusTone(overview.latestRequest.status)} /></span></span><ArrowRight aria-hidden className="size-4 text-zinc-500 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" /></Link>
             ) : (
-              <div className="flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-semibold">{ro ? "Aveți nevoie de ajutor cu echipamentul?" : "Нужна помощь с оборудованием?"}</h3><p className="mt-1 text-sm text-zinc-600">{ro ? "Descrieți problema, iar noi vă vom răspunde în cabinet." : "Опишите проблему — ответ появится в кабинете."}</p></div><Link className={cabinetSecondaryAction} href="/account/service/new">{ro ? "Creați solicitare" : "Создать обращение"}</Link></div>
+              <div className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${cabinetSurface}`}><div><h3 className="font-semibold">{ro ? "Aveți nevoie de ajutor cu echipamentul?" : "Нужна помощь с оборудованием?"}</h3><p className="mt-1 text-sm leading-5 text-zinc-600">{ro ? "Descrieți problema, iar noi vă vom răspunde în cabinet." : "Опишите проблему — ответ появится в кабинете."}</p></div><Link className={cabinetSecondaryAction} href="/account/service/new">{ro ? "Creați solicitare" : "Создать обращение"}</Link></div>
             )}
           </section>
 

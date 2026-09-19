@@ -1,6 +1,6 @@
 import { ArrowRight, CheckCircle2, CircleDot, ShieldCheck } from "lucide-react";
 
-import { WorkspaceHeader, cabinetPrimaryAction } from "@/src/modules/cabinet-experience/components";
+import { WorkspaceHeader, cabinetPageNarrow, cabinetPrimaryAction, cabinetSurface } from "@/src/modules/cabinet-experience/components";
 import { agentCabinetCopy, agentComplianceCopy, agentLifecycleStatusCopy, type AgentCabinetLocale } from "../copy";
 import { agentOnboardingReadiness, type AgentOnboardingNextAction, type AgentOnboardingRequirement } from "../operational-presentation";
 import type { AgentCabinetContext } from "../types";
@@ -16,9 +16,9 @@ export function StatusGate({ context, locale }: { context: AgentCabinetContext; 
       ? (locale === "ro" ? "Acțiunile operaționale sunt suspendate temporar." : "Операционные действия временно отключены.")
       : (locale === "ro" ? "Vedeți etapa curentă și ce urmează." : "Текущий этап и оставшиеся требования.");
 
-  return <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:py-8">
+  return <main className={cabinetPageNarrow}>
     <WorkspaceHeader eyebrow={copy.currentStage} title={copy.onboardingTitle} description={body} />
-    <section className="rounded-xl border border-zinc-200 bg-white p-5 sm:p-6">
+    <section className={`p-5 sm:p-6 ${cabinetSurface}`}>
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 pb-4">
         <div><p className="text-xs text-zinc-500">{copy.currentStage}</p><p className="mt-1 font-semibold">{agentLifecycleStatusCopy[locale][context.status]}</p></div>
         <div className="text-right"><p className="text-xs text-zinc-500">{copy.verification}</p><p className="mt-1 text-sm font-semibold">{agentComplianceCopy[locale][context.complianceStatus]}</p></div>

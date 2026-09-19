@@ -29,13 +29,13 @@ export function CabinetNavigation({
           return (
             <Link
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-14 min-w-0 items-center justify-center gap-1 border-b-2 px-1 py-1.5 text-center text-[10px] font-medium leading-tight focus-visible:outline-2 focus-visible:outline-emerald-700 md:min-h-11 md:shrink-0 md:flex-row md:gap-2 md:px-3 md:py-0 md:text-sm ${active ? "border-emerald-700 text-zinc-950" : "border-transparent text-zinc-600 hover:border-zinc-300 hover:text-zinc-950"}`}
+              className={`flex min-h-14 min-w-0 items-center justify-center gap-1 border-b-2 px-1 py-1.5 text-center text-[11px] font-medium leading-tight transition-colors focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-700 motion-reduce:transition-none md:min-h-11 md:shrink-0 md:flex-row md:gap-2 md:px-3 md:py-0 md:text-sm ${active ? "border-emerald-700 bg-emerald-50/60 text-emerald-950" : "border-transparent text-zinc-600 hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-950"}`}
               href={href}
               key={href}
               prefetch={false}
             >
               <Icon aria-hidden className="size-[18px] shrink-0" />
-              <span className="min-w-0 break-words">{label}</span>
+              <span className="min-w-0 break-words md:whitespace-nowrap">{label}</span>
             </Link>
           );
         })}

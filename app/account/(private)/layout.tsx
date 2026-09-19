@@ -27,11 +27,11 @@ export default async function PrivateAccountLayout({ children }: { children: Rea
             <p className="truncate font-semibold">{context.displayName ?? copy.cabinet}</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Link className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" href={`/catalog?lang=${locale}`}>
+            <Link className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-emerald-700 transition-colors hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-700 motion-reduce:transition-none" href={`/catalog?lang=${locale}`}>
               {locale === "ro" ? "Magazin" : "Магазин"}
             </Link>
             <form action={signOutFinalCustomerAction}>
-              <button className="min-h-11 rounded-lg px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950" type="submit">{copy.logout}</button>
+              <button className="min-h-11 rounded-lg px-3 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline-2 focus-visible:outline-emerald-700 motion-reduce:transition-none" type="submit">{copy.logout}</button>
             </form>
           </div>
         </div>
@@ -39,7 +39,7 @@ export default async function PrivateAccountLayout({ children }: { children: Rea
       <CustomerNavigation locale={locale} />
       {context.account.status === "IDENTITY_REVIEW_REQUIRED" ? (
         <div className="mx-auto max-w-5xl px-4 pt-4">
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{copy.review}</p>
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">{copy.review}</p>
         </div>
       ) : null}
       {children}
