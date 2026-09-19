@@ -1,15 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { CustomerIdentityResolutionService } from "@/src/modules/customer-identity";
-
 import type { FinalCustomerRepository } from "../repository";
-import type { FinalCustomerAccount } from "../types";
-import { FinalCustomerAccountService, FinalCustomerAuthenticationError } from "../service";
+import { FinalCustomerAccountService } from "../service";
 
 function repository(): FinalCustomerRepository {
   return {
     findAccountByAuthUser: vi.fn(async () => null),
-    createAccount: vi.fn(async (input): Promise<FinalCustomerAccount> => ({ id: "account", authUserId: input.authUserId, customerIdentityId: input.customerIdentityId, status: input.customerIdentityId ? "ACTIVE" : "IDENTITY_REVIEW_REQUIRED", identityResolutionStatus: input.resolutionStatus, displayName: null, email: null, createdAt: "now", lastLoginAt: "now" })),
     findDisplayName: vi.fn(async () => null), listOrders: vi.fn(async () => []), updateProfile: vi.fn(async () => undefined),
     getCommandCenter: vi.fn(async () => ({ displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0, attentionItems: [] })),
     openAttention: vi.fn(async () => "/account/orders/11111111-1111-4111-8111-111111111111"),
@@ -24,24 +20,12 @@ function repository(): FinalCustomerRepository {
 }
 
 describe("Final Customer account service", () => {
-  it.each(["MATCHED", "NEW"] as const)("links a verified phone when resolver returns %s", async (status) => {
+  it("reads an already authorized account without any creation surface", async () => {
     const repo = repository();
-    const resolver = { resolve: vi.fn(async () => ({ status, reason: status === "NEW" ? "NEW_IDENTITY" : "EXACT_VERIFIED_PHONE", customerIdentityId: "identity", candidateIds: [] })) } as unknown as CustomerIdentityResolutionService;
-    const service = new FinalCustomerAccountService(repo, resolver);
-    const account = await service.ensureAccount({ id: "user", phone: "+37369123456", phone_confirmed_at: "now" } as never);
-    expect(account).toMatchObject({ customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: status });
-    expect(resolver.resolve).toHaveBeenCalledWith(expect.objectContaining({ verifiedKeyTypes: ["PHONE"], createIfMissing: true, exposeCandidateIds: false }));
-  });
-
-  it.each(["AMBIGUOUS", "CONFLICT"] as const)("creates a restricted account without candidate traversal for %s", async (status) => {
-    const repo = repository();
-    const resolver = { resolve: vi.fn(async () => ({ status, reason: "MULTIPLE_MATCHES", customerIdentityId: null, candidateIds: [] })) } as unknown as CustomerIdentityResolutionService;
-    const account = await new FinalCustomerAccountService(repo, resolver).ensureAccount({ id: "user", phone: "+37369123456", phone_confirmed_at: "now" } as never);
-    expect(account).toMatchObject({ customerIdentityId: null, status: "IDENTITY_REVIEW_REQUIRED", identityResolutionStatus: status });
-  });
-
-  it("rejects an unverified phone principal", async () => {
-    await expect(new FinalCustomerAccountService(repository()).ensureAccount({ id: "user", phone: "+37369123456", phone_confirmed_at: null } as never)).rejects.toBeInstanceOf(FinalCustomerAuthenticationError);
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+    vi.mocked(repo.findAccountByAuthUser).mockResolvedValue(account);
+    await expect(new FinalCustomerAccountService(repo).findAuthenticatedAccount("user")).resolves.toEqual(account);
+    expect(repo.findAccountByAuthUser).toHaveBeenCalledOnce();
   });
 
   it("projects purchases only through the repository's confirmed-payment boundary and batches current products", async () => {
@@ -104,7 +88,7 @@ describe("Final Customer account service", () => {
     vi.mocked(repo.listOrders).mockResolvedValue([order]);
     const paymentStateReader = { listOrderPaymentStates: vi.fn().mockResolvedValue([{ retailOrderId: order.id, orderNumber: order.number, paymentAttemptId: "22222222-2222-4222-8222-222222222222", provider: "maib" as const, attemptStatus: "paid" as const, paymentState: "REFUNDED" as const, amount: "100.00", currency: "MDL", providerStatus: "Refunded", providerCheckoutId: null, providerPaymentId: null, providerRrn: null, failureCode: null, paymentCreatedAt: null, paymentConfirmedAt: null, refundId: null, refundStatus: "refunded" as const, refundProviderStatus: "Accepted", providerRefundId: null, refundFailureCode: null, refundRequestedAt: null, refundConfirmedAt: null, remainingRefundable: "0.00" }]) };
     const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
-    const result = await new FinalCustomerAccountService(repo, undefined, paymentStateReader).listOrders(account);
+    const result = await new FinalCustomerAccountService(repo, paymentStateReader).listOrders(account);
     expect(result[0]?.paymentState).toBe("REFUNDED");
     expect(paymentStateReader.listOrderPaymentStates).toHaveBeenCalledWith([order.id]);
   });

@@ -49,13 +49,14 @@ There is no Partner-over-Agent priority.
 
 ### CustomerAccessResolver
 
-One indexed `customer_accounts.auth_user_id` lookup runs with the authenticated Supabase client and existing own-row RLS:
+One bounded server-only projection resolves `customer_accounts.auth_user_id` plus immutable purchase/legacy evidence after `auth.getUser()` establishes the principal:
 
-- `ACTIVE` -> `AVAILABLE` -> `/account`;
+- `ACTIVE` plus purchase evidence -> `AVAILABLE` (`PURCHASE_BACKED`) -> `/account`;
+- `ACTIVE` plus the closed cutover cohort -> `AVAILABLE` (`LEGACY_COMPATIBILITY`) -> `/account`;
 - no row -> `NOT_ACTIVE` -> `/auth/customer-not-active`;
 - `IDENTITY_REVIEW_REQUIRED` or `SUSPENDED` -> `BLOCKED` -> `/auth/customer-access-state`.
 
-The repository contract exposes only a read. It cannot create a `customer_identity`, `customer_account` or event. Existing customer accounts are unchanged.
+The repository contract exposes only a read. It cannot create a `customer_identity`, `customer_account` or event. OTP-only users remain authenticated but route to the safe not-active state.
 
 ## Preference and context switching
 
@@ -100,6 +101,7 @@ All gates are enabled unless explicitly set to `false`:
 | `UNIFIED_AUTH_CENTER_ENABLED` | `/auth` returns to `/auth/sign-in`; `/account/sign-in` renders the legacy OTP page. |
 | `UNIFIED_BUSINESS_ROUTING_ENABLED` | Password login retains the legacy `next ?? /cabinet` behavior; selector returns to `/cabinet`. |
 | `CUSTOMER_ACCESS_RESOLVER_ENABLED` | OTP completion returns to the existing `/account` path. |
+| `CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED` | Existing ACTIVE accounts may pass by rollback compatibility; no account is created and the purchase provisioning authority is unchanged. |
 
 The migration is additive and may safely remain deployed when a consuming gate is disabled.
 
@@ -126,8 +128,16 @@ Authenticated Retail checkout now performs a read-only Auth/account lookup and n
 
 The provider-neutral `activate_paid_retail_order` boundary emits one durable `FIRST_PURCHASE_CONFIRMED` event only after local paid activation succeeds. The existing two-minute order-reconciliation cron also performs one bounded, fast-no-op customer-provisioning claim; no extra scheduled invocation was introduced. `FinalCustomerProvisioningService` calls an atomic service-only RPC that creates or reuses `customer_identity` and `customer_account`, links the confirmed purchase, appends safe audit evidence and queues asynchronous 1C work.
 
-`CustomerAccessResolver` remains read-only. After the transaction, its existing indexed lookup returns `AVAILABLE`; OTP alone still returns `NOT_ACTIVE` through the new resolver. The global legacy `getFinalCustomerContext() -> ensureAccount()` behavior has not been removed, so rollback is `NEW_PURCHASE_PROVISIONING_ENABLED=false` while a later approved slice performs enforcement and legacy-policy cutover.
+`CustomerAccessResolver` remains read-only. After the transaction, its bounded evidence projection returns `AVAILABLE`; OTP alone returns `NOT_ACTIVE`. Slice 3 removes the global `ensureAccount()` create-on-read behavior and preserves only the explicit closed legacy cohort.
 
 No synchronous 1C, provider payment, email or reconciliation work occurs in the entitlement transaction. The unresolved 1C Final Customer write contract leaves the durable job in `PENDING` without affecting cabinet access.
 
 `ARCHITECTURE_CHANGE_REQUEST=APPROVED_AND_IMPLEMENTED_FOR_SLICE_2`
+
+## Slice 3: purchase-entitlement enforcement cutover
+
+`getFinalCustomerContext()` validates the Supabase user and verified phone, resolves purchase/legacy entitlement, then reads an existing account. It performs no identity, account or audit insert. Generic service-role INSERT on `customer_accounts` is revoked; the approved purchase provisioning function remains the single creation authority through its fixed, privileged database boundary.
+
+The cutover migration snapshots every pre-existing account exactly once into `customer_account_legacy_entitlements`. The cohort is immutable, service-readable and has no runtime writer. New accounts must have `customer_account_purchase_entitlements` evidence. Partner and Agent access resolution is unchanged, and no Auth/access render path calls 1C.
+
+`ARCHITECTURE_CHANGE_REQUEST=APPROVED_AND_IMPLEMENTED_FOR_SLICE_3`

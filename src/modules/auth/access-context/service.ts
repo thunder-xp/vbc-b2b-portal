@@ -3,8 +3,8 @@ import type {
   BusinessAccessResolution,
   BusinessContextType,
   BusinessRouteDecision,
-  CustomerAccessStatus,
-  CustomerAccountStatus,
+  CustomerAccessResolution,
+  CustomerEntitlementEvidence,
 } from "./types";
 
 export interface BusinessAccessRepository {
@@ -12,7 +12,7 @@ export interface BusinessAccessRepository {
   selectOwn(type: BusinessContextType, contextId: string): Promise<BusinessAccessContext>;
 }
 export interface CustomerAccessRepository {
-  findOwnAccountStatus(authUserId: string): Promise<CustomerAccountStatus | null>;
+  resolveEntitlement(authUserId: string): Promise<CustomerEntitlementEvidence>;
 }
 
 export class BusinessAccessResolver {
@@ -28,13 +28,29 @@ export class BusinessAccessResolver {
 }
 
 export class CustomerAccessResolver {
-  constructor(private readonly repository: CustomerAccessRepository) {}
+  constructor(
+    private readonly repository: CustomerAccessRepository,
+    private readonly purchaseEntitlementEnforced = true,
+  ) {}
 
-  async resolve(authUserId: string): Promise<CustomerAccessStatus> {
-    const status = await this.repository.findOwnAccountStatus(authUserId);
-    if (status === "ACTIVE") return "AVAILABLE";
-    if (status === null) return "NOT_ACTIVE";
-    return "BLOCKED";
+  async resolve(authUserId: string): Promise<CustomerAccessResolution> {
+    const evidence = await this.repository.resolveEntitlement(authUserId);
+    if (evidence.accountStatus === null) {
+      return { status: "NOT_ACTIVE", accessBasis: null, diagnosticCode: "CUSTOMER_ACCESS_NOT_ACTIVE" };
+    }
+    if (evidence.accountStatus !== "ACTIVE") {
+      return { status: "BLOCKED", accessBasis: null, diagnosticCode: "CUSTOMER_ACCESS_BLOCKED" };
+    }
+    if (evidence.purchaseBacked) {
+      return { status: "AVAILABLE", accessBasis: "PURCHASE_BACKED", diagnosticCode: "CUSTOMER_ACCESS_PURCHASE_BACKED" };
+    }
+    if (evidence.legacyCompatible) {
+      return { status: "AVAILABLE", accessBasis: "LEGACY_COMPATIBILITY", diagnosticCode: "CUSTOMER_ACCESS_LEGACY_COMPATIBILITY" };
+    }
+    if (!this.purchaseEntitlementEnforced) {
+      return { status: "AVAILABLE", accessBasis: "ROLLBACK_COMPATIBILITY", diagnosticCode: "CUSTOMER_ACCESS_ROLLBACK_COMPATIBILITY" };
+    }
+    return { status: "NOT_ACTIVE", accessBasis: null, diagnosticCode: "CUSTOMER_ACCESS_NOT_ACTIVE" };
   }
 }
 

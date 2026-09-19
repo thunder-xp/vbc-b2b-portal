@@ -12,3 +12,7 @@ export function isUnifiedBusinessRoutingEnabled() {
 export function isCustomerAccessResolverEnabled() {
   return enabledUnlessExplicitlyDisabled(process.env.CUSTOMER_ACCESS_RESOLVER_ENABLED);
 }
+
+export function isCustomerPurchaseEntitlementEnforced() {
+  return enabledUnlessExplicitlyDisabled(process.env.CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED);
+}

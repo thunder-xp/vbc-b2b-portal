@@ -6,7 +6,7 @@ import { signOutFinalCustomerAction } from "@/src/modules/final-customer/actions
 import { CustomerNavigation } from "@/src/modules/final-customer/components";
 import { finalCustomerCopy, getFinalCustomerLocale } from "@/src/modules/final-customer/locale";
 import { getFinalCustomerContext } from "@/src/modules/final-customer/server";
-import { FinalCustomerAuthenticationError } from "@/src/modules/final-customer/service";
+import { FinalCustomerAccessError, FinalCustomerAuthenticationError } from "@/src/modules/final-customer/service";
 
 export default async function PrivateAccountLayout({ children }: { children: ReactNode }) {
   let context;
@@ -14,6 +14,9 @@ export default async function PrivateAccountLayout({ children }: { children: Rea
     context = await getFinalCustomerContext();
   } catch (error) {
     if (error instanceof FinalCustomerAuthenticationError) redirect("/account/sign-in");
+    if (error instanceof FinalCustomerAccessError) {
+      redirect(error.accessStatus === "NOT_ACTIVE" ? "/auth/customer-not-active" : "/auth/customer-access-state");
+    }
     throw error;
   }
   const locale = await getFinalCustomerLocale();

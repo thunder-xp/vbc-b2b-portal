@@ -6,11 +6,6 @@ import type {
 
 export interface FinalCustomerRepository {
   findAccountByAuthUser(authUserId: string): Promise<FinalCustomerAccount | null>;
-  createAccount(input: Readonly<{
-    authUserId: string;
-    customerIdentityId: string | null;
-    resolutionStatus: "MATCHED" | "NEW" | "AMBIGUOUS" | "CONFLICT";
-  }>): Promise<FinalCustomerAccount>;
   findDisplayName(customerIdentityId: string | null): Promise<string | null>;
   getCommandCenter(accountId: string, customerIdentityId: string | null): Promise<import("./types").FinalCustomerCommandCenter>;
   openAttention(accountId: string, actorUserId: string, sourceKind: string, sourceId: string): Promise<string>;

@@ -1,13 +1,5 @@
 import "server-only";
 
-import type { User } from "@supabase/supabase-js";
-
-import {
-  CustomerIdentityResolutionService,
-  SupabaseCustomerIdentityRepository,
-} from "@/src/modules/customer-identity";
-import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
-
 import type { FinalCustomerRepository } from "./repository";
 import {
   CUSTOMER_SERVICE_REQUEST_STATUSES, CUSTOMER_SERVICE_REQUEST_TYPES,
@@ -27,35 +19,21 @@ export class FinalCustomerAuthenticationError extends Error {
   }
 }
 
+export class FinalCustomerAccessError extends Error {
+  constructor(readonly accessStatus: "NOT_ACTIVE" | "BLOCKED") {
+    super(`Final Customer access is ${accessStatus}.`);
+    this.name = "FinalCustomerAccessError";
+  }
+}
+
 export class FinalCustomerAccountService {
   constructor(
     private readonly repository: FinalCustomerRepository,
-    private readonly identityResolver = new CustomerIdentityResolutionService(
-      new SupabaseCustomerIdentityRepository(),
-    ),
     private readonly paymentStateReader: PaymentStateReader | null = null,
   ) {}
 
-  async ensureAccount(user: User): Promise<FinalCustomerAccount> {
-    const verifiedPhone = user.phone ? canonicalMoldovaE164(user.phone) : null;
-    if (!user.id || !verifiedPhone || !user.phone_confirmed_at) {
-      throw new FinalCustomerAuthenticationError();
-    }
-    const existing = await this.repository.findAccountByAuthUser(user.id);
-    if (existing) return existing;
-
-    const resolution = await this.identityResolver.resolve({
-      customerType: "PERSON",
-      phone: verifiedPhone,
-      verifiedKeyTypes: ["PHONE"],
-      createIfMissing: true,
-      exposeCandidateIds: false,
-    });
-    return this.repository.createAccount({
-      authUserId: user.id,
-      customerIdentityId: resolution.customerIdentityId,
-      resolutionStatus: resolution.status,
-    });
+  findAuthenticatedAccount(authUserId: string): Promise<FinalCustomerAccount | null> {
+    return this.repository.findAccountByAuthUser(authUserId);
   }
 
   async overview(account: FinalCustomerAccount) {

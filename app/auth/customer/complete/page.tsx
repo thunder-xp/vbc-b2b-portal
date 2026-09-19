@@ -17,7 +17,7 @@ export default async function CompleteCustomerAuthPage() {
     throw error;
   }
 
-  if (status === "AVAILABLE") redirect("/account");
-  if (status === "NOT_ACTIVE") redirect("/auth/customer-not-active");
+  if (status.status === "AVAILABLE") redirect("/account");
+  if (status.status === "NOT_ACTIVE") redirect("/auth/customer-not-active");
   redirect("/auth/customer-access-state");
 }

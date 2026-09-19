@@ -15,6 +15,7 @@ export const accessContextCopy = {
     businessAction: "Войти как партнёр или агент",
     notActiveTitle: "Ваш личный кабинет NSD ещё не активирован.",
     notActiveBody: "Личный кабинет создаётся после первой покупки. После покупки вы сможете отслеживать заказы, оборудование, гарантию, документы и сервис.",
+    notActiveBenefits: ["Заказы и покупки", "Ваше оборудование", "Гарантия и документы", "Сервисные обращения"],
     catalogAction: "Перейти в каталог",
     customerBlockedTitle: "Доступ к личному кабинету ограничен",
     customerBlockedBody: "Для проверки доступа обратитесь в службу поддержки NSD.",
@@ -44,6 +45,7 @@ export const accessContextCopy = {
     businessAction: "Autentificare ca partener sau agent",
     notActiveTitle: "Contul dumneavoastră personal NSD nu este încă activat.",
     notActiveBody: "Contul personal este creat după prima achiziție. După cumpărare veți putea urmări comenzile, echipamentele, garanția, documentele și serviciile.",
+    notActiveBenefits: ["Comenzi și achiziții", "Echipamentele dumneavoastră", "Garanție și documente", "Solicitări de service"],
     catalogAction: "Deschide catalogul",
     customerBlockedTitle: "Accesul la contul personal este restricționat",
     customerBlockedBody: "Pentru verificarea accesului, contactați serviciul de asistență NSD.",
@@ -59,4 +61,4 @@ export const accessContextCopy = {
     ru: "RU",
     ro: "RO",
   },
-} as const satisfies Record<PublicLocale, Record<string, string>>;
+} as const satisfies Record<PublicLocale, Record<string, string | readonly string[]>>;

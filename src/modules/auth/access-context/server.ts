@@ -6,9 +6,13 @@ import { createClient } from "@/src/lib/supabase/server";
 
 import { BusinessAccessResolver, CustomerAccessResolver } from "./service";
 import { SupabaseBusinessAccessRepository, SupabaseCustomerAccessRepository } from "./supabase.repository";
+import { isCustomerPurchaseEntitlementEnforced } from "./flags";
 
 const businessResolver = new BusinessAccessResolver(new SupabaseBusinessAccessRepository());
-const customerResolver = new CustomerAccessResolver(new SupabaseCustomerAccessRepository());
+const customerResolver = new CustomerAccessResolver(
+  new SupabaseCustomerAccessRepository(),
+  isCustomerPurchaseEntitlementEnforced(),
+);
 
 export class AccessContextAuthenticationError extends Error {
   constructor() {
@@ -32,6 +36,8 @@ export const resolveCurrentCustomerAccess = cache(async () => {
   const userId = await getCurrentAuthUserId();
   return customerResolver.resolve(userId);
 });
+
+export const resolveCustomerAccessForUser = cache(async (userId: string) => customerResolver.resolve(userId));
 
 export function createBusinessAccessResolver() {
   return businessResolver;

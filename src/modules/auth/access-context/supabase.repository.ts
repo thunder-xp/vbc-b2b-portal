@@ -2,10 +2,11 @@ import "server-only";
 
 import { z } from "zod";
 
+import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 
 import type { BusinessAccessRepository, CustomerAccessRepository } from "./service";
-import type { BusinessContextType, CustomerAccountStatus } from "./types";
+import type { BusinessContextType } from "./types";
 
 const contextSchema = z.object({
   type: z.enum(["PARTNER", "AGENT"]),
@@ -18,6 +19,12 @@ const contextSchema = z.object({
 const resolutionSchema = z.object({
   contexts: z.array(contextSchema).max(50),
   preferredContext: contextSchema.nullable(),
+});
+
+const customerEntitlementSchema = z.object({
+  accountStatus: z.enum(["ACTIVE", "IDENTITY_REVIEW_REQUIRED", "SUSPENDED"]).nullable(),
+  purchaseBacked: z.boolean(),
+  legacyCompatible: z.boolean(),
 });
 
 export class SupabaseBusinessAccessRepository implements BusinessAccessRepository {
@@ -41,18 +48,11 @@ export class SupabaseBusinessAccessRepository implements BusinessAccessRepositor
 }
 
 export class SupabaseCustomerAccessRepository implements CustomerAccessRepository {
-  async findOwnAccountStatus(authUserId: string): Promise<CustomerAccountStatus | null> {
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("customer_accounts")
-      .select("status")
-      .eq("auth_user_id", authUserId)
-      .maybeSingle();
+  async resolveEntitlement(authUserId: string) {
+    const { data, error } = await createAdminClient().rpc("resolve_customer_access_entitlement_v1", {
+      p_auth_user_id: authUserId,
+    });
     if (error) throw new Error(`Customer access resolution failed: ${error.code ?? "UNKNOWN"}`);
-    if (!data) return null;
-    if (data.status === "ACTIVE" || data.status === "IDENTITY_REVIEW_REQUIRED" || data.status === "SUSPENDED") {
-      return data.status;
-    }
-    throw new Error("Customer access resolution returned an invalid status.");
+    return customerEntitlementSchema.parse(data);
   }
 }

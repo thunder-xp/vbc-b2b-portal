@@ -26,9 +26,11 @@ describe("Unified Auth foundation route contract", () => {
     expect(legacy).toContain("<PhoneOtpForm");
   });
 
-  it("does not change direct account, Partner or Agent route guards", () => {
+  it("keeps Partner and Agent guards unchanged while enforcing read-only customer entitlement", () => {
     expect(read("app/(partner)/cabinet/layout.tsx")).toContain("getPartnerWorkspaceContextAction");
     expect(read("app/(agent)/agent/layout.tsx")).toContain("getAgentCabinetContext");
-    expect(read("src/modules/final-customer/server.ts")).toContain("ensureAccount(user)");
+    expect(read("src/modules/final-customer/server.ts")).toContain("resolveCustomerAccessForUser(user.id)");
+    expect(read("src/modules/final-customer/server.ts")).not.toContain("ensureAccount");
+    expect(read("src/modules/final-customer/repository.ts")).not.toContain("createAccount");
   });
 });

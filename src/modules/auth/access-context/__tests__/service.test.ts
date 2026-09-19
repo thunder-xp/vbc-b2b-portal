@@ -50,16 +50,25 @@ describe("BusinessAccessResolver routing", () => {
 
 describe("CustomerAccessResolver", () => {
   it.each([
-    ["ACTIVE", "AVAILABLE"],
-    [null, "NOT_ACTIVE"],
-    ["IDENTITY_REVIEW_REQUIRED", "BLOCKED"],
-    ["SUSPENDED", "BLOCKED"],
-  ] as const)("maps %s to %s with one read and zero mutation surface", async (accountStatus, expected) => {
-    const repository = { findOwnAccountStatus: vi.fn().mockResolvedValue(accountStatus) };
+    [{ accountStatus: "ACTIVE", purchaseBacked: true, legacyCompatible: false }, "AVAILABLE", "PURCHASE_BACKED"],
+    [{ accountStatus: "ACTIVE", purchaseBacked: false, legacyCompatible: true }, "AVAILABLE", "LEGACY_COMPATIBILITY"],
+    [{ accountStatus: null, purchaseBacked: false, legacyCompatible: false }, "NOT_ACTIVE", null],
+    [{ accountStatus: "IDENTITY_REVIEW_REQUIRED", purchaseBacked: true, legacyCompatible: true }, "BLOCKED", null],
+    [{ accountStatus: "SUSPENDED", purchaseBacked: false, legacyCompatible: true }, "BLOCKED", null],
+  ] as const)("maps entitlement evidence to %s", async (evidence, expected, basis) => {
+    const repository = { resolveEntitlement: vi.fn().mockResolvedValue(evidence) };
     const resolver = new CustomerAccessResolver(repository);
-    await expect(resolver.resolve("44444444-4444-4444-8444-444444444444")).resolves.toBe(expected);
-    expect(repository.findOwnAccountStatus).toHaveBeenCalledOnce();
-    expect(Object.keys(repository)).toEqual(["findOwnAccountStatus"]);
+    await expect(resolver.resolve("44444444-4444-4444-8444-444444444444")).resolves.toMatchObject({ status: expected, accessBasis: basis });
+    expect(repository.resolveEntitlement).toHaveBeenCalledOnce();
+    expect(Object.keys(repository)).toEqual(["resolveEntitlement"]);
+  });
+
+  it("allows only an existing active account through the explicit rollback compatibility gate", async () => {
+    const repository = { resolveEntitlement: vi.fn().mockResolvedValue({ accountStatus: "ACTIVE", purchaseBacked: false, legacyCompatible: false }) };
+    await expect(new CustomerAccessResolver(repository, false).resolve("44444444-4444-4444-8444-444444444444"))
+      .resolves.toMatchObject({ status: "AVAILABLE", accessBasis: "ROLLBACK_COMPATIBILITY" });
+    await expect(new CustomerAccessResolver(repository, true).resolve("44444444-4444-4444-8444-444444444444"))
+      .resolves.toMatchObject({ status: "NOT_ACTIVE", accessBasis: null });
   });
 });
 

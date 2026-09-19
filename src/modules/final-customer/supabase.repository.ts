@@ -22,53 +22,6 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     return data ? mapAccount(data) : null;
   }
 
-  async createAccount(input: Parameters<FinalCustomerRepository["createAccount"]>[0]) {
-    const admin = createAdminClient();
-    const reviewRequired = input.resolutionStatus === "AMBIGUOUS" || input.resolutionStatus === "CONFLICT";
-    const { data, error } = await admin
-      .from("customer_accounts")
-      .insert({
-        auth_user_id: input.authUserId,
-        customer_identity_id: input.customerIdentityId,
-        status: reviewRequired ? "IDENTITY_REVIEW_REQUIRED" : "ACTIVE",
-        identity_resolution_status: input.resolutionStatus,
-      })
-      .select(ACCOUNT_COLUMNS)
-      .single();
-    if (error) {
-      if (error.code === "23505") {
-        const existing = await this.findAccountByAuthUser(input.authUserId);
-        if (existing) return existing;
-      }
-      throw repositoryError("create account", error.code);
-    }
-
-    const events = [{
-      customer_account_id: data.id,
-      event_type: "CUSTOMER_ACCOUNT_CREATED",
-      safe_metadata: { resolutionStatus: input.resolutionStatus },
-    }];
-    events.push({
-      customer_account_id: data.id,
-      event_type: reviewRequired ? "IDENTITY_REVIEW_REQUIRED" : "CUSTOMER_IDENTITY_LINKED",
-      safe_metadata: { resolutionStatus: input.resolutionStatus },
-    });
-    const { error: eventError } = await admin.from("customer_account_events").insert(events);
-    if (eventError) throw repositoryError("record account event", eventError.code);
-
-    if (data.customer_identity_id) {
-      const { error: identityEventError } = await admin.from("customer_identity_events").insert({
-        customer_identity_id: data.customer_identity_id,
-        event_type: "CONTEXT_LINKED",
-        source_context: "FINAL_CUSTOMER_ACCOUNT",
-        source_record_id: data.id,
-        safe_metadata: { resolutionStatus: input.resolutionStatus },
-      });
-      if (identityEventError) throw repositoryError("record identity link", identityEventError.code);
-    }
-    return mapAccount(data);
-  }
-
   async findDisplayName(customerIdentityId: string | null) {
     if (!customerIdentityId) return null;
     const { data, error } = await createAdminClient()

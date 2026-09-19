@@ -1,6 +1,14 @@
 # Final Customer Provisioning
 
-Status: Slice 2 implemented behind the `NEW_PURCHASE_PROVISIONING_ENABLED` compatibility gate. This document separates authentication, identity correlation, cabinet entitlement, purchase ownership, and asynchronous 1C correlation.
+Status: Slice 3 purchase-entitlement cutover implemented. This document separates authentication, identity correlation, cabinet entitlement, purchase ownership, and asynchronous 1C correlation.
+
+## Permanent access invariant (Slice 3)
+
+For every post-cutover user, OTP success, Supabase Auth user creation, identity correlation, checkout and Retail Order creation are not cabinet entitlement. New Final Customer access is created only by the provider-neutral confirmed-purchase boundary (`FIRST_PURCHASE_CONFIRMED` -> `FinalCustomerProvisioningService` -> `provision_final_customer_from_purchase_v1`). Page rendering, access resolution and `/account` route guards are read-only.
+
+Pre-cutover accounts are preserved by the immutable, one-time seeded `customer_account_legacy_entitlements` cohort. The table has no runtime insert grant, so compatibility cannot grow after cutover. `CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED=false` is an access-only rollback for an already existing ACTIVE account; it never restores OTP-time account creation.
+
+Legacy compatibility may be retired only after every remaining marker has either immutable purchase entitlement evidence or an explicitly governed closure decision, with zero unresolved identity/security cases and completed real-user acceptance. Deleting or weakening the cohort before those conditions is prohibited.
 
 ## Implemented Slice 2 contract
 
@@ -13,7 +21,7 @@ Migration `20260919201121_final_customer_first_purchase_provisioning_v1.sql` imp
 - existing account uniqueness plus verified-key uniqueness and advisory locks serialize duplicate and concurrent processing;
 - `customer_external_provisioning_jobs` is the durable asynchronous 1C seam. No 1C call occurs in checkout, payment activation, provisioning, Auth or cabinet rendering.
 
-The existing `getFinalCustomerContext() -> ensureAccount()` compatibility path is intentionally retained outside checkout. Setting `NEW_PURCHASE_PROVISIONING_ENABLED=false` stops worker claims without removing additive evidence or changing legacy access. Enforcement/cutover remains a later slice.
+The obsolete `getFinalCustomerContext() -> ensureAccount()` create-on-read path has been removed. Setting `NEW_PURCHASE_PROVISIONING_ENABLED=false` still stops worker claims; `CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED=false` only relaxes access classification for an already existing ACTIVE account.
 
 `ONE_C_CUSTOMER_WRITE_READY=NO`: the repository has no approved Final Customer Counterparty match/create provider contract, canonical DTO/write payload, or governed idempotency/reconciliation semantics. The job remains `PENDING`; this does not block an active local account.
 
@@ -49,7 +57,7 @@ An abandoned, failed, cancelled, expired, or merely created Retail Order does no
 
 ## Current-state finding
 
-### OTP currently creates an entitlement on first account visit
+### Historical finding resolved by Slice 3
 
 1. The client requests OTP with `shouldCreateUser: true` and verifies the SMS (`src/modules/final-customer-auth/phone-otp.client.ts:20-39`). Creating an Auth user is acceptable; it is not a Portal entitlement.
 2. The phone form redirects the authenticated user to `/account`.
@@ -58,7 +66,7 @@ An abandoned, failed, cancelled, expired, or merely created Retail Order does no
 5. When no account exists, `ensureAccount()` invokes the identity resolver with `createIfMissing: true`, then creates a `customer_account` (`src/modules/final-customer/service.ts:39-58`).
 6. Repository behavior and tests encode `MATCHED`/`NEW` account creation and restricted accounts for ambiguous/conflicting identity evidence (`src/modules/final-customer/__tests__/service.test.ts`).
 
-Therefore the current route guard is a state-creating command and violates the target lifecycle.
+Slice 3 removes this state-creating command. The sequence below is retained as the root-cause record; it is no longer active runtime behavior.
 
 ### Identity creation has two independent paths
 
