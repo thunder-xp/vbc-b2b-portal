@@ -21,6 +21,7 @@ describe("Final Customer Cabinet value contract", () => {
     const home = read("app/account/(private)/page.tsx");
     expect(home).toContain("CabinetEmptyState");
     expect(home).toContain("Добро пожаловать в NSD");
+    expect(home).toContain("actions={hasActivity ?");
     expect(home).not.toContain("const cards =");
   });
 

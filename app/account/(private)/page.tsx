@@ -30,7 +30,7 @@ export default async function FinalCustomerOverviewPage() {
       <WorkspaceHeader
         eyebrow={ro ? "Astăzi" : "Сегодня"}
         title={overview.displayName ?? (ro ? "Cont personal" : "Личный кабинет")}
-        actions={<Link className={cabinetPrimaryAction} href={`/catalog?lang=${locale}&view=all`}><ShoppingBag aria-hidden className="size-4" />{ro ? "În catalog" : "В каталог"}</Link>}
+        actions={hasActivity ? <Link className={cabinetPrimaryAction} href={`/catalog?lang=${locale}&view=all`}><ShoppingBag aria-hidden className="size-4" />{ro ? "În catalog" : "В каталог"}</Link> : undefined}
       />
 
       {overview.serviceNeedsInfoCount > 0 && overview.latestRequest ? (
