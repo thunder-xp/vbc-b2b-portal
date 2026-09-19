@@ -9,7 +9,7 @@ export default async function FinalCustomerSecurityPage() {
       <h1 className="text-2xl font-semibold tracking-tight">{copy.security}</h1>
       <section className="grid max-w-2xl divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
         <div className="p-5"><p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{copy.smsLogin}</p><p className="mt-2 font-mono text-sm font-semibold">{context.verifiedPhone}</p></div>
-        <div className="p-5"><p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{copy.assurance}</p><p className="mt-2 text-sm font-semibold uppercase">{context.aal ?? "aal1"}</p></div>
+        <div className="p-5"><p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{copy.assurance}</p><p className="mt-2 text-sm font-semibold">{copy.smsLogin}</p></div>
         <p className="p-5 text-sm leading-6 text-zinc-600">{copy.futureMfa}</p>
       </section>
     </main>

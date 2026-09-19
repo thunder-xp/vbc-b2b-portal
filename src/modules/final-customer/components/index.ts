@@ -1,4 +1,5 @@
 export * from "./CustomerNavigation";
+export * from "./CustomerEmptyState";
 export * from "./CustomerProfileForm";
 export * from "./CustomerServiceRequestForm";
 export * from "./CustomerPager";

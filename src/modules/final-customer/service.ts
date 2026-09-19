@@ -82,7 +82,10 @@ export class FinalCustomerAccountService {
     if (account.status !== "ACTIVE" || !UUID.test(orderId)) return null;
     const order = await this.repository.findOrder(account.customerIdentityId, orderId);
     if (!order) return null;
-    return (await this.withPaymentStates([order]))[0] ?? null;
+    const current = await this.repository.listCurrentProducts(unique(order.lines.map((line) => line.publicProductId)));
+    const byId = new Map(current.map((product) => [product.publicProductId, product]));
+    const enriched = { ...order, lines: order.lines.map((line) => ({ ...line, currentProduct: byId.get(line.publicProductId) ?? null })) };
+    return (await this.withPaymentStates([enriched]))[0] ?? null;
   }
 
   private async withPaymentStates<T extends { id: string; paidAt: string | null; paymentState: import("@/src/modules/payments/types").EffectivePaymentState }>(orders: T[]): Promise<T[]> {

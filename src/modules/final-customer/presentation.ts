@@ -15,7 +15,7 @@ export function orderStatus(status: string, locale: CustomerLocale) {
   const labels: Record<string, [string, string]> = {
     draft: ["Черновик", "Ciornă"], awaiting_payment: ["Ожидает оплаты", "Așteaptă plata"], confirmed: ["Оплачен и подтверждён", "Plătită și confirmată"],
   };
-  return labels[status]?.[locale === "ro" ? 1 : 0] ?? status;
+  return labels[status]?.[locale === "ro" ? 1 : 0] ?? (locale === "ro" ? "Comandă înregistrată" : "Заказ зарегистрирован");
 }
 
 export function paymentStatus(state: EffectivePaymentState, locale: CustomerLocale) {

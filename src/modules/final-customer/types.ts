@@ -20,6 +20,7 @@ export type FinalCustomerOrderSummary = Readonly<{
   total: number;
   currency: string;
   itemCount: number;
+  itemSummary: readonly string[];
   paidAt: string | null;
   paymentState: EffectivePaymentState;
 }>;
@@ -40,7 +41,7 @@ export type FinalCustomerOrderLine = Readonly<{
 }>;
 
 export type FinalCustomerOrderDetail = FinalCustomerOrderSummary & Readonly<{
-  lines: FinalCustomerOrderLine[];
+  lines: Array<FinalCustomerOrderLine & { currentProduct: FinalCustomerCurrentProduct | null }>;
   events: ReadonlyArray<{ id: string; type: string; createdAt: string }>;
   deliveryAddress: Readonly<Record<string, unknown>>;
 }>;

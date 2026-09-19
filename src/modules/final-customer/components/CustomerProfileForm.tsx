@@ -28,6 +28,7 @@ export function CustomerProfileForm({
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
         {labels.email}
         <input autoComplete="email" className="h-11 rounded-lg border border-zinc-300 px-3 outline-none focus:border-emerald-700" defaultValue={email ?? ""} maxLength={254} name="email" type="email" />
+        <span className="text-xs font-normal leading-5 text-zinc-500">{labels.emailHelp}</span>
       </label>
       <div className="rounded-lg bg-zinc-50 p-3">
         <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{labels.verifiedPhone}</p>

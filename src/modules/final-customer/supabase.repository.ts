@@ -95,7 +95,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     const latestRequest = value.latestRequest as Record<string, unknown> | null;
     return {
       displayName: typeof value.displayName === "string" ? value.displayName : null,
-      latestOrder: latestOrder ? { id: String(latestOrder.id), number: String(latestOrder.number), status: String(latestOrder.status), createdAt: String(latestOrder.createdAt), total: Number(latestOrder.total), currency: String(latestOrder.currency), itemCount: Number(latestOrder.itemCount), paidAt: latestOrder.paidAt ? String(latestOrder.paidAt) : null, paymentState: latestOrder.paidAt ? "PAID" as const : "UNPAID" as const } : null,
+      latestOrder: latestOrder ? { id: String(latestOrder.id), number: String(latestOrder.number), status: String(latestOrder.status), createdAt: String(latestOrder.createdAt), total: Number(latestOrder.total), currency: String(latestOrder.currency), itemCount: Number(latestOrder.itemCount), itemSummary: [], paidAt: latestOrder.paidAt ? String(latestOrder.paidAt) : null, paymentState: latestOrder.paidAt ? "PAID" as const : "UNPAID" as const } : null,
       recentPurchases: Array.isArray(value.recentPurchases) ? value.recentPurchases.flatMap((item) => item && typeof item === "object" ? [{ id: String((item as Row).id), name: String((item as Row).name), sku: String((item as Row).sku) }] : []) : [],
       equipmentCount: Number(value.equipmentCount ?? 0), documentCount: Number(value.documentCount ?? 0),
       latestRequest: latestRequest ? { id: String(latestRequest.id), number: String(latestRequest.number), status: latestRequest.status as CustomerServiceRequestStatus } : null,
@@ -129,12 +129,18 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     if (error) throw repositoryError("read retail orders", error.code);
     const orderIds = (data ?? []).map((row) => row.id);
     const counts = new Map<string, number>();
+    const summaries = new Map<string, string[]>();
     if (orderIds.length) {
-      const { data: lines, error: lineError } = await admin.from("retail_order_lines").select("order_id,quantity").in("order_id", orderIds);
+      const { data: lines, error: lineError } = await admin.from("retail_order_lines").select("order_id,quantity,product_name,line_number").in("order_id", orderIds).order("line_number");
       if (lineError) throw repositoryError("count retail order lines", lineError.code);
-      for (const line of lines ?? []) counts.set(line.order_id, (counts.get(line.order_id) ?? 0) + Number(line.quantity));
+      for (const line of lines ?? []) {
+        counts.set(line.order_id, (counts.get(line.order_id) ?? 0) + Number(line.quantity));
+        const names = summaries.get(line.order_id) ?? [];
+        if (names.length < 2 && line.product_name && !names.includes(line.product_name)) names.push(line.product_name);
+        summaries.set(line.order_id, names);
+      }
     }
-    return (data ?? []).map((row): FinalCustomerOrderSummary => mapOrder(row, counts.get(row.id) ?? 0));
+    return (data ?? []).map((row): FinalCustomerOrderSummary => mapOrder(row, counts.get(row.id) ?? 0, summaries.get(row.id) ?? []));
   }
 
   async findOrder(customerIdentityId: string | null, orderId: string) {
@@ -153,8 +159,8 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     if (lineError || eventError) throw repositoryError("read retail order detail", lineError?.code ?? eventError?.code);
     const mappedLines = (lines ?? []).map(mapOrderLine);
     return {
-      ...mapOrder(order, mappedLines.reduce((sum, line) => sum + line.quantity, 0)),
-      lines: mappedLines,
+      ...mapOrder(order, mappedLines.reduce((sum, line) => sum + line.quantity, 0), mappedLines.slice(0, 2).map((line) => line.name)),
+      lines: mappedLines.map((line) => ({ ...line, currentProduct: null })),
       events: (events ?? []).map((row) => ({ id: row.id, type: row.event_type, createdAt: row.created_at })),
       deliveryAddress: (order.delivery_address_snapshot ?? {}) as Record<string, unknown>,
     } satisfies FinalCustomerOrderDetail;
@@ -397,8 +403,8 @@ function mapAccount(row: Row): FinalCustomerAccount {
   };
 }
 
-function mapOrder(row: Row, itemCount: number): FinalCustomerOrderSummary {
-  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, paidAt: row.paid_at ? String(row.paid_at) : null, paymentState: row.paid_at ? "PAID" : "UNPAID" };
+function mapOrder(row: Row, itemCount: number, itemSummary: readonly string[] = []): FinalCustomerOrderSummary {
+  return { id: String(row.id), number: String(row.public_number), status: String(row.status), createdAt: String(row.created_at), total: Number(row.priced_scope_total), currency: String(row.currency), itemCount, itemSummary, paidAt: row.paid_at ? String(row.paid_at) : null, paymentState: row.paid_at ? "PAID" : "UNPAID" };
 }
 
 function mapOrderLine(row: Row): FinalCustomerOrderLine {

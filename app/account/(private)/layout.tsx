@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signOutFinalCustomerAction } from "@/src/modules/final-customer/actions";
@@ -25,9 +26,14 @@ export default async function PrivateAccountLayout({ children }: { children: Rea
             <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">NSD</p>
             <p className="truncate font-semibold">{context.displayName ?? copy.cabinet}</p>
           </div>
-          <form action={signOutFinalCustomerAction}>
-            <button className="min-h-11 rounded-lg px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950" type="submit">{copy.logout}</button>
-          </form>
+          <div className="flex shrink-0 items-center gap-1">
+            <Link className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-emerald-700 hover:bg-emerald-50" href={`/catalog?lang=${locale}`}>
+              {locale === "ro" ? "Magazin" : "Магазин"}
+            </Link>
+            <form action={signOutFinalCustomerAction}>
+              <button className="min-h-11 rounded-lg px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100 hover:text-zinc-950" type="submit">{copy.logout}</button>
+            </form>
+          </div>
         </div>
       </header>
       <CustomerNavigation locale={locale} />

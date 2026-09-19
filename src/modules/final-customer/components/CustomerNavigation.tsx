@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FileText, Headphones, LayoutDashboard, LockKeyhole, PackageCheck, ReceiptText, ShoppingBag, UserRound, Wrench } from "lucide-react";
+import { FileText, Headphones, LayoutDashboard, LockKeyhole, PackageCheck, ReceiptText, ShoppingBag, UserRound } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import type { FinalCustomerLocale } from "../locale";
@@ -12,7 +12,6 @@ const routes = [
   ["/account/orders", "orders", ReceiptText],
   ["/account/purchases", "purchases", ShoppingBag],
   ["/account/equipment", "equipment", PackageCheck],
-  ["/account/installations", "installations", Wrench],
   ["/account/documents", "documents", FileText],
   ["/account/service", "service", Headphones],
   ["/account/profile", "profile", UserRound],
@@ -22,8 +21,8 @@ const routes = [
 export function CustomerNavigation({ locale }: { locale: FinalCustomerLocale }) {
   const pathname = usePathname();
   const labels = { ...finalCustomerCopy[locale], ...(locale === "ro"
-    ? { purchases: "Cumpărături", equipment: "Echipamente și garanție", installations: "Instalări", documents: "Documente", service: "Service" }
-    : { purchases: "Покупки", equipment: "Оборудование и гарантия", installations: "Монтаж", documents: "Документы", service: "Сервис" }) };
+    ? { purchases: "Cumpărături", equipment: "Echipamente și garanție", documents: "Documente", service: "Service" }
+    : { purchases: "Покупки", equipment: "Оборудование и гарантия", documents: "Документы", service: "Сервис" }) };
   return (
     <nav aria-label={labels.cabinet} className="overflow-x-auto border-b border-zinc-200 bg-white">
       <div className="mx-auto flex max-w-5xl gap-1 px-2 sm:px-4">
