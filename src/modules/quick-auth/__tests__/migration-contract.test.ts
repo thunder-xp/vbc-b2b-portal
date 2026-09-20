@@ -11,6 +11,10 @@ const recoveryMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260920150629_restore_existing_partner_phone_first_auth_v1.sql"),
   "utf8",
 );
+const profilePhoneStateMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260920154814_partner_profile_phone_verification_state_v2.sql"),
+  "utf8",
+);
 
 describe("Quick Auth migration contract", () => {
   it("stores only expiring pseudonymous challenge state", () => {
@@ -81,5 +85,13 @@ describe("Quick Auth migration contract", () => {
     expect(recoveryMigration).toContain("force row level security");
     expect(recoveryMigration).toContain("grant select, insert on table public.business_quick_auth_audit_events to service_role");
     expect(recoveryMigration).not.toMatch(/grant\s+(?:select|insert|update|delete).*business_quick_auth_audit_events\s+to\s+(?:anon|authenticated)/i);
+  });
+
+  it("keeps Profile phone conflict resolution server-only and PII-free", () => {
+    expect(profilePhoneStateMigration).toContain("private.normalize_moldova_phone_e164_v1(profile.phone) = p_phone_e164");
+    expect(profilePhoneStateMigration).toContain("private.is_non_operational_phone_orphan_v1");
+    expect(profilePhoneStateMigration).toContain("revoke all on function public.has_business_profile_phone_operational_conflict_v2(uuid, text)");
+    expect(profilePhoneStateMigration).toContain("grant execute on function public.has_business_profile_phone_operational_conflict_v2(uuid, text)");
+    expect(profilePhoneStateMigration).not.toMatch(/return.*(?:email|user_id|identity_data)/i);
   });
 });

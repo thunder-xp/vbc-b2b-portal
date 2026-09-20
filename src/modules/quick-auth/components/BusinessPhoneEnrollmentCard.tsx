@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import type { PublicLocale } from "@/src/modules/public-locale";
 
@@ -10,20 +11,15 @@ import {
   startBusinessPhoneEnrollmentAction,
   verifyBusinessPhoneEnrollmentAction,
 } from "../enrollment.actions";
+import type { BusinessProfilePhoneStateCode } from "../profile-phone-state";
 import type { BusinessPhoneEnrollmentPublicState } from "../enrollment.types";
 
 const copy = {
   ru: {
-    title: "Быстрый вход по телефону",
-    intro: "Подтвердите номер один раз, чтобы в следующий раз входить по SMS-коду.",
-    connected: "Быстрый вход подключён",
-    connectedBody: "Подтверждённый номер можно использовать для безопасного входа по SMS-коду.",
-    confirmPhone: "Подтвердить номер",
-    changePhone: "Изменить номер",
-    later: "Позже",
-    phone: "Телефон",
-    phoneHint: "8 цифр после +373",
-    send: "Отправить код",
+    title: "Подтверждение номера",
+    intro: "SMS-код будет отправлен на номер, сохранённый в профиле.",
+    target: "Номер профиля",
+    send: "Отправить SMS-код",
     sending: "Отправляем…",
     otpTitle: "Код подтверждения",
     otpBody: "Мы отправили код на номер:",
@@ -32,27 +28,25 @@ const copy = {
     verifying: "Проверяем…",
     resend: "Повторить код",
     wait: (seconds: number) => `Повторная отправка через ${seconds} сек.`,
-    edit: "Изменить номер",
-    confirmed: "Номер подтверждён. Быстрый вход доступен.",
+    confirmed: "Номер уже подтверждён.",
+    confirmedBody: "Этот номер используется для быстрого входа по SMS.",
+    conflict: "Номер связан с другой учётной записью",
+    conflictBody: "SMS-код не отправлен. Используйте другой номер в профиле или обратитесь в Novotech.",
+    notSet: "Номер телефона не указан",
+    notSetBody: "Вернитесь в профиль, введите номер телефона и сохраните изменения.",
+    back: "Вернуться в профиль",
     continue: "Продолжить",
-    invalidPhone: "Введите 8 цифр молдавского номера.",
+    invalidPhone: "Сохраните действительный номер телефона Молдовы в профиле.",
     invalidCode: "Код не подошёл или истёк. Проверьте код и попробуйте снова.",
-    conflict: "Этот номер уже связан с другой учётной записью. Обратитесь в Novotech, если считаете это ошибкой.",
     rateLimited: "Слишком много попыток. Повторите позже.",
     sendUnavailable: "Не удалось отправить SMS-код. Попробуйте ещё раз.",
     verificationUnavailable: "Не удалось подтвердить номер. Попробуйте ещё раз.",
   },
   ro: {
-    title: "Autentificare rapidă prin telefon",
-    intro: "Confirmați numărul o singură dată pentru a vă autentifica ulterior cu un cod SMS.",
-    connected: "Autentificarea rapidă este conectată",
-    connectedBody: "Numărul confirmat poate fi folosit pentru autentificare sigură prin cod SMS.",
-    confirmPhone: "Confirmă numărul",
-    changePhone: "Schimbă numărul",
-    later: "Mai târziu",
-    phone: "Telefon",
-    phoneHint: "8 cifre după +373",
-    send: "Trimite codul",
+    title: "Confirmarea numărului",
+    intro: "Codul SMS va fi trimis la numărul salvat în profil.",
+    target: "Numărul din profil",
+    send: "Trimite codul SMS",
     sending: "Se trimite…",
     otpTitle: "Cod de confirmare",
     otpBody: "Am trimis codul la numărul:",
@@ -61,39 +55,44 @@ const copy = {
     verifying: "Se verifică…",
     resend: "Retrimite codul",
     wait: (seconds: number) => `Retrimitere peste ${seconds} sec.`,
-    edit: "Schimbă numărul",
-    confirmed: "Numărul a fost confirmat. Autentificarea rapidă este disponibilă.",
+    confirmed: "Numărul este deja confirmat.",
+    confirmedBody: "Acest număr este utilizat pentru autentificarea rapidă prin SMS.",
+    conflict: "Numărul este asociat altui cont",
+    conflictBody: "Codul SMS nu a fost trimis. Utilizați alt număr în profil sau contactați Novotech.",
+    notSet: "Numărul de telefon nu este indicat",
+    notSetBody: "Reveniți la profil, introduceți numărul de telefon și salvați modificările.",
+    back: "Înapoi la profil",
     continue: "Continuă",
-    invalidPhone: "Introduceți cele 8 cifre ale numărului din Moldova.",
+    invalidPhone: "Salvați în profil un număr de telefon valid din Moldova.",
     invalidCode: "Codul este incorect sau a expirat. Verificați-l și încercați din nou.",
-    conflict: "Acest număr este deja asociat altui cont. Contactați Novotech dacă considerați că este o eroare.",
     rateLimited: "Prea multe încercări. Încercați din nou mai târziu.",
     sendUnavailable: "Codul SMS nu a putut fi trimis. Încercați din nou.",
     verificationUnavailable: "Numărul nu a putut fi confirmat. Încercați din nou.",
   },
 } as const;
 
-type Step = "INTRO" | "PHONE" | "OTP" | "CONFIRMED";
+type Step = "TARGET" | "OTP" | "CONFIRMED" | "CONFLICT" | "NOT_SET";
 
 export function BusinessPhoneEnrollmentCard({
-  confirmed,
+  initialState,
   locale,
   nextPath,
+  targetPhone,
 }: {
-  confirmed: boolean;
+  initialState: BusinessProfilePhoneStateCode;
   locale: PublicLocale;
   nextPath: string;
+  targetPhone: string | null;
 }) {
   const labels = copy[locale];
-  const [step, setStep] = useState<Step>(confirmed ? "CONFIRMED" : "INTRO");
-  const [phone, setPhone] = useState("");
+  const router = useRouter();
+  const [step, setStep] = useState<Step>(() => initialStep(initialState));
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [maskedPhone, setMaskedPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
-  const localDigits = useMemo(() => toLocalDigits(phone), [phone]);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -102,26 +101,44 @@ export function BusinessPhoneEnrollmentCard({
   }, [cooldown]);
 
   async function start() {
-    setPending(true); setError(null);
-    try { applyState(await startBusinessPhoneEnrollmentAction(localDigits), labels.sendUnavailable); }
-    catch { setError(labels.sendUnavailable); }
-    finally { setPending(false); }
+    setPending(true);
+    setError(null);
+    try {
+      applyState(await startBusinessPhoneEnrollmentAction(), labels.sendUnavailable);
+    } catch {
+      setError(labels.sendUnavailable);
+    } finally {
+      setPending(false);
+    }
   }
 
   async function verify() {
     if (!challengeId) return;
-    setPending(true); setError(null);
-    try { applyState(await verifyBusinessPhoneEnrollmentAction(challengeId, localDigits, otp), labels.verificationUnavailable); }
-    catch { setError(labels.verificationUnavailable); }
-    finally { setPending(false); }
+    setPending(true);
+    setError(null);
+    try {
+      applyState(
+        await verifyBusinessPhoneEnrollmentAction(challengeId, otp),
+        labels.verificationUnavailable,
+      );
+    } catch {
+      setError(labels.verificationUnavailable);
+    } finally {
+      setPending(false);
+    }
   }
 
   async function resend() {
     if (!challengeId || cooldown > 0) return;
-    setPending(true); setError(null);
-    try { applyState(await resendBusinessPhoneEnrollmentAction(challengeId, localDigits), labels.sendUnavailable); }
-    catch { setError(labels.sendUnavailable); }
-    finally { setPending(false); }
+    setPending(true);
+    setError(null);
+    try {
+      applyState(await resendBusinessPhoneEnrollmentAction(challengeId), labels.sendUnavailable);
+    } catch {
+      setError(labels.sendUnavailable);
+    } finally {
+      setPending(false);
+    }
   }
 
   function applyState(result: BusinessPhoneEnrollmentPublicState, unavailableMessage: string) {
@@ -134,47 +151,96 @@ export function BusinessPhoneEnrollmentCard({
       setChallengeId(result.challengeId);
       setMaskedPhone(result.maskedPhone);
       setCooldown(60);
+      setStep("OTP");
+      return;
     }
-    setStep(result.step);
+    setStep("CONFIRMED");
+    router.refresh();
   }
 
   return (
-    <section className="grid gap-4" aria-labelledby="business-phone-enrollment-title">
-      {step === "INTRO" ? <>
-        <div><h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600">{labels.intro}</p></div>
-        <button className={primaryButton} onClick={() => setStep("PHONE")} type="button">{labels.confirmPhone}</button>
-        <Link className={secondaryLink} href={nextPath}>{labels.later}</Link>
-      </> : null}
+    <section aria-labelledby="business-phone-enrollment-title" className="grid gap-4">
+      {step === "TARGET" ? (
+        <>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.title}</h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-600">{labels.intro}</p>
+          </div>
+          <dl className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <dt className="text-xs font-medium text-zinc-500">{labels.target}</dt>
+            <dd className="mt-1 font-mono text-base font-semibold text-zinc-950">{targetPhone}</dd>
+          </dl>
+          <ErrorMessage message={error} />
+          <button className={primaryButton} disabled={pending} onClick={() => void start()} type="button">
+            {pending ? labels.sending : labels.send}
+          </button>
+          <Link className={secondaryLink} href={nextPath}>{labels.back}</Link>
+        </>
+      ) : null}
 
-      {step === "PHONE" ? <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void start(); }}>
-        <div><h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.title}</h1><p className="mt-2 text-sm leading-6 text-zinc-600">{labels.intro}</p></div>
-        <label className="grid gap-2 text-sm font-medium text-zinc-800" htmlFor="business-phone-enrollment-phone">{labels.phone}<span className="flex min-h-12 overflow-hidden rounded-lg border border-zinc-300 bg-white focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-100"><span className="flex items-center border-r border-zinc-200 bg-zinc-50 px-3 font-semibold text-zinc-700">+373</span><input aria-describedby="business-phone-enrollment-hint" aria-label={labels.phone} autoComplete="tel" autoFocus className="min-w-0 flex-1 px-3 text-base tracking-wide outline-none" id="business-phone-enrollment-phone" inputMode="tel" maxLength={16} onChange={(event) => setPhone(event.target.value)} placeholder="__ ___ ___" required type="tel" value={phone} /></span><span className="text-xs font-normal text-zinc-500" id="business-phone-enrollment-hint">{labels.phoneHint}</span></label>
-        <ErrorMessage message={error} />
-        <button className={primaryButton} disabled={pending || localDigits.length !== 8} type="submit">{pending ? labels.sending : labels.send}</button>
-        <Link className={secondaryLink} href={nextPath}>{labels.later}</Link>
-      </form> : null}
+      {step === "OTP" ? (
+        <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void verify(); }}>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.otpTitle}</h1>
+            <p className="mt-2 text-sm text-zinc-600">{labels.otpBody} <span className="font-medium text-zinc-900">{maskedPhone}</span></p>
+          </div>
+          <label className="grid gap-2 text-sm font-medium text-zinc-800" htmlFor="business-phone-enrollment-otp">
+            {labels.code}
+            <input
+              aria-label={labels.code}
+              autoComplete="one-time-code"
+              autoFocus
+              className="min-h-14 rounded-lg border border-zinc-300 px-4 text-center font-mono text-2xl tracking-[0.4em] outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100"
+              id="business-phone-enrollment-otp"
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+              pattern="[0-9]{6}"
+              required
+              type="text"
+              value={otp}
+            />
+          </label>
+          <ErrorMessage message={error} />
+          <button className={primaryButton} disabled={pending || otp.length !== 6} type="submit">{pending ? labels.verifying : labels.verify}</button>
+          <button className={textButton} disabled={pending || cooldown > 0} onClick={() => void resend()} type="button">{cooldown > 0 ? labels.wait(cooldown) : labels.resend}</button>
+          <Link className={secondaryLink} href={nextPath}>{labels.back}</Link>
+        </form>
+      ) : null}
 
-      {step === "OTP" ? <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void verify(); }}>
-        <div><h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.otpTitle}</h1><p className="mt-2 text-sm text-zinc-600">{labels.otpBody} <span className="font-medium text-zinc-900">{maskedPhone}</span></p></div>
-        <label className="grid gap-2 text-sm font-medium text-zinc-800" htmlFor="business-phone-enrollment-otp">{labels.code}<input aria-label={labels.code} autoComplete="one-time-code" autoFocus className="min-h-14 rounded-lg border border-zinc-300 px-4 text-center font-mono text-2xl tracking-[0.4em] outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100" id="business-phone-enrollment-otp" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))} pattern="[0-9]{6}" required type="text" value={otp} /></label>
-        <ErrorMessage message={error} />
-        <button className={primaryButton} disabled={pending || otp.length !== 6} type="submit">{pending ? labels.verifying : labels.verify}</button>
-        <button className={textButton} disabled={pending || cooldown > 0} onClick={() => void resend()} type="button">{cooldown > 0 ? labels.wait(cooldown) : labels.resend}</button>
-        <button className={textButton} disabled={pending} onClick={() => { setStep("PHONE"); setChallengeId(null); setOtp(""); setCooldown(0); }} type="button">{labels.edit}</button>
-        <Link className={secondaryLink} href={nextPath}>{labels.later}</Link>
-      </form> : null}
+      {step === "CONFIRMED" ? (
+        <>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.confirmed}</h1>
+            <p className="mt-2 text-sm leading-6 text-zinc-600">{labels.confirmedBody}</p>
+          </div>
+          <Link className={primaryLink} href={nextPath}>{labels.continue}</Link>
+        </>
+      ) : null}
 
-      {step === "CONFIRMED" ? <>
-        <div><h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{labels.connected}</h1><p className="mt-2 text-sm leading-6 text-zinc-600">{confirmed ? labels.connectedBody : labels.confirmed}</p></div>
-        {confirmed ? <button className={secondaryButton} onClick={() => setStep("PHONE")} type="button">{labels.changePhone}</button> : null}
-        <Link className={primaryLink} href={nextPath}>{labels.continue}</Link>
-      </> : null}
+      {step === "CONFLICT" ? (
+        <StateMessage body={labels.conflictBody} label={labels.back} nextPath={nextPath} title={labels.conflict} />
+      ) : null}
+      {step === "NOT_SET" ? (
+        <StateMessage body={labels.notSetBody} label={labels.back} nextPath={nextPath} title={labels.notSet} />
+      ) : null}
     </section>
   );
 }
 
+function StateMessage({ body, label, nextPath, title }: { body: string; label: string; nextPath: string; title: string }) {
+  return (
+    <>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-950" id="business-phone-enrollment-title">{title}</h1>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">{body}</p>
+      </div>
+      <Link className={primaryLink} href={nextPath}>{label}</Link>
+    </>
+  );
+}
+
 const primaryButton = "min-h-11 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:bg-zinc-400";
-const secondaryButton = "min-h-11 rounded-lg border border-zinc-300 px-4 text-sm font-semibold text-zinc-800 hover:bg-zinc-50";
 const primaryLink = "flex min-h-11 items-center justify-center rounded-lg bg-zinc-950 px-4 text-center text-sm font-semibold text-white hover:bg-zinc-800";
 const secondaryLink = "flex min-h-11 items-center justify-center text-center text-sm font-semibold text-emerald-700 hover:text-emerald-900";
 const textButton = "min-h-11 font-medium text-emerald-700 hover:text-emerald-900 disabled:text-zinc-400";
@@ -190,14 +256,14 @@ function errorMessage(
 ) {
   if (error === "INVALID_PHONE") return labels.invalidPhone;
   if (error === "INVALID_CODE") return labels.invalidCode;
-  if (error === "PHONE_CONFLICT") return labels.conflict;
+  if (error === "PHONE_CONFLICT") return labels.conflictBody;
   if (error === "RATE_LIMITED") return labels.rateLimited;
   return unavailableMessage;
 }
 
-function toLocalDigits(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("373")) return digits.slice(3);
-  if (digits.length === 9 && digits.startsWith("0")) return digits.slice(1);
-  return digits;
+function initialStep(state: BusinessProfilePhoneStateCode): Step {
+  if (state === "VERIFIED") return "CONFIRMED";
+  if (state === "CONFLICT") return "CONFLICT";
+  if (state === "NOT_SET") return "NOT_SET";
+  return "TARGET";
 }

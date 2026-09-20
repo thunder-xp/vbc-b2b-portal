@@ -17,6 +17,7 @@ import { ProfileForm } from "../ProfileForm";
 
 const mocks = vi.hoisted(() => ({
   createProfileAction: vi.fn(),
+  routerRefresh: vi.fn(),
   routerReplace: vi.fn(),
   updateOwnProfileAction: vi.fn(),
   submitAccessRequestAction: vi.fn(),
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
+    refresh: mocks.routerRefresh,
     replace: mocks.routerReplace,
   }),
 }));
@@ -106,6 +108,7 @@ describe("ProfileForm", () => {
       fullName: "Updated User",
       phone: "+359 9 999",
     });
+    expect(mocks.routerRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("displays success result", async () => {

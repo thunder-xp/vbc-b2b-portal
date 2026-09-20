@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, type ReactNode, useState, useTransition } from "react";
 
 import { createProfileAction } from "../../actions/create-profile.action";
 import { updateOwnProfileAction } from "../../actions/update-profile.action";
@@ -9,9 +9,10 @@ import type { CurrentProfileDto } from "../../actions/current-profile.action";
 
 type ProfileFormProps = {
   profile: CurrentProfileDto | null;
+  phoneStatus?: ReactNode;
 };
 
-export function ProfileForm({ profile }: ProfileFormProps) {
+export function ProfileForm({ profile, phoneStatus }: ProfileFormProps) {
   const router = useRouter();
   const isNewProfile = !profile;
   const [fullName, setFullName] = useState(profile?.fullName ?? "");
@@ -40,6 +41,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
         setFullName(result.data.fullName ?? "");
         setPhone(result.data.phone ?? "");
         setMessage(result.message);
+        router.refresh();
         return;
       }
 
@@ -83,6 +85,7 @@ export function ProfileForm({ profile }: ProfileFormProps) {
             value={phone}
           />
         </label>
+        {!isNewProfile ? phoneStatus : null}
       </div>
 
       {message && (

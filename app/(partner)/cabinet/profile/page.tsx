@@ -3,6 +3,7 @@ import { ProfileForm } from "@/src/modules/access-control/components/onboarding"
 import { EmptyState } from "@/src/modules/partner-cabinet/components";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { BusinessPhoneEnrollmentLink } from "@/src/modules/quick-auth/components/BusinessPhoneEnrollmentLink";
+import { createBusinessProfilePhoneStateService } from "@/src/modules/quick-auth/enrollment.factory";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 import { redirect } from "next/navigation";
 
@@ -24,5 +25,24 @@ export default async function CabinetProfilePage() {
     );
   }
 
-  return <div className="grid gap-5"><ProfileForm profile={profileResult.data} />{isBusinessPhoneOtpEnabled() ? <BusinessPhoneEnrollmentLink locale={locale} returnTo="/cabinet/profile" /> : null}</div>;
+  const phoneState = await createBusinessProfilePhoneStateService().resolveCurrent({
+    profilePhone: profileResult.data.phone,
+  });
+  if (!phoneState) redirect(`/auth/sign-in?lang=${locale}`);
+
+  return (
+    <div className="grid gap-5">
+      <ProfileForm
+        phoneStatus={
+          <BusinessPhoneEnrollmentLink
+            canEnroll={isBusinessPhoneOtpEnabled()}
+            locale={locale}
+            returnTo="/cabinet/profile"
+            state={phoneState.state}
+          />
+        }
+        profile={profileResult.data}
+      />
+    </div>
+  );
 }

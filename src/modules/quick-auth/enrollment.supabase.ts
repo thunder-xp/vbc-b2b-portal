@@ -6,6 +6,7 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
 
 import type { BusinessPhoneEnrollmentAuthGateway, BusinessPhoneEnrollmentRepository } from "./enrollment.repository";
+import type { BusinessProfilePhoneStateRepository } from "./profile-phone-state";
 
 const preparationSchema = z.discriminatedUnion("result", [
   z.object({ result: z.literal("READY"), challengeId: z.uuid(), expiresAt: z.string(), isPhoneChange: z.boolean() }),
@@ -59,6 +60,30 @@ export class SupabaseBusinessPhoneEnrollmentRepository implements BusinessPhoneE
       p_auth_user_id: input.authUserId,
       p_phone_key_hash: input.phoneKeyHash,
     });
+  }
+}
+
+export class SupabaseBusinessProfilePhoneStateRepository implements BusinessProfilePhoneStateRepository {
+  async getProfilePhone(authUserId: string) {
+    const { data, error } = await createAdminClient()
+      .from("user_profiles")
+      .select("phone")
+      .eq("id", authUserId)
+      .eq("status", "active")
+      .maybeSingle();
+    if (error) throw new Error("Business profile phone lookup failed.");
+    return data?.phone ?? null;
+  }
+
+  async hasOperationalConflict(authUserId: string, phoneE164: string) {
+    const { data, error } = await createAdminClient().rpc(
+      "has_business_profile_phone_operational_conflict_v2",
+      { p_auth_user_id: authUserId, p_phone_e164: phoneE164 },
+    );
+    if (error || typeof data !== "boolean") {
+      throw new Error("Business profile phone conflict lookup failed.");
+    }
+    return data;
   }
 }
 

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/src/lib/supabase/server";
 import { decideBusinessRoute, resolveCurrentBusinessAccess } from "@/src/modules/auth/access-context";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { BusinessPhoneEnrollmentCard } from "@/src/modules/quick-auth/components/BusinessPhoneEnrollmentCard";
+import { createBusinessProfilePhoneStateService } from "@/src/modules/quick-auth/enrollment.factory";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 
 export default async function BusinessPhoneEnrollmentPage({
@@ -14,9 +14,6 @@ export default async function BusinessPhoneEnrollmentPage({
 }) {
   const query = await searchParams;
   const locale = query.lang === "ro" || query.lang === "ru" ? query.lang : await getPartnerLocale();
-  const supabase = await createClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) redirect(`/auth/sign-in?lang=${locale}`);
 
   const resolution = await resolveCurrentBusinessAccess();
   const available = resolution.contexts.filter((context) => context.status === "AVAILABLE");
@@ -24,6 +21,8 @@ export default async function BusinessPhoneEnrollmentPage({
   const governedTarget = decideBusinessRoute(resolution).targetRoute;
   const nextPath = safeBusinessPath(query.next) ?? governedTarget;
   if (!isBusinessPhoneOtpEnabled()) redirect(nextPath);
+  const phoneState = await createBusinessProfilePhoneStateService().resolveCurrent();
+  if (!phoneState) redirect(`/auth/sign-in?lang=${locale}`);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-6 text-zinc-950 sm:px-6 sm:py-8">
@@ -31,9 +30,10 @@ export default async function BusinessPhoneEnrollmentPage({
         <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700" href={nextPath}>Novotech Systems Distribution</Link>
         <div className="mt-4">
           <BusinessPhoneEnrollmentCard
-            confirmed={Boolean(data.user.phone && data.user.phone_confirmed_at)}
+            initialState={phoneState.state}
             locale={locale}
             nextPath={nextPath}
+            targetPhone={phoneState.profilePhoneE164}
           />
         </div>
       </section>

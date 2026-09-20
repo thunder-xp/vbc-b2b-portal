@@ -2,8 +2,14 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ start: vi.fn(), resend: vi.fn(), verify: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  resend: vi.fn(),
+  start: vi.fn(),
+  verify: vi.fn(),
+}));
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock("../../enrollment.actions", () => ({
   startBusinessPhoneEnrollmentAction: mocks.start,
   resendBusinessPhoneEnrollmentAction: mocks.resend,
@@ -11,62 +17,88 @@ vi.mock("../../enrollment.actions", () => ({
 }));
 
 import { BusinessPhoneEnrollmentCard } from "../BusinessPhoneEnrollmentCard";
+import { BusinessPhoneEnrollmentLink } from "../BusinessPhoneEnrollmentLink";
 
 describe("BusinessPhoneEnrollmentCard", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("offers an optional RU enrollment prompt without blocking normal access", async () => {
-    render(<BusinessPhoneEnrollmentCard confirmed={false} locale="ru" nextPath="/cabinet" />);
+  it("uses the saved Profile phone and exposes no editable phone target", async () => {
+    mocks.start.mockResolvedValue({ ok: true, step: "OTP", challengeId: "11111111-1111-4111-8111-111111111111", maskedPhone: "+373 ** *** 20" });
+    render(
+      <BusinessPhoneEnrollmentCard
+        initialState="VERIFICATION_REQUIRED"
+        locale="ru"
+        nextPath="/cabinet/profile"
+        targetPhone="+37369982220"
+      />,
+    );
 
-    expect(screen.getByRole("heading", { name: "Быстрый вход по телефону" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Позже" })).toHaveAttribute("href", "/cabinet");
-    await userEvent.click(screen.getByRole("button", { name: "Подтвердить номер" }));
-    expect(screen.getByLabelText("Телефон")).toHaveAttribute("autocomplete", "tel");
+    expect(screen.getByText("+37369982220")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /телефон/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Отправить SMS-код" }));
+    expect(mocks.start).toHaveBeenCalledWith();
+    expect(await screen.findByRole("heading", { name: "Код подтверждения" })).toBeInTheDocument();
   });
 
-  it("renders the phone_change OTP step and confirmation with accessible controls", async () => {
+  it("renders the phone_change OTP step and recomputes state after confirmation", async () => {
     mocks.start.mockResolvedValue({ ok: true, step: "OTP", challengeId: "11111111-1111-4111-8111-111111111111", maskedPhone: "+373 ** *** 20" });
     mocks.verify.mockResolvedValue({ ok: true, step: "CONFIRMED" });
-    render(<BusinessPhoneEnrollmentCard confirmed={false} locale="ro" nextPath="/agent" />);
+    render(
+      <BusinessPhoneEnrollmentCard
+        initialState="VERIFICATION_REQUIRED"
+        locale="ro"
+        nextPath="/cabinet/profile"
+        targetPhone="+37369982220"
+      />,
+    );
 
-    await userEvent.click(screen.getByRole("button", { name: "Confirmă numărul" }));
-    await userEvent.type(screen.getByLabelText("Telefon"), "69982220");
-    await userEvent.click(screen.getByRole("button", { name: "Trimite codul" }));
-    expect(await screen.findByRole("heading", { name: "Cod de confirmare" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Codul din SMS")).toHaveAttribute("autocomplete", "one-time-code");
-
+    await userEvent.click(screen.getByRole("button", { name: "Trimite codul SMS" }));
     await userEvent.type(screen.getByLabelText("Codul din SMS"), "123456");
     await userEvent.click(screen.getByRole("button", { name: "Confirmă" }));
-    expect(mocks.verify).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "69982220", "123456");
-    expect(await screen.findByText("Numărul a fost confirmat. Autentificarea rapidă este disponibilă.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Continuă" })).toHaveAttribute("href", "/agent");
+    expect(mocks.verify).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", "123456");
+    expect(await screen.findByText("Numărul este deja confirmat.")).toBeInTheDocument();
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the safe conflict message without account identity disclosure", async () => {
-    mocks.start.mockResolvedValue({ ok: false, error: "PHONE_CONFLICT" });
-    render(<BusinessPhoneEnrollmentCard confirmed={false} locale="ru" nextPath="/cabinet" />);
+  it("shows safe CONFLICT and NOT_SET states without a send action", () => {
+    const { unmount } = render(
+      <BusinessPhoneEnrollmentCard initialState="CONFLICT" locale="ru" nextPath="/cabinet/profile" targetPhone="+37369982220" />,
+    );
+    expect(screen.getByRole("heading", { name: "Номер связан с другой учётной записью" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /отправить/i })).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/@|user id/i);
 
-    await userEvent.click(screen.getByRole("button", { name: "Подтвердить номер" }));
-    await userEvent.type(screen.getByLabelText("Телефон"), "69982220");
-    await userEvent.click(screen.getByRole("button", { name: "Отправить код" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Этот номер уже связан с другой учётной записью");
-    expect(document.body).not.toHaveTextContent(/@|компан/i);
+    unmount();
+    render(
+      <BusinessPhoneEnrollmentCard initialState="NOT_SET" locale="ro" nextPath="/cabinet/profile" targetPhone={null} />,
+    );
+    expect(screen.getByRole("heading", { name: "Numărul de telefon nu este indicat" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /trimite/i })).not.toBeInTheDocument();
   });
 
-  it("uses send-specific copy before OTP verification and keeps verification copy afterward", async () => {
-    mocks.start.mockResolvedValueOnce({ ok: false, error: "UNAVAILABLE" });
-    render(<BusinessPhoneEnrollmentCard confirmed={false} locale="ru" nextPath="/cabinet" />);
+  it("renders an already VERIFIED phone without a send action", () => {
+    render(
+      <BusinessPhoneEnrollmentCard initialState="VERIFIED" locale="ru" nextPath="/cabinet/profile" targetPhone="+37360433603" />,
+    );
+    expect(screen.getByRole("heading", { name: "Номер уже подтверждён." })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /отправить/i })).not.toBeInTheDocument();
+  });
+});
 
-    await userEvent.click(screen.getByRole("button", { name: "Подтвердить номер" }));
-    await userEvent.type(screen.getByLabelText("Телефон"), "69982220");
-    await userEvent.click(screen.getByRole("button", { name: "Отправить код" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось отправить SMS-код. Попробуйте ещё раз.");
+describe("BusinessPhoneEnrollmentLink", () => {
+  it("renders explicit RU VERIFIED status with a disabled action", () => {
+    render(<BusinessPhoneEnrollmentLink locale="ru" returnTo="/cabinet/profile" state="VERIFIED" />);
+    expect(screen.getByText("✓ Номер подтверждён")).toBeInTheDocument();
+    expect(screen.getByText("Этот номер используется для быстрого входа по SMS.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Номер подтверждён" })).toBeDisabled();
+  });
 
-    mocks.start.mockResolvedValueOnce({ ok: true, step: "OTP", challengeId: "11111111-1111-4111-8111-111111111111", maskedPhone: "+373 ** *** 20" });
-    await userEvent.click(screen.getByRole("button", { name: "Отправить код" }));
-    mocks.verify.mockResolvedValueOnce({ ok: false, error: "UNAVAILABLE" });
-    await userEvent.type(screen.getByLabelText("Код из SMS"), "123456");
-    await userEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось подтвердить номер. Попробуйте ещё раз.");
+  it("renders an enabled RO verification action only for VERIFICATION_REQUIRED", () => {
+    render(<BusinessPhoneEnrollmentLink locale="ro" returnTo="/cabinet/profile" state="VERIFICATION_REQUIRED" />);
+    expect(screen.getByText("Este necesară confirmarea")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Confirmați numărul" })).toHaveAttribute(
+      "href",
+      "/auth/business-phone-enrollment?lang=ro&next=%2Fcabinet%2Fprofile",
+    );
   });
 });
