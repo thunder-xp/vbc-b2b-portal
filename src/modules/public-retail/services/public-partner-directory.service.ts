@@ -1,20 +1,63 @@
-import type { PublicPartnerDirectoryEntryDto } from "../types";
-import type { PublicPartnerDirectoryRepository } from "../repositories/public-partner-directory.repository";
+import {
+  PUBLIC_PARTNER_CAPABILITY_CODES,
+  type PublicPartnerCapabilityCode,
+  type PublicPartnerDetailDto,
+  type PublicPartnerDirectoryDto,
+  type PublicPartnerDirectoryQuery,
+} from "../types";
+import type {
+  PublicPartnerDirectoryRecord,
+  PublicPartnerDirectoryRepository,
+} from "../repositories/public-partner-directory.repository";
 
 export class PublicPartnerDirectoryService {
   constructor(private readonly repository: PublicPartnerDirectoryRepository) {}
 
-  async listPartners(): Promise<PublicPartnerDirectoryEntryDto[]> {
-    const records = await this.repository.listPublished();
-    return records.map((record) => ({
-      displayName: record.displayName,
-      logoUrl: publicPartnerLogoUrl(record.logoAssetPath),
-      providerId: record.providerId,
-      verifiedReviewCount: record.verifiedReviewCount,
-      averageVerifiedRating: record.averageVerifiedRating,
-      completedVerifiedInstallations: record.completedVerifiedInstallations,
-    }));
+  async listPartners(input: PublicPartnerDirectoryQuery = {}): Promise<PublicPartnerDirectoryDto> {
+    const search = boundedText(input.search, 100);
+    const locality = boundedText(input.locality, 120);
+    const capability = isCapability(input.capability) ? input.capability : null;
+    const records = await this.repository.listPublished({ search, locality, capability });
+    return {
+      items: records.items.map(mapDirectoryRecord),
+      localities: records.localities,
+      capabilityCodes: records.capabilities,
+    };
   }
+
+  async getPartnerBySlug(slug: string): Promise<PublicPartnerDetailDto | null> {
+    const normalizedSlug = slug.trim().toLowerCase();
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedSlug) || normalizedSlug.length > 120) return null;
+    const record = await this.repository.getPublishedBySlug(normalizedSlug);
+    if (!record) return null;
+    return {
+      ...mapDirectoryRecord(record),
+      descriptionRu: record.descriptionRu,
+      descriptionRo: record.descriptionRo,
+      publicEmail: record.publicEmail,
+      publicPhone: record.publicPhone,
+      publicWebsite: record.publicWebsite,
+    };
+  }
+}
+
+function mapDirectoryRecord(record: PublicPartnerDirectoryRecord) {
+  return {
+    slug: record.slug,
+    displayName: record.displayName,
+    logoUrl: publicPartnerLogoUrl(record.logoAssetPath),
+    locality: record.locality,
+    capabilities: record.capabilities,
+    updatedAt: record.updatedAt,
+  };
+}
+
+function boundedText(value: string | undefined, maxLength: number): string {
+  return value?.trim().slice(0, maxLength) ?? "";
+}
+
+function isCapability(value: string | null | undefined): value is PublicPartnerCapabilityCode {
+  return PUBLIC_PARTNER_CAPABILITY_CODES.includes(value as PublicPartnerCapabilityCode);
 }
 
 export function publicPartnerLogoUrl(assetPath: string | null): string | null {

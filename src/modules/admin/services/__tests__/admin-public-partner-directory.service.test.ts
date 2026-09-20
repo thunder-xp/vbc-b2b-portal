@@ -5,6 +5,16 @@ import { AdminPublicPartnerDirectoryService } from "../admin-public-partner-dire
 
 const companyId = "32cdb925-2e0b-4541-967c-f22b7f06f376";
 const correlationId = "fe5a721e-faa6-4ef0-aaac-9ac6ee80eca1";
+const publicInput = {
+  publicSlug: "pilot-partner",
+  descriptionRu: "Описание партнёра",
+  descriptionRo: "Descriere partener",
+  locality: "Chișinău",
+  publicEmail: "public@example.md",
+  publicPhone: "+37322000000",
+  publicWebsite: "https://example.md",
+  capabilities: [{ code: "CCTV" as const, evidenceStatus: "SELF_DECLARED" as const }],
+};
 
 function repository(): AdminPublicPartnerDirectoryRepository {
   return {
@@ -41,6 +51,7 @@ describe("admin public partner-directory service", () => {
       companyId,
       expectedRevision: 1,
       publicDisplayName: "  Pilot Partner  ",
+      ...publicInput,
       visible,
       useCurrentLogo: true,
       correlationId,
@@ -54,6 +65,7 @@ describe("admin public partner-directory service", () => {
       companyId,
       expectedRevision: 1,
       publicDisplayName: " ",
+      ...publicInput,
       visible: true,
       useCurrentLogo: false,
       correlationId,

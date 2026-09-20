@@ -5,26 +5,39 @@ import { PublicRetailShell } from "@/src/modules/public-retail/components/Public
 import { PublicStructuredData } from "@/src/modules/public-retail/components/PublicStructuredData";
 import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 import { buildPublicMetadata, publicBreadcrumbSchema, publicLocalizedUrl } from "@/src/modules/public-retail/seo";
-import { getPublicPartnerDirectoryService } from "@/src/modules/public-retail/server";
+import { getPublicPartnerDirectory } from "@/src/modules/public-retail/server";
+import {
+  PUBLIC_PARTNER_CAPABILITY_CODES,
+  type PublicPartnerCapabilityCode,
+} from "@/src/modules/public-retail/types";
 
 type Params = Promise<Record<string, string | string[] | undefined>>;
 
 export async function generateMetadata({ searchParams }: { searchParams: Params }): Promise<Metadata> {
-  const locale = publicRetailLocale((await searchParams).lang);
+  const query = await searchParams;
+  const locale = publicRetailLocale(query.lang);
+  const filtered = Object.keys(query).some((key) => key !== "lang");
 
   return buildPublicMetadata({
     locale,
     path: "/partners",
     title: locale === "ru" ? "Сообщество партнёров | Novotech" : "Comunitatea partenerilor | Novotech",
     description: locale === "ru"
-      ? "Найдите проверенного партнёра Novotech в Молдове для подбора, поставки, монтажа и обслуживания профессиональных систем безопасности."
-      : "Găsiți un partener Novotech verificat în Moldova pentru selectarea, livrarea, instalarea și întreținerea sistemelor profesionale de securitate.",
+      ? "Публичные профили компаний, работающих с профессиональными системами безопасности и решениями Novotech в Молдове."
+      : "Profiluri publice ale companiilor care lucrează cu sisteme profesionale de securitate și soluții Novotech în Moldova.",
+    index: !filtered,
   });
 }
 
 export default async function PublicPartnersPage({ searchParams }: { searchParams: Params }) {
-  const locale = publicRetailLocale((await searchParams).lang);
-  const partners = await getPublicPartnerDirectoryService().listPartners();
+  const query = await searchParams;
+  const locale = publicRetailLocale(query.lang);
+  const filters = {
+    search: single(query.q).trim().slice(0, 100),
+    locality: single(query.locality).trim().slice(0, 120),
+    capability: capability(single(query.capability)),
+  };
+  const directory = await getPublicPartnerDirectory(filters);
   const schema = [
     publicBreadcrumbSchema([
       { name: locale === "ro" ? "Principală" : "Главная", url: publicLocalizedUrl("/", locale) },
@@ -33,16 +46,31 @@ export default async function PublicPartnersPage({ searchParams }: { searchParam
     {
       "@type": "ItemList",
       name: locale === "ro" ? "Comunitatea partenerilor Novotech" : "Сообщество партнёров Novotech",
-      itemListElement: partners.map((partner, index) => ({
+      itemListElement: directory.items.map((partner, index) => ({
         "@type": "ListItem",
         position: index + 1,
-        item: { "@type": "Organization", name: partner.displayName, ...(partner.logoUrl ? { logo: partner.logoUrl } : {}) },
+        item: {
+          "@type": "Organization",
+          name: partner.displayName,
+          ...(partner.logoUrl ? { logo: partner.logoUrl } : {}),
+          ...(partner.slug ? { url: publicLocalizedUrl(`/partners/${partner.slug}`, locale) } : {}),
+        },
       })),
     },
   ];
 
   return <PublicRetailShell languagePath="/partners" locale={locale}>
     <PublicStructuredData data={schema} />
-    <main><PublicPartnerDirectory locale={locale} partners={partners} /></main>
+    <main><PublicPartnerDirectory directory={directory} filters={filters} locale={locale} /></main>
   </PublicRetailShell>;
+}
+
+function single(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function capability(value: string): PublicPartnerCapabilityCode | null {
+  return PUBLIC_PARTNER_CAPABILITY_CODES.includes(value as PublicPartnerCapabilityCode)
+    ? value as PublicPartnerCapabilityCode
+    : null;
 }

@@ -4,6 +4,7 @@ import { PUBLIC_SITE_ORIGIN, publicLocalizedUrl } from "@/src/modules/public-ret
 import { listPublicSeoProducts } from "@/src/modules/public-retail/seo-inventory";
 import type { PublicRetailLocale } from "@/src/modules/public-retail/types";
 import { getPublicBlogService } from "@/src/modules/public-blog/server";
+import { getPublicPartnerDirectory } from "@/src/modules/public-retail/server";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,10 @@ function sitemapXmlUrl(path: string, locale: PublicRetailLocale, params: Record<
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, blogEntries] = await Promise.all([
+  const [products, blogEntries, partnerDirectory] = await Promise.all([
     listPublicSeoProducts(),
     getPublicBlogService().sitemap().catch(() => []),
+    getPublicPartnerDirectory({}).catch(() => ({ items: [], localities: [], capabilityCodes: [] })),
   ]);
   const categoryLastModified = new Map<string, Date>();
   for (const product of products) {
@@ -57,6 +59,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...staticPaths.flatMap((path) => localized(path)),
     ...[...categorySlugs].sort().flatMap((category) => localized("/catalog", { category }, categoryLastModified.get(category))),
     ...products.flatMap((product) => localized(`/products/${product.slug}`, {}, product.lastModified)),
+    ...partnerDirectory.items.filter((partner) => partner.slug !== null).flatMap((partner) => localized(
+      `/partners/${partner.slug}`,
+      {},
+      partner.updatedAt ? new Date(partner.updatedAt) : null,
+    )),
     ...blogEntries.map((entry) => {
       const available = blogEntries.filter((candidate) => candidate.slug === entry.slug).map((candidate) => candidate.locale);
       const languages = Object.fromEntries([

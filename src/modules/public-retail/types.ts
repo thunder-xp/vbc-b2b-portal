@@ -17,13 +17,44 @@ export type PublicRetailPriceDto = {
 };
 
 export type PublicRetailMediaDto = { url: string; alt: string };
+export const PUBLIC_PARTNER_CAPABILITY_CODES = [
+  "CCTV",
+  "ALARM",
+  "ACCESS_CONTROL",
+  "INTERCOM",
+  "NETWORK",
+  "OTHER",
+] as const;
+export type PublicPartnerCapabilityCode = (typeof PUBLIC_PARTNER_CAPABILITY_CODES)[number];
+export type PublicPartnerCapabilityEvidence = "SELF_DECLARED" | "VERIFIED";
+export type PublicPartnerCapabilityDto = {
+  code: PublicPartnerCapabilityCode;
+  evidenceStatus: PublicPartnerCapabilityEvidence;
+};
 export type PublicPartnerDirectoryEntryDto = {
+  slug: string | null;
   displayName: string;
   logoUrl: string | null;
-  providerId: string | null;
-  verifiedReviewCount: number;
-  averageVerifiedRating: number | null;
-  completedVerifiedInstallations: number;
+  locality: string | null;
+  capabilities: PublicPartnerCapabilityDto[];
+  updatedAt: string | null;
+};
+export type PublicPartnerDirectoryDto = {
+  items: PublicPartnerDirectoryEntryDto[];
+  localities: string[];
+  capabilityCodes: PublicPartnerCapabilityCode[];
+};
+export type PublicPartnerDirectoryQuery = {
+  search?: string;
+  locality?: string;
+  capability?: PublicPartnerCapabilityCode | null;
+};
+export type PublicPartnerDetailDto = PublicPartnerDirectoryEntryDto & {
+  descriptionRu: string | null;
+  descriptionRo: string | null;
+  publicEmail: string | null;
+  publicPhone: string | null;
+  publicWebsite: string | null;
 };
 export type PublicRetailSpecificationDto = { key: string; label: string; value: string; filterable: boolean };
 export type PublicRetailDocumentDto = { type: "datasheet"; url: string };

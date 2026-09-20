@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveSitemap } from "next/dist/build/webpack/loaders/metadata/resolve-route-data";
 
-const { listPublicSeoProducts } = vi.hoisted(() => ({
+const { listPublicSeoProducts, getPublicPartnerDirectory } = vi.hoisted(() => ({
   listPublicSeoProducts: vi.fn(),
+  getPublicPartnerDirectory: vi.fn(),
 }));
 vi.mock("@/src/modules/public-retail/seo-inventory", () => ({ listPublicSeoProducts }));
+vi.mock("@/src/modules/public-retail/server", () => ({ getPublicPartnerDirectory }));
 
 import sitemap from "../sitemap";
 
@@ -14,6 +16,14 @@ describe("public sitemap", () => {
     listPublicSeoProducts.mockResolvedValue([
       { slug: "camera-one", categoryPath: [{ slug: "cameras" }], lastModified: new Date("2026-08-23T12:00:00.000Z") },
     ]);
+    getPublicPartnerDirectory.mockResolvedValue({
+      items: [
+        { slug: "published-partner", displayName: "Published Partner", logoUrl: null, locality: null, capabilities: [], updatedAt: "2026-09-20T09:00:00Z" },
+        { slug: null, displayName: "Minimal Partner", logoUrl: null, locality: null, capabilities: [], updatedAt: null },
+      ],
+      localities: [],
+      capabilityCodes: [],
+    });
   });
 
   it("uses only authoritative publication lastmod and omits priority/change frequency", async () => {
@@ -32,6 +42,8 @@ describe("public sitemap", () => {
     expect(urls).toContain("https://www.nsd.md/?lang=ro");
     expect(urls).toContain("https://www.nsd.md/catalog?lang=ru&amp;category=cameras");
     expect(urls).toContain("https://www.nsd.md/products/camera-one?lang=ro");
+    expect(urls).toContain("https://www.nsd.md/partners/published-partner?lang=ru");
+    expect(urls.join("\n")).not.toContain("Minimal Partner");
     expect(urls.every((url) => url.startsWith("https://www.nsd.md/"))).toBe(true);
     expect(urls.join("\n")).not.toMatch(/cart|checkout|cabinet|admin|search|sort|view|project-equipment/);
     expect(urls.join("\n")).not.toMatch(/http:\/\/|https:\/\/nsd\.md/);

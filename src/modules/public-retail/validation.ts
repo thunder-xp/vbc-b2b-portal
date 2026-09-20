@@ -121,17 +121,36 @@ export function parsePublicRetailCategories(value: unknown): PublicRetailCategor
   return z.array(category).parse(value);
 }
 
+const publicPartnerCapability = z.object({
+  code: z.enum(["CCTV", "ALARM", "ACCESS_CONTROL", "INTERCOM", "NETWORK", "OTHER"]),
+  evidenceStatus: z.enum(["SELF_DECLARED", "VERIFIED"]),
+}).strict();
 const publicPartnerDirectoryRecord = z.object({
+  slug: slug.nullable(),
   displayName: localizedText,
   logoAssetPath: z.string().regex(/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:png|jpg|webp)$/).max(100).nullable(),
-  providerId: z.string().uuid().nullable(),
-  verifiedReviewCount: z.coerce.number().int().nonnegative(),
-  averageVerifiedRating: z.coerce.number().min(1).max(5).nullable(),
-  completedVerifiedInstallations: z.coerce.number().int().nonnegative(),
+  locality: z.string().trim().min(2).max(120).nullable(),
+  capabilities: z.array(publicPartnerCapability).max(6),
+  updatedAt: z.string().datetime({ offset: true }).nullable(),
 }).strict();
 
-export function parsePublicPartnerDirectoryRecords(value: unknown) {
-  return z.array(publicPartnerDirectoryRecord).max(100).parse(value);
+export function parsePublicPartnerDirectoryResult(value: unknown) {
+  return z.object({
+    items: z.array(publicPartnerDirectoryRecord).max(100),
+    localities: z.array(z.string().trim().min(2).max(120)).max(100),
+    capabilities: z.array(z.enum(["CCTV", "ALARM", "ACCESS_CONTROL", "INTERCOM", "NETWORK", "OTHER"])).max(6),
+  }).strict().parse(value);
+}
+
+export function parsePublicPartnerDetailRecord(value: unknown) {
+  if (value === null) return null;
+  return publicPartnerDirectoryRecord.extend({
+    descriptionRu: z.string().trim().min(2).max(2000).nullable(),
+    descriptionRo: z.string().trim().min(2).max(2000).nullable(),
+    publicEmail: z.string().email().max(254).nullable(),
+    publicPhone: z.string().regex(/^\+[1-9][0-9]{7,14}$/).nullable(),
+    publicWebsite: z.string().url().startsWith("https://").max(500).nullable(),
+  }).strict().parse(value);
 }
 
 export function parsePublicRetailProductPage(value: unknown): PublicRetailProductPageDto {

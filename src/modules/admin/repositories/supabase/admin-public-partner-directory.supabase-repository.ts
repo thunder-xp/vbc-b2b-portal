@@ -8,16 +8,39 @@ import { RepositoryUnexpectedError } from "@/src/modules/access-control/reposito
 import type { AdminPublicPartnerDirectoryRepository } from "../admin-public-partner-directory.repository";
 
 const uuid = z.string().uuid();
+const capability = z.object({
+  code: z.enum(["CCTV", "ALARM", "ACCESS_CONTROL", "INTERCOM", "NETWORK", "OTHER"]),
+  evidenceStatus: z.enum(["SELF_DECLARED", "VERIFIED"]),
+}).strict();
 const rawRecord = z.object({
   companyId: uuid,
   companyName: z.string().trim().min(1).max(240),
   publicDisplayName: z.string().trim().min(2).max(160).nullable(),
+  publicSlug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(120).nullable(),
+  descriptionRu: z.string().trim().min(2).max(2000).nullable(),
+  descriptionRo: z.string().trim().min(2).max(2000).nullable(),
+  locality: z.string().trim().min(2).max(120).nullable(),
+  publicEmail: z.string().email().max(254).nullable(),
+  publicPhone: z.string().regex(/^\+[1-9][0-9]{7,14}$/).nullable(),
+  publicWebsite: z.string().url().startsWith("https://").max(500).nullable(),
+  capabilities: z.array(capability).max(6),
   logoAssetPath: z.string().max(100).nullable(),
   approvedLogoAssetPath: z.string().max(100).nullable(),
   visible: z.boolean(),
   revision: z.number().int().positive(),
   updatedAt: z.string().datetime({ offset: true }).nullable(),
   publishedAt: z.string().datetime({ offset: true }).nullable(),
+  publicNameReview: z.boolean(),
+  completeness: z.object({
+    publicName: z.boolean(),
+    logo: z.boolean(),
+    descriptionRu: z.boolean(),
+    descriptionRo: z.boolean(),
+    locality: z.boolean(),
+    capabilities: z.boolean(),
+    publicContact: z.boolean(),
+    website: z.boolean(),
+  }).strict(),
 }).strict();
 const rawPage = z.object({
   records: z.array(rawRecord).max(50),
@@ -58,16 +81,10 @@ export class SupabaseAdminPublicPartnerDirectoryRepository implements AdminPubli
     const parsed = rawPage.parse(data);
     return {
       ...parsed,
-      records: parsed.records.map((record) => ({
-        companyId: record.companyId,
-        companyName: record.companyName,
-        publicDisplayName: record.publicDisplayName,
-        currentLogoUrl: companyLogoUrl(record.logoAssetPath),
-        approvedLogoUrl: companyLogoUrl(record.approvedLogoAssetPath),
-        visible: record.visible,
-        revision: record.revision,
-        updatedAt: record.updatedAt,
-        publishedAt: record.publishedAt,
+      records: parsed.records.map(({ logoAssetPath, approvedLogoAssetPath, ...record }) => ({
+        ...record,
+        currentLogoUrl: companyLogoUrl(logoAssetPath),
+        approvedLogoUrl: companyLogoUrl(approvedLogoAssetPath),
       })),
     };
   }
@@ -78,6 +95,14 @@ export class SupabaseAdminPublicPartnerDirectoryRepository implements AdminPubli
       p_company_id: input.companyId,
       p_expected_revision: input.expectedRevision,
       p_public_display_name: input.publicDisplayName,
+      p_public_slug: input.publicSlug || null,
+      p_description_ru: input.descriptionRu || null,
+      p_description_ro: input.descriptionRo || null,
+      p_locality: input.locality || null,
+      p_public_email: input.publicEmail || null,
+      p_public_phone: input.publicPhone || null,
+      p_public_website: input.publicWebsite || null,
+      p_capabilities: input.capabilities,
       p_visible: input.visible,
       p_use_current_logo: input.useCurrentLogo,
       p_correlation_id: input.correlationId,
@@ -87,6 +112,14 @@ export class SupabaseAdminPublicPartnerDirectoryRepository implements AdminPubli
     const domainCode = [
       "PUBLIC_PARTNER_NAME_INVALID",
       "PUBLIC_PARTNER_NAME_REQUIRED",
+      "PUBLIC_PARTNER_SLUG_INVALID",
+      "PUBLIC_PARTNER_SLUG_CONFLICT",
+      "PUBLIC_PARTNER_DESCRIPTION_INVALID",
+      "PUBLIC_PARTNER_LOCALITY_INVALID",
+      "PUBLIC_PARTNER_EMAIL_INVALID",
+      "PUBLIC_PARTNER_PHONE_INVALID",
+      "PUBLIC_PARTNER_WEBSITE_INVALID",
+      "PUBLIC_PARTNER_CAPABILITIES_INVALID",
       "PUBLIC_PARTNER_COMPANY_NOT_FOUND",
       "PUBLIC_PARTNER_COMPANY_INACTIVE",
     ].find((code) => error?.message.includes(code));

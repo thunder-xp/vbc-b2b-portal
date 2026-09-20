@@ -4,6 +4,7 @@ import type {
   UpdateAdminCompanyLogoResult,
   UpdateAdminPublicPartnerDirectoryResult,
 } from "../types";
+import type { PublicPartnerCapabilityDto } from "@/src/modules/public-retail/types";
 
 export interface AdminPublicPartnerDirectoryRepository {
   list(input: {
@@ -16,6 +17,14 @@ export interface AdminPublicPartnerDirectoryRepository {
     companyId: string;
     expectedRevision: number;
     publicDisplayName: string;
+    publicSlug: string;
+    descriptionRu: string;
+    descriptionRo: string;
+    locality: string;
+    publicEmail: string;
+    publicPhone: string;
+    publicWebsite: string;
+    capabilities: PublicPartnerCapabilityDto[];
     visible: boolean;
     useCurrentLogo: boolean;
     correlationId: string;

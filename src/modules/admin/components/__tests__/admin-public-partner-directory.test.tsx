@@ -14,12 +14,22 @@ const page = {
     companyId: "32cdb925-2e0b-4541-967c-f22b7f06f376",
     companyName: "Canonical Company",
     publicDisplayName: null,
+    publicSlug: null,
+    descriptionRu: null,
+    descriptionRo: null,
+    locality: null,
+    publicEmail: null,
+    publicPhone: null,
+    publicWebsite: null,
+    capabilities: [],
     currentLogoUrl: null,
     approvedLogoUrl: null,
     visible: false,
     revision: 1,
     updatedAt: null,
     publishedAt: null,
+    publicNameReview: false,
+    completeness: { publicName: false, logo: false, descriptionRu: false, descriptionRo: false, locality: false, capabilities: false, publicContact: false, website: false },
   }],
   totalCount: 1,
   publishedCount: 1,
@@ -33,7 +43,7 @@ const page = {
 describe("admin public partner-directory UI", () => {
   it("shows compact governance fields, fallback preview, and no commercial data", () => {
     const { container } = render(<AdminPublicPartnerDirectory page={page} />);
-    expect(screen.getByRole("heading", { name: "Публичный каталог партнёров" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Публичное сообщество партнёров" })).toBeInTheDocument();
     expect(screen.getByText("Canonical Company")).toBeInTheDocument();
     expect(screen.getByText("Логотип отсутствует: публичная карточка использует безопасную заглушку.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Загрузить логотип" })).toBeInTheDocument();

@@ -1,9 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { validateCompanyLogo } from "@/src/modules/company-identity/company-logo";
+import {
+  PUBLIC_PARTNER_CAPABILITY_CODES,
+  type PublicPartnerCapabilityEvidence,
+} from "@/src/modules/public-retail/types";
 
 import { createAdminPublicPartnerDirectoryService, requireAdminPermission } from "../services";
 
@@ -28,12 +32,26 @@ export async function updateAdminPublicPartnerDirectoryAction(
       companyId: String(formData.get("companyId") ?? ""),
       expectedRevision: Number(formData.get("revision")),
       publicDisplayName: String(formData.get("publicDisplayName") ?? ""),
+      publicSlug: String(formData.get("publicSlug") ?? ""),
+      descriptionRu: String(formData.get("descriptionRu") ?? ""),
+      descriptionRo: String(formData.get("descriptionRo") ?? ""),
+      locality: String(formData.get("locality") ?? ""),
+      publicEmail: String(formData.get("publicEmail") ?? ""),
+      publicPhone: String(formData.get("publicPhone") ?? ""),
+      publicWebsite: String(formData.get("publicWebsite") ?? ""),
+      capabilities: PUBLIC_PARTNER_CAPABILITY_CODES.flatMap((code) => formData.get(`capability-${code}`) === "on" ? [{
+        code,
+        evidenceStatus: (formData.get(`capability-evidence-${code}`) === "VERIFIED"
+          ? "VERIFIED"
+          : "SELF_DECLARED") as PublicPartnerCapabilityEvidence,
+      }] : []),
       visible: formData.get("visible") === "on",
       useCurrentLogo: formData.get("useCurrentLogo") === "on",
       correlationId,
     });
     revalidatePath("/admin/partners/public-directory");
     revalidatePath("/partners");
+    revalidateTag("public-partner-community", "max");
     return {
       status: "success",
       message: result.changed
@@ -111,6 +129,7 @@ export async function updateAdminCompanyLogoAction(
       revalidatePath("/admin/partners/public-directory");
       revalidatePath("/partners");
       revalidatePath("/cabinet", "layout");
+      revalidateTag("public-partner-community", "max");
     } catch {
       console.warn({
         event: "admin_company_logo_revalidation_failed",
@@ -156,6 +175,14 @@ function messageFor(code: string, correlationId: string): string {
   if (code === "PUBLIC_PARTNER_NAME_INVALID" || code === "PUBLIC_PARTNER_INPUT_INVALID") {
     return "Проверьте публичное название и повторите попытку.";
   }
+  if (code === "PUBLIC_PARTNER_SLUG_CONFLICT") return "Этот публичный адрес уже занят.";
+  if (code === "PUBLIC_PARTNER_SLUG_INVALID") return "Публичный адрес может содержать только строчные латинские буквы, цифры и дефисы.";
+  if (code === "PUBLIC_PARTNER_DESCRIPTION_INVALID") return "Проверьте описания RU/RO (до 2000 символов).";
+  if (code === "PUBLIC_PARTNER_LOCALITY_INVALID") return "Проверьте публичное название города или региона.";
+  if (code === "PUBLIC_PARTNER_EMAIL_INVALID") return "Проверьте публичный email.";
+  if (code === "PUBLIC_PARTNER_PHONE_INVALID") return "Публичный телефон должен быть в международном формате, например +373XXXXXXXX.";
+  if (code === "PUBLIC_PARTNER_WEBSITE_INVALID") return "Публичный сайт должен быть корректным HTTPS-адресом.";
+  if (code === "PUBLIC_PARTNER_CAPABILITIES_INVALID") return "Проверьте публичные компетенции.";
   if (code === "PUBLIC_PARTNER_COMPANY_INACTIVE") {
     return "Неактивную компанию нельзя опубликовать.";
   }

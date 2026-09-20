@@ -8,7 +8,7 @@ import { PublicCctvCalculatorService } from "./services/public-cctv-calculator.s
 import { getCctvObjectServicePricingService } from "@/src/modules/retail-marketplace/server";
 import { PublicRetailService } from "./services/public-retail.service";
 import { PublicPartnerDirectoryService } from "./services/public-partner-directory.service";
-import type { PublicRetailLocale } from "./types";
+import type { PublicPartnerDirectoryQuery, PublicRetailLocale } from "./types";
 import { SupabaseCctvCameraCandidateRepository } from "../cctv-calculation/cctv-camera-candidate.repository";
 import { SupabaseCctvObjectConfigurationRepository } from "../cctv-calculation/cctv-object-configuration.repository";
 import { SupabasePublicPartnerDirectoryRepository } from "./repositories/supabase/public-partner-directory.supabase-repository";
@@ -17,6 +17,7 @@ import type { EffectiveRollingPeriod } from "../commerce-period";
 
 const PUBLIC_RETAIL_CACHE_SECONDS = 300;
 const PUBLIC_RETAIL_CACHE_TAG = "public-retail-publication";
+export const PUBLIC_PARTNER_DIRECTORY_CACHE_TAG = "public-partner-community";
 
 const service = new PublicRetailService(new SupabasePublicRetailReadRepository());
 const partnerDirectory = new PublicPartnerDirectoryService(new SupabasePublicPartnerDirectoryRepository());
@@ -68,6 +69,16 @@ const cachedShowcase = unstable_cache(
   ["public-retail-showcase-v1"],
   { revalidate: PUBLIC_RETAIL_CACHE_SECONDS, tags: [PUBLIC_RETAIL_CACHE_TAG] },
 );
+const cachedPartnerDirectory = unstable_cache(
+  (input: string) => partnerDirectory.listPartners(JSON.parse(input) as PublicPartnerDirectoryQuery),
+  ["public-partner-community-directory-v2"],
+  { revalidate: PUBLIC_RETAIL_CACHE_SECONDS, tags: [PUBLIC_PARTNER_DIRECTORY_CACHE_TAG] },
+);
+const cachedPartnerProfile = unstable_cache(
+  (slug: string) => partnerDirectory.getPartnerBySlug(slug),
+  ["public-partner-community-profile-v2"],
+  { revalidate: PUBLIC_RETAIL_CACHE_SECONDS, tags: [PUBLIC_PARTNER_DIRECTORY_CACHE_TAG] },
+);
 
 export const getPublicRetailCategories = cache((locale: PublicRetailLocale) => cachedCategories(locale));
 export const getPublicRetailProduct = cache((slug: string, locale: PublicRetailLocale) => cachedProduct(slug, locale));
@@ -81,6 +92,12 @@ export const getPublicRetailShowcase = cache((
   rotationSeed: string,
   periods: { popular: EffectiveRollingPeriod; new: EffectiveRollingPeriod; hot: EffectiveRollingPeriod },
 ) => cachedShowcase(locale, rotationSeed, periods));
+export const getPublicPartnerDirectory = cache((input: PublicPartnerDirectoryQuery = {}) => cachedPartnerDirectory(JSON.stringify({
+  search: input.search?.trim().slice(0, 100) || undefined,
+  locality: input.locality?.trim().slice(0, 120) || undefined,
+  capability: input.capability,
+})));
+export const getPublicPartnerProfile = cache((slug: string) => cachedPartnerProfile(slug.trim().toLowerCase()));
 
 function stableCatalogInput(input: PublicRetailListInput): string {
   const facets = input.facets
