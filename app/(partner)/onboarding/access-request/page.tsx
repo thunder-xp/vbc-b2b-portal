@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 
 import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
 import { getOwnAccessRequestsAction } from "@/src/modules/access-control/actions/get-access-requests.action";
+import { getAuthenticatedUser } from "@/src/modules/access-control/actions/service-factory";
+import { UnauthenticatedError } from "@/src/modules/access-control/services";
 import {
   AccessRequestForm,
   OnboardingStateCard,
@@ -9,6 +11,18 @@ import {
 import { AccessRequestStatus, UserStatus } from "@/src/modules/access-control/types";
 
 export default async function OnboardingAccessRequestPage() {
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (error) {
+    if (error instanceof UnauthenticatedError) redirect("/auth/sign-in");
+    throw error;
+  }
+
+  if (user.registrationIntent === "agent") {
+    redirect(`/become-partner/agent?lang=${user.preferredRegistrationLocale ?? "ru"}`);
+  }
+
   const profileResult = await getCurrentProfileAction();
 
   if (!profileResult.success) {
@@ -50,7 +64,11 @@ export default async function OnboardingAccessRequestPage() {
         )}
 
         {canRequestAccess && (
-          <AccessRequestForm />
+          <AccessRequestForm
+            initialName={profileResult.data.fullName ?? ""}
+            initialPhone={profileResult.data.phone ?? ""}
+            legalForm={user.registrationLegalForm ?? "LEGAL_ENTITY"}
+          />
         )}
       </div>
     </main>

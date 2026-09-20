@@ -19,7 +19,7 @@ vi.mock("@/src/modules/quick-auth/factory", () => ({ isBusinessPhoneOtpEnabled: 
 vi.mock("@/src/modules/auth/access-context", () => ({ isUnifiedBusinessRoutingEnabled: vi.fn(() => true) }));
 vi.mock("@/src/modules/auth/post-sign-in-routing", () => ({ resolvePostSignInAccess: mocks.resolvePostSignInAccess }));
 
-import { registerAction, signInAction } from "../auth.actions";
+import { registerAgentAction, registerInstallerAction, signInAction } from "../auth.actions";
 
 const REDIRECT_PREFIX = "NEXT_REDIRECT:";
 
@@ -85,7 +85,7 @@ describe("classic password sign-in routing", () => {
   });
 
   it("creates an Agent identity with navigation hints and a governed confirmation redirect", async () => {
-    await expect(registerAction({ error: null }, registration())).rejects.toThrow(`${REDIRECT_PREFIX}/auth/check-email?lang=ro&intent=agent&next=%2Fbecome-partner%2Fagent%3Flang%3Dro`);
+    await expect(registerAgentAction({ error: null }, registration({ intent: "installer", next: "/onboarding/profile" }))).rejects.toThrow(`${REDIRECT_PREFIX}/auth/check-email?lang=ro&intent=agent&next=%2Fbecome-partner%2Fagent%3Flang%3Dro`);
     expect(mocks.signUp).toHaveBeenCalledWith({
       email: "agent@example.com", password: "password",
       options: {
@@ -96,10 +96,11 @@ describe("classic password sign-in routing", () => {
   });
 
   it("uses the existing Partner onboarding continuation for Installer registration", async () => {
-    await expect(registerAction({ error: null }, registration({ intent: "installer", legalForm: "INDIVIDUAL", locale: "ru" })))
+    await expect(registerInstallerAction({ error: null }, registration({ intent: "agent", next: "/become-partner/agent", legalForm: "INDIVIDUAL", locale: "ru" })))
       .rejects.toThrow(`${REDIRECT_PREFIX}/auth/check-email?lang=ru&intent=installer&next=%2Fonboarding%2Fprofile%3Flang%3Dru`);
     expect(mocks.signUp).toHaveBeenCalledWith(expect.objectContaining({ options: expect.objectContaining({
       emailRedirectTo: "https://www.nsd.md/auth/sign-in?confirmed=1&lang=ru&intent=installer&next=%2Fonboarding%2Fprofile%3Flang%3Dru",
+      data: { registration_intent: "installer", registration_legal_form: "INDIVIDUAL", preferred_registration_locale: "ru" },
     }) }));
   });
 });

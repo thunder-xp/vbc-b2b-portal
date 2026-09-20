@@ -11,11 +11,11 @@ insert into auth.users(id, aud, role, email, created_at, updated_at) values
   ('7a000000-0000-4000-8000-000000000005', 'authenticated', 'authenticated', 'new-external@example.test', now(), now()),
   ('7a000000-0000-4000-8000-000000000006', 'authenticated', 'authenticated', 'other-applicant@example.test', now(), now());
 
-insert into public.user_profiles(id, email, status, user_type) values
-  ('7a000000-0000-4000-8000-000000000001', 'agent-app-admin@example.test', 'active', 'admin'),
-  ('7a000000-0000-4000-8000-000000000002', 'agent-applicant@example.test', 'active', 'partner'),
-  ('7a000000-0000-4000-8000-000000000003', 'rejected-applicant@example.test', 'active', 'external'),
-  ('7a000000-0000-4000-8000-000000000006', 'other-applicant@example.test', 'active', 'external');
+insert into public.user_profiles(id, email, status, user_type, full_name, phone) values
+  ('7a000000-0000-4000-8000-000000000001', 'agent-app-admin@example.test', 'active', 'admin', null, null),
+  ('7a000000-0000-4000-8000-000000000002', 'agent-applicant@example.test', 'active', 'partner', 'Profile Agent', '+37360000002'),
+  ('7a000000-0000-4000-8000-000000000003', 'rejected-applicant@example.test', 'active', 'external', null, null),
+  ('7a000000-0000-4000-8000-000000000006', 'other-applicant@example.test', 'active', 'external', null, null);
 
 insert into public.partner_companies(id, external_1c_id, display_name, status)
 values ('7a000000-0000-4000-8000-000000000004', 'agent-application-runtime-company', 'Agent Application Runtime Company', 'active');
@@ -46,6 +46,9 @@ begin
   );
   if first_draft.id is null or first_draft.id <> repeated_draft.id then
     raise exception 'Draft creation is not idempotent.';
+  end if;
+  if first_draft.display_name <> 'Profile Agent' or first_draft.phone <> '+37360000002' then
+    raise exception 'Governed Profile name/phone did not prefill the Agent draft.';
   end if;
 
   select * into submitted from public.submit_commercial_agent_application(

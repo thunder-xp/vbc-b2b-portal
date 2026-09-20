@@ -4,9 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   AccessRequestStatus,
-  MembershipStatus,
   UserStatus,
-  type CompanyMembership,
 } from "../../../types";
 import type { CurrentProfileDto } from "../../../actions/current-profile.action";
 import type { OwnAccessRequestDto } from "../../../actions/get-access-requests.action";
@@ -155,9 +153,9 @@ describe("AccessRequestForm", () => {
     render(<AccessRequestForm />);
 
     expect(screen.getByLabelText("Название компании")).toBeInTheDocument();
-    expect(screen.getByLabelText("Фискальный код / VAT / IDNO")).toBeInTheDocument();
+    expect(screen.getByLabelText("IDNO")).toBeInTheDocument();
     expect(screen.getByLabelText("Контактный телефон")).toBeInTheDocument();
-    expect(screen.getByLabelText("Сообщение / комментарий")).toBeInTheDocument();
+    expect(screen.getByLabelText("Комментарий")).toBeInTheDocument();
     expect(screen.queryByLabelText("1C reference")).not.toBeInTheDocument();
   });
 
@@ -172,20 +170,36 @@ describe("AccessRequestForm", () => {
     render(<AccessRequestForm />);
 
     await user.type(screen.getByLabelText("Название компании"), "Partner Company");
-    await user.type(screen.getByLabelText("Фискальный код / VAT / IDNO"), "BG123456789");
+    await user.type(screen.getByLabelText("IDNO"), "123456789");
     await user.type(screen.getByLabelText("Контактный телефон"), "+359 1 234");
-    await user.type(screen.getByLabelText("Сообщение / комментарий"), "Please approve.");
+    await user.type(screen.getByLabelText("Комментарий"), "Please approve.");
     await user.click(screen.getByRole("button", { name: "Отправить заявку" }));
 
     expect(mocks.submitAccessRequestAction).toHaveBeenCalledWith({
       requestedCompanyName: "Partner Company",
-      requestedFiscalCode: "BG123456789",
+      requestedFiscalCode: "123456789",
       contactPhone: "+359 1 234",
       message: "Please approve.",
     });
     expect(mocks.submitAccessRequestAction).not.toHaveBeenCalledWith(
       expect.objectContaining({ requestedExternal1cId: expect.anything() }),
     );
+  });
+
+  it("uses individual identity labels and prefills governed profile values", () => {
+    render(
+      <AccessRequestForm
+        initialName="Culacov Vasili"
+        initialPhone="+373 69 982 220"
+        legalForm="INDIVIDUAL"
+      />,
+    );
+
+    expect(screen.getByLabelText("Имя и фамилия")).toHaveValue("Culacov Vasili");
+    expect(screen.getByLabelText("IDNP")).toBeInTheDocument();
+    expect(screen.getByLabelText("Контактный телефон")).toHaveValue("+373 69 982 220");
+    expect(screen.queryByLabelText("Название компании")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("IDNO")).not.toBeInTheDocument();
   });
 
   it("redirects to waiting after successful submit", async () => {
@@ -384,7 +398,6 @@ function makeProfile(overrides: Partial<CurrentProfileDto> = {}): CurrentProfile
     ...overrides,
   };
 }
-
 function makeAccessRequest(
   overrides: Partial<OwnAccessRequestDto> = {},
 ): OwnAccessRequestDto {
@@ -397,25 +410,6 @@ function makeAccessRequest(
     contactPhone: null,
     status: AccessRequestStatus.PendingReview,
     decisionReason: null,
-    createdAt: "2026-07-09T00:00:00.000Z",
-    updatedAt: "2026-07-09T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function makeCompanyMembership(
-  overrides: Partial<CompanyMembership> = {},
-): CompanyMembership {
-  return {
-    id: "membership-1",
-    userId: "user-1",
-    companyId: "company-1",
-    roleId: "role-1",
-    status: MembershipStatus.Active,
-    approvedBy: null,
-    approvedAt: null,
-    revokedBy: null,
-    revokedAt: null,
     createdAt: "2026-07-09T00:00:00.000Z",
     updatedAt: "2026-07-09T00:00:00.000Z",
     ...overrides,

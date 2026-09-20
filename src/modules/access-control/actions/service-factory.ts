@@ -37,6 +37,7 @@ export type AuthenticatedUser = {
   id: string;
   email: string;
   loginGeneration: string;
+  registrationIntent: "agent" | "installer" | null;
   registrationLegalForm: "INDIVIDUAL" | "LEGAL_ENTITY" | null;
   preferredRegistrationLocale: "ru" | "ro" | null;
 };
@@ -55,6 +56,9 @@ export const getAuthenticatedUser = cache(async (): Promise<AuthenticatedUser> =
       id: data.user.id,
       email: data.user.email,
       loginGeneration: data.user.last_sign_in_at ?? data.user.created_at,
+      registrationIntent: data.user.user_metadata?.registration_intent === "agent"
+        ? "agent"
+        : data.user.user_metadata?.registration_intent === "installer" ? "installer" : null,
       registrationLegalForm: data.user.user_metadata?.registration_legal_form === "LEGAL_ENTITY"
         ? "LEGAL_ENTITY"
         : data.user.user_metadata?.registration_legal_form === "INDIVIDUAL" ? "INDIVIDUAL" : null,

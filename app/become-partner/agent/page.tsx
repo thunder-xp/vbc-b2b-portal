@@ -26,8 +26,7 @@ export default async function CommercialAgentApplicationPage({ searchParams }: {
     user = await getAuthenticatedUser();
   } catch (error) {
     if (error instanceof UnauthenticatedError) {
-      const next = `/become-partner/agent?lang=${locale}`;
-      redirect(`/auth/register?lang=${locale}&intent=agent&next=${encodeURIComponent(next)}`);
+      redirect(`/auth/register/agent?lang=${locale}`);
     }
     throw error;
   }

@@ -5,31 +5,34 @@ import { useActionState } from "react";
 
 import type { PublicLocale } from "@/src/modules/public-locale";
 
-import { registerAction } from "../actions/auth.actions";
+import {
+  registerAgentAction,
+  registerInstallerAction,
+} from "../actions/auth.actions";
 import { authCopy, localizeRegistrationError } from "../auth-copy";
 
 export function RegisterForm({
-  intent = "installer",
+  intent,
   locale,
-  nextPath,
 }: {
-  intent?: "agent" | "installer";
+  intent: "agent" | "installer";
   locale: PublicLocale;
-  nextPath?: string;
 }) {
-  const [state, formAction, isPending] = useActionState(registerAction, {
+  const registrationAction = intent === "agent" ? registerAgentAction : registerInstallerAction;
+  const [state, formAction, isPending] = useActionState(registrationAction, {
     error: null,
   });
   const copy = authCopy[locale].registration;
   const errorMessage = localizeRegistrationError(locale, state.error);
+  const nextPath = intent === "agent"
+    ? `/become-partner/agent?lang=${locale}`
+    : `/onboarding/profile?lang=${locale}`;
 
   return (
     <form action={formAction} className="grid gap-4">
-      {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
       <input name="locale" type="hidden" value={locale} />
-      <input name="intent" type="hidden" value={intent} />
       <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
-        <span>{copy.legalForm} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
+        <span>{locale === "ru" ? "Форма работы" : copy.legalForm} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
         <select className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" defaultValue="INDIVIDUAL" name="legalForm" required>
           <option value="INDIVIDUAL">{copy.individual}</option>
           <option value="LEGAL_ENTITY">{copy.legalEntity}</option>

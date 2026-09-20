@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import RegisterPage from "@/app/auth/register/page";
+import ProfessionalRegisterPage from "@/app/auth/register/[intent]/page";
 import CheckEmailPage from "@/app/auth/check-email/page";
 import SignInPage from "@/app/auth/sign-in/page";
 import { authCopy, localizeRegistrationError, localizeSignInError } from "../../auth-copy";
@@ -9,7 +9,8 @@ import { CustomerAuthEntry } from "../../components";
 import { PUBLIC_LOCALE_STORAGE_KEY } from "@/src/modules/public-locale";
 
 vi.mock("../../actions/auth.actions", () => ({
-  registerAction: vi.fn(async () => ({ error: null })),
+  registerAgentAction: vi.fn(async () => ({ error: null })),
+  registerInstallerAction: vi.fn(async () => ({ error: null })),
   signInAction: vi.fn(async () => ({ error: null })),
 }));
 vi.mock("@/src/modules/quick-auth/actions", () => ({
@@ -82,7 +83,10 @@ describe("authentication localization", () => {
 
   it("localizes the complete registration form in Romanian", async () => {
     window.localStorage.setItem(PUBLIC_LOCALE_STORAGE_KEY, "ro");
-    render(<RegisterPage />);
+    render(await ProfessionalRegisterPage({
+      params: Promise.resolve({ intent: "installer" }),
+      searchParams: Promise.resolve({ lang: "ro" }),
+    }));
 
     expect(await screen.findByRole("heading", { name: "Înregistrare instalator profesionist" })).toBeInTheDocument();
     expect(screen.getByLabelText(/Forma de activitate/)).toBeInTheDocument();
@@ -93,20 +97,25 @@ describe("authentication localization", () => {
     expect(screen.getByLabelText(/Parolă/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Confirmați parola/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Creați contul" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Aveți deja un cont? Autentificare" })).toHaveAttribute("href", "/auth/sign-in?lang=ro");
+    expect(screen.getByRole("link", { name: "Aveți deja un cont? Autentificare" })).toHaveAttribute(
+      "href",
+      "/auth/sign-in?lang=ro&next=%2Fonboarding%2Fprofile%3Flang%3Dro",
+    );
   });
 
   it("keeps Agent registration separate and returns to the governed application", async () => {
-    window.history.replaceState({}, "", "/auth/register?lang=ru&intent=agent&next=%2Fbecome-partner%2Fagent%3Flang%3Dru");
-    render(<RegisterPage />);
+    render(await ProfessionalRegisterPage({
+      params: Promise.resolve({ intent: "agent" }),
+      searchParams: Promise.resolve({ lang: "ru" }),
+    }));
 
     expect(await screen.findByRole("heading", { name: "Регистрация коммерческого агента" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/Компания/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Страна/)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Форма деятельности/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Форма работы/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Электронная почта/)).toBeInTheDocument();
-    expect(document.querySelector('input[name="intent"]')).toHaveValue("agent");
-    expect(document.querySelector('input[name="next"]')).toHaveValue("/become-partner/agent?lang=ru");
+    expect(document.querySelector('input[name="intent"]')).not.toBeInTheDocument();
+    expect(document.querySelector('input[name="next"]')).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: authCopy.ru.registration.alreadyRegistered })).toHaveAttribute(
       "href",
       "/auth/sign-in?lang=ru&next=%2Fbecome-partner%2Fagent%3Flang%3Dru",

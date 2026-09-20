@@ -69,6 +69,12 @@ describe("rejection, cancellation, and reopen", () => {
     const cancel = migration.slice(migration.indexOf("cancel_own_onboarding_request"), migration.indexOf("cancel_onboarding_request_internal"));
     expect(cancel).not.toMatch(/delete from public\.(partner_companies|company_memberships)/);
   });
+  it("governed internal cancellation preserves the request row and audit history", () => {
+    const cancel = migration.slice(migration.indexOf("cancel_onboarding_request_internal"), migration.indexOf("reopen_onboarding_request"));
+    expect(cancel).toContain("onboarding_status = 'cancelled', status = 'cancelled'");
+    expect(cancel).toContain("insert into public.onboarding_events");
+    expect(cancel).not.toMatch(/delete from public\.access_requests/);
+  });
   it("restricts reopen to platform administrators", () => {
     const reopen = migration.slice(migration.indexOf("reopen_onboarding_request"), migration.indexOf("assign_onboarding_request"));
     expect(reopen).toContain("context.is_platform_admin");

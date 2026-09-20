@@ -20,14 +20,10 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
       : "Alegeți forma de colaborare profesională cu Novotech.",
   });
 }
-
 export default async function BecomePartnerPage({ searchParams }: { searchParams: Params }) {
   const params = await searchParams;
   const locale = publicRetailLocale(params.lang);
   const ru = locale === "ru";
-  const nextPath = safeNextPath(params.next);
-  const installerQuery = new URLSearchParams({ lang: locale, intent: "installer" });
-  if (nextPath) installerQuery.set("next", nextPath);
   const schema = publicBreadcrumbSchema([
     { name: ru ? "Главная" : "Principală", url: publicLocalizedUrl("/", locale) },
     { name: ru ? "Стать партнёром" : "Devino partener", url: publicLocalizedUrl("/become-partner", locale) },
@@ -44,13 +40,13 @@ export default async function BecomePartnerPage({ searchParams }: { searchParams
         </header>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <Link className="group flex min-h-44 flex-col rounded-md border border-zinc-200 bg-white p-5 transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={`/become-partner/agent?lang=${locale}`}>
+          <Link className="group flex min-h-44 flex-col rounded-md border border-zinc-200 bg-white p-5 transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={`/auth/register/agent?lang=${locale}`}>
             <BriefcaseBusiness aria-hidden="true" className="size-6 text-blue-700" />
             <h2 className="mt-4 text-lg font-semibold text-zinc-950">{ru ? "Коммерческий агент" : "Agent comercial"}</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-600">{ru ? "Заявка проходит отдельную проверку, согласование и активацию. Компания партнёра автоматически не создаётся." : "Cererea trece prin verificare, aprobare și activare separată. Nu se creează automat o companie parteneră."}</p>
             <span className="mt-auto pt-4 text-sm font-semibold text-blue-800">{ru ? "Начать заявку" : "Începe cererea"} →</span>
           </Link>
-          <Link className="group flex min-h-44 flex-col rounded-md border border-zinc-200 bg-white p-5 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/auth/register?${installerQuery.toString()}`}>
+          <Link className="group flex min-h-44 flex-col rounded-md border border-zinc-200 bg-white p-5 transition-colors hover:border-emerald-300 hover:bg-emerald-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700" href={`/auth/register/installer?lang=${locale}`}>
             <Wrench aria-hidden="true" className="size-6 text-emerald-700" />
             <h2 className="mt-4 text-lg font-semibold text-zinc-950">{ru ? "Профессиональный инсталлятор" : "Instalator profesionist"}</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-600">{ru ? "Регистрация запускает существующий процесс бизнес-доступа. Участие в Marketplace подключается отдельно." : "Înregistrarea pornește procesul existent de acces business. Participarea în Marketplace se activează separat."}</p>
@@ -60,11 +56,4 @@ export default async function BecomePartnerPage({ searchParams }: { searchParams
       </main>
     </PublicRetailShell>
   );
-}
-
-function safeNextPath(value: string | string[] | undefined) {
-  const candidate = typeof value === "string" ? value : null;
-  return candidate?.startsWith("/") && !candidate.startsWith("//") && candidate.length <= 500
-    ? candidate
-    : undefined;
 }

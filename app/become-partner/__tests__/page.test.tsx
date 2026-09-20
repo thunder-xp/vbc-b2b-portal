@@ -14,22 +14,22 @@ describe("professional registration intent selector", () => {
     expect(screen.getByRole("heading", { name: "Как вы хотите сотрудничать с Novotech?" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Коммерческий агент/ })).toHaveAttribute(
       "href",
-      "/become-partner/agent?lang=ru",
+      "/auth/register/agent?lang=ru",
     );
     expect(screen.getByRole("link", { name: /Профессиональный инсталлятор/ })).toHaveAttribute(
       "href",
-      "/auth/register?lang=ru&intent=installer",
+      "/auth/register/installer?lang=ru",
     );
     expect(document.querySelector('input[name="partnerType"]')).not.toBeInTheDocument();
   });
 
-  it("preserves Romanian locale and a validated next path", async () => {
+  it("preserves Romanian locale while keeping the Installer route authoritative", async () => {
     render(await BecomePartnerPage({ searchParams: Promise.resolve({ lang: "ro", next: "/cabinet" }) }));
 
     expect(screen.getByRole("heading", { name: "Cum doriți să colaborați cu Novotech?" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Instalator profesionist/ })).toHaveAttribute(
       "href",
-      "/auth/register?lang=ro&intent=installer&next=%2Fcabinet",
+      "/auth/register/installer?lang=ro",
     );
   });
 

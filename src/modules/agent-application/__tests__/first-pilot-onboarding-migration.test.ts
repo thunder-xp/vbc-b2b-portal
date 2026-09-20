@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(resolve("supabase/migrations/20260920201440_commercial_agent_first_pilot_onboarding_v1.sql"), "utf8");
+const intentIsolationSql = readFileSync(resolve("supabase/migrations/20260920210611_professional_registration_intent_isolation_v2.sql"), "utf8");
 
 describe("Commercial Agent first-pilot onboarding migration", () => {
   it("keeps draft creation service-role only and derives identity email from Auth", () => {
@@ -24,5 +25,16 @@ describe("Commercial Agent first-pilot onboarding migration", () => {
     expect(sql).toContain("commercial_agent_applications_submitted_phone_check");
     expect(sql).toContain("status in ('DRAFT', 'WITHDRAWN')");
     expect(sql).toContain("phone is not null");
+  });
+
+  it("prefills only missing Agent draft identity fields from the governed profile", () => {
+    expect(intentIsolationSql).toContain("profile.full_name");
+    expect(intentIsolationSql).toContain("profile.phone");
+    expect(intentIsolationSql).toContain("existing.status = 'DRAFT'");
+    expect(intentIsolationSql).toContain("coalesce(nullif(btrim(existing.display_name), ''), profile_name)");
+    expect(intentIsolationSql).toContain("coalesce(nullif(btrim(existing.phone), ''), profile_phone)");
+    expect(intentIsolationSql).toContain("from auth.users identity");
+    expect(intentIsolationSql).toContain("to service_role");
+    expect(intentIsolationSql).not.toMatch(/grant execute[^;]+to authenticated/i);
   });
 });

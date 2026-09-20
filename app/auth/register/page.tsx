@@ -1,53 +1,25 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import {
-  AuthPageLoading,
-  AuthPageShell,
-  RegisterForm,
-} from "@/src/modules/auth/components";
-import { authCopy } from "@/src/modules/auth/auth-copy";
-import { usePublicLocale } from "@/src/modules/public-locale";
+import { publicRetailLocale } from "@/src/modules/public-retail/presentation";
 
-export default function RegisterPage() {
-  const { locale, isLocaleReady } = usePublicLocale();
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-  if (!isLocaleReady) return <AuthPageLoading />;
+export default async function LegacyProfessionalRegisterPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const query = await searchParams;
+  const locale = publicRetailLocale(query.lang);
+  const intent = singleValue(query.intent);
 
-  const copy = authCopy[locale].registration;
-  const params = new URLSearchParams(window.location.search);
-  const nextPath = safeNextPath(params.get("next"));
-  const intent = params.get("intent") === "agent" ? "agent" : "installer";
-  const roleCopy = intent === "agent"
-    ? {
-        title: locale === "ru" ? "Регистрация коммерческого агента" : "Înregistrare agent comercial",
-        description: locale === "ru"
-          ? "Создайте аккаунт, подтвердите email и заполните заявку коммерческого агента."
-          : "Creați contul, confirmați adresa de e-mail și completați cererea de agent comercial.",
-      }
-    : {
-        title: locale === "ru" ? "Регистрация профессионального инсталлятора" : "Înregistrare instalator profesionist",
-        description: locale === "ru"
-          ? "Создайте аккаунт и подтвердите email. Данные профиля и компании заполняются после входа."
-          : "Creați contul și confirmați adresa de e-mail. Profilul și datele companiei se completează după autentificare.",
-      };
+  if (intent !== "agent" && intent !== "installer") {
+    redirect(`/become-partner?lang=${locale}`);
+  }
 
-  return (
-    <AuthPageShell
-      backHref={`/become-partner?lang=${locale}`}
-      backLabel={locale === "ru" ? "Назад к выбору" : "Înapoi la alegere"}
-      description={roleCopy.description}
-      eyebrow={copy.eyebrow}
-      homeHref={`/?lang=${locale}`}
-      maxWidth="lg"
-      title={roleCopy.title}
-    >
-      <RegisterForm intent={intent} locale={locale} nextPath={nextPath} />
-    </AuthPageShell>
-  );
+  redirect(`/auth/register/${intent}?lang=${locale}`);
 }
 
-function safeNextPath(value: string | null): string | undefined {
-  return value?.startsWith("/") && !value.startsWith("//") && value.length <= 500
-    ? value
-    : undefined;
+function singleValue(value: string | string[] | undefined): string | null {
+  return typeof value === "string" ? value : null;
 }

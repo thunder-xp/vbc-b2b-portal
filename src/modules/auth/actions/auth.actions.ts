@@ -103,17 +103,30 @@ export async function signInAction(
   redirect(nextPath ?? "/cabinet");
 }
 
-export async function registerAction(
+export async function registerAgentAction(
   _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  return registerProfessionalAction("agent", formData);
+}
+
+export async function registerInstallerAction(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  return registerProfessionalAction("installer", formData);
+}
+
+async function registerProfessionalAction(
+  intent: "agent" | "installer",
   formData: FormData,
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  const intent = String(formData.get("intent") ?? "installer") === "agent" ? "agent" : "installer";
   const locale = String(formData.get("locale") ?? "") === "ro" ? "ro" : "ru";
   const legalForm = String(formData.get("legalForm") ?? "") === "LEGAL_ENTITY" ? "LEGAL_ENTITY" : "INDIVIDUAL";
-  const nextPath = professionalRegistrationContinuation(intent, locale, formData.get("next"));
+  const nextPath = professionalRegistrationContinuation(intent, locale);
 
   if (!email || !password || !confirmPassword) {
     return { error: "Complete all fields." };

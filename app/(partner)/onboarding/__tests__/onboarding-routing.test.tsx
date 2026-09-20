@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getOwnAccessRequestsAction: vi.fn(),
   getOwnMembershipsAction: vi.fn(),
   getOwnOnboardingStatusAction: vi.fn(),
+  getAuthenticatedUser: vi.fn(),
   redirect: vi.fn((href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`);
   }),
@@ -31,6 +32,10 @@ vi.mock("@/src/modules/access-control/actions/get-access-requests.action", () =>
 
 vi.mock("@/src/modules/access-control/actions/get-memberships.action", () => ({
   getOwnMembershipsAction: mocks.getOwnMembershipsAction,
+}));
+
+vi.mock("@/src/modules/access-control/actions/service-factory", () => ({
+  getAuthenticatedUser: mocks.getAuthenticatedUser,
 }));
 
 vi.mock("@/src/modules/onboarding/actions", () => ({
@@ -85,6 +90,33 @@ describe("onboarding route decisions", () => {
       data: [],
     });
     mocks.getOwnOnboardingStatusAction.mockResolvedValue(statusResult("under_review", false));
+    mocks.getAuthenticatedUser.mockResolvedValue({
+      id: "user-1",
+      email: "partner@example.com",
+      loginGeneration: "2026-07-09T00:00:00.000Z",
+      registrationIntent: "installer",
+      registrationLegalForm: "INDIVIDUAL",
+      preferredRegistrationLocale: "ru",
+    });
+  });
+
+  it("keeps an Agent applicant out of Partner profile and access-request routes", async () => {
+    mocks.getAuthenticatedUser.mockResolvedValue({
+      id: "agent-1",
+      email: "agent@example.com",
+      loginGeneration: "2026-09-20T00:00:00.000Z",
+      registrationIntent: "agent",
+      registrationLegalForm: "INDIVIDUAL",
+      preferredRegistrationLocale: "ro",
+    });
+
+    await expect(OnboardingProfilePage()).rejects.toThrow(
+      "NEXT_REDIRECT:/become-partner/agent?lang=ro",
+    );
+    await expect(OnboardingAccessRequestPage()).rejects.toThrow(
+      "NEXT_REDIRECT:/become-partner/agent?lang=ro",
+    );
+    expect(mocks.getOwnAccessRequestsAction).not.toHaveBeenCalled();
   });
 
   it("redirects an existing profile away from profile step", async () => {

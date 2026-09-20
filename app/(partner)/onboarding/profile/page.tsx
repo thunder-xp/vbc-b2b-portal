@@ -1,4 +1,6 @@
 import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
+import { getAuthenticatedUser } from "@/src/modules/access-control/actions/service-factory";
+import { UnauthenticatedError } from "@/src/modules/access-control/services";
 import {
   OnboardingStateCard,
   ProfileForm,
@@ -6,6 +8,18 @@ import {
 import { redirect } from "next/navigation";
 
 export default async function OnboardingProfilePage() {
+  let user;
+  try {
+    user = await getAuthenticatedUser();
+  } catch (error) {
+    if (error instanceof UnauthenticatedError) redirect("/auth/sign-in");
+    throw error;
+  }
+
+  if (user.registrationIntent === "agent") {
+    redirect(`/become-partner/agent?lang=${user.preferredRegistrationLocale ?? "ru"}`);
+  }
+
   const profileResult = await getCurrentProfileAction();
 
   if (!profileResult.success && profileResult.errorCode === "AUTH_REQUIRED") {
