@@ -63,7 +63,6 @@ export type OneCODataMutationResult = {
   durationMs: number;
   hostname: string;
   resourceName: string;
-  payload?: unknown;
 };
 
 export type OneCODataMetadataContractResult = OneCODataMetadataProbeResult & {
@@ -230,101 +229,6 @@ export class OneCODataClient {
       durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
       hostname: url.hostname,
       resourceName: resource,
-    };
-  }
-
-  async postCollection(
-    resource: string,
-    payload: Record<string, unknown>,
-    allowedProperties: readonly string[],
-  ): Promise<OneCODataMutationResult> {
-    const { baseUrl, username, password } = this.config;
-    if (!baseUrl || !username || !password) {
-      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
-    }
-    const payloadProperties = Object.keys(payload);
-    if (
-      !/^[\p{L}\p{N}_]+$/u.test(resource)
-      || payloadProperties.length === 0
-      || payloadProperties.length > 32
-      || payloadProperties.some((property) => !allowedProperties.includes(property))
-    ) {
-      throw new IntegrationValidationError("1C collection mutation is invalid.");
-    }
-
-    const url = new URL(`${baseUrl.replace(/\/$/, "")}/${resource}`);
-    url.searchParams.set("$format", "json");
-    const startedAt = performance.now();
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json; charset=utf-8",
-          Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
-      });
-    } catch (error) {
-      if (isAbortError(error)) {
-        throw Object.assign(new IntegrationTimeoutError("1C OData mutation timed out."), { cause: error });
-      }
-      throw Object.assign(new IntegrationProviderUnavailableError("1C OData mutation is unavailable."), {
-        cause: error,
-        networkCode: safeNetworkCode(error),
-      });
-    }
-
-    const responseBody = await response.text();
-    if (response.status === 401) throw new IntegrationUnauthorizedError();
-    if (response.status === 403) throw new IntegrationForbiddenError();
-    if (response.status < 200 || response.status >= 300) {
-      const diagnostic: OneCODataSafeDiagnostic = {
-        failedStage: "odata_mutation",
-        receivedContentType: response.headers.get("content-type"),
-        requestKind: "collection-post",
-        resourceName: resource,
-        queryParameterNames: ["$format"],
-        statusCode: response.status,
-        jsonParseFailure: false,
-        parseErrorName: null,
-        bodyLength: new TextEncoder().encode(responseBody).byteLength,
-        bomDetected: responseBody.charCodeAt(0) === 0xfeff,
-        emptyBody: responseBody.length === 0,
-        ...responseMetadata(response, null),
-      };
-      throw new OneCODataHttpError(diagnostic, responseBody.slice(0, 4_096));
-    }
-
-    let responsePayload: unknown;
-    try {
-      responsePayload = responseBody.length > 0 ? JSON.parse(responseBody) : null;
-    } catch (error) {
-      const diagnostic: OneCODataSafeDiagnostic = {
-        failedStage: "odata_mutation_response",
-        receivedContentType: response.headers.get("content-type"),
-        requestKind: "collection-post",
-        resourceName: resource,
-        queryParameterNames: ["$format"],
-        statusCode: response.status,
-        jsonParseFailure: true,
-        parseErrorName: error instanceof Error ? error.name : typeof error,
-        bodyLength: new TextEncoder().encode(responseBody).byteLength,
-        bomDetected: responseBody.charCodeAt(0) === 0xfeff,
-        emptyBody: responseBody.length === 0,
-        ...responseMetadata(response, null),
-      };
-      throw new OneCODataResponseValidationError(diagnostic);
-    }
-
-    return {
-      statusCode: response.status,
-      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
-      hostname: url.hostname,
-      resourceName: resource,
-      payload: responsePayload,
     };
   }
 

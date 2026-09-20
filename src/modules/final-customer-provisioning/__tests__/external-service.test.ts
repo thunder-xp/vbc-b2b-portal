@@ -26,8 +26,8 @@ const candidate: FinalCustomerCandidate = {
   externalId: "66666666-6666-4666-8666-666666666666",
   customerKind: "PERSON",
   displayName: job.displayName,
-  phone: job.verifiedPhone,
-  email: job.email,
+  phones: [job.verifiedPhone],
+  emails: job.email ? [job.email] : [],
   active: true,
   operationKey: null,
 };
@@ -92,7 +92,7 @@ describe("ExternalCustomerProvisioningService", () => {
   });
 
   it("D: exact email on a different phone becomes CONFLICT", () => {
-    expect(classifyCandidates(toRequest(), [{ ...candidate, phone: "+37369000999" }])).toEqual({ outcome: "CONFLICT" });
+    expect(classifyCandidates(toRequest(), [{ ...candidate, phones: ["+37369000999"] }])).toEqual({ outcome: "CONFLICT" });
   });
 
   it("E: temporary provider outage schedules a bounded retry", async () => {

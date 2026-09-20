@@ -192,6 +192,13 @@ function FinalCustomerContractAudit({ audit }: { audit: OneCFinalCustomerContrac
       </div>
       <p className="mt-4 break-words text-sm text-zinc-700">Present: {audit.presentProperties.join(", ") || "—"}</p>
       <p className="mt-2 break-words text-sm text-zinc-700">Missing: {audit.missingProperties.join(", ") || "NONE"}</p>
+      <p className="mt-2 break-words text-sm text-zinc-700">
+        Lookup: {audit.phoneLookupProperty}, {audit.emailLookupProperty}; contacts: {audit.contactCollectionProperty}
+      </p>
+      <p className="mt-2 break-words text-sm text-zinc-700">Lookup projection probe: {audit.lookupProjectionProbe}</p>
+      <p className="mt-2 break-words text-sm text-zinc-700">
+        Create contract: {audit.createContractProven ? "PROVEN" : `BLOCKED (${audit.createBlocker})`}
+      </p>
     </section>
   );
 }

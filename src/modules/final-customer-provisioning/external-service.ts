@@ -133,19 +133,21 @@ export function classifyCandidates(
   const sufficient = active.filter((candidate) => candidateMatchesRequest(candidate, request));
   if (sufficient.length > 1) return { outcome: "AMBIGUOUS" };
   if (sufficient.length === 1) return { outcome: "MATCHED", candidate: sufficient[0] };
-  if (active.some((candidate) => sameEmail(candidate.email, request.email) && candidate.phone !== request.verifiedPhone)) {
+  if (active.some((candidate) => hasEmail(candidate, request.email) && !candidate.phones.includes(request.verifiedPhone))) {
     return { outcome: "CONFLICT" };
   }
   return { outcome: "NEW" };
 }
 
 function candidateMatchesRequest(candidate: FinalCustomerCandidate, request: FinalCustomerProvisioningRequest) {
-  if (!candidate.active || candidate.customerKind !== request.customerKind || candidate.phone !== request.verifiedPhone) return false;
-  return sameEmail(candidate.email, request.email) || normalizeName(candidate.displayName) === normalizeName(request.displayName);
+  if (!candidate.active || candidate.customerKind !== request.customerKind || !candidate.phones.includes(request.verifiedPhone)) return false;
+  return hasEmail(candidate, request.email) || normalizeName(candidate.displayName) === normalizeName(request.displayName);
 }
 
-function sameEmail(left: string | null, right: string | null) {
-  return Boolean(left && right && left.trim().toLowerCase() === right.trim().toLowerCase());
+function hasEmail(candidate: FinalCustomerCandidate, email: string | null) {
+  if (!email) return false;
+  const expected = email.trim().toLowerCase();
+  return candidate.emails.some((candidateEmail) => candidateEmail.trim().toLowerCase() === expected);
 }
 
 function normalizeName(value: string) {

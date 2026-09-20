@@ -9,14 +9,15 @@ import {
 import type {
   FinalCustomerCandidate,
   FinalCustomerMasterProvider,
+  FinalCustomerProviderResult,
   FinalCustomerProvisioningRequest,
 } from "./external-types";
 
 export const ONE_C_FINAL_CUSTOMER_RESOURCE = "Catalog_Контрагенты";
 export const ONE_C_FINAL_CUSTOMER_PROPERTIES = [
   "Ref_Key", "Description", "НаименованиеПолное", "ВидКонтрагента", "Покупатель",
-  "Поставщик", "Недействителен", "DeletionMark", "IsFolder", "Телефон",
-  "ЭлектроннаяПочта", "Комментарий",
+  "Поставщик", "Недействителен", "DeletionMark", "IsFolder", "НомерТелефонаДляПоиска",
+  "АдресЭПДляПоиска", "КонтактнаяИнформация", "Комментарий",
 ] as const;
 const SELECT = ONE_C_FINAL_CUSTOMER_PROPERTIES.join(",");
 const MARKER_PREFIX = "NOVOTECH_FINAL_CUSTOMER:";
@@ -29,6 +30,12 @@ export type OneCFinalCustomerContractAudit = Readonly<{
   missingProperties: string[];
   statusCode: number;
   durationMs: number;
+  phoneLookupProperty: "НомерТелефонаДляПоиска";
+  emailLookupProperty: "АдресЭПДляПоиска";
+  contactCollectionProperty: "КонтактнаяИнформация";
+  createContractProven: false;
+  createBlocker: "ONE_C_CONTACT_KIND_AND_CREATE_CONTRACT_NOT_PROVEN";
+  lookupProjectionProbe: "PASS" | "NO_SAMPLE" | "FAIL";
 }>;
 
 export class OneCFinalCustomerProvider implements FinalCustomerMasterProvider {
@@ -41,22 +48,31 @@ export class OneCFinalCustomerProvider implements FinalCustomerMasterProvider {
 
   async auditContract(): Promise<OneCFinalCustomerContractAudit> {
     const result = await this.contract();
+    const metadataPassed = result.missingEntitySets.length === 0 && result.missingProperties.length === 0;
+    const lookupProjectionProbe = metadataPassed ? await this.probeLookupProjection() : "FAIL";
     return {
-      passed: result.missingEntitySets.length === 0 && result.missingProperties.length === 0,
+      passed: metadataPassed && lookupProjectionProbe !== "FAIL",
       entitySet: result.entitySet,
       entityType: result.entityType,
       presentProperties: result.presentProperties,
       missingProperties: result.missingProperties,
       statusCode: result.statusCode,
       durationMs: result.durationMs,
+      phoneLookupProperty: "НомерТелефонаДляПоиска",
+      emailLookupProperty: "АдресЭПДляПоиска",
+      contactCollectionProperty: "КонтактнаяИнформация",
+      createContractProven: false,
+      createBlocker: "ONE_C_CONTACT_KIND_AND_CREATE_CONTRACT_NOT_PROVEN",
+      lookupProjectionProbe,
     };
   }
 
   async findCandidates(request: FinalCustomerProvisioningRequest) {
     await this.requireContract();
     const startedAt = performance.now();
-    const filters = [`Телефон eq '${escapeLiteral(request.verifiedPhone)}'`];
-    if (request.email) filters.push(`ЭлектроннаяПочта eq '${escapeLiteral(request.email)}'`);
+    const localPhone = request.verifiedPhone.replace(/^\+373/, "");
+    const filters = [`substringof('${escapeLiteral(localPhone)}',НомерТелефонаДляПоиска) eq true`];
+    if (request.email) filters.push(`substringof('${escapeLiteral(request.email.toLowerCase())}',АдресЭПДляПоиска) eq true`);
     const rows = new Map<string, FinalCustomerCandidate>();
     for (const filter of filters) {
       for (const candidate of parseRows(await this.client.getFilteredCollection(
@@ -80,26 +96,9 @@ export class OneCFinalCustomerProvider implements FinalCustomerMasterProvider {
     return { value, requestCount: 2, durationMs: elapsed(startedAt) };
   }
 
-  async create(request: FinalCustomerProvisioningRequest) {
-    await this.requireContract();
-    if (process.env.ONE_C_CUSTOMER_WRITE_READY !== "true") throw codeError("ONE_C_CUSTOMER_WRITE_NOT_READY");
-    if (request.customerKind !== "PERSON") throw codeError("UNSUPPORTED_CUSTOMER_KIND");
-    const startedAt = performance.now();
-    const payload: Record<string, unknown> = {
-      Description: request.displayName,
-      НаименованиеПолное: request.displayName,
-      ВидКонтрагента: "ФизическоеЛицо",
-      Покупатель: true,
-      Поставщик: false,
-      Недействителен: false,
-      Телефон: request.verifiedPhone,
-      Комментарий: operationMarker(request.operationKey),
-    };
-    if (request.email) payload.ЭлектроннаяПочта = request.email;
-    const result = await this.client.postCollection(ONE_C_FINAL_CUSTOMER_RESOURCE, payload, ONE_C_FINAL_CUSTOMER_PROPERTIES);
-    const externalId = parseGuid(record(result.payload)?.Ref_Key);
-    if (!externalId) throw codeError("ONE_C_CUSTOMER_CREATE_RESPONSE_INVALID");
-    return { value: { externalId }, requestCount: 2, durationMs: elapsed(startedAt) };
+  async create(request: FinalCustomerProvisioningRequest): Promise<FinalCustomerProviderResult<{ externalId: string }>> {
+    void request;
+    throw codeError("ONE_C_CUSTOMER_CREATE_CONTRACT_NOT_PROVEN");
   }
 
   async readBack(externalId: string) {
@@ -127,6 +126,25 @@ export class OneCFinalCustomerProvider implements FinalCustomerMasterProvider {
       throw codeError("ONE_C_CUSTOMER_METADATA_CONTRACT_MISMATCH");
     }
   }
+
+  private async probeLookupProjection(): Promise<"PASS" | "NO_SAMPLE" | "FAIL"> {
+    try {
+      for (const filter of ["НомерТелефонаДляПоиска ne ''", "АдресЭПДляПоиска ne ''"]) {
+        const payload = record(await this.client.getFilteredCollection(
+          ONE_C_FINAL_CUSTOMER_RESOURCE,
+          { select: SELECT, filter, top: 1 },
+          { requestKind: "final_customer_lookup_projection_probe" },
+        ));
+        if (!payload || !Array.isArray(payload.value)) return "FAIL";
+        if (payload.value.length === 0) continue;
+        const row = record(payload.value[0]);
+        return row && Array.isArray(row.КонтактнаяИнформация) ? "PASS" : "FAIL";
+      }
+      return "NO_SAMPLE";
+    } catch {
+      return "FAIL";
+    }
+  }
 }
 
 function parseRows(value: unknown): FinalCustomerCandidate[] {
@@ -142,12 +160,21 @@ function parseCandidate(value: unknown): FinalCustomerCandidate | null {
   const kind = row?.ВидКонтрагента === "ФизическоеЛицо" ? "PERSON" : row?.ВидКонтрагента === "ЮридическоеЛицо" ? "LEGAL_ENTITY" : null;
   if (!row || !externalId || !displayName || !kind) return null;
   const comment = string(row.Комментарий);
+  const contacts = Array.isArray(row.КонтактнаяИнформация)
+    ? row.КонтактнаяИнформация.map(record).filter((contact): contact is Record<string, unknown> => contact !== null)
+    : [];
   return {
     externalId,
     customerKind: kind,
     displayName,
-    phone: normalizePhone(string(row.Телефон)),
-    email: string(row.ЭлектроннаяПочта)?.toLowerCase() ?? null,
+    phones: unique(contacts.flatMap((contact) => {
+      const phone = normalizePhone(string(contact.НомерТелефонаБезКодов) ?? string(contact.НомерТелефона));
+      return phone ? [phone] : [];
+    })),
+    emails: unique(contacts.flatMap((contact) => {
+      const email = normalizeEmail(string(contact.АдресЭП) ?? string(contact.Значение) ?? string(contact.Представление));
+      return email ? [email] : [];
+    })),
     active: row.DeletionMark !== true && row.Недействителен !== true && row.IsFolder !== true,
     operationKey: comment?.startsWith(MARKER_PREFIX) ? parseGuid(comment.slice(MARKER_PREFIX.length)) : null,
   };
@@ -160,6 +187,14 @@ function normalizePhone(value: string | null) {
   if (/^0\d{8}$/.test(digits)) return `+373${digits.slice(1)}`;
   return null;
 }
+
+function normalizeEmail(value: string | null) {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) ? normalized : null;
+}
+
+function unique(values: string[]) { return [...new Set(values)]; }
 
 function operationMarker(operationKey: string) { return `${MARKER_PREFIX}${operationKey}`; }
 function escapeLiteral(value: string) { return value.replaceAll("'", "''"); }

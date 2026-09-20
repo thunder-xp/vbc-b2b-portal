@@ -31,8 +31,8 @@ export type FinalCustomerCandidate = Readonly<{
   externalId: string;
   customerKind: FinalCustomerKind;
   displayName: string;
-  phone: string | null;
-  email: string | null;
+  phones: readonly string[];
+  emails: readonly string[];
   active: boolean;
   operationKey: string | null;
 }>;
