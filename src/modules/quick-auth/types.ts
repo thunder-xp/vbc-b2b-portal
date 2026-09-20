@@ -8,18 +8,28 @@ export const QUICK_AUTH_RESOLUTIONS = [
 
 export type QuickAuthResolution = (typeof QUICK_AUTH_RESOLUTIONS)[number];
 export type QuickAuthChallengeStatus = "OPEN" | "OTP_SENT" | "VERIFIED" | "FAILED";
+export type QuickAuthRecoveryKind = "DIRECT" | "PHONE_ENROLLMENT" | "ORPHAN_REBIND";
 
 export type QuickAuthChallenge = {
   challengeId: string;
   resolution: QuickAuthResolution;
   status: QuickAuthChallengeStatus;
   subjectAuthUserId: string | null;
+  otpSubjectAuthUserId: string | null;
+  emailRequired: boolean;
+  recoveryKind: QuickAuthRecoveryKind | null;
+  phoneRebound: boolean;
   expiresAt: string;
 };
 
 export type QuickAuthStart = {
   challengeId: string;
   resolution: QuickAuthResolution;
+  subjectAuthUserId: string | null;
+  otpSubjectAuthUserId: string | null;
+  emailRequired: boolean;
+  recoveryKind: QuickAuthRecoveryKind | null;
+  phoneRebound: boolean;
   expiresAt: string;
   maskedPhone: string;
 };

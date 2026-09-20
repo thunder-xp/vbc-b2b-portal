@@ -29,14 +29,14 @@ export class QuickAuthResolver {
         businessPhoneOtpEnabled: this.businessPhoneOtpEnabled,
       });
 
+      if (challenge.emailRequired) {
+        return { ok: true, step: "EMAIL", challengeId: challenge.challengeId, maskedPhone: challenge.maskedPhone };
+      }
       if (challenge.resolution === "CUSTOMER_OTP") {
-        return this.sendOtp(challenge.challengeId, phoneE164, challenge.maskedPhone, phoneKeyHash);
+        return this.sendOtp(challenge, phoneE164, phoneKeyHash);
       }
       if (challenge.resolution === "MULTIPLE_CONTEXT_EDGE_CASE") {
-        return this.sendOtp(challenge.challengeId, phoneE164, challenge.maskedPhone, phoneKeyHash);
-      }
-      if (challenge.resolution === "BUSINESS_EMAIL_REQUIRED") {
-        return { ok: true, step: "EMAIL", challengeId: challenge.challengeId, maskedPhone: challenge.maskedPhone };
+        return this.sendOtp(challenge, phoneE164, phoneKeyHash);
       }
       if (challenge.resolution === "NOT_REGISTERED") return { ok: true, step: "NOT_REGISTERED" };
       return { ok: true, step: "BLOCKED" };
@@ -49,8 +49,13 @@ export class QuickAuthResolver {
   async submitBusinessEmail(challengeId: string, rawPhone: string, rawEmail: string): Promise<QuickAuthPublicState> {
     const email = rawEmail.trim().toLowerCase();
     if (!isEmail(email)) return { ok: false, error: "INVALID_EMAIL" };
-    const verified = await this.readChallenge(challengeId, rawPhone, ["BUSINESS_EMAIL_REQUIRED"]);
+    const verified = await this.readChallenge(
+      challengeId,
+      rawPhone,
+      ["BUSINESS_EMAIL_REQUIRED", "MULTIPLE_CONTEXT_EDGE_CASE"],
+    );
     if (!verified.ok) return verified.state;
+    if (!verified.challenge.emailRequired) return { ok: false, error: "EXPIRED" };
 
     if (!(await this.repository.reserveBusinessEmailAttempt(challengeId, verified.phoneKeyHash))) {
       return { ok: false, error: "RATE_LIMITED" };
@@ -64,7 +69,7 @@ export class QuickAuthResolver {
     if (!(await this.repository.confirmBusinessEmail(challengeId, verified.phoneKeyHash))) {
       return { ok: false, error: "EXPIRED" };
     }
-    return this.sendOtp(challengeId, verified.phoneE164, verified.maskedPhone, verified.phoneKeyHash);
+    return this.sendOtp(verified.challenge, verified.phoneE164, verified.phoneKeyHash);
   }
 
   async resend(challengeId: string, rawPhone: string): Promise<QuickAuthPublicState> {
@@ -75,7 +80,7 @@ export class QuickAuthResolver {
       true,
     );
     if (!verified.ok) return verified.state;
-    return this.sendOtp(challengeId, verified.phoneE164, verified.maskedPhone, verified.phoneKeyHash);
+    return this.sendOtp(verified.challenge, verified.phoneE164, verified.phoneKeyHash);
   }
 
   async verify(challengeId: string, rawPhone: string, rawToken: string): Promise<QuickAuthPublicState> {
@@ -88,35 +93,82 @@ export class QuickAuthResolver {
     );
     if (!verified.ok) return verified.state;
 
+    if (!(await this.repository.reserveOtpVerification(challengeId, verified.phoneKeyHash))) {
+      return { ok: false, error: "RATE_LIMITED" };
+    }
+
+    let result: { authUserId: string };
     try {
-      if (!(await this.repository.reserveOtpVerification(challengeId, verified.phoneKeyHash))) {
-        return { ok: false, error: "RATE_LIMITED" };
-      }
-      const result = await this.otp.verify(verified.phoneE164, rawToken);
-      if (!verified.challenge.subjectAuthUserId || !safeEqual(result.authUserId, verified.challenge.subjectAuthUserId)) {
-        await this.otp.signOut();
-        await this.repository.setStatus(challengeId, verified.phoneKeyHash, "FAILED");
-        return { ok: false, error: "UNAVAILABLE" };
-      }
-      if (!(await this.repository.setStatus(challengeId, verified.phoneKeyHash, "VERIFIED"))) {
-        await this.otp.signOut();
-        return { ok: false, error: "EXPIRED" };
-      }
-      return { ok: true, step: "OTP", challengeId, maskedPhone: verified.maskedPhone };
+      result = await this.otp.verify(verified.phoneE164, rawToken);
     } catch {
       return { ok: false, error: "INVALID_CODE" };
     }
+
+    const expectedOtpSubject = verified.challenge.otpSubjectAuthUserId;
+    if (!expectedOtpSubject || !safeEqual(result.authUserId, expectedOtpSubject)) {
+      await this.otp.signOut();
+      await this.repository.setStatus(challengeId, verified.phoneKeyHash, "FAILED");
+      return { ok: false, error: "UNAVAILABLE" };
+    }
+
+    const canonicalSubject = verified.challenge.subjectAuthUserId;
+    if (!canonicalSubject) {
+      await this.otp.signOut();
+      await this.repository.setStatus(challengeId, verified.phoneKeyHash, "FAILED");
+      return { ok: false, error: "UNAVAILABLE" };
+    }
+
+    if (verified.challenge.recoveryKind === "ORPHAN_REBIND" && !verified.challenge.phoneRebound) {
+      await this.otp.signOut();
+      const rebound = await this.repository.completeOrphanRebind({
+        challengeId,
+        phoneE164: verified.phoneE164,
+        phoneKeyHash: verified.phoneKeyHash,
+        proofAuthUserId: result.authUserId,
+      });
+      if (!rebound) return { ok: false, error: "UNAVAILABLE" };
+      try {
+        const canonicalSession = await this.otp.establishCanonicalSession(canonicalSubject);
+        if (!safeEqual(canonicalSession.authUserId, canonicalSubject)) throw new Error("Canonical subject mismatch.");
+      } catch {
+        await this.otp.signOut();
+        return { ok: false, error: "UNAVAILABLE" };
+      }
+    } else if (!safeEqual(result.authUserId, canonicalSubject)) {
+      await this.otp.signOut();
+      await this.repository.setStatus(challengeId, verified.phoneKeyHash, "FAILED");
+      return { ok: false, error: "UNAVAILABLE" };
+    }
+
+    if (!(await this.repository.complete(challengeId, verified.phoneKeyHash, verified.phoneE164))) {
+      await this.otp.signOut();
+      return { ok: false, error: "EXPIRED" };
+    }
+    return { ok: true, step: "OTP", challengeId, maskedPhone: verified.maskedPhone };
   }
 
-  private async sendOtp(challengeId: string, phoneE164: string, maskedPhone: string, phoneKeyHash: string): Promise<QuickAuthPublicState> {
+  private async sendOtp(
+    challenge: Pick<QuickAuthChallenge, "challengeId" | "subjectAuthUserId" | "recoveryKind"> & { maskedPhone?: string },
+    phoneE164: string,
+    phoneKeyHash: string,
+  ): Promise<QuickAuthPublicState> {
     try {
-      if (!(await this.repository.reserveOtpSend(challengeId, phoneKeyHash))) {
+      if (!(await this.repository.reserveOtpSend(challenge.challengeId, phoneKeyHash))) {
         return { ok: false, error: "RATE_LIMITED" };
       }
+      if (challenge.recoveryKind === "PHONE_ENROLLMENT") {
+        if (!challenge.subjectAuthUserId) throw new Error("Quick Auth subject is unavailable.");
+        await this.otp.preparePhoneEnrollment(challenge.subjectAuthUserId, phoneE164);
+      }
       await this.otp.send(phoneE164);
-      return { ok: true, step: "OTP", challengeId, maskedPhone };
+      return {
+        ok: true,
+        step: "OTP",
+        challengeId: challenge.challengeId,
+        maskedPhone: challenge.maskedPhone ?? maskPhone(phoneE164),
+      };
     } catch {
-      await this.repository.setStatus(challengeId, phoneKeyHash, "FAILED");
+      await this.repository.setStatus(challenge.challengeId, phoneKeyHash, "FAILED");
       return { ok: false, error: "UNAVAILABLE" };
     }
   }

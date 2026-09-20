@@ -22,11 +22,15 @@ describe("QuickAuthResolver", () => {
       confirmBusinessEmail: vi.fn(async () => true),
       reserveOtpSend: vi.fn(async () => true),
       reserveOtpVerification: vi.fn(async () => true),
+      completeOrphanRebind: vi.fn(async () => true),
+      complete: vi.fn(async () => true),
       setStatus: vi.fn(async () => true),
     };
     otp = {
+      preparePhoneEnrollment: vi.fn(async () => undefined),
       send: vi.fn(async () => undefined),
       verify: vi.fn(async () => ({ authUserId })),
+      establishCanonicalSession: vi.fn(async (subjectAuthUserId) => ({ authUserId: subjectAuthUserId })),
       signOut: vi.fn(async () => undefined),
     };
   });
@@ -43,6 +47,7 @@ describe("QuickAuthResolver", () => {
       businessPhoneOtpEnabled: false,
     });
     expect(repository.reserveOtpSend).toHaveBeenCalledWith(challengeId, phoneHash);
+    expect(otp.preparePhoneEnrollment).not.toHaveBeenCalled();
     expect(otp.send).toHaveBeenCalledWith("+37369982220");
     expect(result).toEqual({ ok: true, step: "OTP", challengeId, maskedPhone: "+373 ** *** 20" });
   });
@@ -61,21 +66,21 @@ describe("QuickAuthResolver", () => {
     expect(otp.send).not.toHaveBeenCalled();
   });
 
-  it("authenticates a Customer plus Business identity before the neutral workspace choice", async () => {
-    vi.mocked(repository.start).mockResolvedValue(start("MULTIPLE_CONTEXT_EDGE_CASE"));
+  it("requires Business email before OTP for a Customer plus Business identity", async () => {
+    vi.mocked(repository.start).mockResolvedValue(start("MULTIPLE_CONTEXT_EDGE_CASE", { emailRequired: true }));
 
     await expect(resolver(true).start("69982220", requesterHash)).resolves.toEqual({
       ok: true,
-      step: "OTP",
+      step: "EMAIL",
       challengeId,
       maskedPhone: "+373 ** *** 20",
     });
-    expect(otp.send).toHaveBeenCalledTimes(1);
+    expect(otp.send).not.toHaveBeenCalled();
   });
 
   it("requires a same-user email match before sending Business OTP", async () => {
-    vi.mocked(repository.start).mockResolvedValue(start("BUSINESS_EMAIL_REQUIRED"));
-    vi.mocked(repository.read).mockResolvedValue(challenge("BUSINESS_EMAIL_REQUIRED", "OPEN"));
+    vi.mocked(repository.start).mockResolvedValue(start("BUSINESS_EMAIL_REQUIRED", { emailRequired: true }));
+    vi.mocked(repository.read).mockResolvedValue(challenge("BUSINESS_EMAIL_REQUIRED", "OPEN", { emailRequired: true }));
 
     await expect(resolver(true).start("69982220", requesterHash)).resolves.toEqual({
       ok: true,
@@ -100,6 +105,35 @@ describe("QuickAuthResolver", () => {
     expect(repository.reserveBusinessEmailAttempt).toHaveBeenCalledTimes(2);
     expect(repository.confirmBusinessEmail).toHaveBeenCalledWith(challengeId, phoneHash);
     expect(otp.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends combined-context OTP only after the same-user Business email match", async () => {
+    vi.mocked(repository.start).mockResolvedValue(start("MULTIPLE_CONTEXT_EDGE_CASE", { emailRequired: true }));
+    vi.mocked(repository.read).mockResolvedValue(challenge("MULTIPLE_CONTEXT_EDGE_CASE", "OPEN", { emailRequired: true }));
+
+    await resolver(true).start("69982220", requesterHash);
+    await expect(resolver(true).submitBusinessEmail(challengeId, "69982220", "business@example.com")).resolves.toEqual({
+      ok: true,
+      step: "OTP",
+      challengeId,
+      maskedPhone: "+373 ** *** 20",
+    });
+    expect(otp.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("prepares an unconfirmed phone on the canonical Business user before sending OTP", async () => {
+    const business = start("BUSINESS_EMAIL_REQUIRED", { emailRequired: true, recoveryKind: "PHONE_ENROLLMENT" });
+    vi.mocked(repository.start).mockResolvedValue(business);
+    vi.mocked(repository.read).mockResolvedValue(challenge("BUSINESS_EMAIL_REQUIRED", "OPEN", {
+      emailRequired: true,
+      recoveryKind: "PHONE_ENROLLMENT",
+    }));
+
+    await resolver(true).start("69982220", requesterHash);
+    await resolver(true).submitBusinessEmail(challengeId, "69982220", "business@example.com");
+
+    expect(otp.preparePhoneEnrollment).toHaveBeenCalledWith(authUserId, "+37369982220");
+    expect(otp.send).toHaveBeenCalledWith("+37369982220");
   });
 
   it("rejects forged or expired challenges before provider verification", async () => {
@@ -132,7 +166,7 @@ describe("QuickAuthResolver", () => {
       challengeId,
       maskedPhone: "+373 ** *** 20",
     });
-    expect(repository.setStatus).toHaveBeenCalledWith(challengeId, phoneHash, "VERIFIED");
+    expect(repository.complete).toHaveBeenCalledWith(challengeId, phoneHash, "+37369982220");
     expect(otp.signOut).not.toHaveBeenCalled();
 
     vi.mocked(otp.verify).mockResolvedValue({ authUserId: "33333333-3333-4333-8333-333333333333" });
@@ -141,15 +175,88 @@ describe("QuickAuthResolver", () => {
     expect(repository.setStatus).toHaveBeenCalledWith(challengeId, phoneHash, "FAILED");
   });
 
+  it("uses an orphan session only as phone-possession proof and establishes the canonical Partner session", async () => {
+    const orphanUserId = "33333333-3333-4333-8333-333333333333";
+    vi.mocked(repository.read).mockResolvedValue(challenge("BUSINESS_EMAIL_REQUIRED", "OTP_SENT", {
+      emailRequired: true,
+      recoveryKind: "ORPHAN_REBIND",
+      otpSubjectAuthUserId: orphanUserId,
+    }));
+    vi.mocked(otp.verify).mockResolvedValue({ authUserId: orphanUserId });
+
+    await expect(resolver(true).verify(challengeId, "69982220", "123456")).resolves.toEqual({
+      ok: true,
+      step: "OTP",
+      challengeId,
+      maskedPhone: "+373 ** *** 20",
+    });
+
+    expect(otp.signOut).toHaveBeenCalledTimes(1);
+    expect(repository.completeOrphanRebind).toHaveBeenCalledWith({
+      challengeId,
+      phoneE164: "+37369982220",
+      phoneKeyHash: phoneHash,
+      proofAuthUserId: orphanUserId,
+    });
+    expect(otp.establishCanonicalSession).toHaveBeenCalledWith(authUserId);
+    expect(repository.complete).toHaveBeenCalledWith(challengeId, phoneHash, "+37369982220");
+  });
+
+  it("never rebinds an orphan without successful OTP proof", async () => {
+    const orphanUserId = "33333333-3333-4333-8333-333333333333";
+    vi.mocked(repository.read).mockResolvedValue(challenge("BUSINESS_EMAIL_REQUIRED", "OTP_SENT", {
+      emailRequired: true,
+      recoveryKind: "ORPHAN_REBIND",
+      otpSubjectAuthUserId: orphanUserId,
+    }));
+    vi.mocked(otp.verify).mockRejectedValue(new Error("invalid otp"));
+
+    await expect(resolver(true).verify(challengeId, "69982220", "123456")).resolves.toEqual({
+      ok: false,
+      error: "INVALID_CODE",
+    });
+    expect(repository.completeOrphanRebind).not.toHaveBeenCalled();
+    expect(otp.establishCanonicalSession).not.toHaveBeenCalled();
+  });
+
   function resolver(businessPhoneOtpEnabled = false) {
     return new QuickAuthResolver(repository, otp, () => phoneHash, businessPhoneOtpEnabled);
   }
 });
 
-function start(resolution: QuickAuthStart["resolution"]): QuickAuthStart {
-  return { challengeId, resolution, expiresAt: "2026-09-20T12:10:00.000Z", maskedPhone: "+373 ** *** 20" };
+function start(
+  resolution: QuickAuthStart["resolution"],
+  overrides: Partial<QuickAuthStart> = {},
+): QuickAuthStart {
+  return {
+    challengeId,
+    resolution,
+    subjectAuthUserId: authUserId,
+    otpSubjectAuthUserId: authUserId,
+    emailRequired: false,
+    recoveryKind: "DIRECT",
+    phoneRebound: false,
+    expiresAt: "2026-09-20T12:10:00.000Z",
+    maskedPhone: "+373 ** *** 20",
+    ...overrides,
+  };
 }
 
-function challenge(resolution: QuickAuthChallenge["resolution"], status: QuickAuthChallenge["status"]): QuickAuthChallenge {
-  return { challengeId, resolution, status, subjectAuthUserId: authUserId, expiresAt: "2026-09-20T12:10:00.000Z" };
+function challenge(
+  resolution: QuickAuthChallenge["resolution"],
+  status: QuickAuthChallenge["status"],
+  overrides: Partial<QuickAuthChallenge> = {},
+): QuickAuthChallenge {
+  return {
+    challengeId,
+    resolution,
+    status,
+    subjectAuthUserId: authUserId,
+    otpSubjectAuthUserId: authUserId,
+    emailRequired: false,
+    recoveryKind: "DIRECT",
+    phoneRebound: false,
+    expiresAt: "2026-09-20T12:10:00.000Z",
+    ...overrides,
+  };
 }

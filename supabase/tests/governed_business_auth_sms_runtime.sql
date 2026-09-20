@@ -88,11 +88,14 @@ select is(
 );
 
 insert into public.quick_auth_challenges(
-  phone_key_hash, requester_key_hash, subject_auth_user_id, resolution,
-  status, otp_send_count, otp_sent_at, expires_at
+  phone_key_hash, requester_key_hash, subject_auth_user_id, otp_subject_auth_user_id,
+  resolution, email_verification_required, business_recovery_kind,
+  status, email_verified_at, otp_send_count, otp_sent_at, expires_at
 ) values
-  (repeat('b', 64), repeat('1', 64), '75000000-0000-4000-8000-000000000001', 'BUSINESS_EMAIL_REQUIRED', 'OTP_SENT', 1, now(), now() + interval '10 minutes'),
-  (repeat('c', 64), repeat('2', 64), '75000000-0000-4000-8000-000000000002', 'CUSTOMER_OTP', 'OTP_SENT', 1, now(), now() + interval '10 minutes');
+  (repeat('b', 64), repeat('1', 64), '75000000-0000-4000-8000-000000000001', '75000000-0000-4000-8000-000000000001',
+    'BUSINESS_EMAIL_REQUIRED', true, 'DIRECT', 'OTP_SENT', now(), 1, now(), now() + interval '10 minutes'),
+  (repeat('c', 64), repeat('2', 64), '75000000-0000-4000-8000-000000000002', '75000000-0000-4000-8000-000000000002',
+    'CUSTOMER_OTP', false, 'DIRECT', 'OTP_SENT', null, 1, now(), now() + interval '10 minutes');
 
 select is(
   public.resolve_governed_business_auth_sms_v1('75000000-0000-4000-8000-000000000001', repeat('b', 64)),

@@ -7,6 +7,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20260920104322_unified_phone_first_quick_auth_v1.sql"),
   "utf8",
 );
+const recoveryMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20260920150629_restore_existing_partner_phone_first_auth_v1.sql"),
+  "utf8",
+);
 
 describe("Quick Auth migration contract", () => {
   it("stores only expiring pseudonymous challenge state", () => {
@@ -52,5 +56,30 @@ describe("Quick Auth migration contract", () => {
     expect(migration).toContain("BUSINESS_PHONE_ENROLLMENT_CONFIRMED");
     expect(migration).toContain("BUSINESS_PHONE_CHANGED");
     expect(migration).not.toMatch(/set\s+phone\s*=\s*profile\.phone/i);
+  });
+
+  it("discovers exactly one active governed Business profile by canonical Moldova phone", () => {
+    expect(recoveryMigration).toContain("private.normalize_moldova_phone_e164_v1(profile.phone) = p_phone_e164");
+    expect(recoveryMigration).toContain("v_business_candidate_count > 1");
+    expect(recoveryMigration).toContain("then 'MULTIPLE_CONTEXT_EDGE_CASE'");
+    expect(recoveryMigration).toContain("else 'BUSINESS_EMAIL_REQUIRED'");
+    expect(recoveryMigration).not.toMatch(/return jsonb_build_object\([\s\S]*companyName|expectedEmail/i);
+  });
+
+  it("permits orphan rebind only through the locked atomic non-operational contract", () => {
+    expect(recoveryMigration).toContain("private.is_non_operational_phone_orphan_v1");
+    expect(recoveryMigration).toContain("pg_advisory_xact_lock(hashtextextended(p_phone_key_hash");
+    expect(recoveryMigration).toContain("complete_quick_auth_orphan_rebind_v1");
+    expect(recoveryMigration).toContain("update auth.identities");
+    expect(recoveryMigration).toContain("ORPHAN_PHONE_DETACHED");
+    expect(recoveryMigration).toContain("BUSINESS_PHONE_REBOUND");
+    expect(recoveryMigration).not.toMatch(/otp_code|raw_otp|session_token|access_token|refresh_token/i);
+  });
+
+  it("keeps recovery audit immutable and browser inaccessible", () => {
+    expect(recoveryMigration).toContain("before update or delete on public.business_quick_auth_audit_events");
+    expect(recoveryMigration).toContain("force row level security");
+    expect(recoveryMigration).toContain("grant select, insert on table public.business_quick_auth_audit_events to service_role");
+    expect(recoveryMigration).not.toMatch(/grant\s+(?:select|insert|update|delete).*business_quick_auth_audit_events\s+to\s+(?:anon|authenticated)/i);
   });
 });

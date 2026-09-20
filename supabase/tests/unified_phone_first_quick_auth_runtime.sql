@@ -135,13 +135,15 @@ begin
   end if;
 
   result := public.start_quick_auth_challenge_v1('+37369000003', repeat('f', 64), repeat('6', 64), true);
-  if result ->> 'resolution' <> 'MULTIPLE_CONTEXT_EDGE_CASE' then
+  if result ->> 'resolution' <> 'MULTIPLE_CONTEXT_EDGE_CASE'
+    or coalesce((result ->> 'emailRequired')::boolean, false) is not true then
     raise exception 'Customer plus Business ambiguity was silently prioritized: %', result;
   end if;
 
   result := public.start_quick_auth_challenge_v1('+37369000005', repeat('0', 64), repeat('7', 64), true);
-  if result ->> 'resolution' <> 'NOT_REGISTERED' then
-    raise exception 'Unconfirmed Auth phone was accepted as an authentication identity: %', result;
+  if result ->> 'resolution' <> 'BUSINESS_EMAIL_REQUIRED'
+    or coalesce((result ->> 'emailRequired')::boolean, false) is not true then
+    raise exception 'Known active Business profile phone did not require email before OTP: %', result;
   end if;
 
   if (select count(*) from public.customer_accounts) <> customer_count_before then
