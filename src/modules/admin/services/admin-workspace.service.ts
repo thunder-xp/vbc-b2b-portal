@@ -15,6 +15,7 @@ import type {
   AdminWorkspaceContext,
   InternalPermissionProjection,
 } from "../types";
+import type { InternalPermissionRepository } from "../repositories/internal-permission.repository";
 
 function resolveEnvironment(): AdminEnvironment {
   if (process.env.VERCEL_ENV === "production") return "production";
@@ -39,6 +40,21 @@ export function toAdminWorkspaceContext(
 }
 
 const repository = new SupabaseInternalPermissionRepository();
+
+export async function resolveInternalPostSignInDestination(
+  userId: string,
+  permissionRepository: InternalPermissionRepository = repository,
+): Promise<string | null> {
+  const projection = await permissionRepository.findForCurrentUser(userId);
+  if (!projection || projection.profileStatus !== "active") return null;
+
+  const navigation = buildAdminNavigation(projection.effectivePermissionCodes);
+  if (projection.effectivePermissionCodes.includes("admin.dashboard.view")) {
+    return "/admin";
+  }
+
+  return navigation[0]?.items[0]?.href ?? null;
+}
 
 export const getAdminWorkspaceContext = cache(
   async (): Promise<AdminWorkspaceContext> => {

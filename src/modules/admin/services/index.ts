@@ -1,5 +1,6 @@
 export {
   getAdminWorkspaceContext,
+  resolveInternalPostSignInDestination,
   requireAdminPermission,
   requireAnyAdminPermission,
   toAdminWorkspaceContext,

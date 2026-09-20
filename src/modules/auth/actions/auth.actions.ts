@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/src/lib/supabase/server";
 import { createCompanyUserManagementService, createUserProfileService } from "@/src/modules/access-control/actions/service-factory";
-import { createAdminInternalUserProvisioningService } from "@/src/modules/admin/services";
+import {
+  createAdminInternalUserProvisioningService,
+  resolveInternalPostSignInDestination,
+} from "@/src/modules/admin/services";
 import { isPartnerLocale } from "@/src/modules/partner-locale";
 import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
@@ -79,6 +82,19 @@ export async function signInAction(
   // Authenticated onboarding destinations perform their own server-side
   // identity checks and must be reachable before business-context routing.
   if (isProfessionalOnboardingReturn(nextPath)) redirect(nextPath);
+
+  if (data.user?.id) {
+    let internalDestination: string | null = null;
+    try {
+      internalDestination = await resolveInternalPostSignInDestination(
+        data.user.id,
+      );
+    } catch {
+      // Internal access fails closed. Business routing below remains available
+      // for identities that legitimately own a Partner or Agent workspace.
+    }
+    if (internalDestination) redirect(internalDestination);
+  }
 
   if (isUnifiedBusinessRoutingEnabled() && data.user?.id) {
     let targetRoute: "/cabinet" | "/agent" | "/auth/select-context" | "/auth/business-access-state";
