@@ -2,15 +2,26 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 import { createClient } from "@/src/lib/supabase/server";
+import { getOneCEnv } from "@/src/lib/env";
 import { hashCustomerIdentityKey } from "@/src/modules/customer-identity/hmac";
 import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
 
 import { FinalCustomerProvisioningService } from "./service";
+import { ExternalCustomerProvisioningService } from "./external-service";
+import { SupabaseExternalCustomerProvisioningRepository } from "./external-supabase.repository";
+import { OneCFinalCustomerProvider } from "./one-c-customer.provider";
 import { SupabaseFinalCustomerProvisioningRepository } from "./supabase.repository";
 import type { VerifiedRetailOwner } from "./types";
 
 export function createFinalCustomerProvisioningService() {
   return new FinalCustomerProvisioningService(new SupabaseFinalCustomerProvisioningRepository());
+}
+
+export function createExternalCustomerProvisioningService() {
+  return new ExternalCustomerProvisioningService(
+    new SupabaseExternalCustomerProvisioningRepository(),
+    new OneCFinalCustomerProvider(getOneCEnv()),
+  );
 }
 
 export async function getVerifiedRetailOwner(): Promise<VerifiedRetailOwner | null> {

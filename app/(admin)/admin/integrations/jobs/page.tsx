@@ -10,6 +10,7 @@ import {
   listOrderHistoryBootstrapsAction,
   listOrderHistoryIntegrityAuditsAction,
 } from "@/src/modules/orders/actions";
+import { listCustomerExternalProvisioningDiagnostics } from "@/src/modules/final-customer-provisioning/admin-diagnostics";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -20,14 +21,14 @@ export default async function AdminIntegrationJobsPage({
 }) {
   await requireAdminPagePermission("admin.integrations.view");
   const params = await searchParams;
-  const [page, bootstraps, integrityAudits] = await Promise.all([createAdminOperationsService().listSyncJobs({
+  const [page, bootstraps, integrityAudits, customerProvisioning] = await Promise.all([createAdminOperationsService().listSyncJobs({
     domain: scalar(params.domain),
     status: scalar(params.status),
     trigger: scalar(params.trigger),
     from: scalar(params.from),
     to: scalar(params.to),
     page: Number(scalar(params.page) ?? 1),
-  }), listOrderHistoryBootstrapsAction(), listOrderHistoryIntegrityAuditsAction()]);
+  }), listOrderHistoryBootstrapsAction(), listOrderHistoryIntegrityAuditsAction(), listCustomerExternalProvisioningDiagnostics()]);
 
   return (
     <div className="space-y-6">
@@ -37,6 +38,28 @@ export default async function AdminIntegrationJobsPage({
         title="Задания"
       />
       <AdminSyncJobTable page={page} />
+      <section aria-labelledby="customer-external-provisioning" className="space-y-3 border-t border-zinc-200 pt-6">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950" id="customer-external-provisioning">1C Final Customer provisioning</h2>
+          <p className="mt-1 text-sm text-zinc-600">Safe reconciliation state only; customer contact data and 1C identifiers are not displayed.</p>
+        </div>
+        <div className="overflow-x-auto border border-zinc-200 bg-white">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="p-3">Job</th><th className="p-3">State</th><th className="p-3">Attempts</th><th className="p-3">Candidates</th><th className="p-3">Create / read-back / map</th><th className="p-3">Safe error</th><th className="p-3">Age</th></tr></thead>
+            <tbody className="divide-y divide-zinc-200">{customerProvisioning.map((job) => (
+              <tr key={job.job_id}>
+                <td className="p-3 font-mono text-xs">{job.job_id.slice(0, 8)}</td>
+                <td className="p-3 font-medium">{job.state}</td>
+                <td className="p-3">{job.attempt_count}</td>
+                <td className="p-3">{job.candidate_count ?? "—"}</td>
+                <td className="p-3">{yesNo(job.create_attempted)} / {yesNo(job.read_back_succeeded)} / {yesNo(job.mapping_persisted)}</td>
+                <td className="p-3">{job.safe_error_code ?? "—"}</td>
+                <td className="p-3">{formatAge(job.age_seconds)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </section>
       {bootstraps.success ? (
         <section aria-labelledby="order-history-bootstrap" className="space-y-4 border-t border-zinc-200 pt-6">
           <div>
@@ -96,3 +119,6 @@ function formatRange(from: string | null, to: string | null): string {
 function scalar(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
+
+function yesNo(value: boolean) { return value ? "YES" : "NO"; }
+function formatAge(seconds: number) { return `${Math.max(0, Math.floor(seconds / 60))} min`; }

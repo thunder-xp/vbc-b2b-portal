@@ -63,6 +63,14 @@ export type OneCODataMutationResult = {
   durationMs: number;
   hostname: string;
   resourceName: string;
+  payload?: unknown;
+};
+
+export type OneCODataMetadataContractResult = OneCODataMetadataProbeResult & {
+  entitySet: string;
+  entityType: string | null;
+  presentProperties: string[];
+  missingProperties: string[];
 };
 
 export type OneCODataSafeDiagnostic = {
@@ -225,6 +233,101 @@ export class OneCODataClient {
     };
   }
 
+  async postCollection(
+    resource: string,
+    payload: Record<string, unknown>,
+    allowedProperties: readonly string[],
+  ): Promise<OneCODataMutationResult> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) {
+      throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    }
+    const payloadProperties = Object.keys(payload);
+    if (
+      !/^[\p{L}\p{N}_]+$/u.test(resource)
+      || payloadProperties.length === 0
+      || payloadProperties.length > 32
+      || payloadProperties.some((property) => !allowedProperties.includes(property))
+    ) {
+      throw new IntegrationValidationError("1C collection mutation is invalid.");
+    }
+
+    const url = new URL(`${baseUrl.replace(/\/$/, "")}/${resource}`);
+    url.searchParams.set("$format", "json");
+    const startedAt = performance.now();
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw Object.assign(new IntegrationTimeoutError("1C OData mutation timed out."), { cause: error });
+      }
+      throw Object.assign(new IntegrationProviderUnavailableError("1C OData mutation is unavailable."), {
+        cause: error,
+        networkCode: safeNetworkCode(error),
+      });
+    }
+
+    const responseBody = await response.text();
+    if (response.status === 401) throw new IntegrationUnauthorizedError();
+    if (response.status === 403) throw new IntegrationForbiddenError();
+    if (response.status < 200 || response.status >= 300) {
+      const diagnostic: OneCODataSafeDiagnostic = {
+        failedStage: "odata_mutation",
+        receivedContentType: response.headers.get("content-type"),
+        requestKind: "collection-post",
+        resourceName: resource,
+        queryParameterNames: ["$format"],
+        statusCode: response.status,
+        jsonParseFailure: false,
+        parseErrorName: null,
+        bodyLength: new TextEncoder().encode(responseBody).byteLength,
+        bomDetected: responseBody.charCodeAt(0) === 0xfeff,
+        emptyBody: responseBody.length === 0,
+        ...responseMetadata(response, null),
+      };
+      throw new OneCODataHttpError(diagnostic, responseBody.slice(0, 4_096));
+    }
+
+    let responsePayload: unknown;
+    try {
+      responsePayload = responseBody.length > 0 ? JSON.parse(responseBody) : null;
+    } catch (error) {
+      const diagnostic: OneCODataSafeDiagnostic = {
+        failedStage: "odata_mutation_response",
+        receivedContentType: response.headers.get("content-type"),
+        requestKind: "collection-post",
+        resourceName: resource,
+        queryParameterNames: ["$format"],
+        statusCode: response.status,
+        jsonParseFailure: true,
+        parseErrorName: error instanceof Error ? error.name : typeof error,
+        bodyLength: new TextEncoder().encode(responseBody).byteLength,
+        bomDetected: responseBody.charCodeAt(0) === 0xfeff,
+        emptyBody: responseBody.length === 0,
+        ...responseMetadata(response, null),
+      };
+      throw new OneCODataResponseValidationError(diagnostic);
+    }
+
+    return {
+      statusCode: response.status,
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      hostname: url.hostname,
+      resourceName: resource,
+      payload: responsePayload,
+    };
+  }
+
   async getContinuation(
     resource: string,
     continuationUrl: string,
@@ -301,6 +404,60 @@ export class OneCODataClient {
       bodyLength,
       presentEntitySets: requiredEntitySets.filter((name) => entitySets.has(name)),
       missingEntitySets: requiredEntitySets.filter((name) => !entitySets.has(name)),
+    };
+  }
+
+  async probeMetadataContract(
+    entitySet: string,
+    requiredProperties: readonly string[],
+  ): Promise<OneCODataMetadataContractResult> {
+    const { baseUrl, username, password } = this.config;
+    if (!baseUrl || !username || !password) throw new IntegrationProviderUnavailableError("1C OData is not configured.");
+    if (!/^[\p{L}\p{N}_]+$/u.test(entitySet)
+      || requiredProperties.length === 0
+      || requiredProperties.some((name) => !/^[\p{L}\p{N}_]+$/u.test(name))) {
+      throw new IntegrationValidationError("1C metadata contract probe is invalid.");
+    }
+    const startedAt = performance.now();
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl.replace(/\/$/, "")}/$metadata`, {
+        method: "GET",
+        headers: {
+          Accept: "application/xml",
+          Authorization: `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString("base64")}`,
+        },
+        signal: AbortSignal.timeout(this.config.requestTimeoutMs),
+      });
+    } catch (error) {
+      if (isAbortError(error)) throw Object.assign(new IntegrationTimeoutError("1C OData metadata request timed out."), { cause: error });
+      throw Object.assign(new IntegrationProviderUnavailableError("1C OData metadata is unavailable."), { cause: error, networkCode: safeNetworkCode(error) });
+    }
+    if (response.status === 401) throw new IntegrationUnauthorizedError();
+    if (response.status === 403) throw new IntegrationForbiddenError();
+    if (!response.ok) throw new IntegrationHttpError();
+    const body = await response.text();
+    const bodyLength = new TextEncoder().encode(body).byteLength;
+    if (bodyLength === 0 || bodyLength > MAX_METADATA_BYTES) throw new IntegrationValidationError("1C metadata response size is invalid.");
+    const escapedSet = escapeRegExp(entitySet);
+    const setMatch = body.match(new RegExp(`<EntitySet\\s+Name=["']${escapedSet}["']\\s+EntityType=["']([^"']+)["']`, "u"));
+    const entityType = setMatch?.[1]?.split(".").at(-1) ?? null;
+    const typeBlock = entityType
+      ? body.match(new RegExp(`<EntityType\\s+Name=["']${escapeRegExp(entityType)}["'][^>]*>([\\s\\S]*?)<\\/EntityType>`, "u"))?.[1] ?? ""
+      : "";
+    const presentProperties = requiredProperties.filter((name) =>
+      new RegExp(`<Property\\s+Name=["']${escapeRegExp(name)}["']`, "u").test(typeBlock));
+    return {
+      statusCode: response.status,
+      contentType: response.headers.get("content-type"),
+      durationMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      bodyLength,
+      presentEntitySets: entityType ? [entitySet] : [],
+      missingEntitySets: entityType ? [] : [entitySet],
+      entitySet,
+      entityType,
+      presentProperties,
+      missingProperties: requiredProperties.filter((name) => !presentProperties.includes(name)),
     };
   }
 
@@ -600,6 +757,10 @@ async function parseJsonBody(response: Response): Promise<Pick<
 }
 
 const probeResponseBodies = new WeakMap<OneCODataProbeResult, string | null>();
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export function getOneCODataErrorResponseBody(error: unknown): string | null {
   let current: unknown = error;

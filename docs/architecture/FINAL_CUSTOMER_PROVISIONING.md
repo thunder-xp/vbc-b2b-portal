@@ -1,6 +1,6 @@
 # Final Customer Provisioning
 
-Status: Slice 3 purchase-entitlement cutover implemented. This document separates authentication, identity correlation, cabinet entitlement, purchase ownership, and asynchronous 1C correlation.
+Status: Slice 3 purchase-entitlement cutover and governed asynchronous 1C Final Customer provisioning contract implemented. This document separates authentication, identity correlation, cabinet entitlement, purchase ownership, and asynchronous 1C correlation.
 
 ## Permanent access invariant (Slice 3)
 
@@ -23,7 +23,7 @@ Migration `20260919201121_final_customer_first_purchase_provisioning_v1.sql` imp
 
 The obsolete `getFinalCustomerContext() -> ensureAccount()` create-on-read path has been removed. Setting `NEW_PURCHASE_PROVISIONING_ENABLED=false` still stops worker claims; `CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED=false` only relaxes access classification for an already existing ACTIVE account.
 
-`ONE_C_CUSTOMER_WRITE_READY=NO`: the repository has no approved Final Customer Counterparty match/create provider contract, canonical DTO/write payload, or governed idempotency/reconciliation semantics. The job remains `PENDING`; this does not block an active local account.
+The implementation now has an approved Final Customer Counterparty match/create provider contract, canonical minimal DTO/write payload, and governed idempotency/reconciliation semantics. Runtime processing is independently gated by `ONE_C_CUSTOMER_PROVISIONING_ENABLED=true`; writes additionally require `ONE_C_CUSTOMER_WRITE_READY=true` and a successful current `$metadata` contract audit. Until both gates are explicitly enabled, jobs remain pending and active local accounts are unaffected.
 
 ## Non-negotiable invariant
 
@@ -367,4 +367,48 @@ MAIB callback verification and payment status semantics are unchanged. Retail ch
 - 1C: commercial/customer master truth after asynchronous governed matching.
 - Portal ledger: authoritative for Portal access/provisioning evidence, not for 1C commercial history.
 
-`ARCHITECTURE_CHANGE_REQUEST=YES`. No migration or runtime change is authorized by this document alone.
+`ARCHITECTURE_CHANGE_REQUEST=NO`. The implementation reuses the approved external-reference, async-job, integration-provider and Admin diagnostics seams.
+
+## Implemented 1C Final Customer contract (2026-09-20)
+
+### Authoritative entity model
+
+Current production evidence identifies the Final Customer master as the 1C OData entity set `Catalog_Контрагенты`, keyed by immutable `Ref_Key`. Current production projection values prove person records use `ВидКонтрагента = ФизическоеЛицо`; Retail customer orders relate to that master through `Document_ЗаказПокупателя.Контрагент_Key`. The first ecommerce phase intentionally supports `PERSON` only. `LEGAL_ENTITY` is retained in the Portal identity model but is routed to governed review rather than misusing person fields or IDNO/IDNP.
+
+The provider performs a read-only `$metadata` audit for the exact entity set and required properties before any lookup/create path. The required contract is: `Ref_Key`, `Description`, `НаименованиеПолное`, `ВидКонтрагента`, `Покупатель`, `Поставщик`, `Недействителен`, `DeletionMark`, `IsFolder`, `Телефон`, `ЭлектроннаяПочта`, and `Комментарий`. A missing property fails closed with `ONE_C_CUSTOMER_METADATA_CONTRACT_MISMATCH`. The current synced `one_c_counterparties` projection is not used for authoritative matching because production evidence shows its phone/e-mail coverage is currently zero.
+
+### Provider-neutral request and data minimization
+
+The worker sends only `customerIdentityId`, `provisioningJobId`, `sourceOrderId`, stable `operationKey`, `customerKind`, display name, verified phone, and optional normalized e-mail. IDs support Portal correlation and are not written as business identity. The 1C create payload is limited to name/full name, person kind, buyer/supplier/inactive flags, verified phone, optional e-mail, and the operation marker. OTPs, Auth/session metadata, payment/MAIB payloads, browsing data, devices, notification state, Agent attribution and security internals never enter 1C.
+
+### Deterministic match algorithm
+
+- An existing active `customer_external_refs` mapping is the first path, but it is still verified by authoritative 1C read-back before completing the job.
+- Phone is candidate evidence only. A candidate is sufficient only when the normalized verified phone matches and either exact normalized e-mail or exact whitespace/case-normalized display name also matches.
+- Exactly one sufficient active person candidate is `MATCHED`.
+- No sufficient candidate and no conflicting exact e-mail is `NEW`.
+- More than one sufficient candidate is `AMBIGUOUS`; no mapping or create occurs.
+- Exact e-mail with a different phone, unsupported customer kind, an existing external reference that contradicts read-back, or mapping uniqueness conflict is `CONFLICT`; no automatic merge/reassignment occurs.
+- There is no fuzzy matching. Identity matching never grants historical document entitlement.
+
+### Create, read-back and unknown-result safety
+
+Before the provider POST, PostgreSQL durably sets `create_attempted_at`. The create payload carries `NOVOTECH_FINAL_CUSTOMER:<operation_key>` in `Комментарий`. A successful response is never sufficient by itself: the worker reads `Catalog_Контрагенты` by returned `Ref_Key`, verifies active person type plus the same deterministic evidence, and only then calls the atomic completion RPC.
+
+If the POST times out, the response is lost, or the process crashes after the marker is stored, every subsequent claim enters reconciliation-only mode. It searches the stable marker with a bounded `$top=5`; exactly one result is read back, multiple results become `AMBIGUOUS`, and zero results remain retryable. The worker never issues a second create for that job. This is intentionally conservative because duplicate 1C counterparties are worse than delayed reconciliation.
+
+Database completion uses advisory locks plus both uniqueness directions: one active `(system, entity_type, external_id)` maps to at most one Portal identity, and one Portal identity has at most one active `(system, entity_type)` mapping. Only the service-role completion RPC can attach the ref. It appends safe identity audit evidence without phone, e-mail, name or provider payload.
+
+### Worker, failure and Admin visibility
+
+The existing order-reconciliation cron is reused; there is no new scheduled invocation. It first completes bounded local provisioning, then claims at most five 1C jobs using deterministic order, `FOR UPDATE SKIP LOCKED`, a two-minute lease and bounded exponential backoff up to 30 minutes. Aggregate logging occurs only when work was claimed. The feature gate gives a fast no-op.
+
+Admin diagnostics reuse `admin.integrations.view` and show only job prefix/state, age, attempt/candidate counts, create/read-back/mapping booleans and safe error code. They do not show contact data or `Ref_Key`. `AMBIGUOUS`, `CONFLICT`, and persistent failures create/use existing reconciliation/audit records. No manual merge or external-ref reassignment endpoint was added; a future manual operation must remain separately approved, permission-gated, audited, and conflict rejecting.
+
+### Retail Order and historical-data boundary
+
+The source Retail Order is durable provenance for the async job. Current Retail Order export is not modified and no 1C order ownership is rewritten. Future export may consume the verified `customer_external_refs` mapping through a separate governed contract. An identity mapping is not historical ownership evidence: existing 1C orders, invoices, service or accounting history remain unavailable unless a separate approved entitlement policy authorizes each scope.
+
+### Production acceptance state
+
+Read-only production data establishes `Catalog_Контрагенты` as the current customer master and confirms active `ФизическоеЛицо` rows, while also proving that the existing local projection lacks usable phone/e-mail match data. The deployed Admin metadata audit is the non-mutating mechanism that must pass against the current production configuration before either runtime gate is enabled. No production 1C customer is created by this task without a separate explicit Owner approval; `REAL_1C_CREATE_ACCEPTANCE=PENDING_OWNER_APPROVAL` is therefore compatible with implementation completion.

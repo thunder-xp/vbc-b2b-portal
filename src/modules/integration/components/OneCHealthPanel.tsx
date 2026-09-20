@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 
 import {
   runOneCHealthCheckAction,
+  runOneCFinalCustomerContractAuditAction,
   runOneCRelationMetadataAuditAction,
   runOneCServiceMetadataAuditAction,
   runOneCServiceSourceAuditAction,
@@ -16,6 +17,7 @@ import type {
   OneCHealthCheck,
   OneCHealthReport,
 } from "../providers/one-c/one-c-health-check";
+import type { OneCFinalCustomerContractAudit } from "../../final-customer-provisioning/one-c-customer.provider";
 
 export function OneCHealthPanel({
   configuration,
@@ -32,6 +34,7 @@ export function OneCHealthPanel({
   const [relationAudit, setRelationAudit] = useState<OneCRelationMetadataAudit | null>(null);
   const [serviceAudit, setServiceAudit] = useState<OneCServiceMetadataAudit | null>(null);
   const [serviceSourceAudit, setServiceSourceAudit] = useState<OneCServiceSourceAudit | null>(null);
+  const [customerContractAudit, setCustomerContractAudit] = useState<OneCFinalCustomerContractAudit | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -87,6 +90,19 @@ export function OneCHealthPanel({
     });
   }
 
+  function runCustomerContractAudit() {
+    setError(null);
+    startTransition(async () => {
+      const result = await runOneCFinalCustomerContractAuditAction();
+      if (!result.success) {
+        setCustomerContractAudit(null);
+        setError(result.message);
+        return;
+      }
+      setCustomerContractAudit(result.data);
+    });
+  }
+
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-zinc-200 bg-white p-5">
@@ -115,6 +131,14 @@ export function OneCHealthPanel({
             type="button"
           >
             {isPending ? "Проверка..." : "Запустить диагностику"}
+          </button>
+          <button
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isPending}
+            onClick={runCustomerContractAudit}
+            type="button"
+          >
+            {isPending ? "Проверка..." : "Проверить контракт Final Customer"}
           </button>
           <button
             className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
@@ -152,7 +176,23 @@ export function OneCHealthPanel({
       {relationAudit ? <RelationMetadataAudit audit={relationAudit} /> : null}
       {serviceAudit ? <ServiceMetadataAudit audit={serviceAudit} /> : null}
       {serviceSourceAudit ? <ServiceSourceAudit audit={serviceSourceAudit} /> : null}
+      {customerContractAudit ? <FinalCustomerContractAudit audit={customerContractAudit} /> : null}
     </div>
+  );
+}
+
+function FinalCustomerContractAudit({ audit }: { audit: OneCFinalCustomerContractAudit }) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5" data-testid="one-c-final-customer-contract-audit">
+      <SectionTitle passed={audit.passed} title="Контракт Final Customer в 1C" />
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <Metric label="EntitySet" value={audit.entitySet} />
+        <Metric label="EntityType" value={audit.entityType ?? "—"} />
+        <Metric label="HTTP / latency" value={`${audit.statusCode} / ${audit.durationMs} ms`} />
+      </div>
+      <p className="mt-4 break-words text-sm text-zinc-700">Present: {audit.presentProperties.join(", ") || "—"}</p>
+      <p className="mt-2 break-words text-sm text-zinc-700">Missing: {audit.missingProperties.join(", ") || "NONE"}</p>
+    </section>
   );
 }
 

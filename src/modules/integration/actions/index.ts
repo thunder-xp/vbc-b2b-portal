@@ -2,6 +2,7 @@ export { getCatalogSyncStateAction, syncCatalogFromOneCAction } from "./catalog-
 export { getDailyCatalogSyncStateAction, runDailyCatalogSyncAction } from "./catalog-daily-sync.action";
 export {
   runOneCHealthCheckAction,
+  runOneCFinalCustomerContractAuditAction,
   runOneCRelationMetadataAuditAction,
   runOneCServiceMetadataAuditAction,
   runOneCServiceSourceAuditAction,
