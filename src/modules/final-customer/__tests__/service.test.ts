@@ -11,7 +11,7 @@ function repository(): FinalCustomerRepository {
     openAttention: vi.fn(async () => "/account/orders/11111111-1111-4111-8111-111111111111"),
     findOrder: vi.fn(async () => null), listConfirmedPurchases: vi.fn(async () => []), findPurchase: vi.fn(async () => null),
     listCurrentProducts: vi.fn(async () => []), listProductDocuments: vi.fn(async () => []),
-    getCustomerObjectWorkspace: vi.fn(async () => ({ objects: [], unlinkedPurchases: [], purchaseLinks: [] })),
+    getCustomerObjectWorkspace: vi.fn(async () => ({ objects: [], unlinkedPurchaseCount: 0, unlinkedPurchases: [], purchaseLinks: [] })),
     findCustomerObject: vi.fn(async () => null), getCustomerObjectDetail: vi.fn(async () => null),
     createCustomerObject: vi.fn(async () => "11111111-1111-4111-8111-111111111111"), updateCustomerObject: vi.fn(async () => 1), archiveCustomerObject: vi.fn(async () => 1),
     linkCustomerObjectPurchase: vi.fn(async () => "22222222-2222-4222-8222-222222222222"), findCustomerObjectPurchaseLink: vi.fn(async () => false),
@@ -160,23 +160,33 @@ describe("Final Customer account service", () => {
     expect(repo.createCustomerObject).not.toHaveBeenCalled();
   });
 
-  it("enriches object purchases with current products and documents in bounded batches", async () => {
+  it("builds factual product groups from the single bounded object-detail read", async () => {
     const repo = repository();
     vi.mocked(repo.getCustomerObjectDetail).mockResolvedValue({
       object: { id: "11111111-1111-4111-8111-111111111111", name: "Home", objectType: "HOME", locality: null, addressLabel: null, status: "ACTIVE", version: 0, createdAt: "now", updatedAt: "now" },
-      purchases: [{ id: "22222222-2222-4222-8222-222222222222", number: "R-1", purchasedAt: "now", total: 100, currency: "MDL", status: "confirmed", lines: [{ id: "line", lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", currentProduct: null, documents: [] }] }],
-      serviceRequests: [],
+      purchases: [{ id: "22222222-2222-4222-8222-222222222222", number: "R-1", purchasedAt: "2026-09-20T08:00:00Z", total: 200, currency: "MDL", status: "confirmed", lines: [
+        { id: "line", lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null, quantity: 2, unitCode: "piece", unitPrice: 100, lineTotal: 200, currency: "MDL", currentProduct: { publicProductId: "public-product", sourceProductId: "source-product", slug: "camera", name: "Camera", nameRu: "Камера", nameRo: "Cameră", price: 120, currency: "MDL", availability: "in_stock", imageUrl: null, categoryPath: [{ id: "4ece32e5-bccd-42a3-8a55-038e53b40353", nameRu: "Видеонаблюдение", nameRo: "Supraveghere video", slug: "cctv" }] }, documents: [{ id: "document", productId: "source-product", title: "Manual", type: "manual", url: "https://example.test/manual.pdf" }] },
+        { id: "line-other", lineNumber: 2, publicProductId: "other-product", sku: "200001", name: "Power supply", slug: "power", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 25, lineTotal: 25, currency: "MDL", currentProduct: { publicProductId: "other-product", sourceProductId: "other-source", slug: "power", name: "Power supply", price: 25, currency: "MDL", availability: "in_stock", imageUrl: null, categoryPath: [{ id: "99999999-9999-4999-8999-999999999999", nameRu: "Питание", nameRo: "Alimentare", slug: "power" }] }, documents: [] },
+      ] }],
+      serviceRequests: [{ id: "service", number: "CR-1", subject: "Camera", status: "NEED_INFO", orderId: "22222222-2222-4222-8222-222222222222", orderLineId: "line", createdAt: "2026-09-20T09:00:00Z", updatedAt: "2026-09-20T09:00:00Z", latestCustomerVisibleUpdate: { body: "Please add a photo", authorType: "NOVOTECH", createdAt: "2026-09-20T09:00:00Z" } }],
+      activity: [],
+      unlinkedPurchaseCount: 0,
+      unlinkedPurchases: [],
     });
-    vi.mocked(repo.listCurrentProducts).mockResolvedValue([{ publicProductId: "public-product", sourceProductId: "source-product", slug: "camera", name: "Camera", price: 120, currency: "MDL", availability: "in_stock", imageUrl: null }]);
-    vi.mocked(repo.listProductDocuments).mockResolvedValue([{ id: "document", productId: "source-product", title: "Manual", type: "manual", url: "https://example.test/manual.pdf" }]);
     const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
 
     const detail = await new FinalCustomerAccountService(repo).customerObjectDetail(account, "11111111-1111-4111-8111-111111111111");
 
     expect(detail?.purchases[0]?.lines[0]?.currentProduct?.sourceProductId).toBe("source-product");
     expect(detail?.purchases[0]?.lines[0]?.documents).toHaveLength(1);
-    expect(repo.listCurrentProducts).toHaveBeenCalledOnce();
-    expect(repo.listProductDocuments).toHaveBeenCalledOnce();
+    expect(detail?.productGroups).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: "CCTV", productCount: 1, quantity: 2, openServiceCount: 1 }),
+      expect.objectContaining({ key: "OTHER", productCount: 1, quantity: 1, openServiceCount: 0 }),
+    ]));
+    expect(detail?.documentCount).toBe(1);
+    expect(repo.getCustomerObjectDetail).toHaveBeenCalledOnce();
+    expect(repo.listCurrentProducts).not.toHaveBeenCalled();
+    expect(repo.listProductDocuments).not.toHaveBeenCalled();
   });
 
   it("requires an owned object and coherent purchase link for service context", async () => {

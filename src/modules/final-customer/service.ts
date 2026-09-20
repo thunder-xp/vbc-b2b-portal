@@ -124,7 +124,7 @@ export class FinalCustomerAccountService {
 
   customerObjectWorkspace(account: FinalCustomerAccount, includeArchived = false) {
     if (account.status !== "ACTIVE" || !account.customerIdentityId) {
-      return Promise.resolve({ objects: [], unlinkedPurchases: [], purchaseLinks: [] });
+      return Promise.resolve({ objects: [], unlinkedPurchaseCount: 0, unlinkedPurchases: [], purchaseLinks: [] });
     }
     return this.repository.getCustomerObjectWorkspace(account.id, account.customerIdentityId, account.authUserId, includeArchived);
   }
@@ -134,31 +134,11 @@ export class FinalCustomerAccountService {
     return this.repository.findCustomerObject(account.customerIdentityId, objectId);
   }
 
-  async customerObjectDetail(account: FinalCustomerAccount, objectId: string) {
+  async customerObjectDetail(account: FinalCustomerAccount, objectId: string, locale: "ru" | "ro" = "ru") {
     if (account.status !== "ACTIVE" || !account.customerIdentityId || !UUID.test(objectId)) return null;
     const detail = await this.repository.getCustomerObjectDetail(account.id, account.customerIdentityId, account.authUserId, objectId);
     if (!detail) return null;
-    const publicProductIds = unique(detail.purchases.flatMap((purchase) => purchase.lines.map((line) => line.publicProductId)));
-    const currentProducts = await this.repository.listCurrentProducts(publicProductIds);
-    const currentById = new Map(currentProducts.map((product) => [product.publicProductId, product]));
-    const sourceProductIds = unique(currentProducts.map((product) => product.sourceProductId));
-    const documents = await this.repository.listProductDocuments(sourceProductIds);
-    const documentsByProduct = new Map<string, typeof documents>();
-    for (const document of documents) {
-      const group = documentsByProduct.get(document.productId) ?? [];
-      group.push(document);
-      documentsByProduct.set(document.productId, group);
-    }
-    return {
-      ...detail,
-      purchases: detail.purchases.map((purchase) => ({
-        ...purchase,
-        lines: purchase.lines.map((line) => {
-          const currentProduct = currentById.get(line.publicProductId) ?? null;
-          return { ...line, currentProduct, documents: currentProduct ? documentsByProduct.get(currentProduct.sourceProductId) ?? [] : [] };
-        }),
-      })),
-    };
+    return buildCustomerObjectWorkspaceDetail(detail, locale);
   }
 
   async createCustomerObject(account: FinalCustomerAccount, input: Record<string, string>) {
@@ -316,6 +296,65 @@ export class FinalCustomerAccountService {
     }
     await this.repository.updateProfile(account.id, displayName, email);
   }
+}
+
+const CUSTOMER_SYSTEM_CATEGORY_IDS = {
+  CCTV: "4ece32e5-bccd-42a3-8a55-038e53b40353",
+  ALARM: "f23bfbb2-b4f1-424e-9272-c5c698bc8063",
+  ACCESS_CONTROL: "2c1998eb-c3b1-4f03-9f7a-51e18c41c31d",
+  INTERCOM: "76583d36-ac70-403b-8680-f9697f94bfb8",
+  NETWORK: "7db6a280-58a2-4ad9-a3fb-6af6b0c276cd",
+} as const;
+
+const CUSTOMER_SYSTEM_LABELS = {
+  ru: { CCTV: "Видеонаблюдение", ALARM: "Охранная система", ACCESS_CONTROL: "Контроль доступа", INTERCOM: "Домофония", NETWORK: "Сеть", OTHER: "Другое оборудование" },
+  ro: { CCTV: "Supraveghere video", ALARM: "Sistem de alarmă", ACCESS_CONTROL: "Control acces", INTERCOM: "Interfonie", NETWORK: "Rețea", OTHER: "Alte echipamente" },
+} as const;
+
+function buildCustomerObjectWorkspaceDetail(detail: import("./types").CustomerObjectDetail, locale: "ru" | "ro"): import("./types").CustomerObjectWorkspaceDetail {
+  type MutableGroup = { key: string; label: string; productCount: number; quantity: number; latestPurchaseAt: string; openServiceCount: number; lineIds: string[] };
+  const openRequestsByLine = new Map<string, number>();
+  for (const request of detail.serviceRequests) {
+    if (!request.orderLineId || ["RESOLVED", "CLOSED", "CANCELLED"].includes(request.status)) continue;
+    openRequestsByLine.set(request.orderLineId, (openRequestsByLine.get(request.orderLineId) ?? 0) + 1);
+  }
+  const groups = new Map<string, MutableGroup>();
+  const documents = new Set<string>();
+  for (const purchase of detail.purchases) {
+    for (const line of purchase.lines) {
+      const rootCategoryId = line.currentProduct?.categoryPath?.[0]?.id;
+      const key = customerSystemKey(rootCategoryId);
+      const group = groups.get(key) ?? {
+        key,
+        label: CUSTOMER_SYSTEM_LABELS[locale][key],
+        productCount: 0,
+        quantity: 0,
+        latestPurchaseAt: purchase.purchasedAt,
+        openServiceCount: 0,
+        lineIds: [],
+      };
+      group.productCount += 1;
+      group.quantity += line.quantity;
+      if (purchase.purchasedAt > group.latestPurchaseAt) group.latestPurchaseAt = purchase.purchasedAt;
+      group.openServiceCount += openRequestsByLine.get(line.id) ?? 0;
+      group.lineIds.push(line.id);
+      groups.set(key, group);
+      for (const document of line.documents) documents.add(document.id);
+    }
+  }
+  return {
+    ...detail,
+    productGroups: [...groups.values()].sort((left, right) => right.productCount - left.productCount || left.label.localeCompare(right.label, locale)),
+    documentCount: documents.size,
+  };
+}
+
+function customerSystemKey(categoryId: string | undefined): keyof typeof CUSTOMER_SYSTEM_LABELS.ru {
+  if (!categoryId) return "OTHER";
+  for (const [key, id] of Object.entries(CUSTOMER_SYSTEM_CATEGORY_IDS)) {
+    if (id === categoryId) return key as keyof typeof CUSTOMER_SYSTEM_LABELS.ru;
+  }
+  return "OTHER";
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

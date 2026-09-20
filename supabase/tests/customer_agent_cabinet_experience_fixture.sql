@@ -17,6 +17,9 @@ declare
   fixture_retail_customer_id constant uuid := '26000000-0000-4000-8000-000000000001';
   fixture_cart_id constant uuid := '27000000-0000-4000-8000-000000000001';
   fixture_order_id constant uuid := '28000000-0000-4000-8000-000000000001';
+  fixture_object_id uuid;
+  fixture_empty_object_id uuid;
+  fixture_archived_object_id uuid;
   service_request_id uuid;
   fixture_token_hash constant text := encode(digest(repeat('T', 43), 'sha256'), 'hex');
   referral_id uuid;
@@ -193,11 +196,12 @@ begin
 
     insert into public.public_retail_products (
       publication_id, public_id, slug, sku, name_ru, name_ro,
+      category_path,
       retail_price_amount, retail_price_currency, retail_price_effective_at,
       vat_presentation, availability, primary_image_url, search_document
     ) values
-      (fixture_publication_id, fixture_public_product_id, 'fixture-dh-hap320', '100077', 'Dahua DH-HAP320', 'Dahua DH-HAP320', 1299, 'MDL', now(), 'included', 'in_stock', '/product-placeholder.svg', '100077 dahua dh-hap320'),
-      (fixture_publication_id, fixture_unavailable_public_product_id, 'fixture-dhi-ara11', '100078', 'Dahua DHI-ARA11', 'Dahua DHI-ARA11', 499, 'MDL', now(), 'included', 'unavailable', '/product-placeholder.svg', '100078 dahua dhi-ara11');
+      (fixture_publication_id, fixture_public_product_id, 'fixture-dh-hap320', '100077', 'Dahua DH-HAP320', 'Dahua DH-HAP320', jsonb_build_array(jsonb_build_object('id','4ece32e5-bccd-42a3-8a55-038e53b40353','slug','cctv','nameRu','Видеонаблюдение','nameRo','Supraveghere video')), 1299, 'MDL', now(), 'included', 'in_stock', '/product-placeholder.svg', '100077 dahua dh-hap320'),
+      (fixture_publication_id, fixture_unavailable_public_product_id, 'fixture-dhi-ara11', '100078', 'Dahua DHI-ARA11', 'Dahua DHI-ARA11', jsonb_build_array(jsonb_build_object('id','f23bfbb2-b4f1-424e-9272-c5c698bc8063','slug','alarm','nameRu','Охранные системы','nameRo','Sisteme de alarmă')), 499, 'MDL', now(), 'included', 'unavailable', '/product-placeholder.svg', '100078 dahua dhi-ara11');
 
     update public.public_retail_publications
     set status = 'published', published_at = now()
@@ -248,6 +252,33 @@ begin
     ('29000000-0000-4000-8000-000000000001', fixture_order_id, 1, fixture_public_product_id, 'catalog', 'equipment', '100077', 'Dahua DH-HAP320', 'fixture-dh-hap320', '/product-placeholder.svg', 1, 'piece', 1199, 1199, 'MDL', 'included', 'in_stock'),
     ('29000000-0000-4000-8000-000000000002', fixture_order_id, 2, fixture_unavailable_public_product_id, 'catalog', 'equipment', '100078', 'Dahua DHI-ARA11', 'fixture-dhi-ara11', '/product-placeholder.svg', 2, 'piece', 499.50, 999, 'MDL', 'included', 'in_stock')
   on conflict (id) do nothing;
+
+  insert into public.retail_payment_activations (
+    id, retail_order_id, activation_mode, idempotency_key, safe_reason
+  ) values (
+    '31000000-0000-4000-8000-000000000001', fixture_order_id,
+    'pilot_simulated', '31000000-0000-4000-8000-000000000002',
+    'Local authenticated customer acceptance fixture only.'
+  ) on conflict (retail_order_id) do nothing;
+
+  insert into public.retail_order_auth_bindings (
+    id, retail_order_id, retail_customer_id, auth_user_id,
+    phone_key_hash, phone_key_version
+  ) values (
+    '32000000-0000-4000-8000-000000000001', fixture_order_id,
+    fixture_retail_customer_id, customer_user_id, repeat('5', 64), 1
+  ) on conflict (retail_order_id) do nothing;
+
+  insert into public.customer_account_purchase_entitlements (
+    id, retail_order_id, retail_payment_activation_id,
+    retail_order_auth_binding_id, customer_account_id,
+    customer_identity_id, auth_user_id
+  ) values (
+    '33000000-0000-4000-8000-000000000001', fixture_order_id,
+    '31000000-0000-4000-8000-000000000001',
+    '32000000-0000-4000-8000-000000000001', fixture_customer_account_id,
+    fixture_customer_identity_id, customer_user_id
+  ) on conflict (retail_order_id) do nothing;
 
   insert into public.retail_payment_attempts (
     id, retail_order_id, provider, status, amount, currency, idempotency_key,
@@ -302,6 +333,43 @@ begin
     jsonb_build_object('source', 'LOCAL_ACCEPTANCE_FIXTURE'), now() - interval '3 days'
   ) on conflict (id) do nothing;
 
+  select object_row.id into fixture_object_id
+  from public.customer_objects object_row
+  where object_row.customer_identity_id = fixture_customer_identity_id
+    and object_row.name = 'Дом Ботаника';
+  if fixture_object_id is null then
+    fixture_object_id := public.create_customer_object_v2(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      'Дом Ботаника', 'HOME', 'Chișinău', 'Ботаника', fixture_order_id
+    );
+  end if;
+
+  select object_row.id into fixture_empty_object_id
+  from public.customer_objects object_row
+  where object_row.customer_identity_id = fixture_customer_identity_id
+    and object_row.name = 'Дача';
+  if fixture_empty_object_id is null then
+    fixture_empty_object_id := public.create_customer_object_v2(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      'Дача', 'HOME', 'Ialoveni', null, null
+    );
+  end if;
+
+  select object_row.id into fixture_archived_object_id
+  from public.customer_objects object_row
+  where object_row.customer_identity_id = fixture_customer_identity_id
+    and object_row.name = 'Старый офис';
+  if fixture_archived_object_id is null then
+    fixture_archived_object_id := public.create_customer_object_v2(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      'Старый офис', 'OFFICE', 'Chișinău', null, null
+    );
+    perform public.archive_customer_object_v2(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      fixture_archived_object_id, 0
+    );
+  end if;
+
   if not exists (
     select 1 from public.customer_service_requests request
     where request.customer_account_id = fixture_customer_account_id
@@ -336,6 +404,26 @@ begin
     perform public.admin_update_customer_service_request_v2(
       service_request_id, 2, 'RESOLVED',
       'Ответ предоставлен. Если понадобится помощь, создайте новое обращение.', '', active_user_id
+    );
+  end if;
+
+  if not exists (
+    select 1 from public.customer_service_requests request
+    where request.customer_object_id = fixture_object_id
+      and request.retail_order_line_id = '29000000-0000-4000-8000-000000000001'
+  ) then
+    service_request_id := public.create_customer_service_request_v3(
+      fixture_customer_account_id, fixture_customer_identity_id, customer_user_id,
+      'PRODUCT_QUESTION', 'Нужна фотография камеры',
+      'Камера требует проверки в контексте объекта.', 'PHONE', 'ru',
+      fixture_object_id, fixture_order_id, '29000000-0000-4000-8000-000000000001'
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 0, 'IN_REVIEW', '', '', active_user_id
+    );
+    perform public.admin_update_customer_service_request_v2(
+      service_request_id, 1, 'NEED_INFO',
+      'Добавьте, пожалуйста, фотографию камеры.', '', active_user_id
     );
   end if;
 end;

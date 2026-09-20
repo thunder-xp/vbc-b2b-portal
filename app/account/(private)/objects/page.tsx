@@ -22,7 +22,7 @@ export default async function CustomerObjectsPage({ searchParams }: { searchPara
       actions={<Link className={cabinetPrimaryAction} href="/account/objects/new"><Plus aria-hidden className="size-4" />{ro ? "Creează obiect" : "Создать объект"}</Link>}
     />
 
-    {workspace.unlinkedPurchases[0] ? <PurchaseObjectAssignment locale={locale} objects={activeObjects} orderId={workspace.unlinkedPurchases[0].orderId} orderNumber={workspace.unlinkedPurchases[0].orderNumber} /> : null}
+    {workspace.unlinkedPurchases[0] ? <div className="space-y-2"><p className="text-sm font-medium text-amber-800">{ro ? `${workspace.unlinkedPurchaseCount} cumpărături așteaptă asocierea` : `${workspace.unlinkedPurchaseCount} покупок ожидают привязки`}</p><PurchaseObjectAssignment locale={locale} objects={activeObjects} orderId={workspace.unlinkedPurchases[0].orderId} orderNumber={workspace.unlinkedPurchases[0].orderNumber} /></div> : null}
 
     {workspace.objects.length ? <section className="space-y-3">
       <SectionHeader title={includeArchived ? (ro ? "Obiecte active și arhivate" : "Активные и архивные объекты") : (ro ? "Obiecte active" : "Активные объекты")} />

@@ -198,7 +198,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async getCustomerObjectWorkspace(accountId: string, customerIdentityId: string, actorUserId: string, includeArchived = false) {
-    const { data, error } = await createAdminClient().rpc("get_customer_object_workspace_v1", {
+    const { data, error } = await createAdminClient().rpc("get_customer_object_workspace_v2", {
       p_customer_account_id: accountId,
       p_customer_identity_id: customerIdentityId,
       p_actor_user_id: actorUserId,
@@ -217,7 +217,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async getCustomerObjectDetail(accountId: string, customerIdentityId: string, actorUserId: string, objectId: string) {
-    const { data, error } = await createAdminClient().rpc("get_customer_object_detail_v1", {
+    const { data, error } = await createAdminClient().rpc("get_customer_object_detail_v2", {
       p_customer_account_id: accountId,
       p_customer_identity_id: customerIdentityId,
       p_actor_user_id: actorUserId,
@@ -228,7 +228,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async createCustomerObject(input: Parameters<FinalCustomerRepository["createCustomerObject"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("create_customer_object_v1", {
+    const { data, error } = await createAdminClient().rpc("create_customer_object_v2", {
       p_customer_account_id: input.accountId,
       p_customer_identity_id: input.customerIdentityId,
       p_actor_user_id: input.actorUserId,
@@ -243,7 +243,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async updateCustomerObject(input: Parameters<FinalCustomerRepository["updateCustomerObject"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("update_customer_object_v1", {
+    const { data, error } = await createAdminClient().rpc("update_customer_object_v2", {
       p_customer_account_id: input.accountId,
       p_customer_identity_id: input.customerIdentityId,
       p_actor_user_id: input.actorUserId,
@@ -259,7 +259,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async archiveCustomerObject(input: Parameters<FinalCustomerRepository["archiveCustomerObject"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("archive_customer_object_v1", {
+    const { data, error } = await createAdminClient().rpc("archive_customer_object_v2", {
       p_customer_account_id: input.accountId,
       p_customer_identity_id: input.customerIdentityId,
       p_actor_user_id: input.actorUserId,
@@ -271,7 +271,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async linkCustomerObjectPurchase(input: Parameters<FinalCustomerRepository["linkCustomerObjectPurchase"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("link_customer_object_purchase_v1", {
+    const { data, error } = await createAdminClient().rpc("assign_customer_object_purchase_v2", {
       p_customer_account_id: input.accountId,
       p_customer_identity_id: input.customerIdentityId,
       p_actor_user_id: input.actorUserId,
@@ -499,8 +499,14 @@ function mapCustomerObjectSummary(row: Row): CustomerObjectSummary {
 function mapCustomerObjectWorkspace(row: Row): CustomerObjectWorkspace {
   return {
     objects: Array.isArray(row.objects) ? row.objects.flatMap((item) => item && typeof item === "object" ? [mapCustomerObjectSummary(item as Row)] : []) : [],
+    unlinkedPurchaseCount: Number(row.unlinkedPurchaseCount ?? 0),
     unlinkedPurchases: Array.isArray(row.unlinkedPurchases) ? row.unlinkedPurchases.flatMap((item) => item && typeof item === "object" ? [{ orderId: String((item as Row).orderId), orderNumber: String((item as Row).orderNumber), purchasedAt: String((item as Row).purchasedAt), productCount: Number((item as Row).productCount) }] : []) : [],
-    purchaseLinks: Array.isArray(row.purchaseLinks) ? row.purchaseLinks.flatMap((item) => item && typeof item === "object" ? [{ orderId: String((item as Row).orderId), objectId: String((item as Row).objectId) }] : []) : [],
+    purchaseLinks: Array.isArray(row.purchaseLinks) ? row.purchaseLinks.flatMap((item) => item && typeof item === "object" ? [{
+      orderId: String((item as Row).orderId),
+      objectId: String((item as Row).objectId),
+      objectName: String((item as Row).objectName),
+      objectStatus: (item as Row).objectStatus as "ACTIVE" | "ARCHIVED",
+    }] : []) : [],
   };
 }
 
@@ -512,11 +518,57 @@ function mapCustomerObjectDetail(row: Row): CustomerObjectDetail | null {
     purchases: Array.isArray(row.purchases) ? row.purchases.flatMap((purchase) => {
       if (!purchase || typeof purchase !== "object") return [];
       const value = purchase as Row;
-      const lines = Array.isArray(value.lines) ? value.lines.flatMap((line) => line && typeof line === "object" ? [{ ...mapCamelOrderLine(line as Row), currentProduct: null, documents: [] }] : []) : [];
+      const lines = Array.isArray(value.lines) ? value.lines.flatMap((line) => {
+        if (!line || typeof line !== "object") return [];
+        const lineValue = line as Row;
+        return [{
+          ...mapCamelOrderLine(lineValue),
+          currentProduct: mapCurrentObjectProduct(lineValue.currentProduct),
+          documents: Array.isArray(lineValue.documents) ? lineValue.documents.flatMap((document) => document && typeof document === "object" ? [mapObjectDocument(document as Row)] : []) : [],
+        }];
+      }) : [];
       return [{ id: String(value.id), number: String(value.number), purchasedAt: String(value.purchasedAt), total: Number(value.total), currency: String(value.currency), status: String(value.status), lines }];
     }) : [],
-    serviceRequests: Array.isArray(row.serviceRequests) ? row.serviceRequests.flatMap((request) => request && typeof request === "object" ? [{ id: String((request as Row).id), number: String((request as Row).number), subject: String((request as Row).subject), status: (request as Row).status as CustomerServiceRequestStatus, createdAt: String((request as Row).createdAt) }] : []) : [],
+    serviceRequests: Array.isArray(row.serviceRequests) ? row.serviceRequests.flatMap((request) => {
+      if (!request || typeof request !== "object") return [];
+      const value = request as Row;
+      const latest = value.latestCustomerVisibleUpdate && typeof value.latestCustomerVisibleUpdate === "object" ? value.latestCustomerVisibleUpdate as Row : null;
+      return [{
+        id: String(value.id), number: String(value.number), subject: String(value.subject), status: value.status as CustomerServiceRequestStatus,
+        orderId: textOrNull(value.orderId), orderLineId: textOrNull(value.orderLineId), createdAt: String(value.createdAt), updatedAt: String(value.updatedAt),
+        latestCustomerVisibleUpdate: latest ? { body: String(latest.body), authorType: latest.authorType as "CUSTOMER" | "NOVOTECH", createdAt: String(latest.createdAt) } : null,
+      }];
+    }) : [],
+    activity: Array.isArray(row.activity) ? row.activity.flatMap((activity) => activity && typeof activity === "object" ? [{
+      id: String((activity as Row).id),
+      eventType: (activity as Row).eventType as CustomerObjectDetail["activity"][number]["eventType"],
+      createdAt: String((activity as Row).createdAt),
+      orderId: textOrNull((activity as Row).orderId),
+      serviceRequestId: textOrNull((activity as Row).serviceRequestId),
+      previousObjectId: textOrNull((activity as Row).previousObjectId),
+      fromStatus: ((activity as Row).fromStatus as CustomerServiceRequestStatus | null) ?? null,
+      toStatus: ((activity as Row).toStatus as CustomerServiceRequestStatus | null) ?? null,
+    }] : []) : [],
+    unlinkedPurchaseCount: Number(row.unlinkedPurchaseCount ?? 0),
+    unlinkedPurchases: Array.isArray(row.unlinkedPurchases) ? row.unlinkedPurchases.flatMap((item) => item && typeof item === "object" ? [{ orderId: String((item as Row).orderId), orderNumber: String((item as Row).orderNumber), purchasedAt: String((item as Row).purchasedAt), productCount: Number((item as Row).productCount) }] : []) : [],
   };
+}
+
+function mapCurrentObjectProduct(value: unknown): FinalCustomerCurrentProduct | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as Row;
+  const categoryPath = Array.isArray(row.categoryPath) ? row.categoryPath.flatMap((node) => node && typeof node === "object" ? [{
+    id: String((node as Row).id), slug: String((node as Row).slug), nameRu: textOrNull((node as Row).nameRu), nameRo: textOrNull((node as Row).nameRo),
+  }] : []) : [];
+  return {
+    publicProductId: String(row.publicProductId), sourceProductId: String(row.sourceProductId), slug: String(row.slug),
+    name: String(row.nameRu ?? row.nameRo ?? ""), nameRu: String(row.nameRu ?? ""), nameRo: String(row.nameRo ?? ""),
+    price: Number(row.price), currency: String(row.currency), availability: String(row.availability), imageUrl: textOrNull(row.imageUrl), categoryPath,
+  };
+}
+
+function mapObjectDocument(row: Row): FinalCustomerProductDocument {
+  return { id: String(row.id), productId: String(row.productId), title: String(row.title), type: String(row.type), url: String(row.url) };
 }
 
 function mapCamelOrderLine(row: Row): FinalCustomerOrderLine {

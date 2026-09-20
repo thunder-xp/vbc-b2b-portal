@@ -14,6 +14,7 @@ export type CustomerProfileActionState = { error: string | null; saved: boolean 
 export type CustomerServiceActionState = { error: string | null; createdId: string | null };
 export type CustomerServiceReplyActionState = { error: string | null; sent: boolean; submissionId: number };
 export type CustomerObjectActionState = { error: string | null; savedId: string | null; submissionId: number };
+export type CustomerObjectAssignmentState = { error: string | null; submissionId: number };
 
 export async function updateCustomerProfileAction(
   _state: CustomerProfileActionState,
@@ -112,14 +113,22 @@ export async function archiveCustomerObjectAction(formData: FormData) {
   redirect("/account/objects");
 }
 
-export async function linkCustomerObjectPurchaseAction(formData: FormData) {
-  const context = await getFinalCustomerContext();
-  const objectId = String(formData.get("objectId") ?? "");
-  await createFinalCustomerService().linkCustomerObjectPurchase(
-    context.account,
-    objectId,
-    String(formData.get("retailOrderId") ?? ""),
-  );
+export async function linkCustomerObjectPurchaseAction(
+  state: CustomerObjectAssignmentState,
+  formData: FormData,
+): Promise<CustomerObjectAssignmentState> {
+  let objectId = "";
+  try {
+    const context = await getFinalCustomerContext();
+    objectId = String(formData.get("objectId") ?? "");
+    await createFinalCustomerService().linkCustomerObjectPurchase(
+      context.account,
+      objectId,
+      String(formData.get("retailOrderId") ?? ""),
+    );
+  } catch {
+    return { error: "CUSTOMER_OBJECT_ASSIGNMENT_FAILED", submissionId: state.submissionId };
+  }
   revalidatePath("/account");
   revalidatePath("/account/objects");
   revalidatePath("/account/purchases");

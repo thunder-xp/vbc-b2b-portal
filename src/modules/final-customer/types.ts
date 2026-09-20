@@ -56,6 +56,14 @@ export type FinalCustomerCurrentProduct = Readonly<{
   currency: string;
   availability: string;
   imageUrl: string | null;
+  nameRu?: string;
+  nameRo?: string;
+  categoryPath?: ReadonlyArray<{
+    id: string;
+    slug: string;
+    nameRu: string | null;
+    nameRo: string | null;
+  }>;
 }>;
 
 export type FinalCustomerPurchase = FinalCustomerOrderLine & Readonly<{
@@ -87,13 +95,30 @@ export type CustomerObjectSummary = Readonly<{
 
 export type CustomerObjectWorkspace = Readonly<{
   objects: CustomerObjectSummary[];
+  unlinkedPurchaseCount: number;
   unlinkedPurchases: ReadonlyArray<{
     orderId: string;
     orderNumber: string;
     purchasedAt: string;
     productCount: number;
   }>;
-  purchaseLinks: ReadonlyArray<{ orderId: string; objectId: string }>;
+  purchaseLinks: ReadonlyArray<{
+    orderId: string;
+    objectId: string;
+    objectName: string;
+    objectStatus: "ACTIVE" | "ARCHIVED";
+  }>;
+}>;
+
+export type CustomerObjectActivity = Readonly<{
+  id: string;
+  eventType: "OBJECT_CREATED" | "OBJECT_UPDATED" | "OBJECT_ARCHIVED" | "PURCHASE_LINKED" | "PURCHASE_REASSIGNED" | "SERVICE_REQUEST_OPENED" | "SERVICE_STATUS_CHANGED";
+  createdAt: string;
+  orderId: string | null;
+  serviceRequestId: string | null;
+  previousObjectId: string | null;
+  fromStatus: CustomerServiceRequestStatus | null;
+  toStatus: CustomerServiceRequestStatus | null;
 }>;
 
 export type CustomerObjectDetail = Readonly<{
@@ -115,8 +140,34 @@ export type CustomerObjectDetail = Readonly<{
     number: string;
     subject: string;
     status: CustomerServiceRequestStatus;
+    orderId: string | null;
+    orderLineId: string | null;
     createdAt: string;
+    updatedAt: string;
+    latestCustomerVisibleUpdate: Readonly<{
+      body: string;
+      authorType: "CUSTOMER" | "NOVOTECH";
+      createdAt: string;
+    }> | null;
   }>;
+  activity: ReadonlyArray<CustomerObjectActivity>;
+  unlinkedPurchaseCount: number;
+  unlinkedPurchases: CustomerObjectWorkspace["unlinkedPurchases"];
+}>;
+
+export type CustomerObjectProductGroup = Readonly<{
+  key: string;
+  label: string;
+  productCount: number;
+  quantity: number;
+  latestPurchaseAt: string;
+  openServiceCount: number;
+  lineIds: readonly string[];
+}>;
+
+export type CustomerObjectWorkspaceDetail = CustomerObjectDetail & Readonly<{
+  productGroups: readonly CustomerObjectProductGroup[];
+  documentCount: number;
 }>;
 
 export type FinalCustomerProductDocument = Readonly<{
