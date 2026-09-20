@@ -29,4 +29,18 @@ describe("intentional active navigation matching", () => {
       { key: "root", href: "/cabinet" }, { key: "disabled", href: null },
     ])).toBeUndefined();
   });
+  it.each([null, "overview", "new", "active", "completed"])("maps installation view %s to status", (view) => {
+    const query = new URLSearchParams();
+    if (view) query.set("view", view);
+    expect(activeNavigationKey("/cabinet/installation-marketplace", query, [
+      { key: "status", href: "/cabinet/installation-marketplace?view=overview", activeWhen: { queryKey: "view", values: ["overview", "new", "active", "completed"], includeMissing: true } },
+      { key: "profile", href: "/cabinet/installation-marketplace?view=profile" },
+    ])).toBe("status");
+  });
+  it("maps installer profile separately", () => {
+    expect(activeNavigationKey("/cabinet/installation-marketplace", new URLSearchParams("view=profile"), [
+      { key: "status", href: "/cabinet/installation-marketplace?view=overview", activeWhen: { queryKey: "view", values: ["overview", "new", "active", "completed"], includeMissing: true } },
+      { key: "profile", href: "/cabinet/installation-marketplace?view=profile" },
+    ])).toBe("profile");
+  });
 });

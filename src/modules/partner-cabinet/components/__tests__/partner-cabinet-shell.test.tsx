@@ -29,7 +29,7 @@ const context = {
   partnerStatus: "GOLD",
   quickActions: [],
   accessState: "active" as const,
-  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company", "service.view", "support.view", "knowledge.view"])).navigation,
+  navigation: resolveWorkspaceCapabilities(new Set(["catalog.view", "opportunities.view", "campaigns.view", "orders.create", "orders.manage", "purchasing_lists.view", "purchase_templates.view", "reservations.manage", "specifications.manage", "estimates.view", "estimates.manage", "finance.view_company", "documents.view_company", "service.view", "support.view", "knowledge.view", "installation_marketplace.manage"])).navigation,
   cartItemCount: 0,
   notificationSummary: { unreadCount: 0, items: [] },
 };
@@ -100,10 +100,22 @@ describe("Partner workspace shell", () => {
       "Подбор товаров",
       "Сметы и КП",
       "Заказы и финансы",
+      "Экспертиза Novotech",
+      "Монтаж и заявки",
       "Программы лояльности",
       "Проектная защита",
       "Гарантия и техподдержка",
     ]);
+
+    await user.click(screen.getByRole("button", { name: "Экспертиза Novotech" }));
+    const expertiseGroup = within(document.getElementById("expertise-navigation")!);
+    expect(expertiseGroup.getByRole("link", { name: "Лаборатория Novotech" })).toHaveAttribute("href", "/cabinet/expertise/lab");
+    expect(expertiseGroup.getByRole("link", { name: "Академия Novotech" })).toHaveAttribute("href", "/cabinet/expertise/academy");
+
+    await user.click(screen.getByRole("button", { name: "Монтаж и заявки" }));
+    const installationGroup = within(document.getElementById("installation-navigation")!);
+    expect(installationGroup.getByRole("link", { name: "Статус монтажей" })).toHaveAttribute("href", "/cabinet/installation-marketplace?view=overview");
+    expect(installationGroup.getByRole("link", { name: "Профиль инсталлятора" })).toHaveAttribute("href", "/cabinet/installation-marketplace?view=profile");
 
     const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
     await user.click(selectionButton);

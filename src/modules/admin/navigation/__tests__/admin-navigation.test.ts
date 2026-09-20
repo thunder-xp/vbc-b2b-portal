@@ -46,6 +46,7 @@ const allPermissions = [
   "support.diagnostics.view",
   "knowledge.edit",
   "knowledge.analytics.view",
+  "content.manage",
 ];
 
 describe("admin navigation", () => {
@@ -124,8 +125,9 @@ describe("admin navigation", () => {
         "admin.catalog.view",
         "admin.catalog.manage",
         "admin.integrations.view",
+        "content.manage",
       ],
-      present: ["/admin/commercial/catalog", "/admin/partners/public-directory", "/admin/integrations"],
+      present: ["/admin/catalog", "/admin/partners/public-directory", "/admin/content/partner-videos", "/admin/integrations"],
       absent: ["/admin/users", "/admin/commercial/prices"],
     },
     {

@@ -27,6 +27,7 @@ describe("resolveWorkspaceCapabilities", () => {
       "Каталог товаров",
       "Корзина",
       "Избранное",
+      "Мои комплекты",
       "Сравнение",
       "Подбор решения",
       "Спецификации",
@@ -35,6 +36,8 @@ describe("resolveWorkspaceCapabilities", () => {
       "Моя номенклатура",
       "Генератор КП",
       "Заказы",
+      "Лаборатория Novotech",
+      "Академия Novotech",
       "Документы",
       "Сервисный центр",
       "База знаний",
@@ -67,7 +70,7 @@ describe("resolveWorkspaceCapabilities", () => {
   it("hides role-protected modules and commercial fields when permissions are absent", () => {
     const model = resolveWorkspaceCapabilities(new Set());
 
-    expect(model.navigation.map((item) => item.key)).toEqual(["dashboard", "company"]);
+    expect(model.navigation.map((item) => item.key)).toEqual(["dashboard", "expertise_lab", "expertise_academy", "company"]);
     expect(model.productCard.showPrice).toBe(false);
     expect(model.productCard.showStock).toBe(false);
     expect(model.canCreateCommercialProposal).toBe(false);

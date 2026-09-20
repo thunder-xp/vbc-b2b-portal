@@ -1,0 +1,11 @@
+import { notFound } from "next/navigation";
+import { requireAdminPagePermission } from "@/src/modules/admin/services";
+import { AdminExpertiseVideoEditor } from "@/src/modules/partner-expertise/AdminExpertiseVideoEditor";
+import { transitionExpertiseVideoAction } from "@/src/modules/partner-expertise/actions";
+import { getPartnerExpertiseService } from "@/src/modules/partner-expertise/server";
+
+export default async function EditPartnerVideoPage({ params, searchParams }: { params: Promise<{ videoId: string }>; searchParams: Promise<{ saved?: string }> }) {
+  await requireAdminPagePermission("content.manage"); const [{ videoId }, query] = await Promise.all([params, searchParams]); const video = await getPartnerExpertiseService().getAdmin(videoId); if (!video) notFound();
+  return <main className="mx-auto max-w-5xl space-y-6"><header className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase text-emerald-700">Видео для партнёров · {video.status}</p><h1 className="mt-1 text-2xl font-semibold">{video.titleRu}</h1></div><div className="flex flex-wrap gap-2">{video.status === "DRAFT" ? <Transition video={video} action="publish" label="Опубликовать" /> : null}{video.status === "PUBLISHED" ? <Transition video={video} action="unpublish" label="Снять с публикации" /> : null}{video.status !== "ARCHIVED" ? <Transition video={video} action="archive" label="Архивировать" /> : null}</div></header>{query.saved ? <p className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">Изменения сохранены.</p> : null}{video.status !== "ARCHIVED" ? <AdminExpertiseVideoEditor video={video} /> : <p className="border border-zinc-200 bg-white p-5 text-sm text-zinc-600">Архивная запись доступна только для чтения.</p>}</main>;
+}
+function Transition({ video, action, label }: { video: { id: string; revision: number }; action: "publish" | "unpublish" | "archive"; label: string }) { return <form action={transitionExpertiseVideoAction}><input name="id" type="hidden" value={video.id} /><input name="revision" type="hidden" value={video.revision} /><input name="action" type="hidden" value={action} /><button className="min-h-11 border border-zinc-300 bg-white px-4 text-sm font-semibold">{label}</button></form>; }

@@ -1,4 +1,4 @@
-type NavigationRoute = { key: string; href: string | null };
+type NavigationRoute = { key: string; href: string | null; activeWhen?: { queryKey: string; values: readonly string[]; includeMissing?: boolean } };
 
 /** Select one most-specific route, including query-defined views of a shared path. */
 export function activeNavigationKey(
@@ -22,7 +22,12 @@ export function activeNavigationKey(
     const childPath = path !== "/cabinet" && !query && segments.length < currentSegments.length
       && segments.every((segment, index) => segment === currentSegments[index]);
     if (!exactPath && !childPath) continue;
-    if ([...requiredQuery].some(([key, value]) => searchParams.get(key) !== value)) continue;
+    const activeValue = item.activeWhen ? searchParams.get(item.activeWhen.queryKey) : null;
+    const activeWhenMatches = item.activeWhen
+      ? (activeValue === null ? item.activeWhen.includeMissing === true : item.activeWhen.values.includes(activeValue))
+      : true;
+    if (!activeWhenMatches) continue;
+    if (!item.activeWhen && [...requiredQuery].some(([key, value]) => searchParams.get(key) !== value)) continue;
     if (segments.length > bestDepth || (segments.length === bestDepth && requiredQuery.size > bestQueryCount)) {
       selected = item.key;
       bestDepth = segments.length;

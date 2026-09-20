@@ -13,12 +13,14 @@ import {
   Landmark,
   FolderKanban,
   Gauge,
+  GraduationCap,
   Gift,
   LifeBuoy,
   ListChecks,
   Star,
   Layers3,
   Wrench,
+  UserRound,
   Lightbulb,
   Megaphone,
   SearchCheck,
@@ -53,6 +55,9 @@ const icons = {
   proposal_generator: WandSparkles,
   orders: ListChecks,
   installation_marketplace: Wrench,
+  installation_profile: UserRound,
+  expertise_lab: BookOpen,
+  expertise_academy: GraduationCap,
   finance: Landmark,
   documents: FileText,
   warranty: LifeBuoy,
@@ -79,7 +84,8 @@ const projectNavigationOrder: readonly WorkspaceCapabilityKey[] = [
 ];
 const estimatesNavigationOrder: readonly WorkspaceCapabilityKey[] = ["proposals", "customers", "nomenclature", "proposal_generator"];
 const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", "finance", "documents"];
-const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_marketplace"];
+const expertiseNavigationOrder: readonly WorkspaceCapabilityKey[] = ["expertise_lab", "expertise_academy"];
+const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_marketplace", "installation_profile"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
 function NavigationItem({
@@ -274,6 +280,10 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
+  const expertiseNavigation = expertiseNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [item] : [];
+  });
   const loyaltyNavigation = loyaltyNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     return item ? [item] : [];
@@ -283,6 +293,8 @@ export function PartnerSidebar({
     ["project-protection-navigation", projectNavigation],
     ["estimates-navigation", estimatesNavigation],
     ["orders-finance-navigation", commercialNavigation],
+    ["expertise-navigation", expertiseNavigation],
+    ["installation-navigation", installationNavigation],
     ["loyalty-navigation", loyaltyNavigation],
     ["support-navigation", supportNavigation],
   ].find(([, items]) => (items as WorkspaceNavigationItem[]).some((item) => activeKey === item.key))?.[0] as string | undefined;
@@ -330,9 +342,9 @@ export function PartnerSidebar({
           />
           <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
 
-          {installationNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
-          ))}
+          <ExpandableNavigationGroup {...groupProps("expertise-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={GraduationCap} id="expertise-navigation" items={expertiseNavigation} label={t("nav.group.expertise")} onNavigate={onNavigate} activeKey={activeKey} />
+
+          <ExpandableNavigationGroup {...groupProps("installation-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Wrench} id="installation-navigation" items={installationNavigation} label={t("nav.group.installationWorkspace")} onNavigate={onNavigate} activeKey={activeKey} />
 
           <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} activeKey={activeKey} />
 

@@ -16,6 +16,9 @@ export type WorkspaceCapabilityKey =
   | "proposal_generator"
   | "orders"
   | "installation_marketplace"
+  | "installation_profile"
+  | "expertise_lab"
+  | "expertise_academy"
   | "finance"
   | "documents"
   | "warranty"
@@ -33,6 +36,7 @@ export type WorkspaceNavigationItem = {
   href: string | null;
   icon: WorkspaceCapabilityKey;
   availability: WorkspaceCapabilityAvailability;
+  activeWhen?: { queryKey: string; values: readonly string[]; includeMissing?: boolean };
 };
 
 export type ProductCardCapabilityModel = {
@@ -88,6 +92,7 @@ type CapabilityDefinition = {
   requiredPermission: string | null;
   released: boolean;
   unavailableBehavior: "hide" | "show_coming_soon";
+  activeWhen?: { queryKey: string; values: readonly string[]; includeMissing?: boolean };
 };
 
 const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
@@ -107,7 +112,10 @@ const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "nomenclature", label: "Моя номенклатура", href: "/cabinet/nomenclature", requiredPermission: "estimates.view", released: true, unavailableBehavior: "hide" },
   { key: "proposal_generator", label: "Генератор КП", href: "/cabinet/estimates/generator", requiredPermission: "estimates.manage", released: true, unavailableBehavior: "hide" },
   { key: "orders", label: "Заказы", href: "/cabinet/orders", requiredPermission: "orders.manage", released: true, unavailableBehavior: "hide" },
-  { key: "installation_marketplace", label: "Монтаж и заявки", href: "/cabinet/installation-marketplace", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide" },
+  { key: "expertise_lab", label: "Лаборатория Novotech", href: "/cabinet/expertise/lab", requiredPermission: null, released: true, unavailableBehavior: "hide" },
+  { key: "expertise_academy", label: "Академия Novotech", href: "/cabinet/expertise/academy", requiredPermission: null, released: true, unavailableBehavior: "hide" },
+  { key: "installation_marketplace", label: "Статус монтажей", href: "/cabinet/installation-marketplace?view=overview", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide", activeWhen: { queryKey: "view", values: ["overview", "new", "active", "completed"], includeMissing: true } },
+  { key: "installation_profile", label: "Профиль инсталлятора", href: "/cabinet/installation-marketplace?view=profile", requiredPermission: "installation_marketplace.manage", released: true, unavailableBehavior: "hide" },
   { key: "finance", label: "Финансы", href: "/cabinet/finance", requiredPermission: "finance.view_company", released: true, unavailableBehavior: "hide" },
   { key: "documents", label: "Документы", href: "/cabinet/documents", requiredPermission: "documents.view_company", released: true, unavailableBehavior: "hide" },
   { key: "warranty", label: "Сервисный центр", href: "/cabinet/service", requiredPermission: "service.view", released: true, unavailableBehavior: "hide" },
@@ -136,6 +144,7 @@ export function resolveWorkspaceCapabilities(
       href: definition.released && configuredState !== "coming_soon" ? definition.href : null,
       icon: definition.key,
       availability: definition.released && configuredState !== "coming_soon" ? "available" : "coming_soon",
+      activeWhen: definition.activeWhen,
     } satisfies WorkspaceNavigationItem];
   });
 
