@@ -16,7 +16,7 @@ export function SignInForm({ locale, nextPath }: { locale: PublicLocale; nextPat
   const errorMessage = localizeSignInError(locale, state.error);
 
   return (
-    <form action={formAction} className="grid gap-5">
+    <form action={formAction} className="grid gap-4">
       {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
         {copy.email}
@@ -39,13 +39,13 @@ export function SignInForm({ locale, nextPath }: { locale: PublicLocale; nextPat
         />
       </label>
       <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="text-zinc-500">{copy.forgotPassword}</span>
-        <Link className="inline-flex min-h-11 items-center text-right font-medium text-emerald-700" href={nextPath ? `/auth/register?next=${encodeURIComponent(nextPath)}` : "/auth/register"}>
+        <Link className="inline-flex min-h-11 items-center text-zinc-600 hover:text-zinc-950" href={`/contacts?lang=${locale}#customer-contact-heading`}>{copy.forgotPassword}</Link>
+        <Link className="inline-flex min-h-11 items-center text-right font-medium text-emerald-700" href={registrationHref(locale, nextPath)}>
           {copy.becomePartner}
         </Link>
       </div>
       {errorMessage ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
           {errorMessage}
         </p>
       ) : null}
@@ -58,4 +58,10 @@ export function SignInForm({ locale, nextPath }: { locale: PublicLocale; nextPat
       </button>
     </form>
   );
+}
+
+function registrationHref(locale: PublicLocale, nextPath?: string) {
+  const query = new URLSearchParams({ lang: locale });
+  if (nextPath) query.set("next", nextPath);
+  return `/become-partner?${query.toString()}`;
 }

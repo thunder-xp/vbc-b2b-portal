@@ -15,7 +15,7 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
   return buildPublicMetadata({
     locale,
     path: "/partners",
-    title: locale === "ru" ? "Наши партнёры | Novotech" : "Partenerii noștri | Novotech",
+    title: locale === "ru" ? "Сообщество партнёров | Novotech" : "Comunitatea partenerilor | Novotech",
     description: locale === "ru"
       ? "Найдите проверенного партнёра Novotech в Молдове для подбора, поставки, монтажа и обслуживания профессиональных систем безопасности."
       : "Găsiți un partener Novotech verificat în Moldova pentru selectarea, livrarea, instalarea și întreținerea sistemelor profesionale de securitate.",
@@ -28,11 +28,11 @@ export default async function PublicPartnersPage({ searchParams }: { searchParam
   const schema = [
     publicBreadcrumbSchema([
       { name: locale === "ro" ? "Principală" : "Главная", url: publicLocalizedUrl("/", locale) },
-      { name: locale === "ro" ? "Parteneri" : "Партнёры", url: publicLocalizedUrl("/partners", locale) },
+      { name: locale === "ro" ? "Comunitatea partenerilor" : "Сообщество партнёров", url: publicLocalizedUrl("/partners", locale) },
     ]),
     {
       "@type": "ItemList",
-      name: locale === "ro" ? "Partenerii Novotech" : "Партнёры Novotech",
+      name: locale === "ro" ? "Comunitatea partenerilor Novotech" : "Сообщество партнёров Novotech",
       itemListElement: partners.map((partner, index) => ({
         "@type": "ListItem",
         position: index + 1,

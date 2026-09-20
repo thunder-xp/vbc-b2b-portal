@@ -8,8 +8,10 @@ describe("Unified Auth foundation route contract", () => {
   it("keeps one canonical Auth Center with explicit Business and Customer entries", () => {
     expect(read("app/auth/page.tsx")).toContain("UnifiedAuthCenter");
     const center = read("src/modules/auth/components/UnifiedAuthCenter.tsx");
-    expect(center).toContain("<SignInForm");
-    expect(center).toContain('href="/auth/customer"');
+    expect(center).toContain("<BusinessSignInExperience");
+    const experience = read("src/modules/auth/components/BusinessSignInExperience.tsx");
+    expect(experience).toContain("<SignInForm");
+    expect(experience).toContain('href={`/auth/customer?lang=${locale}`}');
   });
 
   it("reuses PhoneOtpForm and routes verified OTP through the read-only resolver completion", () => {

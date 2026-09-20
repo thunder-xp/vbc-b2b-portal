@@ -20,6 +20,7 @@ export default function RegisterPage() {
     <AuthPageShell
       description={copy.description}
       eyebrow={copy.eyebrow}
+      homeHref={`/?lang=${locale}`}
       maxWidth="lg"
       title={copy.title}
     >

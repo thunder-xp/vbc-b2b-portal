@@ -17,7 +17,7 @@ describe("public partners page", () => {
     mocks.listPartners.mockResolvedValue([{ displayName: "Approved Partner", logoUrl: null, providerId: null, verifiedReviewCount: 0, averageVerifiedRating: null, completedVerifiedInstallations: 0 }]);
     const { container } = render(await PublicPartnersPage({ searchParams: Promise.resolve({ lang: "ro" }) }));
 
-    expect(screen.getByRole("heading", { name: "Partenerii noștri" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Comunitatea partenerilor" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Approved Partner" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Contacte" })[0]).toHaveAttribute("href", "/contacts?lang=ro");
     expect(screen.queryByRole("search")).not.toBeInTheDocument();
@@ -28,7 +28,7 @@ describe("public partners page", () => {
   it("localizes Romanian metadata", async () => {
     const metadata = await generateMetadata({ searchParams: Promise.resolve({ lang: "ro" }) });
 
-    expect(metadata.title).toBe("Partenerii noștri | Novotech");
+    expect(metadata.title).toBe("Comunitatea partenerilor | Novotech");
     expect(metadata.description).toBe("Găsiți un partener Novotech verificat în Moldova pentru selectarea, livrarea, instalarea și întreținerea sistemelor profesionale de securitate.");
   });
 });

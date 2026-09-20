@@ -51,17 +51,17 @@ describe("public partner directory", () => {
       { displayName: "Partner Two", logoUrl: "https://project.supabase.co/storage/v1/render/image/public/company-logos/approved.webp", providerId: "10000000-0000-4000-8000-000000000003", verifiedReviewCount: 2, averageVerifiedRating: 4.5, completedVerifiedInstallations: 2 },
     ]} />);
 
-    expect(screen.getByRole("heading", { name: "Наши партнёры" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Сообщество партнёров" })).toBeInTheDocument();
     expect(screen.getByRole("list")).toHaveClass("grid-cols-1", "sm:grid-cols-2", "lg:grid-cols-3", "xl:grid-cols-4");
-    expect(screen.getAllByRole("article")[0]).toHaveClass("grid-rows-[112px_auto]", "overflow-hidden");
-    expect(screen.getByRole("img", { name: "Partner Two" })).toHaveClass("object-contain", "grayscale", "group-hover:grayscale-0");
-    expect(screen.getByText(/4\.5/)).toBeInTheDocument();
-    expect(screen.getByText("Пока нет проверенных отзывов")).toBeInTheDocument();
+    expect(screen.getAllByRole("article")[0]).toHaveClass("grid-rows-[88px_auto]", "overflow-hidden");
+    expect(screen.getByRole("img", { name: "Partner Two — логотип" })).toHaveClass("object-contain", "grayscale", "group-hover:grayscale-0");
+    expect(screen.getAllByText("Публичный профиль подтверждён Novotech")).toHaveLength(2);
+    expect(screen.queryByText(/4\.5|отзыв|монтажей/i)).not.toBeInTheDocument();
   });
 
   it("localizes Romanian copy and keeps the empty state safe", () => {
     render(<PublicPartnerDirectory locale="ro" partners={[]} />);
-    expect(screen.getByRole("heading", { name: "Partenerii noștri" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Comunitatea partenerilor" })).toBeInTheDocument();
     expect(screen.getByText("Lista partenerilor este în curs de pregătire pentru publicare.")).toBeInTheDocument();
   });
 });

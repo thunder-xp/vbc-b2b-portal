@@ -7,6 +7,7 @@ type AuthPageShellProps = {
   eyebrow: string;
   maxWidth?: "md" | "lg";
   title: string;
+  homeHref?: string;
 };
 
 export function AuthPageShell({
@@ -15,16 +16,17 @@ export function AuthPageShell({
   eyebrow,
   maxWidth = "md",
   title,
+  homeHref = "/",
 }: AuthPageShellProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-12 text-zinc-950">
-      <section className={`w-full rounded-lg border border-zinc-200 bg-white p-6 shadow-sm ${maxWidth === "lg" ? "max-w-lg" : "max-w-md"}`}>
-        <Link className="inline-flex min-h-11 items-center text-sm font-medium text-emerald-700" href="/">
+    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-6 text-zinc-950 sm:px-6 sm:py-8">
+      <section className={`w-full rounded-lg border border-zinc-200 bg-white p-5 shadow-sm sm:p-6 ${maxWidth === "lg" ? "max-w-lg" : "max-w-md"}`}>
+        <Link className="inline-flex min-h-11 min-w-11 items-center justify-center text-sm font-medium text-emerald-700" href={homeHref}>
           {eyebrow}
         </Link>
-        <h1 className="mt-5 text-2xl font-semibold">{title}</h1>
-        <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
-        <div className="mt-6">{children}</div>
+        <h1 className="mt-3 text-2xl font-semibold">{title}</h1>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">{description}</p>
+        <div className="mt-5">{children}</div>
       </section>
     </main>
   );

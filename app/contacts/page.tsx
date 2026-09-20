@@ -23,8 +23,10 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
 }
 
 export default async function ContactsPage({ searchParams }: { searchParams: Params }) {
-  const locale = publicRetailLocale((await searchParams).lang);
+  const params = await searchParams;
+  const locale = publicRetailLocale(params.lang);
   const ru = locale === "ru";
+  const commercialAgentRequest = params.request === "commercial-agent";
   const schema = [
     publicBreadcrumbSchema([
       { name: ru ? "Главная" : "Principală", url: publicLocalizedUrl("/", locale) },
@@ -41,6 +43,15 @@ export default async function ContactsPage({ searchParams }: { searchParams: Par
         <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">{ru ? "Контакты и магазины" : "Contacte și magazine"}</h1>
         <p className="mt-3 text-sm leading-6 text-zinc-600">{publicCompanyContent.slogan[locale]}</p>
       </header>
+
+      {commercialAgentRequest ? <section aria-labelledby="partner-application-heading" className="border-b border-zinc-200 py-7" id="partner-application">
+        <h2 className="text-xl font-semibold" id="partner-application-heading">{ru ? "Заявка коммерческого агента" : "Cerere pentru agent comercial"}</h2>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">{ru ? "Свяжитесь с Novotech, чтобы начать действующий процесс регистрации, проверки и согласования коммерческого агента. Партнёрская компания автоматически не создаётся." : "Contactați Novotech pentru a începe procesul existent de înregistrare, verificare și aprobare a agentului comercial. Nu se creează automat o companie parteneră."}</p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:gap-5">
+          <a className="inline-flex min-h-11 items-center gap-2 font-semibold text-blue-800 hover:text-blue-950" href={`mailto:${publicCompanyContent.email}?subject=${encodeURIComponent(ru ? "Заявка коммерческого агента" : "Cerere agent comercial")}`}><Mail aria-hidden="true" className="size-4" />{publicCompanyContent.email}</a>
+          <a className="inline-flex min-h-11 items-center gap-2 font-semibold text-blue-800 hover:text-blue-950" href={publicCompanyContent.customerPhone.href}><Phone aria-hidden="true" className="size-4" />{publicCompanyContent.customerPhone.display}</a>
+        </div>
+      </section> : null}
 
       <section aria-labelledby="stores-heading" className="py-8">
         <h2 className="text-xl font-semibold" id="stores-heading">{ru ? "Магазины" : "Magazine"}</h2>

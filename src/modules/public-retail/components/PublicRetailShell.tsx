@@ -16,6 +16,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
   const copy = retailCopy[locale];
   const ru = locale === "ru";
   const catalogLabel = ru ? "Каталог" : "Catalog";
+  const equipmentLabel = ru ? "Оборудование" : "Echipamente";
   const links = [
     [catalogLabel, publicRetailShowcaseHref(locale), true],
     [ru ? "Решения" : "Soluții", `/calculator/cctv?lang=${locale}`, true],
@@ -23,7 +24,6 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
     [copy.delivery, `/?lang=${locale}#delivery`, false],
     [ru ? "О компании" : "Despre noi", `/about?lang=${locale}`, false],
     [copy.contacts, `/contacts?lang=${locale}`, false],
-    [copy.partnerCabinet, "/cabinet", false],
   ] as const;
 
   return <div className="public-retail min-h-screen bg-white text-zinc-950" lang={locale}>
@@ -37,7 +37,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
             {links.map(([label, href, prefetch]) => <Link className="text-[13px] font-medium text-zinc-700 hover:text-blue-700" href={href} key={href} prefetch={prefetch ? undefined : false}>{label}</Link>)}
           </nav>
           <div className="ml-auto flex items-center gap-1 xl:ml-0">
-            <Link aria-label={copy.customerAccount} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-zinc-100 hover:text-blue-700" href={`/account?lang=${locale}`} prefetch={false}>
+            <Link aria-label={copy.customerAccount} className="grid size-11 shrink-0 place-items-center rounded-sm text-zinc-700 hover:bg-zinc-100 hover:text-blue-700" href={`/auth?lang=${locale}`} prefetch={false}>
               <CircleUserRound aria-hidden="true" className="size-5" />
             </Link>
             <Suspense fallback={<span aria-hidden className="size-11" />}><PublicLocaleSwitch locale={locale} /></Suspense>
@@ -54,10 +54,10 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
     </header>
     {children}
     <footer className="border-t border-zinc-800 bg-zinc-950 text-zinc-400" id="support">
-      <div className="mx-auto grid max-w-[1440px] items-start gap-x-6 gap-y-6 px-4 py-7 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:gap-y-5 lg:px-8 lg:py-6 xl:grid-cols-[1.2fr_.7fr_.7fr_1fr_1.25fr]">
+      <div className="mx-auto grid max-w-[1440px] items-start gap-x-6 gap-y-5 px-4 py-6 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:gap-y-4 lg:px-8 lg:py-5 xl:grid-cols-[1.2fr_.7fr_.8fr_1fr_1.25fr]">
         <div><PublicBrandLockup background="dark" /><p className="mt-3 max-w-sm text-xs leading-4">{publicCompanyContent.slogan[locale]}</p></div>
-        <FooterGroup title={catalogLabel}><FooterLink href={`/catalog?lang=${locale}&view=all`}>{catalogLabel}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
-        <FooterGroup title={ru ? "Услуги" : "Servicii"}><FooterLink href={`/installation?lang=${locale}`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink></FooterGroup>
+        <FooterGroup title={equipmentLabel}><FooterLink href={`/catalog?lang=${locale}&view=all`}>{catalogLabel}</FooterLink><FooterLink href={`/calculator/cctv?lang=${locale}`}>{copy.chooseSystem}</FooterLink></FooterGroup>
+        <FooterGroup title={ru ? "Услуги" : "Servicii"}><FooterLink href={`/installation?lang=${locale}`}>{copy.services}</FooterLink><FooterLink href={`/?lang=${locale}#delivery`}>{copy.delivery}</FooterLink><div className="grid grid-cols-2 gap-x-3 xl:grid-cols-1 xl:gap-x-0"><FooterLink href={`/partners?lang=${locale}`}>{ru ? "Сообщество партнёров" : "Comunitatea partenerilor"}</FooterLink><FooterLink href={`/become-partner?lang=${locale}`}>{ru ? "Стать партнёром" : "Devino partener"}</FooterLink></div></FooterGroup>
         <FooterGroup title={ru ? "Информация" : "Informații"}>
           <FooterLink href={`/about?lang=${locale}`}>{ru ? "О компании" : "Despre companie"}</FooterLink>
           <FooterLink href={`/terms?lang=${locale}`}>{ru ? "Условия и положения" : "Termeni și condiții"}</FooterLink>
@@ -93,7 +93,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
 }
 
 function FooterGroup({ children, title }: { children: ReactNode; title: string }) {
-  return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-3 grid gap-0 text-sm leading-snug">{children}</div></section>;
+  return <section><h2 className="text-xs font-semibold uppercase text-zinc-200">{title}</h2><div className="mt-2 grid gap-0 text-sm leading-snug">{children}</div></section>;
 }
 
 function OfficialLogo({ background, priority = false }: { background: "light" | "dark"; priority?: boolean }) {

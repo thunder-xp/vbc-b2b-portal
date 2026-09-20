@@ -93,7 +93,7 @@ export function PhoneOtpForm({
 
   if (step === "PHONE") {
     return (
-      <form className="grid gap-5" onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
+      <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void sendCode(); }}>
         <label className="grid gap-2 text-sm font-medium text-zinc-800">
           {labels.phone}
           <span className="flex h-12 overflow-hidden rounded-lg border border-zinc-300 bg-white focus-within:border-emerald-700 focus-within:ring-2 focus-within:ring-emerald-100">
@@ -117,7 +117,7 @@ export function PhoneOtpForm({
           </span>
           <span className="text-xs font-normal text-zinc-500" id="customer-phone-hint">{labels.phoneHint}</span>
         </label>
-        {error ? <p aria-live="polite" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
+        {error ? <p aria-live="polite" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{error}</p> : null}
         <button className="min-h-11 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:bg-zinc-400" disabled={pending || localDigits.length !== 8} type="submit">
           {pending ? labels.sending : labels.send}
         </button>
@@ -126,7 +126,7 @@ export function PhoneOtpForm({
   }
 
   return (
-    <form className="grid gap-5" onSubmit={(event) => { event.preventDefault(); void verifyCode(); }}>
+    <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); void verifyCode(); }}>
       <div>
         <h2 className="text-lg font-semibold text-zinc-950">{labels.title}</h2>
         <p className="mt-1 text-sm text-zinc-500">+373 {formatLocalPhone(localDigits)}</p>
@@ -148,7 +148,7 @@ export function PhoneOtpForm({
           value={otp}
         />
       </label>
-      {error ? <p aria-live="polite" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p> : null}
+      {error ? <p aria-live="polite" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{error}</p> : null}
       <button className="min-h-11 rounded-lg bg-zinc-950 px-4 text-sm font-semibold text-white hover:bg-zinc-800 disabled:bg-zinc-400" disabled={pending || otp.length !== 6} type="submit">
         {pending ? labels.verifying : labels.verify}
       </button>

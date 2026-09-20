@@ -29,7 +29,6 @@ describe("Public Retail shell", () => {
       "Доставка",
       "О компании",
       "Контакты",
-      "Кабинет партнёра",
     ]);
     expect(navigation.getAllByRole("link").map((link) => link.getAttribute("href"))).toEqual([
       "/catalog?lang=ru",
@@ -38,14 +37,13 @@ describe("Public Retail shell", () => {
       "/?lang=ru#delivery",
       "/about?lang=ru",
       "/contacts?lang=ru",
-      "/cabinet",
     ]);
 
     const header = screen.getByRole("banner");
     const account = within(header).getByRole("link", { name: "Личный кабинет" });
     const language = within(header).getByRole("link", { name: "Переключить на румынский" });
     const cart = within(header).getByRole("link", { name: "Корзина: 11" });
-    expect(account).toHaveAttribute("href", "/account?lang=ru");
+    expect(account).toHaveAttribute("href", "/auth?lang=ru");
     expect(account.textContent).toBe("");
     expect(account.compareDocumentPosition(language) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(language).toHaveTextContent("RO");
@@ -66,6 +64,9 @@ describe("Public Retail shell", () => {
     expect(screen.getByRole("link", { name: "0 79 31 33 53" })).toHaveAttribute("href", "tel:+37379313353");
     expect(screen.getByRole("heading", { name: "Информация" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Контакты" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Оборудование" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Сообщество партнёров" })).toHaveAttribute("href", "/partners?lang=ru");
+    expect(screen.getByRole("link", { name: "Стать партнёром" })).toHaveAttribute("href", "/become-partner?lang=ru");
     expect(screen.queryByRole("heading", { name: "Контакты и магазины" })).not.toBeInTheDocument();
     const payments = within(screen.getByRole("group", { name: "Поддерживаемые платёжные системы" }));
     for (const name of ["MAIB", "Visa", "Mastercard", "American Express"]) expect(payments.getByRole("img", { name })).toBeInTheDocument();
@@ -85,12 +86,11 @@ describe("Public Retail shell", () => {
       "Livrare",
       "Despre noi",
       "Contacte",
-      "Cabinet partener",
     ]);
     expect(mobile.getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
     expect(within(screen.getByRole("banner")).queryByRole("search")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cont personal" })).toHaveAttribute("href", "/account?lang=ro");
-    expect(mobile.getByRole("link", { name: "Cabinet partener" })).toHaveAttribute("href", "/cabinet");
+    expect(screen.getByRole("link", { name: "Cont personal" })).toHaveAttribute("href", "/auth?lang=ro");
+    expect(mobile.queryByRole("link", { name: "Cabinet partener" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Contacte" })).toBeInTheDocument();
@@ -130,13 +130,13 @@ describe("Public Retail shell", () => {
     expect(shell).toContain('text-xs leading-4 text-zinc-400');
     expect(shell).toContain('border-t border-zinc-800 px-4 py-4');
     expect(shell).toContain('inline-flex min-h-11 w-fit items-center hover:text-white lg:min-h-8');
-    expect(shell).toContain('gap-y-6 px-4 py-7');
-    expect(shell).toContain('lg:gap-y-5 lg:px-8 lg:py-6');
-    expect(shell).toContain('mt-3 grid gap-0 text-sm leading-snug');
+    expect(shell).toContain('gap-y-5 px-4 py-6');
+    expect(shell).toContain('lg:gap-y-4 lg:px-8 lg:py-5');
+    expect(shell).toContain('mt-2 grid gap-0 text-sm leading-snug');
     expect(shell).not.toMatch(/<footer[^>]*\bh-(?:screen|full|\[)/);
     expect(shell).not.toContain('text-xs leading-5 text-zinc-500');
-    expect(shell).toContain('[copy.partnerCabinet, "/cabinet", false]');
-    expect(shell).toContain('href={`/account?lang=${locale}`} prefetch={false}');
+    expect(shell).not.toContain('[copy.partnerCabinet, "/cabinet", false]');
+    expect(shell).toContain('href={`/auth?lang=${locale}`} prefetch={false}');
     expect(shell).toContain('href={href} prefetch={false}');
     expect(shell).toContain('prefetch={prefetch ? undefined : false}');
     expect(cart).toContain('prefetch={quantity > 0 ? undefined : false}');

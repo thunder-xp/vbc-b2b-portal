@@ -14,6 +14,7 @@ const staticPaths = [
   "/about",
   "/contacts",
   "/partners",
+  "/become-partner",
   "/calculator/cctv",
   "/installation",
   "/guides",

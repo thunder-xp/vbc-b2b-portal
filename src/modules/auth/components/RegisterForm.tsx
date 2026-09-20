@@ -18,6 +18,7 @@ export function RegisterForm({ locale, nextPath }: { locale: PublicLocale; nextP
   return (
     <form action={formAction} className="grid gap-5">
       {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
+      <input name="locale" type="hidden" value={locale} />
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
         {copy.company}
         <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="company" required />
@@ -39,7 +40,7 @@ export function RegisterForm({ locale, nextPath }: { locale: PublicLocale; nextP
         <input autoComplete="new-password" className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="confirmPassword" required type="password" />
       </label>
       {errorMessage ? (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
           {errorMessage}
         </p>
       ) : null}
@@ -50,9 +51,15 @@ export function RegisterForm({ locale, nextPath }: { locale: PublicLocale; nextP
       >
         {isPending ? copy.loading : copy.submit}
       </button>
-      <Link className="text-center text-sm font-medium text-emerald-700" href={nextPath ? `/auth/sign-in?next=${encodeURIComponent(nextPath)}` : "/auth/sign-in"}>
+      <Link className="flex min-h-11 items-center justify-center text-center text-sm font-medium text-emerald-700" href={signInHref(locale, nextPath)}>
         {copy.alreadyRegistered}
       </Link>
     </form>
   );
+}
+
+function signInHref(locale: PublicLocale, nextPath?: string) {
+  const query = new URLSearchParams({ lang: locale });
+  if (nextPath) query.set("next", nextPath);
+  return `/auth/sign-in?${query.toString()}`;
 }

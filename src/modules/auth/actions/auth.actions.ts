@@ -96,6 +96,7 @@ export async function registerAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const locale = String(formData.get("locale") ?? "");
   const nextPath = safeRelativeAuthRedirect(formData.get("next"));
 
   if (!company || !country || !email || !password || !confirmPassword) {
@@ -123,6 +124,7 @@ export async function registerAction(
   }
 
   const query = new URLSearchParams({ registered: "1" });
+  if (locale === "ru" || locale === "ro") query.set("lang", locale);
   if (nextPath) query.set("next", nextPath);
   redirect(`/auth/sign-in?${query.toString()}`);
 }
