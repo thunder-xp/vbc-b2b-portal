@@ -8,7 +8,15 @@ import type { PublicLocale } from "@/src/modules/public-locale";
 import { registerAction } from "../actions/auth.actions";
 import { authCopy, localizeRegistrationError } from "../auth-copy";
 
-export function RegisterForm({ locale, nextPath }: { locale: PublicLocale; nextPath?: string }) {
+export function RegisterForm({
+  intent = "installer",
+  locale,
+  nextPath,
+}: {
+  intent?: "agent" | "installer";
+  locale: PublicLocale;
+  nextPath?: string;
+}) {
   const [state, formAction, isPending] = useActionState(registerAction, {
     error: null,
   });
@@ -16,27 +24,30 @@ export function RegisterForm({ locale, nextPath }: { locale: PublicLocale; nextP
   const errorMessage = localizeRegistrationError(locale, state.error);
 
   return (
-    <form action={formAction} className="grid gap-5">
+    <form action={formAction} className="grid gap-4">
       {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
       <input name="locale" type="hidden" value={locale} />
+      <input name="intent" type="hidden" value={intent} />
+      {intent === "installer" ? <>
+        <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
+          <span>{copy.company} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
+          <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="company" required />
+        </label>
+        <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
+          <span>{copy.country} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
+          <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="country" required />
+        </label>
+      </> : null}
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        {copy.company}
-        <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="company" required />
-      </label>
-      <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        {copy.country}
-        <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="country" required />
-      </label>
-      <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        {copy.email}
+        <span>{copy.email} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
         <input autoComplete="email" className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="email" required type="email" />
       </label>
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        {copy.password}
+        <span>{copy.password} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
         <input autoComplete="new-password" className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="password" required type="password" />
       </label>
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
-        {copy.confirmPassword}
+        <span>{copy.confirmPassword} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
         <input autoComplete="new-password" className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="confirmPassword" required type="password" />
       </label>
       {errorMessage ? (

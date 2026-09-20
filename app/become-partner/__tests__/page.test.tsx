@@ -14,7 +14,7 @@ describe("professional registration intent selector", () => {
     expect(screen.getByRole("heading", { name: "Как вы хотите сотрудничать с Novotech?" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Коммерческий агент/ })).toHaveAttribute(
       "href",
-      "/contacts?lang=ru&request=commercial-agent#partner-application",
+      "/become-partner/agent?lang=ru",
     );
     expect(screen.getByRole("link", { name: /Профессиональный инсталлятор/ })).toHaveAttribute(
       "href",

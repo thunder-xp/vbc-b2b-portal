@@ -14,17 +14,34 @@ export default function RegisterPage() {
   if (!isLocaleReady) return <AuthPageLoading />;
 
   const copy = authCopy[locale].registration;
-  const nextPath = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+  const params = new URLSearchParams(window.location.search);
+  const nextPath = safeNextPath(params.get("next"));
+  const intent = params.get("intent") === "agent" ? "agent" : "installer";
+  const roleCopy = intent === "agent"
+    ? {
+        title: locale === "ru" ? "Регистрация коммерческого агента" : "Înregistrare agent comercial",
+        description: locale === "ru"
+          ? "Создайте бизнес-аккаунт, чтобы заполнить и отслеживать заявку коммерческого агента."
+          : "Creați un cont business pentru a completa și urmări cererea de agent comercial.",
+      }
+    : {
+        title: locale === "ru" ? "Регистрация профессионального инсталлятора" : "Înregistrare instalator profesionist",
+        description: locale === "ru"
+          ? "Создайте бизнес-аккаунт. После входа вы сможете отправить данные на проверку Novotech."
+          : "Creați un cont business. După autentificare veți putea trimite datele spre verificare Novotech.",
+      };
 
   return (
     <AuthPageShell
-      description={copy.description}
+      backHref={`/become-partner?lang=${locale}`}
+      backLabel={locale === "ru" ? "Назад к выбору" : "Înapoi la alegere"}
+      description={roleCopy.description}
       eyebrow={copy.eyebrow}
       homeHref={`/?lang=${locale}`}
       maxWidth="lg"
-      title={copy.title}
+      title={roleCopy.title}
     >
-      <RegisterForm locale={locale} nextPath={nextPath} />
+      <RegisterForm intent={intent} locale={locale} nextPath={nextPath} />
     </AuthPageShell>
   );
 }

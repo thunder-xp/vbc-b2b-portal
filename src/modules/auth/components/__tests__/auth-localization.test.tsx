@@ -77,14 +77,30 @@ describe("authentication localization", () => {
     window.localStorage.setItem(PUBLIC_LOCALE_STORAGE_KEY, "ro");
     render(<RegisterPage />);
 
-    expect(await screen.findByRole("heading", { name: "Devino partener" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Companie")).toBeInTheDocument();
-    expect(screen.getByLabelText("Țară")).toBeInTheDocument();
-    expect(screen.getByLabelText("Adresa de e-mail")).toBeInTheDocument();
-    expect(screen.getByLabelText("Parolă")).toBeInTheDocument();
-    expect(screen.getByLabelText("Confirmați parola")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Înregistrare instalator profesionist" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Companie/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Țară/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Adresa de e-mail/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Parolă/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Confirmați parola/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Creați contul" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Aveți deja un cont? Autentificare" })).toHaveAttribute("href", "/auth/sign-in?lang=ro");
+  });
+
+  it("keeps Agent registration separate and returns to the governed application", async () => {
+    window.history.replaceState({}, "", "/auth/register?lang=ru&intent=agent&next=%2Fbecome-partner%2Fagent%3Flang%3Dru");
+    render(<RegisterPage />);
+
+    expect(await screen.findByRole("heading", { name: "Регистрация коммерческого агента" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Компания/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Страна/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Электронная почта/)).toBeInTheDocument();
+    expect(document.querySelector('input[name="intent"]')).toHaveValue("agent");
+    expect(document.querySelector('input[name="next"]')).toHaveValue("/become-partner/agent?lang=ru");
+    expect(screen.getByRole("link", { name: authCopy.ru.registration.alreadyRegistered })).toHaveAttribute(
+      "href",
+      "/auth/sign-in?lang=ru&next=%2Fbecome-partner%2Fagent%3Flang%3Dru",
+    );
   });
 
   it("localizes known and generic action errors without changing action contracts", () => {

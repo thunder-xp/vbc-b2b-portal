@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 type AuthPageShellProps = {
+  backHref?: string;
+  backLabel?: string;
   children: ReactNode;
   description: string;
   eyebrow: string;
@@ -11,6 +13,8 @@ type AuthPageShellProps = {
 };
 
 export function AuthPageShell({
+  backHref,
+  backLabel,
   children,
   description,
   eyebrow,
@@ -26,6 +30,11 @@ export function AuthPageShell({
         </Link>
         <h1 className="mt-3 text-2xl font-semibold">{title}</h1>
         <p className="mt-1 text-sm leading-6 text-zinc-600">{description}</p>
+        {backHref && backLabel ? (
+          <Link className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-emerald-700 hover:text-emerald-900" href={backHref}>
+            ← {backLabel}
+          </Link>
+        ) : null}
         <div className="mt-5">{children}</div>
       </section>
     </main>

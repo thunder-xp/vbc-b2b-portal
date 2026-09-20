@@ -1,0 +1,81 @@
+import type { PublicLocale } from "@/src/modules/public-locale";
+
+import type { CommercialAgentApplicationStatus } from "./types";
+
+export const commercialAgentApplicationCopy = {
+  ru: {
+    eyebrow: "NOVOTECH SYSTEMS",
+    title: "Коммерческий агент",
+    description: "Вы рекомендуете решения Novotech клиентам и отслеживаете свои рекомендации в личном кабинете.",
+    back: "Назад к выбору",
+    required: "обязательно",
+    optional: "необязательно",
+    displayName: "Имя / публичное название",
+    agentType: "Формат работы",
+    individual: "Физическое лицо",
+    legalEntity: "Юридическое лицо",
+    legalName: "Юридическое наименование",
+    phone: "Телефон",
+    email: "Email для связи",
+    locality: "Населённый пункт",
+    profession: "Профессия",
+    workplace: "Место работы",
+    submit: "Отправить заявку",
+    resubmit: "Отправить уточнённые данные",
+    submitting: "Отправляем...",
+    successTitle: "Заявка отправлена",
+    successText: "Novotech проверит данные и сообщит о следующем шаге.",
+    existingTitle: "Профиль коммерческого агента уже создан",
+    existingPending: "Профиль проходит предусмотренные проверку и активацию.",
+    existingBlocked: "Профиль сейчас не предоставляет доступ к кабинету. Обратитесь в Novotech для уточнения текущего решения.",
+    existingActive: "Рабочий кабинет коммерческого агента доступен.",
+    openCabinet: "Открыть кабинет",
+  },
+  ro: {
+    eyebrow: "NOVOTECH SYSTEMS",
+    title: "Agent comercial",
+    description: "Recomandați soluțiile Novotech clienților și urmăriți recomandările în cabinetul personal.",
+    back: "Înapoi la alegere",
+    required: "obligatoriu",
+    optional: "opțional",
+    displayName: "Nume / denumire publică",
+    agentType: "Forma de activitate",
+    individual: "Persoană fizică",
+    legalEntity: "Persoană juridică",
+    legalName: "Denumire juridică",
+    phone: "Telefon",
+    email: "Email de contact",
+    locality: "Localitate",
+    profession: "Profesie",
+    workplace: "Loc de muncă",
+    submit: "Trimite cererea",
+    resubmit: "Trimite datele actualizate",
+    submitting: "Se trimite...",
+    successTitle: "Cererea a fost trimisă",
+    successText: "Novotech va verifica datele și vă va comunica următorul pas.",
+    existingTitle: "Profilul de agent comercial există deja",
+    existingPending: "Profilul parcurge procesul prevăzut de verificare și activare.",
+    existingBlocked: "Profilul nu oferă în prezent acces la cabinet. Contactați Novotech pentru clarificarea deciziei curente.",
+    existingActive: "Cabinetul de lucru al agentului comercial este disponibil.",
+    openCabinet: "Deschide cabinetul",
+  },
+} as const;
+
+export function applicationStatusCopy(status: CommercialAgentApplicationStatus, locale: PublicLocale) {
+  const copy = locale === "ru" ? {
+    DRAFT: ["Заявка не отправлена", "Заполните обязательные данные и отправьте заявку."],
+    SUBMITTED: ["Заявка отправлена на проверку", "Novotech проверит данные и сообщит о следующем шаге."],
+    NEEDS_CLARIFICATION: ["Требуется уточнить данные", "Обновите разрешённые поля и повторно отправьте заявку."],
+    APPROVED: ["Заявка одобрена", "Профиль коммерческого агента создан и проходит дальнейшую проверку."],
+    REJECTED: ["Заявка не одобрена", "Решение и доступные дальнейшие действия указаны ниже."],
+    WITHDRAWN: ["Заявка отозвана", "Заявка больше не рассматривается."],
+  } : {
+    DRAFT: ["Cererea nu a fost trimisă", "Completați datele obligatorii și trimiteți cererea."],
+    SUBMITTED: ["Cererea a fost trimisă spre verificare", "Novotech va verifica datele și vă va comunica următorul pas."],
+    NEEDS_CLARIFICATION: ["Datele trebuie clarificate", "Actualizați câmpurile permise și retrimiteți cererea."],
+    APPROVED: ["Cererea a fost aprobată", "Profilul de agent comercial a fost creat și continuă procesul de verificare."],
+    REJECTED: ["Cererea nu a fost aprobată", "Decizia și eventualii pași următori sunt indicați mai jos."],
+    WITHDRAWN: ["Cererea a fost retrasă", "Cererea nu mai este examinată."],
+  };
+  return { title: copy[status][0], description: copy[status][1] };
+}

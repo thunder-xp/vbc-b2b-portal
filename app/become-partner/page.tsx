@@ -44,7 +44,7 @@ export default async function BecomePartnerPage({ searchParams }: { searchParams
         </header>
 
         <div className="mt-6 grid gap-3 md:grid-cols-2">
-          <Link className="group flex min-h-44 flex-col rounded-md border border-zinc-200 bg-white p-5 transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={`/contacts?lang=${locale}&request=commercial-agent#partner-application`}>
+          <Link className="group flex min-h-44 flex-col rounded-md border border-zinc-200 bg-white p-5 transition-colors hover:border-blue-300 hover:bg-blue-50/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700" href={`/become-partner/agent?lang=${locale}`}>
             <BriefcaseBusiness aria-hidden="true" className="size-6 text-blue-700" />
             <h2 className="mt-4 text-lg font-semibold text-zinc-950">{ru ? "Коммерческий агент" : "Agent comercial"}</h2>
             <p className="mt-2 text-sm leading-6 text-zinc-600">{ru ? "Заявка проходит отдельную проверку, согласование и активацию. Компания партнёра автоматически не создаётся." : "Cererea trece prin verificare, aprobare și activare separată. Nu se creează automat o companie parteneră."}</p>

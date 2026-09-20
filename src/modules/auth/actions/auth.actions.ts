@@ -74,6 +74,10 @@ export async function signInAction(
   // public Partner/Agent business contexts.
   if (nextPath?.startsWith("/admin")) redirect(nextPath);
 
+  // Authenticated onboarding destinations perform their own server-side
+  // identity checks and must be reachable before business-context routing.
+  if (isProfessionalOnboardingReturn(nextPath)) redirect(nextPath);
+
   if (isUnifiedBusinessRoutingEnabled() && data.user?.id) {
     let targetRoute: "/cabinet" | "/agent" | "/auth/select-context" | "/auth/business-access-state";
     try {
@@ -96,10 +100,11 @@ export async function registerAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const intent = String(formData.get("intent") ?? "installer") === "agent" ? "agent" : "installer";
   const locale = String(formData.get("locale") ?? "");
   const nextPath = safeRelativeAuthRedirect(formData.get("next"));
 
-  if (!company || !country || !email || !password || !confirmPassword) {
+  if ((intent === "installer" && (!company || !country)) || !email || !password || !confirmPassword) {
     return { error: "Complete all fields." };
   }
 
@@ -112,10 +117,7 @@ export async function registerAction(
     email,
     password,
     options: {
-      data: {
-        requested_company_name: company,
-        country,
-      },
+      data: intent === "installer" ? { requested_company_name: company, country } : {},
     },
   });
 
@@ -133,6 +135,16 @@ function tokenFromInvitationPath(path: string | null): string | null {
   if (!path) return null;
   const match = /^\/auth\/invitations\/([A-Za-z0-9_-]{20,256})$/.exec(path);
   return match?.[1] ?? null;
+}
+
+function isProfessionalOnboardingReturn(path: string | null): path is string {
+  if (!path) return false;
+  try {
+    const url = new URL(path, "https://www.nsd.md");
+    return url.origin === "https://www.nsd.md" && url.pathname === "/become-partner/agent";
+  } catch {
+    return false;
+  }
 }
 
 export async function signOutAction(): Promise<void> {

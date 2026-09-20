@@ -31,6 +31,7 @@ type AuthCopy = {
     requiredFields: string;
     passwordMismatch: string;
     genericError: string;
+    required: string;
   };
 };
 
@@ -67,6 +68,7 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
       requiredFields: "Заполните все поля.",
       passwordMismatch: "Пароли не совпадают.",
       genericError: "Не удалось создать аккаунт. Попробуйте ещё раз.",
+      required: "обязательно",
     },
   },
   ro: {
@@ -101,6 +103,7 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
       requiredFields: "Completați toate câmpurile.",
       passwordMismatch: "Parolele nu coincid.",
       genericError: "Contul nu a putut fi creat. Încercați din nou.",
+      required: "obligatoriu",
     },
   },
 };
