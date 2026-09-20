@@ -14,7 +14,7 @@ export default async function SelectBusinessContextPage({ searchParams }: { sear
   try {
     resolution = await resolveCurrentBusinessAccess();
   } catch (error) {
-    if (error instanceof AccessContextAuthenticationError) redirect("/auth");
+    if (error instanceof AccessContextAuthenticationError) redirect("/auth/sign-in");
     throw error;
   }
   const available = resolution.contexts.filter((context) => context.status === "AVAILABLE");

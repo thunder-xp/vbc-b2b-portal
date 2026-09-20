@@ -5,20 +5,32 @@ import { describe, expect, it } from "vitest";
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), "utf8");
 
 describe("Unified Auth foundation route contract", () => {
-  it("keeps one canonical Auth Center with explicit Business and Customer entries", () => {
-    expect(read("app/auth/page.tsx")).toContain("UnifiedAuthCenter");
-    const center = read("src/modules/auth/components/UnifiedAuthCenter.tsx");
-    expect(center).toContain("<BusinessSignInExperience");
+  it("makes the canonical Auth entry phone-first and keeps classic Business login as fallback", () => {
+    expect(read("app/auth/page.tsx")).toContain("/auth/customer?lang=");
+    const customer = read("src/modules/auth/components/CustomerAuthEntry.tsx");
+    expect(customer).toContain("<QuickAuthCard");
     const experience = read("src/modules/auth/components/BusinessSignInExperience.tsx");
     expect(experience).toContain("<SignInForm");
     expect(experience).toContain('href={`/auth/customer?lang=${locale}`}');
   });
 
-  it("reuses PhoneOtpForm and routes verified OTP through the read-only resolver completion", () => {
+  it("routes verified Quick Auth OTP through existing Customer and Business resolvers", () => {
     const customer = read("src/modules/auth/components/CustomerAuthEntry.tsx");
-    expect(customer).toContain("PhoneOtpForm");
-    expect(customer).toContain('successPath="/auth/customer/complete"');
-    expect(read("app/auth/customer/complete/page.tsx")).toContain("resolveCurrentCustomerAccess");
+    expect(customer).toContain("QuickAuthCard");
+    const actions = read("src/modules/quick-auth/actions.ts");
+    expect(actions).toContain("resolveCustomerAccessForUser");
+    expect(actions).toContain("createBusinessAccessResolver");
+    expect(actions).toContain("/auth/select-access?lang=");
+  });
+
+  it("enables Business quick auth only for enrolled same-user Auth phones", () => {
+    const factory = read("src/modules/quick-auth/factory.ts");
+    const gateway = read("src/modules/quick-auth/supabase.repository.ts");
+    const enrollment = read("src/modules/quick-auth/enrollment.supabase.ts");
+    expect(factory).toContain('process.env.BUSINESS_PHONE_OTP_ENABLED !== "false"');
+    expect(gateway).toContain("shouldCreateUser: false");
+    expect(enrollment).toContain("auth.updateUser({ phone: phoneE164 })");
+    expect(enrollment).toContain('type: "phone_change"');
   });
 
   it("keeps legacy customer entry recoverable behind the unified gate", () => {

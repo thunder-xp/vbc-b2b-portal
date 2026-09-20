@@ -4,12 +4,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import RegisterPage from "@/app/auth/register/page";
 import SignInPage from "@/app/auth/sign-in/page";
 import { authCopy, localizeRegistrationError, localizeSignInError } from "../../auth-copy";
-import { CustomerAuthEntry, UnifiedAuthCenter } from "../../components";
+import { CustomerAuthEntry } from "../../components";
 import { PUBLIC_LOCALE_STORAGE_KEY } from "@/src/modules/public-locale";
 
 vi.mock("../../actions/auth.actions", () => ({
   registerAction: vi.fn(async () => ({ error: null })),
   signInAction: vi.fn(async () => ({ error: null })),
+}));
+vi.mock("@/src/modules/quick-auth/actions", () => ({
+  startQuickAuthAction: vi.fn(async () => ({ ok: true, step: "NOT_REGISTERED" })),
+  submitBusinessQuickAuthEmailAction: vi.fn(),
+  resendQuickAuthOtpAction: vi.fn(),
+  verifyQuickAuthOtpAction: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
@@ -43,12 +49,12 @@ describe("authentication localization", () => {
     expect(window.localStorage.getItem(PUBLIC_LOCALE_STORAGE_KEY)).toBe("ro");
   });
 
-  it("lets the public lang query override storage and persists the resolved locale", async () => {
+  it("lets the Customer Quick Auth lang query override storage and persists the resolved locale", async () => {
     window.localStorage.setItem(PUBLIC_LOCALE_STORAGE_KEY, "ru");
-    window.history.replaceState({}, "", "/auth?lang=ro");
-    render(<UnifiedAuthCenter />);
+    window.history.replaceState({}, "", "/auth/customer?lang=ro");
+    render(<CustomerAuthEntry />);
 
-    expect(await screen.findByRole("heading", { name: "Autentificare în contul personal" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Cont personal" })).toBeInTheDocument();
     await waitFor(() => expect(window.localStorage.getItem(PUBLIC_LOCALE_STORAGE_KEY)).toBe("ro"));
     expect(screen.queryByText(/Partener \/ Agent|rolului dumneavoastră/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /RU|RO/ })).not.toBeInTheDocument();
@@ -60,7 +66,7 @@ describe("authentication localization", () => {
 
     expect(await screen.findByRole("heading", { name: "Личный кабинет" })).toBeInTheDocument();
     expect(screen.getByText("Быстрый вход по номеру телефона")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Войти с email и паролем" })).toHaveAttribute("href", "/auth?lang=ru");
+    expect(screen.getByRole("link", { name: "Войти с email и паролем" })).toHaveAttribute("href", "/auth/sign-in?lang=ru");
     expect(document.body).not.toHaveTextContent(/Агент|Инсталлятор|Партнёрский кабинет|роли/i);
     expect(screen.queryByText(/^RU$|^RO$/)).not.toBeInTheDocument();
   });

@@ -1,31 +1,59 @@
 # Unified Auth and Access Contexts
 
-Status: Slices 1 and 2 implemented. Purchase-triggered Final Customer provisioning is additive; legacy account creation remains available until the separately governed cutover.
+Status: Purchase-backed Final Customer access is enforced. Phone-first Quick Auth supports Customer access and rolling, explicitly verified Business phone enrollment on the same Supabase Auth user.
 
 ## Canonical routes
 
 | Route | Purpose |
 | --- | --- |
-| `/auth` | Canonical RU/RO public Auth Center with distinct Business credentials and Customer phone entry. |
-| `/auth/customer` | Existing Supabase phone OTP component under the explicit Customer flow. |
+| `/auth` | Compatibility entry that preserves locale and redirects directly to `/auth/customer`. |
+| `/auth/customer` | Canonical RU/RO phone-first Quick Auth flow. |
 | `/auth/customer/complete` | Server-only Customer access resolution after OTP verification. |
+| `/auth/business-phone-enrollment` | Authenticated same-user phone enrollment/change using Supabase `phone_change` OTP. |
+| `/auth/select-access` | Authenticated neutral Customer/Business workspace-family choice. |
 | `/auth/customer-not-active` | Safe no-account outcome with catalog and Business-login actions. |
 | `/auth/customer-access-state` | Governed outcome for a non-active Customer account. |
 | `/auth/select-context` | Authenticated Partner/Agent context selector. |
 | `/auth/business-access-state` | Governed outcome when no operational Business context exists. |
 
-`/auth/sign-in` remains a compatible Business entry. `/account/sign-in` redirects to the canonical Customer entry while `UNIFIED_AUTH_CENTER_ENABLED` is enabled and retains its previous OTP page when the gate is explicitly disabled. Internal/Admin authentication and guards remain unchanged.
+`/auth/sign-in` remains the classic Business email/password entry. `/account/sign-in` redirects to the canonical Customer entry while `UNIFIED_AUTH_CENTER_ENABLED` is enabled and retains its previous OTP page when the gate is explicitly disabled. Internal/Admin authentication and guards remain unchanged.
 
 ## Login intent
 
 Intent is represented by a bounded route selected by the user:
 
-- `BUSINESS_CREDENTIALS` is `/auth` or the compatibility `/auth/sign-in` path and uses the existing password server action.
-- `CUSTOMER_PHONE` is `/auth/customer` and uses the existing `PhoneOtpForm`, Supabase Phone Auth, Send SMS Hook, rate limits and Moldcell transport.
+- `CUSTOMER_PHONE` is the default public intent at `/auth/customer` and uses `QuickAuthResolver`, Supabase Phone Auth, Send SMS Hook, rate limits and Moldcell transport.
+- `BUSINESS_CREDENTIALS` is the explicit `/auth/sign-in` fallback and uses the existing password server action.
 
-The route controls only which resolver runs after authentication. It is not stored as a role, permission, JWT claim or entitlement. OTP completion uses the fixed code-owned path `/auth/customer/complete`; no caller-supplied `role` or destination controls Customer authorization.
+The route controls only which resolver runs after authentication. It is not stored as a role, permission, JWT claim or entitlement. OTP completion resolves current Customer and Business access server-side; no caller-supplied `role`, user ID or destination controls authorization.
 
 ## Resolver contracts
+
+### QuickAuthResolver
+
+The public account icon opens `/auth/customer?lang=ru|ro` directly. The same compact card owns PHONE, Business EMAIL when required, OTP, safe blocked and not-registered presentation states. It inherits the Public Retail locale and has no independent language selector. `/auth/sign-in` remains available from every state.
+
+Phone normalization is repeated server-side using the canonical Moldovan E.164 helper. One service-role RPC resolves only existing, confirmed `auth.users.phone` identities. For a matching Auth subject it delegates Customer eligibility to `resolve_customer_access_entitlement_v1()` and inspects only the same Auth user's current active Partner membership/company or `commercial_agents.status = ACTIVE`. It never reads public/1C contact data and performs no live 1C request.
+
+The database challenge is an expiring, server-only record containing keyed phone and requester HMACs, an optional internal Auth subject, resolution, bounded counters and timestamps. It stores no raw phone, email, OTP, session or provider response. Direct `anon` and `authenticated` table/function access is revoked; only the server Service Role can start/read/advance a challenge. Send reservations are limited to three with a 60-second server cooldown, verification to six attempts, resolver lookup to five attempts per phone and twenty per requester in fifteen minutes. Supabase/provider limits remain additional controls.
+
+Customer and Business OTP call `signInWithOtp({ shouldCreateUser: false })`; successful verification is accepted only when Supabase returns the exact Auth user bound to the challenge. Customer access continues through the read-only Customer resolver and Business access through `BusinessAccessResolver`. Quick Auth contains no customer-account or Auth-user writer.
+
+The approved not-registered result necessarily discloses limited cabinet availability. The bounded HMAC-keyed rate limits, generic copy, lack of role/name/email/company disclosure, provider limits and security-only challenge state constrain probing. Suspended or unverified identities remain neutral and never expose Business taxonomy.
+
+### Business Phone Enrollment
+
+Business phone passwordless access is adopted per user. After a successful classic email/password login, an eligible Partner/Agent user without a confirmed Auth phone receives an optional compact prompt. Choosing **Later** never blocks normal access. The same governed control is linked from existing Partner and Agent profile screens.
+
+Enrollment derives the target exclusively from the authenticated `auth.getUser()` result. A service-only preflight revalidates that exact Auth user against an operational Business context, reserves the HMAC phone fingerprint, and rejects a confirmed or pending phone held by any other Auth user. The user-scoped Supabase client then calls `auth.updateUser({ phone })`; confirmation uses `verifyOtp({ type: "phone_change" })`. Completion succeeds only when the refreshed Auth user ID is unchanged and the exact phone is confirmed.
+
+`auth.users.phone_change` is not unique in Supabase. The enrollment reservation prevents concurrent claims inside this flow. Before a new claim, the service also removes only expired `phone_change` state that is provably tied to an expired enrollment challenge for that same phone fingerprint. It never clears unrelated pending changes or administratively confirms a phone.
+
+Enrollment and change attempts are bounded to three sends with a 60-second cooldown, six verification attempts, and ten-minute challenges. Append-only audit records contain only Auth user ID, challenge ID, event type and phone HMAC. OTP, phone, Auth tokens, provider payload and SMS content are excluded.
+
+Profile/company contact phones remain separate business contact data. They are neither copied nor synchronized into Auth, and Auth enrollment never overwrites profile contact values.
+
+For Business-only Quick Auth, a confirmed Auth phone resolves to a neutral EMAIL step. The normalized email must match the same challenge-bound Auth user and that user must still own an operational Business context. Only then is SMS OTP sent. Customer-only phones skip EMAIL. A future Auth user with both available families is authenticated first and then sees the neutral `/auth/select-access` choice: **Личный кабинет / Рабочий кабинет**; Business routing beneath that choice remains owned by `BusinessAccessResolver`.
 
 ### BusinessAccessResolver
 
@@ -102,6 +130,8 @@ All gates are enabled unless explicitly set to `false`:
 | `UNIFIED_BUSINESS_ROUTING_ENABLED` | Password login retains the legacy `next ?? /cabinet` behavior; selector returns to `/cabinet`. |
 | `CUSTOMER_ACCESS_RESOLVER_ENABLED` | OTP completion returns to the existing `/account` path. |
 | `CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED` | Existing ACTIVE accounts may pass by rollback compatibility; no account is created and the purchase provisioning authority is unchanged. |
+| `PHONE_FIRST_QUICK_AUTH_ENABLED` | `/auth/customer` returns to the prior `/account/sign-in` compatibility entry. |
+| `BUSINESS_PHONE_OTP_ENABLED` | Business enrollment prompts and Business phone/email OTP are disabled; classic email/password remains available. Per-user eligibility still requires a confirmed Auth phone when enabled. |
 
 The migration is additive and may safely remain deployed when a consuming gate is disabled.
 
@@ -141,3 +171,25 @@ No synchronous 1C, provider payment, email or reconciliation work occurs in the 
 The cutover migration snapshots every pre-existing account exactly once into `customer_account_legacy_entitlements`. The cohort is immutable, service-readable and has no runtime writer. New accounts must have `customer_account_purchase_entitlements` evidence. Partner and Agent access resolution is unchanged, and no Auth/access render path calls 1C.
 
 `ARCHITECTURE_CHANGE_REQUEST=APPROVED_AND_IMPLEMENTED_FOR_SLICE_3`
+
+## Phone-first production identity audit (2026-09-20)
+
+The read-only production audit used the canonical active Partner relationship (`user_profiles -> company_memberships -> partner_companies`) and active `commercial_agents`, then compared those users to Supabase Auth. Aggregate result, with no PII:
+
+| Measure | Count |
+| --- | ---: |
+| Eligible Business Auth users | 48 |
+| Eligible Business Auth users with `auth.users.phone` | 0 |
+| Eligible Business Auth users with confirmed `auth.users.phone` | 0 |
+| Eligible Partner users | 48 |
+| Eligible Agent users | 0 |
+| Partner + Agent on the same Auth user | 0 |
+| Customer + Business on the same Auth user | 0 |
+| Partner profile contact phone present | 47 |
+| Partner profile phone equal to Auth phone | 0 |
+
+The initial state was `SAFE_FOR_PHONE_OTP=NO`: profile/Agent phones are contact data and cannot be promoted to authentication factors. The approved rolling enrollment architecture preserves that conclusion and makes each user eligible only after explicit same-user `phone_change` verification. At the time of implementation, confirmed Business Auth-phone coverage remains `0/48`; email/password continues to serve every Business user.
+
+The approved remediation is now implemented: normal email/password authentication can enter governed self-service enrollment on the same Supabase Auth user; preflight uniqueness, `auth.updateUser({ phone })`, `phone_change` verification and pseudonymous audit are enforced. No profile phone migration, administrative confirmation or replacement Auth user exists. Business EMAIL/OTP remains conditional per confirmed Auth user and routes through `BusinessAccessResolver` with no Partner/Agent priority.
+
+`ARCHITECTURE_CHANGE_REQUEST=APPROVED_AND_IMPLEMENTED` for rolling Business phone enrollment.

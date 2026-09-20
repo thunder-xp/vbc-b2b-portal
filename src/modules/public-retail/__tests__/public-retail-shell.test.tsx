@@ -43,7 +43,7 @@ describe("Public Retail shell", () => {
     const account = within(header).getByRole("link", { name: "Личный кабинет" });
     const language = within(header).getByRole("link", { name: "Переключить на румынский" });
     const cart = within(header).getByRole("link", { name: "Корзина: 11" });
-    expect(account).toHaveAttribute("href", "/auth?lang=ru");
+    expect(account).toHaveAttribute("href", "/auth/customer?lang=ru");
     expect(account.textContent).toBe("");
     expect(account.compareDocumentPosition(language) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(language).toHaveTextContent("RO");
@@ -89,7 +89,7 @@ describe("Public Retail shell", () => {
     ]);
     expect(mobile.getByRole("link", { name: "Catalog" })).toHaveAttribute("href", "/catalog?lang=ro");
     expect(within(screen.getByRole("banner")).queryByRole("search")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Cont personal" })).toHaveAttribute("href", "/auth?lang=ro");
+    expect(screen.getByRole("link", { name: "Cont personal" })).toHaveAttribute("href", "/auth/customer?lang=ro");
     expect(mobile.queryByRole("link", { name: "Cabinet partener" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Coș: 11" })).toHaveAttribute("href", "/cart?lang=ro");
     expect(screen.getByRole("heading", { name: "Informații" })).toBeInTheDocument();
@@ -136,7 +136,7 @@ describe("Public Retail shell", () => {
     expect(shell).not.toMatch(/<footer[^>]*\bh-(?:screen|full|\[)/);
     expect(shell).not.toContain('text-xs leading-5 text-zinc-500');
     expect(shell).not.toContain('[copy.partnerCabinet, "/cabinet", false]');
-    expect(shell).toContain('href={`/auth?lang=${locale}`} prefetch={false}');
+    expect(shell).toContain('href={`/auth/customer?lang=${locale}`} prefetch={false}');
     expect(shell).toContain('href={href} prefetch={false}');
     expect(shell).toContain('prefetch={prefetch ? undefined : false}');
     expect(cart).toContain('prefetch={quantity > 0 ? undefined : false}');

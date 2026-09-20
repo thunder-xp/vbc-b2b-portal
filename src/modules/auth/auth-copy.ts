@@ -38,7 +38,7 @@ type AuthCopy = {
 export const authCopy: Record<PublicLocale, AuthCopy> = {
   ru: {
     signIn: {
-      eyebrow: "NSD",
+      eyebrow: "Novotech Systems Distribution",
       title: "Вход в личный кабинет",
       description: "Введите электронную почту и пароль.",
       email: "Электронная почта",
@@ -73,7 +73,7 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
   },
   ro: {
     signIn: {
-      eyebrow: "NSD",
+      eyebrow: "Novotech Systems Distribution",
       title: "Autentificare în contul personal",
       description: "Introduceți adresa de e-mail și parola.",
       email: "Adresa de e-mail",

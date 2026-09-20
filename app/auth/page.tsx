@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { isUnifiedAuthCenterEnabled } from "@/src/modules/auth/access-context";
-import { UnifiedAuthCenter } from "@/src/modules/auth/components";
 
-export default function AuthCenterPage() {
+export default async function AuthCenterPage({ searchParams }: { searchParams: Promise<{ lang?: string }> }) {
   if (!isUnifiedAuthCenterEnabled()) redirect("/auth/sign-in");
-  return <UnifiedAuthCenter />;
+  const { lang } = await searchParams;
+  redirect(`/auth/customer?lang=${lang === "ro" ? "ro" : "ru"}`);
 }

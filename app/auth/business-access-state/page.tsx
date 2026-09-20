@@ -7,7 +7,7 @@ export default async function BusinessAccessStatePage() {
   try {
     await getCurrentAuthUserId();
   } catch (error) {
-    if (error instanceof AccessContextAuthenticationError) redirect("/auth");
+    if (error instanceof AccessContextAuthenticationError) redirect("/auth/sign-in");
     throw error;
   }
   return <LocalizedAccessState kind="BUSINESS_UNAVAILABLE" />;

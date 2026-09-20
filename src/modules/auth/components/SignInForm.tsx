@@ -18,6 +18,7 @@ export function SignInForm({ locale, nextPath }: { locale: PublicLocale; nextPat
   return (
     <form action={formAction} className="grid gap-4">
       {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
+      <input name="lang" type="hidden" value={locale} />
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
         {copy.email}
         <input

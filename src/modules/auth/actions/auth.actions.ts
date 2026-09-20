@@ -7,6 +7,7 @@ import { createCompanyUserManagementService, createUserProfileService } from "@/
 import { createAdminInternalUserProvisioningService } from "@/src/modules/admin/services";
 import { isPartnerLocale } from "@/src/modules/partner-locale";
 import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
+import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 import {
   createBusinessAccessResolver,
   decideBusinessRoute,
@@ -24,6 +25,7 @@ export async function signInAction(
 ): Promise<AuthActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const locale = String(formData.get("lang") ?? "") === "ro" ? "ro" : "ru";
   const nextPath = safeRelativeAuthRedirect(formData.get("next"));
 
   if (!email || !password) {
@@ -80,12 +82,22 @@ export async function signInAction(
 
   if (isUnifiedBusinessRoutingEnabled() && data.user?.id) {
     let targetRoute: "/cabinet" | "/agent" | "/auth/select-context" | "/auth/business-access-state";
+    let enrollmentRoute: string | null = null;
     try {
       const resolution = await createBusinessAccessResolver().resolve(data.user.id);
       targetRoute = decideBusinessRoute(resolution).targetRoute;
+      if (
+        isBusinessPhoneOtpEnabled()
+        && resolution.contexts.some((context) => context.status === "AVAILABLE")
+        && !(data.user.phone && data.user.phone_confirmed_at)
+      ) {
+        const query = new URLSearchParams({ lang: locale, next: targetRoute });
+        enrollmentRoute = `/auth/business-phone-enrollment?${query.toString()}`;
+      }
     } catch {
       redirect("/auth/business-access-state?error=resolution");
     }
+    if (enrollmentRoute) redirect(enrollmentRoute);
     redirect(targetRoute);
   }
   redirect(nextPath ?? "/cabinet");

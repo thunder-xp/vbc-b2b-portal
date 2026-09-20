@@ -2,7 +2,7 @@ import type { PublicLocale } from "@/src/modules/public-locale";
 
 export const accessContextCopy = {
   ru: {
-    brand: "NSD",
+    brand: "Novotech Systems Distribution",
     authTitle: "Вход в личный кабинет",
     authDescription: "Используйте данные своей учётной записи.",
     businessLabel: "Электронная почта и пароль",
@@ -32,7 +32,7 @@ export const accessContextCopy = {
     ro: "RO",
   },
   ro: {
-    brand: "NSD",
+    brand: "Novotech Systems Distribution",
     authTitle: "Autentificare în contul personal",
     authDescription: "Folosiți datele contului dumneavoastră.",
     businessLabel: "E-mail și parolă",

@@ -2,6 +2,8 @@ import { agentLifecycleStatusCopy, createAgentCabinetService, getAgentCabinetLoc
 import { AgentPageHeader } from "@/src/modules/agent-cabinet/components/PageHeader";
 import { ProfileForm } from "@/src/modules/agent-cabinet/components/ProfileForm";
 import { cabinetPageNarrow } from "@/src/modules/cabinet-experience/components";
+import { BusinessPhoneEnrollmentLink } from "@/src/modules/quick-auth/components/BusinessPhoneEnrollmentLink";
+import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 
 export default async function AgentProfilePage() {
   const [context, locale] = await Promise.all([createAgentCabinetService().context(), getAgentCabinetLocale()]);
@@ -19,6 +21,7 @@ export default async function AgentProfilePage() {
       <h2 className="mb-3 text-lg font-semibold tracking-tight">{ro ? "Date de contact" : "Контактные данные"}</h2>
       <ProfileForm context={context} locale={locale} />
     </section>
+    {isBusinessPhoneOtpEnabled() ? <BusinessPhoneEnrollmentLink locale={locale} returnTo="/agent/profile" /> : null}
   </main>;
 }
 
