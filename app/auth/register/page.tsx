@@ -21,14 +21,14 @@ export default function RegisterPage() {
     ? {
         title: locale === "ru" ? "Регистрация коммерческого агента" : "Înregistrare agent comercial",
         description: locale === "ru"
-          ? "Создайте бизнес-аккаунт, чтобы заполнить и отслеживать заявку коммерческого агента."
-          : "Creați un cont business pentru a completa și urmări cererea de agent comercial.",
+          ? "Создайте аккаунт, подтвердите email и заполните заявку коммерческого агента."
+          : "Creați contul, confirmați adresa de e-mail și completați cererea de agent comercial.",
       }
     : {
         title: locale === "ru" ? "Регистрация профессионального инсталлятора" : "Înregistrare instalator profesionist",
         description: locale === "ru"
-          ? "Создайте бизнес-аккаунт. После входа вы сможете отправить данные на проверку Novotech."
-          : "Creați un cont business. După autentificare veți putea trimite datele spre verificare Novotech.",
+          ? "Создайте аккаунт и подтвердите email. Данные профиля и компании заполняются после входа."
+          : "Creați contul și confirmați adresa de e-mail. Profilul și datele companiei se completează după autentificare.",
       };
 
   return (

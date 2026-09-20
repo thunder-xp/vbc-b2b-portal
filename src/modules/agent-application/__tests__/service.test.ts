@@ -22,6 +22,7 @@ describe("CommercialAgentApplicationService", () => {
       submit: vi.fn().mockResolvedValue(application({ status: "SUBMITTED" })),
       withdraw: vi.fn().mockResolvedValue(application({ status: "WITHDRAWN" })),
       listForAdmin: vi.fn().mockResolvedValue([]),
+      countReviewQueue: vi.fn().mockResolvedValue(0),
       getForAdmin: vi.fn().mockResolvedValue(application()),
       review: vi.fn().mockResolvedValue(application({ status: "APPROVED", provisionedAgentId: "44444444-4444-4444-8444-444444444444" })),
     };
@@ -30,14 +31,29 @@ describe("CommercialAgentApplicationService", () => {
   });
 
   it("creates or reuses one draft for an authenticated applicant", async () => {
-    await expect(service.getOrCreateApplicantWorkspace(USER_ID, "agent@example.com"))
+    await expect(service.getOrCreateApplicantWorkspace({
+      applicantUserId: USER_ID,
+      email: "agent@example.com",
+      registrationLegalForm: "LEGAL_ENTITY",
+      preferredLocale: "ro",
+    }))
       .resolves.toEqual({ application: application(), existingAgent: null });
-    expect(repository.ensureDraft).toHaveBeenCalledWith(USER_ID, "agent@example.com");
+    expect(repository.ensureDraft).toHaveBeenCalledWith({
+      applicantUserId: USER_ID,
+      email: "agent@example.com",
+      registrationLegalForm: "LEGAL_ENTITY",
+      preferredLocale: "ro",
+    });
   });
 
   it("does not create an application when an operational Agent already exists", async () => {
     vi.mocked(agentService.getAgentWorkspace).mockResolvedValue({ id: "agent-1" } as never);
-    const result = await service.getOrCreateApplicantWorkspace(USER_ID, "agent@example.com");
+    const result = await service.getOrCreateApplicantWorkspace({
+      applicantUserId: USER_ID,
+      email: "agent@example.com",
+      registrationLegalForm: null,
+      preferredLocale: null,
+    });
     expect(result.existingAgent).toEqual({ id: "agent-1" });
     expect(repository.ensureDraft).not.toHaveBeenCalled();
   });
@@ -59,6 +75,18 @@ describe("CommercialAgentApplicationService", () => {
       displayName: "Agent Company", agentType: "LEGAL_ENTITY",
     })).rejects.toBeInstanceOf(CommercialAgentApplicationValidationError);
     expect(repository.submit).not.toHaveBeenCalled();
+  });
+
+  it("requires a phone and always persists the authenticated email", async () => {
+    await expect(service.submit(USER_ID, "identity@example.com", {
+      displayName: "Agent Name", agentType: "INDIVIDUAL", email: "forged@example.com",
+    })).rejects.toBeInstanceOf(CommercialAgentApplicationValidationError);
+    expect(repository.submit).not.toHaveBeenCalled();
+
+    await service.submit(USER_ID, "identity@example.com", {
+      displayName: "Agent Name", agentType: "INDIVIDUAL", phone: "+37360000000", email: "forged@example.com",
+    });
+    expect(repository.submit).toHaveBeenLastCalledWith(USER_ID, expect.objectContaining({ email: "identity@example.com" }));
   });
 
   it("requires an applicant-facing note for clarification and rejection", async () => {

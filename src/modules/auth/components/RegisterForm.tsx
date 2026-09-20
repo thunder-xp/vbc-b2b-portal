@@ -28,16 +28,13 @@ export function RegisterForm({
       {nextPath ? <input name="next" type="hidden" value={nextPath} /> : null}
       <input name="locale" type="hidden" value={locale} />
       <input name="intent" type="hidden" value={intent} />
-      {intent === "installer" ? <>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
-          <span>{copy.company} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
-          <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="company" required />
-        </label>
-        <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
-          <span>{copy.country} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
-          <input className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="country" required />
-        </label>
-      </> : null}
+      <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
+        <span>{copy.legalForm} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
+        <select className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" defaultValue="INDIVIDUAL" name="legalForm" required>
+          <option value="INDIVIDUAL">{copy.individual}</option>
+          <option value="LEGAL_ENTITY">{copy.legalEntity}</option>
+        </select>
+      </label>
       <label className="grid gap-2 text-sm font-medium text-zinc-800">
         <span>{copy.email} <span className="text-xs font-normal text-zinc-500">({copy.required})</span></span>
         <input autoComplete="email" className="h-11 rounded-md border border-zinc-300 px-3 text-sm outline-none focus:border-emerald-700" name="email" required type="email" />

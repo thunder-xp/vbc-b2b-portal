@@ -15,13 +15,15 @@ type AuthCopy = {
     requiredFields: string;
     genericError: string;
     registrationSuccess: string;
+    confirmationSuccess: string;
   };
   registration: {
     eyebrow: string;
     title: string;
     description: string;
-    company: string;
-    country: string;
+    legalForm: string;
+    individual: string;
+    legalEntity: string;
     email: string;
     password: string;
     confirmPassword: string;
@@ -51,14 +53,16 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
       requiredFields: "Введите электронную почту и пароль.",
       genericError: "Не удалось выполнить вход. Попробуйте ещё раз.",
       registrationSuccess: "Аккаунт создан. Теперь войдите в систему.",
+      confirmationSuccess: "Email подтверждён. Войдите, чтобы продолжить регистрацию.",
     },
     registration: {
       eyebrow: "Партнёрская платформа Novotech",
       title: "Стать партнёром",
       description:
         "Создайте аккаунт. Novotech проверит доступ компании перед активацией кабинета.",
-      company: "Компания",
-      country: "Страна",
+      legalForm: "Форма деятельности",
+      individual: "Физическое лицо",
+      legalEntity: "Юридическое лицо",
       email: "Электронная почта",
       password: "Пароль",
       confirmPassword: "Подтвердите пароль",
@@ -86,14 +90,16 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
       requiredFields: "Introduceți adresa de e-mail și parola.",
       genericError: "Autentificarea nu a reușit. Încercați din nou.",
       registrationSuccess: "Contul a fost creat. Acum vă puteți autentifica.",
+      confirmationSuccess: "Adresa de e-mail a fost confirmată. Autentificați-vă pentru a continua înregistrarea.",
     },
     registration: {
       eyebrow: "Platforma Partenerilor Novotech",
       title: "Devino partener",
       description:
         "Creați un cont. Novotech va verifica accesul companiei înainte de activarea cabinetului.",
-      company: "Companie",
-      country: "Țară",
+      legalForm: "Forma de activitate",
+      individual: "Persoană fizică",
+      legalEntity: "Persoană juridică",
       email: "Adresa de e-mail",
       password: "Parolă",
       confirmPassword: "Confirmați parola",

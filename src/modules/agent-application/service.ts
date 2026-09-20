@@ -22,11 +22,21 @@ export class CommercialAgentApplicationService {
     private readonly agentService: AgentDomainService,
   ) {}
 
-  async getOrCreateApplicantWorkspace(applicantUserId: string, email: string): Promise<CommercialAgentApplicationWorkspace> {
+  async getOrCreateApplicantWorkspace(input: {
+    applicantUserId: string;
+    email: string;
+    registrationLegalForm: "INDIVIDUAL" | "LEGAL_ENTITY" | null;
+    preferredLocale: "ru" | "ro" | null;
+  }): Promise<CommercialAgentApplicationWorkspace> {
+    const { applicantUserId } = input;
     const existingAgent = await this.agentService.getAgentWorkspace(applicantUserId);
     if (existingAgent) return { application: null, existingAgent };
-    const application = await this.repository.ensureDraft(applicantUserId, email);
+    const application = await this.repository.ensureDraft(input);
     return { application, existingAgent: null };
+  }
+
+  getApplicantApplication(applicantUserId: string) {
+    return this.repository.findByApplicant(applicantUserId);
   }
 
   async submit(applicantUserId: string, authenticatedEmail: string, input: CommercialAgentApplicationInput) {
@@ -42,6 +52,10 @@ export class CommercialAgentApplicationService {
 
   listForAdmin() {
     return this.repository.listForAdmin();
+  }
+
+  countReviewQueue() {
+    return this.repository.countReviewQueue();
   }
 
   async getForAdmin(applicationId: string) {
@@ -66,12 +80,12 @@ export class CommercialAgentApplicationService {
 
 function normalizeInput(input: CommercialAgentApplicationInput, authenticatedEmail: string): CommercialAgentApplicationInput {
   const displayName = bounded(input.displayName, 2, 200, "Укажите имя или публичное название.");
-  const email = nullableBounded(input.email || authenticatedEmail, 254)?.toLowerCase() ?? null;
+  const email = nullableBounded(authenticatedEmail, 254)?.toLowerCase() ?? null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new CommercialAgentApplicationValidationError("Введите корректный email.");
   }
   const phone = nullableBounded(input.phone, 32);
-  if (phone && phone.length < 8) {
+  if (!phone || phone.length < 8) {
     throw new CommercialAgentApplicationValidationError("Укажите корректный номер телефона.");
   }
   const legalName = nullableBounded(input.legalName, 240);

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import RegisterPage from "@/app/auth/register/page";
+import CheckEmailPage from "@/app/auth/check-email/page";
 import SignInPage from "@/app/auth/sign-in/page";
 import { authCopy, localizeRegistrationError, localizeSignInError } from "../../auth-copy";
 import { CustomerAuthEntry } from "../../components";
@@ -84,8 +85,10 @@ describe("authentication localization", () => {
     render(<RegisterPage />);
 
     expect(await screen.findByRole("heading", { name: "Înregistrare instalator profesionist" })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Companie/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Țară/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Forma de activitate/)).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Persoană fizică" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Companie/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Țară/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Adresa de e-mail/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Parolă/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Confirmați parola/)).toBeInTheDocument();
@@ -100,6 +103,7 @@ describe("authentication localization", () => {
     expect(await screen.findByRole("heading", { name: "Регистрация коммерческого агента" })).toBeInTheDocument();
     expect(screen.queryByLabelText(/Компания/)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Страна/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Форма деятельности/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Электронная почта/)).toBeInTheDocument();
     expect(document.querySelector('input[name="intent"]')).toHaveValue("agent");
     expect(document.querySelector('input[name="next"]')).toHaveValue("/become-partner/agent?lang=ru");
@@ -124,6 +128,24 @@ describe("authentication localization", () => {
     await waitFor(() => {
       expect(screen.getByText(authCopy.ro.signIn.registrationSuccess)).toBeInTheDocument();
     });
+  });
+
+  it("shows a distinct confirmed-email sign-in state", async () => {
+    window.history.replaceState({}, "", "/auth/sign-in?lang=ru&confirmed=1&next=%2Fbecome-partner%2Fagent%3Flang%3Dru");
+    render(<SignInPage />);
+    expect(await screen.findByText(authCopy.ru.signIn.confirmationSuccess)).toBeInTheDocument();
+    expect(document.querySelector('input[name="next"]')).toHaveValue("/become-partner/agent?lang=ru");
+  });
+
+  it("shows the localized check-email state without a second locale control", async () => {
+    window.history.replaceState({}, "", "/auth/check-email?lang=ro&intent=agent&next=%2Fbecome-partner%2Fagent%3Flang%3Dro");
+    render(<CheckEmailPage />);
+    expect(await screen.findByRole("heading", { name: "Cont creat" })).toBeInTheDocument();
+    expect(screen.getByText("Confirmați adresa de e-mail pentru a continua înregistrarea.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continuă la autentificare" })).toHaveAttribute(
+      "href", "/auth/sign-in?lang=ro&next=%2Fbecome-partner%2Fagent%3Flang%3Dro",
+    );
+    expect(screen.queryByText(/^RU$|^RO$/)).not.toBeInTheDocument();
   });
 
   it("preserves a validated invitation return path across auth links", async () => {

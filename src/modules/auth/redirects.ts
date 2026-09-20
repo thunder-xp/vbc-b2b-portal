@@ -9,3 +9,17 @@ export function safeRelativeAuthRedirect(value: FormDataEntryValue | string | nu
     return null;
   }
 }
+
+export type ProfessionalRegistrationIntent = "agent" | "installer";
+
+export function professionalRegistrationContinuation(
+  intent: ProfessionalRegistrationIntent,
+  locale: "ru" | "ro",
+  requested: FormDataEntryValue | string | null,
+): string {
+  const safeRequested = safeRelativeAuthRedirect(requested);
+  if (safeRequested) return safeRequested;
+  return intent === "agent"
+    ? `/become-partner/agent?lang=${locale}`
+    : `/onboarding/profile?lang=${locale}`;
+}

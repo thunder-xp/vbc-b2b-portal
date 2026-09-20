@@ -18,10 +18,12 @@ export class SupabaseCommercialAgentApplicationRepository implements CommercialA
     return data ? mapApplication(data) : null;
   }
 
-  async ensureDraft(applicantUserId: string, email: string) {
+  async ensureDraft(input: Parameters<CommercialAgentApplicationRepository["ensureDraft"]>[0]) {
     const { data, error } = await createAdminClient().rpc("ensure_commercial_agent_application_draft", {
-      p_applicant_user_id: applicantUserId,
-      p_email: email,
+      p_applicant_user_id: input.applicantUserId,
+      p_email: input.email,
+      p_registration_legal_form: input.registrationLegalForm,
+      p_preferred_locale: input.preferredLocale,
     });
     if (error) throw repositoryError("ensure application draft", error.code);
     return data ? mapApplication(data) : null;
@@ -59,6 +61,15 @@ export class SupabaseCommercialAgentApplicationRepository implements CommercialA
       .limit(200);
     if (error) throw repositoryError("list applications", error.code);
     return (data ?? []).map(mapApplication);
+  }
+
+  async countReviewQueue() {
+    const { count, error } = await createAdminClient()
+      .from("commercial_agent_applications")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["SUBMITTED", "NEEDS_CLARIFICATION"]);
+    if (error) throw repositoryError("count review queue", error.code);
+    return count ?? 0;
   }
 
   async getForAdmin(applicationId: string) {

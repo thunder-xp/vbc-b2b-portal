@@ -13,8 +13,9 @@ describe("CommercialAgentApplicationForm", () => {
     render(<CommercialAgentApplicationForm application={application()} locale="ru" />);
     expect(screen.getByLabelText(/Имя \/ публичное название/)).toBeRequired();
     expect(screen.getByLabelText(/Формат работы/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Телефон/)).not.toBeRequired();
-    expect(screen.getByLabelText(/Email для связи/)).not.toBeRequired();
+    expect(screen.getByLabelText(/Телефон/)).toBeRequired();
+    expect(screen.getByLabelText(/Email для связи/)).toBeRequired();
+    expect(screen.getByLabelText(/Email для связи/)).toHaveAttribute("readonly");
     expect(screen.queryByText(/комисси|доход|выплат/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/compliance|membership|role assignment/i)).not.toBeInTheDocument();
   });

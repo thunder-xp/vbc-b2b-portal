@@ -64,11 +64,11 @@ export function CommercialAgentApplicationForm({
             <input defaultValue={current.legalName ?? ""} maxLength={240} name="legalName" required />
           </Field>
         ) : <input name="legalName" type="hidden" value="" />}
-        <Field label={copy.phone} marker={copy.optional}>
-          <input autoComplete="tel" defaultValue={current.phone ?? ""} inputMode="tel" maxLength={32} name="phone" type="tel" />
+        <Field label={copy.phone} marker={copy.required}>
+          <input autoComplete="tel" defaultValue={current.phone ?? ""} inputMode="tel" maxLength={32} minLength={8} name="phone" required type="tel" />
         </Field>
-        <Field label={copy.email} marker={copy.optional}>
-          <input autoComplete="email" defaultValue={current.email ?? ""} maxLength={254} name="email" type="email" />
+        <Field label={copy.email} marker={copy.required}>
+          <input autoComplete="email" className="bg-zinc-50 text-zinc-600" defaultValue={current.email ?? ""} maxLength={254} name="email" readOnly required type="email" />
         </Field>
         <Field label={copy.locality} marker={copy.optional}>
           <input autoComplete="address-level2" defaultValue={current.locality ?? ""} maxLength={120} name="locality" />

@@ -96,7 +96,8 @@ declare
   approved public.commercial_agent_applications;
 begin
   select * into draft from public.ensure_commercial_agent_application_draft(
-    '7a000000-0000-4000-8000-000000000005', 'untrusted-alternate@example.test'
+    '7a000000-0000-4000-8000-000000000005', 'untrusted-alternate@example.test',
+    'LEGAL_ENTITY', 'ro'
   );
   if not exists (
     select 1 from public.user_profiles
@@ -104,11 +105,15 @@ begin
       and email = 'new-external@example.test'
       and status = 'registered'
       and user_type = 'external'
+      and preferred_locale = 'ro'
   ) then
     raise exception 'Authenticated first-visit profile bootstrap failed or trusted browser email.';
   end if;
+  if draft.agent_type <> 'LEGAL_ENTITY' or draft.email <> 'new-external@example.test' then
+    raise exception 'Registration hints were not bounded to prefill or Auth email was not authoritative.';
+  end if;
   select * into submitted from public.submit_commercial_agent_application(
-    '7a000000-0000-4000-8000-000000000005', 'New External Agent', null,
+    '7a000000-0000-4000-8000-000000000005', 'New External Agent', '+37360000005',
     'new-external@example.test', null, null, null, 'INDIVIDUAL', null
   );
   select * into approved from public.review_commercial_agent_application(
@@ -137,7 +142,7 @@ begin
     '7a000000-0000-4000-8000-000000000003', 'rejected-applicant@example.test'
   );
   select * into submitted from public.submit_commercial_agent_application(
-    '7a000000-0000-4000-8000-000000000003', 'Rejected Runtime Agent', null,
+    '7a000000-0000-4000-8000-000000000003', 'Rejected Runtime Agent', '+37360000003',
     'rejected-applicant@example.test', null, null, null, 'INDIVIDUAL', null
   );
 
@@ -154,7 +159,7 @@ begin
     submitted.id, '7a000000-0000-4000-8000-000000000001', 'REQUEST_CLARIFICATION', 'Clarify locality.'
   );
   select * into resubmitted from public.submit_commercial_agent_application(
-    '7a000000-0000-4000-8000-000000000003', 'Rejected Runtime Agent', null,
+    '7a000000-0000-4000-8000-000000000003', 'Rejected Runtime Agent', '+37360000003',
     'rejected-applicant@example.test', 'Balti', null, null, 'INDIVIDUAL', null
   );
   if resubmitted.status <> 'SUBMITTED' or resubmitted.applicant_visible_note is not null
@@ -179,6 +184,7 @@ begin
     or has_table_privilege('authenticated', 'public.commercial_agent_applications', 'insert')
     or has_table_privilege('authenticated', 'public.commercial_agent_applications', 'update')
     or has_table_privilege('authenticated', 'public.commercial_agent_applications', 'delete')
+    or has_function_privilege('authenticated', 'public.ensure_commercial_agent_application_draft(uuid,text,text,text)', 'execute')
     or has_function_privilege('authenticated', 'public.review_commercial_agent_application(uuid,uuid,text,text)', 'execute') then
     raise exception 'Application privilege boundary is too broad.';
   end if;

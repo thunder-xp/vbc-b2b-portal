@@ -32,7 +32,12 @@ export default async function CommercialAgentApplicationPage({ searchParams }: {
     throw error;
   }
 
-  const workspace = await createCommercialAgentApplicationService().getOrCreateApplicantWorkspace(user.id, user.email);
+  const workspace = await createCommercialAgentApplicationService().getOrCreateApplicantWorkspace({
+    applicantUserId: user.id,
+    email: user.email,
+    registrationLegalForm: user.registrationLegalForm,
+    preferredLocale: user.preferredRegistrationLocale ?? locale,
+  });
   return (
     <AuthPageShell
       backHref={`/become-partner?lang=${locale}`}

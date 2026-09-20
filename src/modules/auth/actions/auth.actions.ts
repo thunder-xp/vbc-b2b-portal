@@ -6,17 +6,19 @@ import { createClient } from "@/src/lib/supabase/server";
 import { createCompanyUserManagementService, createUserProfileService } from "@/src/modules/access-control/actions/service-factory";
 import {
   createAdminInternalUserProvisioningService,
-  resolveInternalPostSignInDestination,
 } from "@/src/modules/admin/services";
 import { isPartnerLocale } from "@/src/modules/partner-locale";
 import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 import {
-  createBusinessAccessResolver,
-  decideBusinessRoute,
   isUnifiedBusinessRoutingEnabled,
 } from "../access-context";
-import { safeRelativeAuthRedirect } from "../redirects";
+import { resolvePostSignInAccess } from "../post-sign-in-routing";
+import { registrationEmailRedirectUrl } from "../registration.server";
+import {
+  professionalRegistrationContinuation,
+  safeRelativeAuthRedirect,
+} from "../redirects";
 
 export type AuthActionState = {
   error: string | null;
@@ -74,37 +76,19 @@ export async function signInAction(
     redirect("/cabinet");
   }
 
-  // Internal/Admin authentication keeps its existing protected route. The
-  // destination guard remains authoritative; Unified Auth only resolves
-  // public Partner/Agent business contexts.
-  if (nextPath?.startsWith("/admin")) redirect(nextPath);
-
-  // Authenticated onboarding destinations perform their own server-side
-  // identity checks and must be reachable before business-context routing.
-  if (isProfessionalOnboardingReturn(nextPath)) redirect(nextPath);
-
-  if (data.user?.id) {
-    let internalDestination: string | null = null;
-    try {
-      internalDestination = await resolveInternalPostSignInDestination(
-        data.user.id,
-      );
-    } catch {
-      // Internal access fails closed. Business routing below remains available
-      // for identities that legitimately own a Partner or Agent workspace.
-    }
-    if (internalDestination) redirect(internalDestination);
-  }
+  // A validated same-origin continuation is explicit user intent. The target
+  // page remains responsible for its own authorization and onboarding gates.
+  if (nextPath) redirect(nextPath);
 
   if (isUnifiedBusinessRoutingEnabled() && data.user?.id) {
-    let targetRoute: "/cabinet" | "/agent" | "/auth/select-context" | "/auth/business-access-state";
+    let targetRoute: string;
     let enrollmentRoute: string | null = null;
     try {
-      const resolution = await createBusinessAccessResolver().resolve(data.user.id);
-      targetRoute = decideBusinessRoute(resolution).targetRoute;
+      const decision = await resolvePostSignInAccess(data.user.id, data.user.user_metadata);
+      targetRoute = decision.targetRoute;
       if (
         isBusinessPhoneOtpEnabled()
-        && resolution.contexts.some((context) => context.status === "AVAILABLE")
+        && (targetRoute === "/cabinet" || targetRoute === "/agent")
         && !(data.user.phone && data.user.phone_confirmed_at)
       ) {
         const query = new URLSearchParams({ lang: locale, next: targetRoute });
@@ -123,16 +107,15 @@ export async function registerAction(
   _state: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
-  const company = String(formData.get("company") ?? "").trim();
-  const country = String(formData.get("country") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const intent = String(formData.get("intent") ?? "installer") === "agent" ? "agent" : "installer";
-  const locale = String(formData.get("locale") ?? "");
-  const nextPath = safeRelativeAuthRedirect(formData.get("next"));
+  const locale = String(formData.get("locale") ?? "") === "ro" ? "ro" : "ru";
+  const legalForm = String(formData.get("legalForm") ?? "") === "LEGAL_ENTITY" ? "LEGAL_ENTITY" : "INDIVIDUAL";
+  const nextPath = professionalRegistrationContinuation(intent, locale, formData.get("next"));
 
-  if ((intent === "installer" && (!company || !country)) || !email || !password || !confirmPassword) {
+  if (!email || !password || !confirmPassword) {
     return { error: "Complete all fields." };
   }
 
@@ -141,11 +124,16 @@ export async function registerAction(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: intent === "installer" ? { requested_company_name: company, country } : {},
+      emailRedirectTo: registrationEmailRedirectUrl(intent, locale, nextPath),
+      data: {
+        registration_intent: intent,
+        registration_legal_form: legalForm,
+        preferred_registration_locale: locale,
+      },
     },
   });
 
@@ -153,26 +141,16 @@ export async function registerAction(
     return { error: "Account could not be created." };
   }
 
-  const query = new URLSearchParams({ registered: "1" });
-  if (locale === "ru" || locale === "ro") query.set("lang", locale);
-  if (nextPath) query.set("next", nextPath);
-  redirect(`/auth/sign-in?${query.toString()}`);
+  if (data.session) redirect(nextPath);
+
+  const query = new URLSearchParams({ lang: locale, intent, next: nextPath });
+  redirect(`/auth/check-email?${query.toString()}`);
 }
 
 function tokenFromInvitationPath(path: string | null): string | null {
   if (!path) return null;
   const match = /^\/auth\/invitations\/([A-Za-z0-9_-]{20,256})$/.exec(path);
   return match?.[1] ?? null;
-}
-
-function isProfessionalOnboardingReturn(path: string | null): path is string {
-  if (!path) return false;
-  try {
-    const url = new URL(path, "https://www.nsd.md");
-    return url.origin === "https://www.nsd.md" && url.pathname === "/become-partner/agent";
-  } catch {
-    return false;
-  }
 }
 
 export async function signOutAction(): Promise<void> {
