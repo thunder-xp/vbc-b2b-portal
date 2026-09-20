@@ -1,4 +1,4 @@
-import { ArrowRight, CircleAlert, CreditCard, FileText, Headphones, MessageCircle, PackageOpen, ReceiptText, RotateCcw, ShoppingBag } from "lucide-react";
+import { ArrowRight, Building2, CircleAlert, CreditCard, FileText, Headphones, MessageCircle, PackageOpen, ReceiptText, RotateCcw, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 
 import {
@@ -21,17 +21,24 @@ import { customerMoney, orderStatus, orderStatusTone, paymentStatus, paymentStat
 import { createFinalCustomerService, getFinalCustomerContext } from "@/src/modules/final-customer/server";
 import { openFinalCustomerAttentionAction } from "@/src/modules/final-customer/actions";
 import { customerAttentionCopy } from "@/src/modules/final-customer/attention-copy";
+import { PurchaseObjectAssignment } from "@/src/modules/final-customer/components";
+import { customerObjectTypeLabels } from "@/src/modules/final-customer/object-copy";
 
 export default async function FinalCustomerOverviewPage() {
   const [context, locale] = await Promise.all([getFinalCustomerContext(), getFinalCustomerLocale()]);
-  const overview = await createFinalCustomerService().commandCenter(context.account);
+  const service = createFinalCustomerService();
+  const [overview, objectWorkspace] = await Promise.all([
+    service.commandCenter(context.account),
+    service.customerObjectWorkspace(context.account),
+  ]);
   const ro = locale === "ro";
   const hasActivity = Boolean(
     overview.latestOrder
     || overview.recentPurchases.length
     || overview.latestRequest
     || overview.documentCount
-    || overview.equipmentCount,
+    || overview.equipmentCount
+    || objectWorkspace.objects.length
   );
 
   return (
@@ -58,7 +65,7 @@ export default async function FinalCustomerOverviewPage() {
       {!hasActivity ? (
         <CabinetEmptyState
           Icon={PackageOpen}
-          actions={<><Link className={cabinetPrimaryAction} href={`/catalog?lang=${locale}&view=all`}>{ro ? "Deschide catalogul" : "Перейти в каталог"}</Link><Link className={cabinetSecondaryAction} href="/account/service/new">{ro ? "Solicitare de service" : "Обратиться в сервис"}</Link></>}
+          actions={<><Link className={cabinetPrimaryAction} href={`/catalog?lang=${locale}&view=all`}>{ro ? "Deschide catalogul" : "Перейти в каталог"}</Link><Link className={cabinetSecondaryAction} href="/account/objects/new">{ro ? "Creează obiect" : "Создать объект"}</Link><Link className={cabinetSecondaryAction} href="/account/service/new">{ro ? "Solicitare de service" : "Обратиться в сервис"}</Link></>}
           body={ro ? "Aici vor apărea comenzile, cumpărăturile, documentele și solicitările dvs. de service." : "Здесь появятся ваши заказы, покупки, документы и обращения в сервис."}
           title={ro ? "Bine ați venit la NSD" : "Добро пожаловать в NSD"}
         />
@@ -88,6 +95,16 @@ export default async function FinalCustomerOverviewPage() {
               </div>
             </section>
           ) : null}
+
+          <section className="space-y-3" aria-labelledby="customer-objects-heading">
+            <SectionHeader
+              action={<Link className={cabinetTextAction} href="/account/objects">{ro ? "Toate obiectele" : "Все объекты"}<ArrowRight aria-hidden className="size-4" /></Link>}
+              title={ro ? "Obiectele mele" : "Мои объекты"}
+            />
+            {objectWorkspace.objects.length ? <div className="grid gap-3 md:grid-cols-2">{objectWorkspace.objects.slice(0, 2).map((object) => <Link className={`group flex min-h-20 items-center gap-3 p-4 ${cabinetSurface} ${cabinetRow}`} href={`/account/objects/${object.id}`} key={object.id}><span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700"><Building2 aria-hidden className="size-5" /></span><span className="min-w-0 flex-1"><strong className="block truncate">{object.name}</strong><span className="text-xs text-zinc-500">{customerObjectTypeLabels[locale][object.objectType]} · {ro ? `${object.productCount} produse` : `${object.productCount} товаров`}</span></span><ArrowRight aria-hidden className="size-4 text-zinc-500" /></Link>)}</div>
+              : objectWorkspace.unlinkedPurchases[0] ? <PurchaseObjectAssignment locale={locale} objects={[]} orderId={objectWorkspace.unlinkedPurchases[0].orderId} orderNumber={objectWorkspace.unlinkedPurchases[0].orderNumber} />
+                : <div className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between ${cabinetSurface}`}><div><h3 className="font-semibold">{ro ? "Uniți cumpărăturile, documentele și service-ul" : "Объедините покупки, документы и сервис"}</h3><p className="mt-1 text-sm text-zinc-600">{ro ? "Creați un obiect pentru casa, apartamentul sau afacerea dvs." : "Создайте объект для дома, квартиры или бизнеса."}</p></div><Link className={cabinetSecondaryAction} href="/account/objects/new">{ro ? "Creează obiect" : "Создать объект"}</Link></div>}
+          </section>
 
           <section className="space-y-3" aria-labelledby="service-heading">
             <SectionHeader title={ro ? "Service" : "Сервис"} />

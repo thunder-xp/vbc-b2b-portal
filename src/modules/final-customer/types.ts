@@ -66,6 +66,59 @@ export type FinalCustomerPurchase = FinalCustomerOrderLine & Readonly<{
   documentCount?: number;
 }>;
 
+export const CUSTOMER_OBJECT_TYPES = ["HOME", "APARTMENT", "OFFICE", "SHOP", "WAREHOUSE", "OTHER"] as const;
+export type CustomerObjectType = typeof CUSTOMER_OBJECT_TYPES[number];
+
+export type CustomerObjectSummary = Readonly<{
+  id: string;
+  name: string;
+  objectType: CustomerObjectType;
+  locality: string | null;
+  addressLabel: string | null;
+  status: "ACTIVE" | "ARCHIVED";
+  version: number;
+  purchaseCount: number;
+  productCount: number;
+  openServiceCount: number;
+  lastActivityAt: string;
+  createdAt: string;
+  updatedAt: string;
+}>;
+
+export type CustomerObjectWorkspace = Readonly<{
+  objects: CustomerObjectSummary[];
+  unlinkedPurchases: ReadonlyArray<{
+    orderId: string;
+    orderNumber: string;
+    purchasedAt: string;
+    productCount: number;
+  }>;
+  purchaseLinks: ReadonlyArray<{ orderId: string; objectId: string }>;
+}>;
+
+export type CustomerObjectDetail = Readonly<{
+  object: Omit<CustomerObjectSummary, "purchaseCount" | "productCount" | "openServiceCount" | "lastActivityAt">;
+  purchases: ReadonlyArray<{
+    id: string;
+    number: string;
+    purchasedAt: string;
+    total: number;
+    currency: string;
+    status: string;
+    lines: ReadonlyArray<FinalCustomerOrderLine & {
+      currentProduct: FinalCustomerCurrentProduct | null;
+      documents: ReadonlyArray<FinalCustomerProductDocument>;
+    }>;
+  }>;
+  serviceRequests: ReadonlyArray<{
+    id: string;
+    number: string;
+    subject: string;
+    status: CustomerServiceRequestStatus;
+    createdAt: string;
+  }>;
+}>;
+
 export type FinalCustomerProductDocument = Readonly<{
   id: string;
   productId: string;
@@ -106,6 +159,7 @@ export type CustomerServiceRequest = Readonly<{
   status: CustomerServiceRequestStatus;
   orderId: string | null;
   orderLineId: string | null;
+  customerObjectId: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -150,6 +204,7 @@ export type CustomerServiceRequestDetail = CustomerServiceRequest & Readonly<{
   customerEmail?: string | null;
   relatedOrderNumber?: string | null;
   relatedProductName?: string | null;
+  relatedObjectName?: string | null;
 }>;
 
 export type CustomerServiceNotification = Readonly<{

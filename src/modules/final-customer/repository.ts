@@ -1,4 +1,5 @@
 import type {
+  CustomerObjectDetail, CustomerObjectSummary, CustomerObjectType, CustomerObjectWorkspace,
   CustomerServiceNotification, CustomerServiceRequest, CustomerServiceRequestDetail, CustomerServiceRequestStatus, CustomerServiceRequestType,
   FinalCustomerAccount, FinalCustomerCurrentProduct, FinalCustomerOrderDetail,
   FinalCustomerOrderSummary, FinalCustomerProductDocument, FinalCustomerPurchase,
@@ -15,9 +16,17 @@ export interface FinalCustomerRepository {
   findPurchase(customerIdentityId: string | null, lineId: string): Promise<FinalCustomerPurchase | null>;
   listCurrentProducts(publicProductIds: string[]): Promise<FinalCustomerCurrentProduct[]>;
   listProductDocuments(sourceProductIds: string[]): Promise<FinalCustomerProductDocument[]>;
+  getCustomerObjectWorkspace(accountId: string, customerIdentityId: string, actorUserId: string, includeArchived?: boolean): Promise<CustomerObjectWorkspace>;
+  findCustomerObject(customerIdentityId: string, objectId: string): Promise<CustomerObjectSummary | null>;
+  getCustomerObjectDetail(accountId: string, customerIdentityId: string, actorUserId: string, objectId: string): Promise<CustomerObjectDetail | null>;
+  createCustomerObject(input: Readonly<{ accountId: string; customerIdentityId: string; actorUserId: string; name: string; objectType: CustomerObjectType; locality: string | null; addressLabel: string | null; retailOrderId: string | null }>): Promise<string>;
+  updateCustomerObject(input: Readonly<{ accountId: string; customerIdentityId: string; actorUserId: string; objectId: string; expectedVersion: number; name: string; objectType: CustomerObjectType; locality: string | null; addressLabel: string | null }>): Promise<number>;
+  archiveCustomerObject(input: Readonly<{ accountId: string; customerIdentityId: string; actorUserId: string; objectId: string; expectedVersion: number }>): Promise<number>;
+  linkCustomerObjectPurchase(input: Readonly<{ accountId: string; customerIdentityId: string; actorUserId: string; objectId: string; retailOrderId: string }>): Promise<string>;
+  findCustomerObjectPurchaseLink(customerIdentityId: string, objectId: string, retailOrderId: string): Promise<boolean>;
   listServiceRequests(customerIdentityId: string | null, limit: number, offset?: number): Promise<CustomerServiceRequest[]>;
   findServiceRequest(customerIdentityId: string | null, requestId: string): Promise<CustomerServiceRequestDetail | null>;
-  createServiceRequest(input: Readonly<{ accountId: string; actorUserId: string; customerIdentityId: string; type: CustomerServiceRequestType; subject: string; description: string; preferredContact: "PHONE" | "EMAIL"; locale: "ru" | "ro"; orderId: string | null; orderLineId: string | null }>): Promise<CustomerServiceRequest>;
+  createServiceRequest(input: Readonly<{ accountId: string; actorUserId: string; customerIdentityId: string; type: CustomerServiceRequestType; subject: string; description: string; preferredContact: "PHONE" | "EMAIL"; locale: "ru" | "ro"; customerObjectId: string | null; orderId: string | null; orderLineId: string | null }>): Promise<CustomerServiceRequest>;
   cancelServiceRequest(customerIdentityId: string, requestId: string, expectedVersion: number, actorUserId: string): Promise<void>;
   listAdminServiceRequests(limit: number, status: CustomerServiceRequestStatus | null): Promise<CustomerServiceRequest[]>;
   findAdminServiceRequest(requestId: string): Promise<CustomerServiceRequestDetail | null>;

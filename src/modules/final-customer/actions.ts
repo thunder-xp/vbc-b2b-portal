@@ -13,6 +13,7 @@ import { getFinalCustomerLocale } from "./locale";
 export type CustomerProfileActionState = { error: string | null; saved: boolean };
 export type CustomerServiceActionState = { error: string | null; createdId: string | null };
 export type CustomerServiceReplyActionState = { error: string | null; sent: boolean; submissionId: number };
+export type CustomerObjectActionState = { error: string | null; savedId: string | null; submissionId: number };
 
 export async function updateCustomerProfileAction(
   _state: CustomerProfileActionState,
@@ -50,6 +51,7 @@ export async function createCustomerServiceRequestAction(
       description: String(formData.get("description") ?? ""),
       preferredContact: String(formData.get("preferredContact") ?? "PHONE"),
       locale: await getFinalCustomerLocale(),
+      customerObjectId: String(formData.get("customerObjectId") ?? ""),
       orderId: String(formData.get("orderId") ?? ""),
       orderLineId: String(formData.get("orderLineId") ?? ""),
     });
@@ -66,6 +68,62 @@ export async function createCustomerServiceRequestAction(
   } catch {
     return { error: "SERVICE_REQUEST_FAILED", createdId: null };
   }
+}
+
+export async function saveCustomerObjectAction(
+  state: CustomerObjectActionState,
+  formData: FormData,
+): Promise<CustomerObjectActionState> {
+  try {
+    const context = await getFinalCustomerContext();
+    const service = createFinalCustomerService();
+    const objectId = String(formData.get("objectId") ?? "");
+    const input = {
+      objectId,
+      expectedVersion: String(formData.get("expectedVersion") ?? ""),
+      name: String(formData.get("name") ?? ""),
+      objectType: String(formData.get("objectType") ?? ""),
+      locality: String(formData.get("locality") ?? ""),
+      addressLabel: String(formData.get("addressLabel") ?? ""),
+      retailOrderId: String(formData.get("retailOrderId") ?? ""),
+    };
+    let savedId = objectId;
+    if (objectId) await service.updateCustomerObject(context.account, input);
+    else savedId = await service.createCustomerObject(context.account, input);
+    revalidatePath("/account");
+    revalidatePath("/account/objects");
+    revalidatePath(`/account/objects/${savedId}`);
+    revalidatePath("/account/purchases");
+    return { error: null, savedId, submissionId: state.submissionId + 1 };
+  } catch {
+    return { error: "CUSTOMER_OBJECT_SAVE_FAILED", savedId: null, submissionId: state.submissionId };
+  }
+}
+
+export async function archiveCustomerObjectAction(formData: FormData) {
+  const context = await getFinalCustomerContext();
+  await createFinalCustomerService().archiveCustomerObject(
+    context.account,
+    String(formData.get("objectId") ?? ""),
+    String(formData.get("expectedVersion") ?? ""),
+  );
+  revalidatePath("/account");
+  revalidatePath("/account/objects");
+  redirect("/account/objects");
+}
+
+export async function linkCustomerObjectPurchaseAction(formData: FormData) {
+  const context = await getFinalCustomerContext();
+  const objectId = String(formData.get("objectId") ?? "");
+  await createFinalCustomerService().linkCustomerObjectPurchase(
+    context.account,
+    objectId,
+    String(formData.get("retailOrderId") ?? ""),
+  );
+  revalidatePath("/account");
+  revalidatePath("/account/objects");
+  revalidatePath("/account/purchases");
+  redirect(`/account/objects/${objectId}`);
 }
 
 export async function replyToCustomerServiceRequestAction(

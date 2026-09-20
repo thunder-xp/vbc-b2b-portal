@@ -2,8 +2,8 @@ import "server-only";
 
 import type { FinalCustomerRepository } from "./repository";
 import {
-  CUSTOMER_SERVICE_REQUEST_STATUSES, CUSTOMER_SERVICE_REQUEST_TYPES,
-  type CustomerServiceRequestStatus, type FinalCustomerAccount,
+  CUSTOMER_OBJECT_TYPES, CUSTOMER_SERVICE_REQUEST_STATUSES, CUSTOMER_SERVICE_REQUEST_TYPES,
+  type CustomerObjectType, type CustomerServiceRequestStatus, type FinalCustomerAccount,
 } from "./types";
 import { customerServiceCancelAllowed, customerServiceReplyAllowed } from "./service-lifecycle";
 import type { RetailOrderPaymentState } from "@/src/modules/payments/types";
@@ -122,6 +122,90 @@ export class FinalCustomerAccountService {
     return documents.map((document) => ({ ...document, purchase: productBySource.get(document.productId) ?? null }));
   }
 
+  customerObjectWorkspace(account: FinalCustomerAccount, includeArchived = false) {
+    if (account.status !== "ACTIVE" || !account.customerIdentityId) {
+      return Promise.resolve({ objects: [], unlinkedPurchases: [], purchaseLinks: [] });
+    }
+    return this.repository.getCustomerObjectWorkspace(account.id, account.customerIdentityId, account.authUserId, includeArchived);
+  }
+
+  customerObject(account: FinalCustomerAccount, objectId: string) {
+    if (account.status !== "ACTIVE" || !account.customerIdentityId || !UUID.test(objectId)) return Promise.resolve(null);
+    return this.repository.findCustomerObject(account.customerIdentityId, objectId);
+  }
+
+  async customerObjectDetail(account: FinalCustomerAccount, objectId: string) {
+    if (account.status !== "ACTIVE" || !account.customerIdentityId || !UUID.test(objectId)) return null;
+    const detail = await this.repository.getCustomerObjectDetail(account.id, account.customerIdentityId, account.authUserId, objectId);
+    if (!detail) return null;
+    const publicProductIds = unique(detail.purchases.flatMap((purchase) => purchase.lines.map((line) => line.publicProductId)));
+    const currentProducts = await this.repository.listCurrentProducts(publicProductIds);
+    const currentById = new Map(currentProducts.map((product) => [product.publicProductId, product]));
+    const sourceProductIds = unique(currentProducts.map((product) => product.sourceProductId));
+    const documents = await this.repository.listProductDocuments(sourceProductIds);
+    const documentsByProduct = new Map<string, typeof documents>();
+    for (const document of documents) {
+      const group = documentsByProduct.get(document.productId) ?? [];
+      group.push(document);
+      documentsByProduct.set(document.productId, group);
+    }
+    return {
+      ...detail,
+      purchases: detail.purchases.map((purchase) => ({
+        ...purchase,
+        lines: purchase.lines.map((line) => {
+          const currentProduct = currentById.get(line.publicProductId) ?? null;
+          return { ...line, currentProduct, documents: currentProduct ? documentsByProduct.get(currentProduct.sourceProductId) ?? [] : [] };
+        }),
+      })),
+    };
+  }
+
+  async createCustomerObject(account: FinalCustomerAccount, input: Record<string, string>) {
+    const identityId = requireObjectCustomer(account);
+    const object = customerObjectInput(input);
+    const retailOrderId = optionalUuid(input.retailOrderId);
+    if (retailOrderId) {
+      const order = await this.repository.findOrder(identityId, retailOrderId);
+      if (!order || order.status !== "confirmed" || !order.paidAt) throw new Error("INVALID_CONFIRMED_PURCHASE");
+    }
+    return this.repository.createCustomerObject({
+      accountId: account.id, customerIdentityId: identityId, actorUserId: account.authUserId,
+      ...object, retailOrderId,
+    });
+  }
+
+  async updateCustomerObject(account: FinalCustomerAccount, input: Record<string, string>) {
+    const identityId = requireObjectCustomer(account);
+    const objectId = requiredUuid(input.objectId);
+    const expectedVersion = versionNumber(input.expectedVersion);
+    return this.repository.updateCustomerObject({
+      accountId: account.id, customerIdentityId: identityId, actorUserId: account.authUserId,
+      objectId, expectedVersion, ...customerObjectInput(input),
+    });
+  }
+
+  async archiveCustomerObject(account: FinalCustomerAccount, objectIdValue: string, expectedVersionValue: string) {
+    const identityId = requireObjectCustomer(account);
+    return this.repository.archiveCustomerObject({
+      accountId: account.id, customerIdentityId: identityId, actorUserId: account.authUserId,
+      objectId: requiredUuid(objectIdValue), expectedVersion: versionNumber(expectedVersionValue),
+    });
+  }
+
+  async linkCustomerObjectPurchase(account: FinalCustomerAccount, objectIdValue: string, retailOrderIdValue: string) {
+    const identityId = requireObjectCustomer(account);
+    const objectId = requiredUuid(objectIdValue);
+    const retailOrderId = requiredUuid(retailOrderIdValue);
+    const [object, order] = await Promise.all([
+      this.repository.findCustomerObject(identityId, objectId),
+      this.repository.findOrder(identityId, retailOrderId),
+    ]);
+    if (!object || object.status !== "ACTIVE") throw new Error("INVALID_CUSTOMER_OBJECT");
+    if (!order || order.status !== "confirmed" || !order.paidAt) throw new Error("INVALID_CONFIRMED_PURCHASE");
+    return this.repository.linkCustomerObjectPurchase({ accountId: account.id, customerIdentityId: identityId, actorUserId: account.authUserId, objectId, retailOrderId });
+  }
+
   async documentGroups(account: FinalCustomerAccount, orderId?: string) {
     if (orderId && !UUID.test(orderId)) return [];
     const purchases = await this.purchases(account, 50);
@@ -165,13 +249,19 @@ export class FinalCustomerAccountService {
     if (preferredContact === "EMAIL" && !account.email) throw new Error("CUSTOMER_EMAIL_REQUIRED");
     const orderId = optionalUuid(input.orderId);
     const orderLineId = optionalUuid(input.orderLineId);
+    const customerObjectId = optionalUuid(input.customerObjectId);
     if (orderLineId && !orderId) throw new Error("INVALID_SERVICE_REQUEST");
     if (orderId) {
       const order = await this.repository.findOrder(account.customerIdentityId, orderId);
-      if (!order || (orderLineId && !order.lines.some((line) => line.id === orderLineId))) throw new Error("INVALID_SERVICE_REFERENCE");
+      if (!order || order.status !== "confirmed" || !order.paidAt || (orderLineId && !order.lines.some((line) => line.id === orderLineId))) throw new Error("INVALID_SERVICE_REFERENCE");
+    }
+    if (customerObjectId) {
+      const object = await this.repository.findCustomerObject(account.customerIdentityId, customerObjectId);
+      if (!object || object.status !== "ACTIVE") throw new Error("INVALID_SERVICE_REFERENCE");
+      if (orderId && !await this.repository.findCustomerObjectPurchaseLink(account.customerIdentityId, customerObjectId, orderId)) throw new Error("INVALID_SERVICE_REFERENCE");
     }
     const locale = input.locale === "ro" ? "ro" : "ru";
-    return this.repository.createServiceRequest({ accountId: account.id, actorUserId: account.authUserId, customerIdentityId: account.customerIdentityId, type, subject, description, preferredContact, locale, orderId, orderLineId });
+    return this.repository.createServiceRequest({ accountId: account.id, actorUserId: account.authUserId, customerIdentityId: account.customerIdentityId, type, subject, description, preferredContact, locale, customerObjectId, orderId, orderLineId });
   }
 
   async cancelServiceRequest(account: FinalCustomerAccount, requestId: string, expectedVersion: number) {
@@ -233,3 +323,15 @@ function unique(values: string[]) { return [...new Set(values)]; }
 function optionalUuid(value?: string) { const normalized = value?.trim() || null; if (normalized && !UUID.test(normalized)) throw new Error("INVALID_UUID"); return normalized; }
 function bounded(value: string | undefined, min: number, max: number) { const normalized = value?.trim().replace(/\s+/g, " ") ?? ""; if (normalized.length < min || normalized.length > max) throw new Error("INVALID_TEXT"); return normalized; }
 function optionalBounded(value: string | undefined, max: number) { const normalized = value?.trim() ?? ""; if (normalized.length > max) throw new Error("INVALID_TEXT"); return normalized; }
+function requiredUuid(value?: string) { const normalized = optionalUuid(value); if (!normalized) throw new Error("INVALID_UUID"); return normalized; }
+function versionNumber(value?: string) { const version = Number(value); if (!Number.isInteger(version) || version < 0) throw new Error("INVALID_VERSION"); return version; }
+function requireObjectCustomer(account: FinalCustomerAccount) { if (account.status !== "ACTIVE" || !account.customerIdentityId) throw new Error("CUSTOMER_IDENTITY_REQUIRED"); return account.customerIdentityId; }
+function customerObjectInput(input: Record<string, string>) {
+  const name = bounded(input.name, 2, 120);
+  const objectType = input.objectType as CustomerObjectType;
+  if (!CUSTOMER_OBJECT_TYPES.includes(objectType)) throw new Error("INVALID_CUSTOMER_OBJECT");
+  const locality = optionalText(input.locality, 120);
+  const addressLabel = optionalText(input.addressLabel, 200);
+  return { name, objectType, locality, addressLabel };
+}
+function optionalText(value: string | undefined, max: number) { const normalized = value?.trim().replace(/\s+/g, " ") || null; if (normalized && (normalized.length < 2 || normalized.length > max)) throw new Error("INVALID_TEXT"); return normalized; }

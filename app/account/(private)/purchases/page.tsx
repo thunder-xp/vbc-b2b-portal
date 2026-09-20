@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { FileText, Headphones, PackageOpen } from "lucide-react";
+import { Building2, FileText, Headphones, PackageOpen } from "lucide-react";
 
 import { PublicRetailAddToCartButton } from "@/src/modules/public-retail/components/PublicRetailAddToCartButton";
 import { createFinalCustomerService, getFinalCustomerContext } from "@/src/modules/final-customer/server";
@@ -19,7 +19,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
   const ro = locale === "ro";
 
   return <main className={cabinetPage}>
-    <WorkspaceHeader title={ro ? "Cumpărături" : "Покупки"} description={ro ? "Produsele din comenzile dvs. achitate și confirmate." : "Товары из ваших оплаченных и подтверждённых заказов."} />
+    <WorkspaceHeader actions={<Link className={cabinetSecondaryAction} href="/account/objects"><Building2 aria-hidden className="size-4" />{ro ? "Obiectele mele" : "Мои объекты"}</Link>} title={ro ? "Cumpărături" : "Покупки"} description={ro ? "Produsele din comenzile dvs. achitate și confirmate." : "Товары из ваших оплаченных и подтверждённых заказов."} />
     {purchases.length ? <ul className={cabinetList}>
       {purchases.map((line) => {
         const available = Boolean(line.currentProduct && buyAgainAllowed(line.currentProduct.availability));

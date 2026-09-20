@@ -11,6 +11,10 @@ function repository(): FinalCustomerRepository {
     openAttention: vi.fn(async () => "/account/orders/11111111-1111-4111-8111-111111111111"),
     findOrder: vi.fn(async () => null), listConfirmedPurchases: vi.fn(async () => []), findPurchase: vi.fn(async () => null),
     listCurrentProducts: vi.fn(async () => []), listProductDocuments: vi.fn(async () => []),
+    getCustomerObjectWorkspace: vi.fn(async () => ({ objects: [], unlinkedPurchases: [], purchaseLinks: [] })),
+    findCustomerObject: vi.fn(async () => null), getCustomerObjectDetail: vi.fn(async () => null),
+    createCustomerObject: vi.fn(async () => "11111111-1111-4111-8111-111111111111"), updateCustomerObject: vi.fn(async () => 1), archiveCustomerObject: vi.fn(async () => 1),
+    linkCustomerObjectPurchase: vi.fn(async () => "22222222-2222-4222-8222-222222222222"), findCustomerObjectPurchaseLink: vi.fn(async () => false),
     listServiceRequests: vi.fn(async () => []), findServiceRequest: vi.fn(async () => null),
     createServiceRequest: vi.fn(async () => { throw new Error("unused"); }), cancelServiceRequest: vi.fn(async () => undefined),
     listAdminServiceRequests: vi.fn(async () => []), findAdminServiceRequest: vi.fn(async () => null),
@@ -134,9 +138,63 @@ describe("Final Customer account service", () => {
     expect(repo.listServiceRequests).not.toHaveBeenCalled();
   });
 
+  it("creates an object and links only an owned confirmed paid purchase", async () => {
+    const repo = repository();
+    const orderId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(repo.findOrder).mockResolvedValue({
+      id: orderId, number: "R-2026-000001", status: "confirmed", createdAt: "2026-09-20T00:00:00Z", total: 100, currency: "MDL", itemCount: 0, itemSummary: [], paidAt: "2026-09-20T00:01:00Z", paymentState: "PAID", deliveryAddress: {}, events: [], lines: [],
+    });
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    await new FinalCustomerAccountService(repo).createCustomerObject(account, { name: "  Casa Botanica  ", objectType: "HOME", locality: " Chișinău ", addressLabel: "", retailOrderId: orderId });
+
+    expect(repo.createCustomerObject).toHaveBeenCalledWith(expect.objectContaining({ name: "Casa Botanica", objectType: "HOME", locality: "Chișinău", retailOrderId: orderId }));
+  });
+
+  it("rejects an unpaid or cross-customer purchase before object creation", async () => {
+    const repo = repository();
+    vi.mocked(repo.findOrder).mockResolvedValue(null);
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    await expect(new FinalCustomerAccountService(repo).createCustomerObject(account, { name: "Home", objectType: "HOME", retailOrderId: "11111111-1111-4111-8111-111111111111" })).rejects.toThrow("INVALID_CONFIRMED_PURCHASE");
+    expect(repo.createCustomerObject).not.toHaveBeenCalled();
+  });
+
+  it("enriches object purchases with current products and documents in bounded batches", async () => {
+    const repo = repository();
+    vi.mocked(repo.getCustomerObjectDetail).mockResolvedValue({
+      object: { id: "11111111-1111-4111-8111-111111111111", name: "Home", objectType: "HOME", locality: null, addressLabel: null, status: "ACTIVE", version: 0, createdAt: "now", updatedAt: "now" },
+      purchases: [{ id: "22222222-2222-4222-8222-222222222222", number: "R-1", purchasedAt: "now", total: 100, currency: "MDL", status: "confirmed", lines: [{ id: "line", lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", currentProduct: null, documents: [] }] }],
+      serviceRequests: [],
+    });
+    vi.mocked(repo.listCurrentProducts).mockResolvedValue([{ publicProductId: "public-product", sourceProductId: "source-product", slug: "camera", name: "Camera", price: 120, currency: "MDL", availability: "in_stock", imageUrl: null }]);
+    vi.mocked(repo.listProductDocuments).mockResolvedValue([{ id: "document", productId: "source-product", title: "Manual", type: "manual", url: "https://example.test/manual.pdf" }]);
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    const detail = await new FinalCustomerAccountService(repo).customerObjectDetail(account, "11111111-1111-4111-8111-111111111111");
+
+    expect(detail?.purchases[0]?.lines[0]?.currentProduct?.sourceProductId).toBe("source-product");
+    expect(detail?.purchases[0]?.lines[0]?.documents).toHaveLength(1);
+    expect(repo.listCurrentProducts).toHaveBeenCalledOnce();
+    expect(repo.listProductDocuments).toHaveBeenCalledOnce();
+  });
+
+  it("requires an owned object and coherent purchase link for service context", async () => {
+    const repo = repository();
+    const objectId = "11111111-1111-4111-8111-111111111111";
+    const orderId = "22222222-2222-4222-8222-222222222222";
+    vi.mocked(repo.findCustomerObject).mockResolvedValue({ id: objectId, name: "Home", objectType: "HOME", locality: null, addressLabel: null, status: "ACTIVE", version: 0, purchaseCount: 1, productCount: 1, openServiceCount: 0, lastActivityAt: "now", createdAt: "now", updatedAt: "now" });
+    vi.mocked(repo.findOrder).mockResolvedValue({ id: orderId, number: "R-1", status: "confirmed", createdAt: "now", total: 100, currency: "MDL", itemCount: 0, itemSummary: [], paidAt: "now", paymentState: "PAID", deliveryAddress: {}, events: [], lines: [] });
+    vi.mocked(repo.findCustomerObjectPurchaseLink).mockResolvedValue(false);
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    await expect(new FinalCustomerAccountService(repo).createServiceRequest(account, { type: "OTHER", subject: "Camera issue", description: "Camera is not responding", preferredContact: "PHONE", customerObjectId: objectId, orderId, orderLineId: "" })).rejects.toThrow("INVALID_SERVICE_REFERENCE");
+    expect(repo.createServiceRequest).not.toHaveBeenCalled();
+  });
+
   it("returns NEED_INFO to review when a customer reply is accepted by the governed repository boundary", async () => {
     const repo = repository();
-    vi.mocked(repo.findServiceRequest).mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111", number: "CR-1", type: "OTHER", subject: "Help", description: "Need some help", preferredContact: "PHONE", status: "NEED_INFO", orderId: null, orderLineId: null, createdAt: "now", updatedAt: "now", version: 2, messages: [], attachments: [], timeline: [] });
+    vi.mocked(repo.findServiceRequest).mockResolvedValue({ id: "11111111-1111-4111-8111-111111111111", number: "CR-1", type: "OTHER", subject: "Help", description: "Need some help", preferredContact: "PHONE", status: "NEED_INFO", customerObjectId: null, orderId: null, orderLineId: null, createdAt: "now", updatedAt: "now", version: 2, messages: [], attachments: [], timeline: [] });
     const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
     await new FinalCustomerAccountService(repo).replyToServiceRequest(account, "11111111-1111-4111-8111-111111111111", 2, "Requested details");
     expect(repo.addCustomerServiceReply).toHaveBeenCalledWith(expect.objectContaining({ customerIdentityId: "identity", expectedVersion: 2 }));

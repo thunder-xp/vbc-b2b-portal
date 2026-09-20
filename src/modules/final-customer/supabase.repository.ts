@@ -4,7 +4,7 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 
 import type { FinalCustomerRepository } from "./repository";
 import type {
-  CustomerServiceAttachment, CustomerServiceMessage, CustomerServiceNotification, CustomerServiceRequest, CustomerServiceRequestDetail, CustomerServiceRequestStatus, CustomerServiceTimelineEvent, FinalCustomerAccount,
+  CustomerObjectDetail, CustomerObjectSummary, CustomerObjectWorkspace, CustomerServiceAttachment, CustomerServiceMessage, CustomerServiceNotification, CustomerServiceRequest, CustomerServiceRequestDetail, CustomerServiceRequestStatus, CustomerServiceTimelineEvent, FinalCustomerAccount,
   FinalCustomerCurrentProduct, FinalCustomerOrderDetail, FinalCustomerOrderLine,
   FinalCustomerOrderSummary, FinalCustomerProductDocument, FinalCustomerPurchase,
 } from "./types";
@@ -197,6 +197,100 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     return (data ?? []).map((row): FinalCustomerProductDocument => ({ id: row.id, productId: row.product_id, title: row.title, type: row.document_type, url: row.url }));
   }
 
+  async getCustomerObjectWorkspace(accountId: string, customerIdentityId: string, actorUserId: string, includeArchived = false) {
+    const { data, error } = await createAdminClient().rpc("get_customer_object_workspace_v1", {
+      p_customer_account_id: accountId,
+      p_customer_identity_id: customerIdentityId,
+      p_actor_user_id: actorUserId,
+      p_include_archived: includeArchived,
+    });
+    if (error) throw repositoryError("read customer object workspace", error.code);
+    return mapCustomerObjectWorkspace((data ?? {}) as Row);
+  }
+
+  async findCustomerObject(customerIdentityId: string, objectId: string) {
+    const { data, error } = await createAdminClient().from("customer_objects")
+      .select("id,name,object_type,locality,address_label,status,version,created_at,updated_at")
+      .eq("id", objectId).eq("customer_identity_id", customerIdentityId).maybeSingle();
+    if (error) throw repositoryError("read customer object", error.code);
+    return data ? mapCustomerObjectSummary(data) : null;
+  }
+
+  async getCustomerObjectDetail(accountId: string, customerIdentityId: string, actorUserId: string, objectId: string) {
+    const { data, error } = await createAdminClient().rpc("get_customer_object_detail_v1", {
+      p_customer_account_id: accountId,
+      p_customer_identity_id: customerIdentityId,
+      p_actor_user_id: actorUserId,
+      p_customer_object_id: objectId,
+    });
+    if (error) throw repositoryError("read customer object detail", error.code);
+    return data ? mapCustomerObjectDetail(data as Row) : null;
+  }
+
+  async createCustomerObject(input: Parameters<FinalCustomerRepository["createCustomerObject"]>[0]) {
+    const { data, error } = await createAdminClient().rpc("create_customer_object_v1", {
+      p_customer_account_id: input.accountId,
+      p_customer_identity_id: input.customerIdentityId,
+      p_actor_user_id: input.actorUserId,
+      p_name: input.name,
+      p_object_type: input.objectType,
+      p_locality: input.locality,
+      p_address_label: input.addressLabel,
+      p_retail_order_id: input.retailOrderId,
+    });
+    if (error || !data) throw repositoryError("create customer object", error?.code);
+    return String(data);
+  }
+
+  async updateCustomerObject(input: Parameters<FinalCustomerRepository["updateCustomerObject"]>[0]) {
+    const { data, error } = await createAdminClient().rpc("update_customer_object_v1", {
+      p_customer_account_id: input.accountId,
+      p_customer_identity_id: input.customerIdentityId,
+      p_actor_user_id: input.actorUserId,
+      p_customer_object_id: input.objectId,
+      p_expected_version: input.expectedVersion,
+      p_name: input.name,
+      p_object_type: input.objectType,
+      p_locality: input.locality,
+      p_address_label: input.addressLabel,
+    });
+    if (error || data === null) throw repositoryError("update customer object", error?.code);
+    return Number(data);
+  }
+
+  async archiveCustomerObject(input: Parameters<FinalCustomerRepository["archiveCustomerObject"]>[0]) {
+    const { data, error } = await createAdminClient().rpc("archive_customer_object_v1", {
+      p_customer_account_id: input.accountId,
+      p_customer_identity_id: input.customerIdentityId,
+      p_actor_user_id: input.actorUserId,
+      p_customer_object_id: input.objectId,
+      p_expected_version: input.expectedVersion,
+    });
+    if (error || data === null) throw repositoryError("archive customer object", error?.code);
+    return Number(data);
+  }
+
+  async linkCustomerObjectPurchase(input: Parameters<FinalCustomerRepository["linkCustomerObjectPurchase"]>[0]) {
+    const { data, error } = await createAdminClient().rpc("link_customer_object_purchase_v1", {
+      p_customer_account_id: input.accountId,
+      p_customer_identity_id: input.customerIdentityId,
+      p_actor_user_id: input.actorUserId,
+      p_customer_object_id: input.objectId,
+      p_retail_order_id: input.retailOrderId,
+    });
+    if (error || !data) throw repositoryError("link customer object purchase", error?.code);
+    return String(data);
+  }
+
+  async findCustomerObjectPurchaseLink(customerIdentityId: string, objectId: string, retailOrderId: string) {
+    const { data, error } = await createAdminClient().from("customer_object_purchase_links")
+      .select("id,customer_objects!inner(customer_identity_id)")
+      .eq("customer_object_id", objectId).eq("retail_order_id", retailOrderId)
+      .eq("customer_objects.customer_identity_id", customerIdentityId).maybeSingle();
+    if (error) throw repositoryError("read customer object purchase link", error.code);
+    return Boolean(data);
+  }
+
   async listServiceRequests(customerIdentityId: string | null, limit: number, offset = 0) {
     if (!customerIdentityId) return [];
     const { data, error } = await createAdminClient().rpc("list_customer_service_requests_summary_v1", {
@@ -211,18 +305,20 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   async findServiceRequest(customerIdentityId: string | null, requestId: string) {
     if (!customerIdentityId) return null;
     const { data, error } = await createAdminClient().from("customer_service_requests")
-      .select(SERVICE_REQUEST_COLUMNS).eq("id", requestId).eq("customer_identity_id", customerIdentityId).maybeSingle();
+      .select(`${SERVICE_REQUEST_COLUMNS},customer_objects(name)`).eq("id", requestId).eq("customer_identity_id", customerIdentityId).maybeSingle();
     if (error) throw repositoryError("read customer service request", error.code);
-    return data ? this.loadServiceRequestDetail(mapServiceRequest(data), false) : null;
+    const objectRow = data ? firstRelation(data.customer_objects) : null;
+    return data ? this.loadServiceRequestDetail({ ...mapServiceRequest(data), relatedObjectName: textOrNull(objectRow?.name) }, false) : null;
   }
 
   async createServiceRequest(input: Parameters<FinalCustomerRepository["createServiceRequest"]>[0]) {
     const admin = createAdminClient();
-    const { data: requestId, error } = await admin.rpc("create_customer_service_request_v2", {
+    const { data: requestId, error } = await admin.rpc("create_customer_service_request_v3", {
       p_customer_account_id: input.accountId, p_customer_identity_id: input.customerIdentityId,
       p_actor_user_id: input.actorUserId, p_request_type: input.type, p_subject: input.subject,
       p_description: input.description, p_preferred_contact: input.preferredContact,
       p_customer_locale: input.locale,
+      p_customer_object_id: input.customerObjectId,
       p_retail_order_id: input.orderId, p_retail_order_line_id: input.orderLineId,
     });
     if (error) throw repositoryError("create customer service request", error.code);
@@ -248,13 +344,14 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 
   async findAdminServiceRequest(requestId: string) {
-    const { data, error } = await createAdminClient().from("customer_service_requests").select(`${SERVICE_REQUEST_COLUMNS},customer_accounts!inner(display_name,email),retail_orders(public_number),retail_order_lines(product_name,sku)`).eq("id", requestId).maybeSingle();
+    const { data, error } = await createAdminClient().from("customer_service_requests").select(`${SERVICE_REQUEST_COLUMNS},customer_accounts!inner(display_name,email),customer_objects(name),retail_orders(public_number),retail_order_lines(product_name,sku)`).eq("id", requestId).maybeSingle();
     if (error) throw repositoryError("read admin customer service request", error.code);
     if (!data) return null;
     const account = firstRelation(data.customer_accounts);
+    const objectRow = firstRelation(data.customer_objects);
     const order = firstRelation(data.retail_orders);
     const line = firstRelation(data.retail_order_lines);
-    return this.loadServiceRequestDetail({ ...mapServiceRequest(data), customerDisplayName: textOrNull(account?.display_name), customerEmail: textOrNull(account?.email), relatedOrderNumber: textOrNull(order?.public_number), relatedProductName: line ? [line.sku, line.product_name].filter(Boolean).join(" · ") || null : null }, true);
+    return this.loadServiceRequestDetail({ ...mapServiceRequest(data), customerDisplayName: textOrNull(account?.display_name), customerEmail: textOrNull(account?.email), relatedObjectName: textOrNull(objectRow?.name), relatedOrderNumber: textOrNull(order?.public_number), relatedProductName: line ? [line.sku, line.product_name].filter(Boolean).join(" · ") || null : null }, true);
   }
 
   async addCustomerServiceReply(input: Parameters<FinalCustomerRepository["addCustomerServiceReply"]>[0]) {
@@ -314,7 +411,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
 
   private async loadServiceRequestDetail(
     request: CustomerServiceRequest & Partial<Pick<CustomerServiceRequestDetail,
-      "customerDisplayName" | "customerEmail" | "relatedOrderNumber" | "relatedProductName">>,
+      "customerDisplayName" | "customerEmail" | "relatedOrderNumber" | "relatedProductName" | "relatedObjectName">>,
     includeInternal: boolean,
   ): Promise<CustomerServiceRequestDetail> {
     const admin = createAdminClient();
@@ -356,7 +453,7 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
   }
 }
 
-const SERVICE_REQUEST_COLUMNS = "id,public_number,request_type,subject,description,preferred_contact,status,retail_order_id,retail_order_line_id,created_at,updated_at,version";
+const SERVICE_REQUEST_COLUMNS = "id,public_number,request_type,subject,description,preferred_contact,status,customer_object_id,retail_order_id,retail_order_line_id,created_at,updated_at,version";
 
 type Row = Record<string, unknown>;
 
@@ -383,11 +480,47 @@ function mapOrderLine(row: Row): FinalCustomerOrderLine {
 }
 
 function mapServiceRequest(row: Row): CustomerServiceRequest {
-  return { id: String(row.id), number: String(row.public_number), type: row.request_type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferred_contact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], orderId: row.retail_order_id ? String(row.retail_order_id) : null, orderLineId: row.retail_order_line_id ? String(row.retail_order_line_id) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at), version: Number(row.version) };
+  return { id: String(row.id), number: String(row.public_number), type: row.request_type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferred_contact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], customerObjectId: row.customer_object_id ? String(row.customer_object_id) : null, orderId: row.retail_order_id ? String(row.retail_order_id) : null, orderLineId: row.retail_order_line_id ? String(row.retail_order_line_id) : null, createdAt: String(row.created_at), updatedAt: String(row.updated_at), version: Number(row.version) };
 }
 
 function mapServiceRequestSummary(row: Row): CustomerServiceRequest {
-  return { id: String(row.id), number: String(row.number), type: row.type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferredContact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], orderId: row.orderId ? String(row.orderId) : null, orderLineId: row.orderLineId ? String(row.orderLineId) : null, createdAt: String(row.createdAt), updatedAt: String(row.updatedAt), version: Number(row.version), latestMessage: row.latestMessage ? String(row.latestMessage) : null, latestMessageAuthor: row.latestMessageAuthor as CustomerServiceRequest["latestMessageAuthor"], latestMessageAt: row.latestMessageAt ? String(row.latestMessageAt) : null };
+  return { id: String(row.id), number: String(row.number), type: row.type as CustomerServiceRequest["type"], subject: String(row.subject), description: String(row.description), preferredContact: row.preferredContact as CustomerServiceRequest["preferredContact"], status: row.status as CustomerServiceRequest["status"], customerObjectId: row.customerObjectId ? String(row.customerObjectId) : null, orderId: row.orderId ? String(row.orderId) : null, orderLineId: row.orderLineId ? String(row.orderLineId) : null, createdAt: String(row.createdAt), updatedAt: String(row.updatedAt), version: Number(row.version), latestMessage: row.latestMessage ? String(row.latestMessage) : null, latestMessageAuthor: row.latestMessageAuthor as CustomerServiceRequest["latestMessageAuthor"], latestMessageAt: row.latestMessageAt ? String(row.latestMessageAt) : null };
+}
+
+function mapCustomerObjectSummary(row: Row): CustomerObjectSummary {
+  return {
+    id: String(row.id), name: String(row.name), objectType: row.objectType ? row.objectType as CustomerObjectSummary["objectType"] : row.object_type as CustomerObjectSummary["objectType"],
+    locality: textOrNull(row.locality), addressLabel: textOrNull(row.addressLabel ?? row.address_label), status: row.status as CustomerObjectSummary["status"], version: Number(row.version),
+    purchaseCount: Number(row.purchaseCount ?? 0), productCount: Number(row.productCount ?? 0), openServiceCount: Number(row.openServiceCount ?? 0),
+    lastActivityAt: String(row.lastActivityAt ?? row.updated_at ?? row.updatedAt), createdAt: String(row.createdAt ?? row.created_at), updatedAt: String(row.updatedAt ?? row.updated_at),
+  };
+}
+
+function mapCustomerObjectWorkspace(row: Row): CustomerObjectWorkspace {
+  return {
+    objects: Array.isArray(row.objects) ? row.objects.flatMap((item) => item && typeof item === "object" ? [mapCustomerObjectSummary(item as Row)] : []) : [],
+    unlinkedPurchases: Array.isArray(row.unlinkedPurchases) ? row.unlinkedPurchases.flatMap((item) => item && typeof item === "object" ? [{ orderId: String((item as Row).orderId), orderNumber: String((item as Row).orderNumber), purchasedAt: String((item as Row).purchasedAt), productCount: Number((item as Row).productCount) }] : []) : [],
+    purchaseLinks: Array.isArray(row.purchaseLinks) ? row.purchaseLinks.flatMap((item) => item && typeof item === "object" ? [{ orderId: String((item as Row).orderId), objectId: String((item as Row).objectId) }] : []) : [],
+  };
+}
+
+function mapCustomerObjectDetail(row: Row): CustomerObjectDetail | null {
+  if (!row.object || typeof row.object !== "object") return null;
+  const object = mapCustomerObjectSummary(row.object as Row);
+  return {
+    object: { id: object.id, name: object.name, objectType: object.objectType, locality: object.locality, addressLabel: object.addressLabel, status: object.status, version: object.version, createdAt: object.createdAt, updatedAt: object.updatedAt },
+    purchases: Array.isArray(row.purchases) ? row.purchases.flatMap((purchase) => {
+      if (!purchase || typeof purchase !== "object") return [];
+      const value = purchase as Row;
+      const lines = Array.isArray(value.lines) ? value.lines.flatMap((line) => line && typeof line === "object" ? [{ ...mapCamelOrderLine(line as Row), currentProduct: null, documents: [] }] : []) : [];
+      return [{ id: String(value.id), number: String(value.number), purchasedAt: String(value.purchasedAt), total: Number(value.total), currency: String(value.currency), status: String(value.status), lines }];
+    }) : [],
+    serviceRequests: Array.isArray(row.serviceRequests) ? row.serviceRequests.flatMap((request) => request && typeof request === "object" ? [{ id: String((request as Row).id), number: String((request as Row).number), subject: String((request as Row).subject), status: (request as Row).status as CustomerServiceRequestStatus, createdAt: String((request as Row).createdAt) }] : []) : [],
+  };
+}
+
+function mapCamelOrderLine(row: Row): FinalCustomerOrderLine {
+  return { id: String(row.id), lineNumber: Number(row.lineNumber), publicProductId: String(row.publicProductId), sku: String(row.sku), name: String(row.name), slug: String(row.slug), imageUrl: textOrNull(row.imageUrl), quantity: Number(row.quantity), unitCode: String(row.unitCode), unitPrice: Number(row.unitPrice), lineTotal: Number(row.lineTotal), currency: String(row.currency) };
 }
 
 function mapServiceMessage(row: Row): CustomerServiceMessage { return { id: String(row.id), authorType: row.author_type as CustomerServiceMessage["authorType"], visibility: row.visibility as CustomerServiceMessage["visibility"], body: String(row.body), createdAt: String(row.created_at) }; }
