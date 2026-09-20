@@ -6,11 +6,12 @@ export interface BusinessPhoneEnrollmentRepository {
   reserveVerification(input: { challengeId: string; authUserId: string; phoneKeyHash: string }): Promise<boolean>;
   complete(input: { challengeId: string; authUserId: string; phoneE164: string; phoneKeyHash: string }): Promise<boolean>;
   fail(input: { challengeId: string; authUserId: string; phoneKeyHash: string }): Promise<void>;
+  recordVerification(input: { challengeId: string; authUserId: string; phoneKeyHash: string; state: "VERIFIED" | "FAILED"; safeErrorCode: string | null }): Promise<void>;
 }
 
 export interface BusinessPhoneEnrollmentAuthGateway {
   currentUser(): Promise<{ id: string; phone: string | null; phoneConfirmed: boolean } | null>;
-  requestPhoneChange(phoneE164: string): Promise<{ authUserId: string }>;
-  resendPhoneChange(phoneE164: string): Promise<void>;
-  verifyPhoneChange(phoneE164: string, token: string): Promise<{ authUserId: string; phone: string | null; phoneConfirmed: boolean }>;
+  requestPhoneVerification(phoneE164: string, isPhoneChange: boolean): Promise<{ authUserId: string }>;
+  resendPhoneVerification(phoneE164: string, isPhoneChange: boolean): Promise<void>;
+  verifyPhoneVerification(phoneE164: string, token: string, isPhoneChange: boolean): Promise<{ authUserId: string; phone: string | null; phoneConfirmed: boolean }>;
 }

@@ -30,7 +30,8 @@ describe("Unified Auth foundation route contract", () => {
     expect(factory).toContain('process.env.BUSINESS_PHONE_OTP_ENABLED !== "false"');
     expect(gateway).toContain("shouldCreateUser: false");
     expect(enrollment).toContain("auth.updateUser({ phone: phoneE164 })");
-    expect(enrollment).toContain('type: "phone_change"');
+    expect(enrollment).toContain('isPhoneChange ? "phone_change" : "sms"');
+    expect(enrollment).toContain("shouldCreateUser: false");
   });
 
   it("keeps legacy customer entry recoverable behind the unified gate", () => {

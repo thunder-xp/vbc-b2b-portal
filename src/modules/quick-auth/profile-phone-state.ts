@@ -26,7 +26,7 @@ export interface BusinessProfilePhoneStateRepository {
 export class BusinessProfilePhoneStateService {
   constructor(
     private readonly repository: BusinessProfilePhoneStateRepository,
-    private readonly auth: BusinessPhoneEnrollmentAuthGateway,
+    private readonly auth: Pick<BusinessPhoneEnrollmentAuthGateway, "currentUser">,
   ) {}
 
   async resolveCurrent(input: { profilePhone?: string | null } = {}): Promise<BusinessProfilePhoneState | null> {

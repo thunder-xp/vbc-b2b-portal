@@ -4,6 +4,7 @@ import { Webhook } from "standardwebhooks";
 import { z } from "zod";
 
 import { FinalCustomerAuthSmsService } from "./auth-sms.service";
+import { SupabaseAuthSmsDeliveryAuditRepository } from "./auth-sms-delivery.repository";
 import { SupabaseGovernedBusinessAuthSmsRepository } from "./governed-business-auth-sms.repository";
 import { SupabaseAuthSmsRateLimitRepository } from "./supabase-rate-limit.repository";
 
@@ -59,6 +60,7 @@ export async function handleSupabaseSendSmsHook(
     environment,
     fetch,
     new SupabaseGovernedBusinessAuthSmsRepository(),
+    new SupabaseAuthSmsDeliveryAuditRepository(),
   );
   return service.send({
     authUserId: parsed.data.user.id,

@@ -61,6 +61,17 @@ export class SupabaseBusinessPhoneEnrollmentRepository implements BusinessPhoneE
       p_phone_key_hash: input.phoneKeyHash,
     });
   }
+
+  async recordVerification(input: Parameters<BusinessPhoneEnrollmentRepository["recordVerification"]>[0]) {
+    const { error } = await createAdminClient().rpc("record_business_phone_enrollment_verification_result_v1", {
+      p_challenge_id: input.challengeId,
+      p_auth_user_id: input.authUserId,
+      p_phone_key_hash: input.phoneKeyHash,
+      p_verification_state: input.state,
+      p_safe_error_code: input.safeErrorCode,
+    });
+    if (error) throw new Error("Business phone enrollment verification audit failed.");
+  }
 }
 
 export class SupabaseBusinessProfilePhoneStateRepository implements BusinessProfilePhoneStateRepository {
@@ -94,20 +105,35 @@ export class SupabaseBusinessPhoneEnrollmentAuthGateway implements BusinessPhone
     return authUserState(data.user);
   }
 
-  async requestPhoneChange(phoneE164: string) {
-    const { data, error } = await (await createClient()).auth.updateUser({ phone: phoneE164 });
-    if (error || !data.user) throw new Error("Business phone enrollment request failed.");
-    return { authUserId: data.user.id };
+  async requestPhoneVerification(phoneE164: string, isPhoneChange: boolean) {
+    const client = await createClient();
+    if (isPhoneChange) {
+      const { data, error } = await client.auth.updateUser({ phone: phoneE164 });
+      if (error || !data.user) throw new Error("Business phone enrollment request failed.");
+      return { authUserId: data.user.id };
+    }
+    const current = await client.auth.getUser();
+    if (current.error || !current.data.user) throw new Error("Business phone enrollment request failed.");
+    const { error } = await client.auth.signInWithOtp({ phone: phoneE164, options: { shouldCreateUser: false } });
+    if (error) throw new Error("Business phone enrollment request failed.");
+    return { authUserId: current.data.user.id };
   }
 
-  async resendPhoneChange(phoneE164: string) {
-    const { error } = await (await createClient()).auth.resend({ type: "phone_change", phone: phoneE164 });
+  async resendPhoneVerification(phoneE164: string, isPhoneChange: boolean) {
+    const client = await createClient();
+    const { error } = isPhoneChange
+      ? await client.auth.resend({ type: "phone_change", phone: phoneE164 })
+      : await client.auth.signInWithOtp({ phone: phoneE164, options: { shouldCreateUser: false } });
     if (error) throw new Error("Business phone enrollment resend failed.");
   }
 
-  async verifyPhoneChange(phoneE164: string, token: string) {
+  async verifyPhoneVerification(phoneE164: string, token: string, isPhoneChange: boolean) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({ phone: phoneE164, token, type: "phone_change" });
+    const { error } = await supabase.auth.verifyOtp({
+      phone: phoneE164,
+      token,
+      type: isPhoneChange ? "phone_change" : "sms",
+    });
     if (error) throw new Error("Business phone enrollment verification failed.");
     const { data, error: userError } = await supabase.auth.getUser();
     if (userError || !data.user) throw new Error("Business phone enrollment identity refresh failed.");

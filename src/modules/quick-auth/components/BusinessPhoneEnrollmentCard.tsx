@@ -38,8 +38,8 @@ const copy = {
     continue: "Продолжить",
     invalidPhone: "Сохраните действительный номер телефона Молдовы в профиле.",
     invalidCode: "Код не подошёл или истёк. Проверьте код и попробуйте снова.",
-    rateLimited: "Слишком много попыток. Повторите позже.",
-    sendUnavailable: "Не удалось отправить SMS-код. Попробуйте ещё раз.",
+    rateLimited: "Код уже был отправлен. Повторная отправка будет доступна позже.",
+    sendUnavailable: "Не удалось отправить SMS. Попробуйте ещё раз через несколько минут.",
     verificationUnavailable: "Не удалось подтвердить номер. Попробуйте ещё раз.",
   },
   ro: {
@@ -65,8 +65,8 @@ const copy = {
     continue: "Continuă",
     invalidPhone: "Salvați în profil un număr de telefon valid din Moldova.",
     invalidCode: "Codul este incorect sau a expirat. Verificați-l și încercați din nou.",
-    rateLimited: "Prea multe încercări. Încercați din nou mai târziu.",
-    sendUnavailable: "Codul SMS nu a putut fi trimis. Încercați din nou.",
+    rateLimited: "Codul a fost deja trimis. Retrimiterea va fi disponibilă mai târziu.",
+    sendUnavailable: "Codul SMS nu a putut fi trimis. Încercați din nou peste câteva minute.",
     verificationUnavailable: "Numărul nu a putut fi confirmat. Încercați din nou.",
   },
 } as const;

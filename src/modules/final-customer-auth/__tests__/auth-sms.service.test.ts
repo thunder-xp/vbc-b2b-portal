@@ -111,6 +111,81 @@ describe("governed AUTH_OTP SMS", () => {
       .rejects.toMatchObject({ code: "DELIVERY_FAILED" } satisfies Partial<AuthSmsDeliveryError>);
   });
 
+  it("retries only transient provider failures with the same durable identity", async () => {
+    const fetchImplementation = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ resultCode: 50 }), { status: 503 }))
+      .mockResolvedValueOnce(acceptedResponse()) as unknown as typeof fetch;
+    const audit = {
+      begin: vi.fn(async () => ({ result: "DISPATCH" as const, isNew: true, attemptCount: 0 })),
+      startProviderAttempt: vi.fn(async () => 1),
+      complete: vi.fn(async () => undefined),
+    };
+    const service = new FinalCustomerAuthSmsService(
+      { reserve: async () => true },
+      baseEnvironment,
+      fetchImplementation,
+      { resolve: async () => "BUSINESS_PHONE_ENROLLMENT" },
+      audit,
+    );
+
+    await expect(service.send(input("bounded-retry", "+37368123456"))).resolves.toMatchObject({ accepted: true });
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    expect(audit.startProviderAttempt).toHaveBeenCalledTimes(2);
+    expect(audit.complete).toHaveBeenCalledWith(expect.objectContaining({
+      deliveryState: "FAILED_RETRYABLE",
+      retryState: "RETRYABLE",
+      providerHttpStatus: 503,
+    }));
+    expect(audit.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+      deliveryState: "PROVIDER_ACCEPTED",
+      providerCode: "0",
+    }));
+    expect(JSON.stringify(audit.complete.mock.calls)).not.toContain("123456");
+  });
+
+  it("does not retry provider authentication failures", async () => {
+    const fetchImplementation = vi.fn(async () => new Response(
+      JSON.stringify({ resultCode: 40101 }), { status: 401 },
+    )) as unknown as typeof fetch;
+    const audit = {
+      begin: vi.fn(async () => ({ result: "DISPATCH" as const, isNew: true, attemptCount: 0 })),
+      startProviderAttempt: vi.fn(async () => 1),
+      complete: vi.fn(async () => undefined),
+    };
+    const service = new FinalCustomerAuthSmsService(
+      { reserve: async () => true }, baseEnvironment, fetchImplementation,
+      { resolve: async () => "BUSINESS_PHONE_ENROLLMENT" }, audit,
+    );
+
+    await expect(service.send(input("auth-failure", "+37368123456")))
+      .rejects.toMatchObject({ code: "DELIVERY_FAILED" });
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+    expect(audit.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+      deliveryState: "FAILED_FINAL",
+      retryState: "PERMANENT",
+      providerHttpStatus: 401,
+      safeErrorCode: "authentication",
+    }));
+  });
+
+  it("deduplicates an already accepted hook without another provider call", async () => {
+    const fetchImplementation = vi.fn() as unknown as typeof fetch;
+    const reserve = vi.fn(async () => true);
+    const audit = {
+      begin: vi.fn(async () => ({ result: "ALREADY_ACCEPTED" as const, isNew: false, attemptCount: 1 })),
+      startProviderAttempt: vi.fn(async () => 1),
+      complete: vi.fn(async () => undefined),
+    };
+    const service = new FinalCustomerAuthSmsService(
+      { reserve }, baseEnvironment, fetchImplementation,
+      { resolve: async () => "BUSINESS_PHONE_ENROLLMENT" }, audit,
+    );
+
+    await expect(service.send(input("duplicate-hook", "+37368123456"))).resolves.toMatchObject({ accepted: true });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+    expect(reserve).not.toHaveBeenCalled();
+  });
+
   it("defaults to disabled and never inherits the business SMS mode", () => {
     expect(readAuthSmsPolicy({ SMS_MODE: "SANDBOX", AUTH_SMS_ENABLED: "true" }).mode).toBe("DISABLED");
     expect(readAuthSmsPolicy({ AUTH_SMS_MODE: "PRODUCTION", AUTH_SMS_ENABLED: "false" }).enabled).toBe(false);

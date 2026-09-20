@@ -16,16 +16,19 @@ import {
 } from "@/src/modules/finance/services";
 import { communicationRuntimePolicyFromEnvironment } from "@/src/modules/notifications/gateway";
 import { MoldcellSandboxTestPanel } from "@/src/modules/notifications/components/MoldcellSandboxTestPanel";
+import { AuthSmsDiagnosticsPanel } from "@/src/modules/final-customer-auth/AuthSmsDiagnosticsPanel";
+import { SupabaseAuthSmsDiagnosticsRepository } from "@/src/modules/final-customer-auth/auth-sms-diagnostics.repository";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotificationHealthPage() {
   await requireAdminPagePermission("admin.integrations.view");
-  const [health, priceResult, stockResult, moldcellReadiness] = await Promise.all([
+  const [health, priceResult, stockResult, moldcellReadiness, authSmsAttempts] = await Promise.all([
     getNotificationHealthAction(),
     getPriceSyncStateAction(),
     getStockSyncStateAction(),
     getMoldcellSmsReadinessAction(),
+    new SupabaseAuthSmsDiagnosticsRepository().list(),
   ]);
   const run = health.lastShipmentWorkerRun;
   const communicationPolicy = communicationRuntimePolicyFromEnvironment();
@@ -61,6 +64,7 @@ export default async function NotificationHealthPage() {
         </dl>
       </section>
       <MoldcellSandboxTestPanel readiness={moldcellReadiness} />
+      <AuthSmsDiagnosticsPanel attempts={authSmsAttempts} />
       <section className="rounded-md border border-zinc-200 bg-white p-5">
         <h2 className="font-semibold text-zinc-950">Планировщик отгрузок</h2>
         {run ? (

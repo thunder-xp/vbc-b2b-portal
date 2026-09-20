@@ -76,7 +76,7 @@ export class MoldcellSmsProvider implements SmsProvider {
     });
     const receipt = parseReceipt(response);
     if (!response.ok) throw httpError(response.status, receipt);
-    return normalizeReceipt(receipt);
+    return normalizeReceipt(receipt, response.status);
   }
 
   private buildProviderHttpRequest(recipient: string, message: string) {
@@ -214,13 +214,14 @@ function parseReceipt(response: MoldcellTransportResponse): MoldcellProviderRece
   };
 }
 
-function normalizeReceipt(receipt: MoldcellProviderReceipt): SmsProviderResult {
+function normalizeReceipt(receipt: MoldcellProviderReceipt, providerHttpStatus: number): SmsProviderResult {
   const common = {
     provider: "moldcell",
     providerCode: receipt.resultCode,
     providerMessage: safeProviderMessage(receipt.resultMessage),
     providerTimestamp: receipt.resultDate,
     providerReference: receipt.providerRequestId,
+    providerHttpStatus,
   } as const;
   if (receipt.resultCode === "0") return { ...common, accepted: true, retryability: "NONE", failureCategory: null };
   if (receipt.resultCode === "20001") {
@@ -233,10 +234,10 @@ function normalizeReceipt(receipt: MoldcellProviderReceipt): SmsProviderResult {
 }
 
 function httpError(status: number, receipt: MoldcellProviderReceipt): NotificationDeliveryError {
-  if (status === 401 || status === 403) return new NotificationDeliveryError("authentication", false, receipt.resultCode, receipt.resultDate);
-  if (status === 429) return new NotificationDeliveryError("rate_limit", true, receipt.resultCode, receipt.resultDate);
-  if (status >= 500) return new NotificationDeliveryError("unavailable", true, receipt.resultCode, receipt.resultDate);
-  return new NotificationDeliveryError("rejected", false, receipt.resultCode, receipt.resultDate);
+  if (status === 401 || status === 403) return new NotificationDeliveryError("authentication", false, receipt.resultCode, receipt.resultDate, null, status);
+  if (status === 429) return new NotificationDeliveryError("rate_limit", true, receipt.resultCode, receipt.resultDate, null, status);
+  if (status >= 500) return new NotificationDeliveryError("unavailable", true, receipt.resultCode, receipt.resultDate, null, status);
+  return new NotificationDeliveryError("rejected", false, receipt.resultCode, receipt.resultDate, null, status);
 }
 
 function scalar(value: unknown): string | null {

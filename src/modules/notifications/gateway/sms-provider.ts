@@ -23,6 +23,7 @@ export type SmsProviderResult = Readonly<{
   providerMessage: string | null;
   providerTimestamp: string | null;
   providerReference: string | null;
+  providerHttpStatus?: number;
   retryability: "NONE" | "RETRYABLE" | "PERMANENT";
   failureCategory: "INVALID_MSISDN" | "OUTNET_NOT_ALLOWED" | "UNKNOWN_PROVIDER_FAILURE" | null;
 }>;
@@ -82,6 +83,7 @@ export class SmsChannelAdapter implements NotificationChannelAdapter {
         result.providerCode,
         result.providerTimestamp,
         result.providerMessage,
+        result.providerHttpStatus ?? null,
       );
     }
     return {

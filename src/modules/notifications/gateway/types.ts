@@ -45,6 +45,7 @@ export class NotificationDeliveryError extends Error {
     readonly providerCode: string | null = null,
     readonly providerTimestamp: string | null = null,
     readonly providerMessage: string | null = null,
+    readonly providerHttpStatus: number | null = null,
   ) {
     super("Notification delivery failed.");
     this.name = "NotificationDeliveryError";

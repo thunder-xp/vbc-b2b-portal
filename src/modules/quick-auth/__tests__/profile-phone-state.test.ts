@@ -19,9 +19,9 @@ describe("BusinessProfilePhoneStateService", () => {
     };
     auth = {
       currentUser: vi.fn(async () => ({ id: authUserId, phone: "37360433603", phoneConfirmed: true })),
-      requestPhoneChange: vi.fn(),
-      resendPhoneChange: vi.fn(),
-      verifyPhoneChange: vi.fn(),
+      requestPhoneVerification: vi.fn(),
+      resendPhoneVerification: vi.fn(),
+      verifyPhoneVerification: vi.fn(),
     };
   });
 
@@ -44,6 +44,18 @@ describe("BusinessProfilePhoneStateService", () => {
   it("returns VERIFICATION_REQUIRED when Auth phone is missing", async () => {
     vi.mocked(auth.currentUser).mockResolvedValue({ id: authUserId, phone: null, phoneConfirmed: false });
     await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "VERIFICATION_REQUIRED" });
+  });
+
+  it("returns VERIFICATION_REQUIRED when the same Auth phone exists but is still unconfirmed", async () => {
+    vi.mocked(auth.currentUser).mockResolvedValue({
+      id: authUserId,
+      phone: "37360433603",
+      phoneConfirmed: false,
+    });
+    await expect(service().resolveCurrent()).resolves.toMatchObject({
+      state: "VERIFICATION_REQUIRED",
+      profilePhoneE164: "+37360433603",
+    });
   });
 
   it("returns CONFLICT without exposing the conflicting identity", async () => {
