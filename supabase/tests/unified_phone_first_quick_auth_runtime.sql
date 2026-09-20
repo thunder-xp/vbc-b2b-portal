@@ -4,11 +4,11 @@ insert into auth.users (
   id, aud, role, email, email_confirmed_at, phone, phone_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) values
-  ('71000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'quick-customer@example.test', now(), '+37369000001', now(), '{"provider":"phone","providers":["phone"]}', '{}', now(), now()),
-  ('71000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'quick-business@example.test', now(), '+37369000002', now(), '{"provider":"email","providers":["email","phone"]}', '{}', now(), now()),
-  ('71000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'quick-multi@example.test', now(), '+37369000003', now(), '{"provider":"phone","providers":["phone"]}', '{}', now(), now()),
-  ('71000000-0000-4000-8000-000000000004', 'authenticated', 'authenticated', 'quick-blocked@example.test', now(), '+37369000004', now(), '{"provider":"phone","providers":["phone"]}', '{}', now(), now()),
-  ('71000000-0000-4000-8000-000000000005', 'authenticated', 'authenticated', 'quick-unconfirmed@example.test', now(), '+37369000005', null, '{"provider":"email","providers":["email"]}', '{}', now(), now());
+  ('71000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'quick-customer@example.test', now(), '37369000001', now(), '{"provider":"phone","providers":["phone"]}', '{}', now(), now()),
+  ('71000000-0000-4000-8000-000000000002', 'authenticated', 'authenticated', 'quick-business@example.test', now(), '37369000002', now(), '{"provider":"email","providers":["email","phone"]}', '{}', now(), now()),
+  ('71000000-0000-4000-8000-000000000003', 'authenticated', 'authenticated', 'quick-multi@example.test', now(), '37369000003', now(), '{"provider":"phone","providers":["phone"]}', '{}', now(), now()),
+  ('71000000-0000-4000-8000-000000000004', 'authenticated', 'authenticated', 'quick-blocked@example.test', now(), '37369000004', now(), '{"provider":"phone","providers":["phone"]}', '{}', now(), now()),
+  ('71000000-0000-4000-8000-000000000005', 'authenticated', 'authenticated', 'quick-unconfirmed@example.test', now(), '37369000005', null, '{"provider":"email","providers":["email"]}', '{}', now(), now());
 
 insert into public.customer_identities (id, identity_kind) values
   ('72000000-0000-4000-8000-000000000001', 'PERSON'),
@@ -60,7 +60,7 @@ security definer
 set search_path = auth, pg_catalog
 as $$
   update auth.users
-  set phone_change = target_phone,
+  set phone_change = trim(leading '+' from target_phone),
       phone_change_token = 'redacted-runtime-fixture',
       phone_change_sent_at = sent_at
   where id = target_user_id;
@@ -75,7 +75,7 @@ security definer
 set search_path = auth, pg_catalog
 as $$
   update auth.users
-  set phone = target_phone,
+  set phone = trim(leading '+' from target_phone),
       phone_confirmed_at = now(),
       phone_change = '',
       phone_change_token = '',
