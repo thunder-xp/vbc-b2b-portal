@@ -4,10 +4,12 @@ import { Webhook } from "standardwebhooks";
 import { z } from "zod";
 
 import { FinalCustomerAuthSmsService } from "./auth-sms.service";
+import { SupabaseGovernedBusinessAuthSmsRepository } from "./governed-business-auth-sms.repository";
 import { SupabaseAuthSmsRateLimitRepository } from "./supabase-rate-limit.repository";
 
 const sendSmsPayloadSchema = z.object({
   user: z.object({
+    id: z.string().uuid(),
     phone: z.string(),
   }).passthrough(),
   sms: z.object({
@@ -53,8 +55,11 @@ export async function handleSupabaseSendSmsHook(
   const service = options.service ?? new FinalCustomerAuthSmsService(
     new SupabaseAuthSmsRateLimitRepository(),
     environment,
+    fetch,
+    new SupabaseGovernedBusinessAuthSmsRepository(),
   );
   return service.send({
+    authUserId: parsed.data.user.id,
     webhookId,
     phone: parsed.data.user.phone,
     otp: parsed.data.sms.otp,

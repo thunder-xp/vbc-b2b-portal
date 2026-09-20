@@ -19,7 +19,7 @@ function signedRequest(payload: string, id = "message-0001", secret = `whsec_${b
 describe("Supabase Send SMS Hook", () => {
   it("verifies Standard Webhooks and forwards only the expected phone/OTP contract", async () => {
     const payload = JSON.stringify({
-      user: { phone: "+37369123456", role: "authenticated" },
+      user: { id: "6481a5c1-3d37-4a56-9f6a-bee08c554965", phone: "+37369123456", role: "authenticated" },
       sms: { otp: "561166", channel: "sms" },
       hook: "send_sms",
     });
@@ -28,7 +28,7 @@ describe("Supabase Send SMS Hook", () => {
       environment: { SUPABASE_SEND_SMS_HOOK_SECRET: configuredSecret },
       service: { send },
     })).resolves.toMatchObject({ purpose: "AUTH_OTP", accepted: true });
-    expect(send).toHaveBeenCalledWith({ webhookId: "message-0001", phone: "+37369123456", otp: "561166" });
+    expect(send).toHaveBeenCalledWith({ authUserId: "6481a5c1-3d37-4a56-9f6a-bee08c554965", webhookId: "message-0001", phone: "+37369123456", otp: "561166" });
   });
 
   it("supports bounded secret rotation and rejects unsigned or malformed payloads", async () => {
@@ -44,6 +44,11 @@ describe("Supabase Send SMS Hook", () => {
 
     const malformed = JSON.stringify({ user: { id: "6481a5c1-3d37-4a56-9f6a-bee08c554965", phone: "+37369123456" }, sms: { otp: "not-an-otp" } });
     await expect(handleSupabaseSendSmsHook(malformed, signedRequest(malformed), {
+      environment: { SUPABASE_SEND_SMS_HOOK_SECRET: configuredSecret }, service: { send },
+    })).rejects.toMatchObject({ code: "PAYLOAD_INVALID" } satisfies Partial<SendSmsHookVerificationError>);
+
+    const missingUserId = JSON.stringify({ user: { phone: "+37369123456" }, sms: { otp: "561166" } });
+    await expect(handleSupabaseSendSmsHook(missingUserId, signedRequest(missingUserId), {
       environment: { SUPABASE_SEND_SMS_HOOK_SECRET: configuredSecret }, service: { send },
     })).rejects.toMatchObject({ code: "PAYLOAD_INVALID" } satisfies Partial<SendSmsHookVerificationError>);
   });

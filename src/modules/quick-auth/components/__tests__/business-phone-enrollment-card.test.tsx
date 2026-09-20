@@ -52,4 +52,21 @@ describe("BusinessPhoneEnrollmentCard", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Этот номер уже связан с другой учётной записью");
     expect(document.body).not.toHaveTextContent(/@|компан/i);
   });
+
+  it("uses send-specific copy before OTP verification and keeps verification copy afterward", async () => {
+    mocks.start.mockResolvedValueOnce({ ok: false, error: "UNAVAILABLE" });
+    render(<BusinessPhoneEnrollmentCard confirmed={false} locale="ru" nextPath="/cabinet" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Подтвердить номер" }));
+    await userEvent.type(screen.getByLabelText("Телефон"), "69982220");
+    await userEvent.click(screen.getByRole("button", { name: "Отправить код" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось отправить SMS-код. Попробуйте ещё раз.");
+
+    mocks.start.mockResolvedValueOnce({ ok: true, step: "OTP", challengeId: "11111111-1111-4111-8111-111111111111", maskedPhone: "+373 ** *** 20" });
+    await userEvent.click(screen.getByRole("button", { name: "Отправить код" }));
+    mocks.verify.mockResolvedValueOnce({ ok: false, error: "UNAVAILABLE" });
+    await userEvent.type(screen.getByLabelText("Код из SMS"), "123456");
+    await userEvent.click(screen.getByRole("button", { name: "Подтвердить" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Не удалось подтвердить номер. Попробуйте ещё раз.");
+  });
 });

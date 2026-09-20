@@ -22,6 +22,12 @@ export interface AuthSmsRateLimitRepository {
   reserve(phoneKeyHash: string): Promise<boolean>;
 }
 
+export type GovernedBusinessAuthSmsIntent = "BUSINESS_PHONE_ENROLLMENT" | "BUSINESS_QUICK_AUTH";
+
+export interface GovernedBusinessAuthSmsRepository {
+  resolve(authUserId: string, phoneKeyHash: string): Promise<GovernedBusinessAuthSmsIntent | null>;
+}
+
 export type AuthSmsDeliveryResult = Readonly<{
   purpose: typeof AUTH_SMS_PURPOSE;
   provider: "moldcell";
@@ -35,9 +41,10 @@ export class FinalCustomerAuthSmsService {
     private readonly rateLimits: AuthSmsRateLimitRepository,
     private readonly environment: Readonly<Record<string, string | undefined>> = process.env,
     private readonly fetchImplementation: typeof fetch = fetch,
+    private readonly governedBusinessAuth: GovernedBusinessAuthSmsRepository = denyGovernedBusinessAuth,
   ) {}
 
-  async send(input: Readonly<{ webhookId: string; phone: string; otp: string }>): Promise<AuthSmsDeliveryResult> {
+  async send(input: Readonly<{ authUserId: string; webhookId: string; phone: string; otp: string }>): Promise<AuthSmsDeliveryResult> {
     const policy = readAuthSmsPolicy(this.environment);
     if (!policy.enabled || policy.mode === "DISABLED") throw new AuthSmsDeliveryError("DISABLED");
 
@@ -46,11 +53,12 @@ export class FinalCustomerAuthSmsService {
       throw new AuthSmsDeliveryError("RECIPIENT_NOT_ALLOWED");
     }
     if (!/^\d{6}$/.test(input.otp)) throw new AuthSmsDeliveryError("DELIVERY_FAILED");
-    if (policy.mode === "SANDBOX" && !policy.sandboxRecipients.has(phone)) {
+    const phoneKey = hashCustomerIdentityKey("PHONE", phone, true);
+    const governedIntent = await this.governedBusinessAuth.resolve(input.authUserId, phoneKey.keyHash);
+    if (policy.mode === "SANDBOX" && !policy.sandboxRecipients.has(phone) && !governedIntent) {
       throw new AuthSmsDeliveryError("RECIPIENT_NOT_ALLOWED");
     }
 
-    const phoneKey = hashCustomerIdentityKey("PHONE", phone, true);
     if (!(await this.rateLimits.reserve(phoneKey.keyHash))) {
       throw new AuthSmsDeliveryError("RATE_LIMITED");
     }
@@ -61,7 +69,9 @@ export class FinalCustomerAuthSmsService {
       const result = await createMoldcellSmsProvider(this.environment, this.fetchImplementation).send({
         deliveryId: correlationId,
         recipient: phone,
-        message: `Код входа NSD: ${input.otp}`,
+        message: governedIntent === "BUSINESS_PHONE_ENROLLMENT"
+          ? `Код подтверждения телефона NSD: ${input.otp}`
+          : `Код входа NSD: ${input.otp}`,
         locale: "ru",
         idempotencyKey: `auth-otp:${requestHash.slice(0, 48)}`,
       });
@@ -80,6 +90,10 @@ export class FinalCustomerAuthSmsService {
     };
   }
 }
+
+const denyGovernedBusinessAuth: GovernedBusinessAuthSmsRepository = {
+  resolve: async () => null,
+};
 
 export function readAuthSmsPolicy(environment: Readonly<Record<string, string | undefined>> = process.env) {
   const rawMode = environment.AUTH_SMS_MODE?.trim().toUpperCase();

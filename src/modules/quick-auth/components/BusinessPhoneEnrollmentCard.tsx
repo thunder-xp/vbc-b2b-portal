@@ -39,7 +39,8 @@ const copy = {
     invalidCode: "Код не подошёл или истёк. Проверьте код и попробуйте снова.",
     conflict: "Этот номер уже связан с другой учётной записью. Обратитесь в Novotech, если считаете это ошибкой.",
     rateLimited: "Слишком много попыток. Повторите позже.",
-    unavailable: "Не удалось подтвердить номер. Попробуйте ещё раз.",
+    sendUnavailable: "Не удалось отправить SMS-код. Попробуйте ещё раз.",
+    verificationUnavailable: "Не удалось подтвердить номер. Попробуйте ещё раз.",
   },
   ro: {
     title: "Autentificare rapidă prin telefon",
@@ -67,7 +68,8 @@ const copy = {
     invalidCode: "Codul este incorect sau a expirat. Verificați-l și încercați din nou.",
     conflict: "Acest număr este deja asociat altui cont. Contactați Novotech dacă considerați că este o eroare.",
     rateLimited: "Prea multe încercări. Încercați din nou mai târziu.",
-    unavailable: "Numărul nu a putut fi confirmat. Încercați din nou.",
+    sendUnavailable: "Codul SMS nu a putut fi trimis. Încercați din nou.",
+    verificationUnavailable: "Numărul nu a putut fi confirmat. Încercați din nou.",
   },
 } as const;
 
@@ -101,30 +103,30 @@ export function BusinessPhoneEnrollmentCard({
 
   async function start() {
     setPending(true); setError(null);
-    try { applyState(await startBusinessPhoneEnrollmentAction(localDigits)); }
-    catch { setError(labels.unavailable); }
+    try { applyState(await startBusinessPhoneEnrollmentAction(localDigits), labels.sendUnavailable); }
+    catch { setError(labels.sendUnavailable); }
     finally { setPending(false); }
   }
 
   async function verify() {
     if (!challengeId) return;
     setPending(true); setError(null);
-    try { applyState(await verifyBusinessPhoneEnrollmentAction(challengeId, localDigits, otp)); }
-    catch { setError(labels.unavailable); }
+    try { applyState(await verifyBusinessPhoneEnrollmentAction(challengeId, localDigits, otp), labels.verificationUnavailable); }
+    catch { setError(labels.verificationUnavailable); }
     finally { setPending(false); }
   }
 
   async function resend() {
     if (!challengeId || cooldown > 0) return;
     setPending(true); setError(null);
-    try { applyState(await resendBusinessPhoneEnrollmentAction(challengeId, localDigits)); }
-    catch { setError(labels.unavailable); }
+    try { applyState(await resendBusinessPhoneEnrollmentAction(challengeId, localDigits), labels.sendUnavailable); }
+    catch { setError(labels.sendUnavailable); }
     finally { setPending(false); }
   }
 
-  function applyState(result: BusinessPhoneEnrollmentPublicState) {
+  function applyState(result: BusinessPhoneEnrollmentPublicState, unavailableMessage: string) {
     if (!result.ok) {
-      setError(errorMessage(result.error, labels));
+      setError(errorMessage(result.error, labels, unavailableMessage));
       return;
     }
     setError(null);
@@ -181,12 +183,16 @@ function ErrorMessage({ message }: { message: string | null }) {
   return message ? <p aria-live="polite" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{message}</p> : null;
 }
 
-function errorMessage(error: Extract<BusinessPhoneEnrollmentPublicState, { ok: false }>["error"], labels: typeof copy.ru | typeof copy.ro) {
+function errorMessage(
+  error: Extract<BusinessPhoneEnrollmentPublicState, { ok: false }>["error"],
+  labels: typeof copy.ru | typeof copy.ro,
+  unavailableMessage: string,
+) {
   if (error === "INVALID_PHONE") return labels.invalidPhone;
   if (error === "INVALID_CODE") return labels.invalidCode;
   if (error === "PHONE_CONFLICT") return labels.conflict;
   if (error === "RATE_LIMITED") return labels.rateLimited;
-  return labels.unavailable;
+  return unavailableMessage;
 }
 
 function toLocalDigits(value: string) {
