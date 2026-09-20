@@ -14,6 +14,8 @@ const sendSmsPayloadSchema = z.object({
   }).passthrough(),
   sms: z.object({
     otp: z.string().regex(/^\d{6}$/),
+    phone: z.string().optional(),
+    sms_type: z.string().optional(),
   }).passthrough(),
 }).passthrough();
 
@@ -61,7 +63,10 @@ export async function handleSupabaseSendSmsHook(
   return service.send({
     authUserId: parsed.data.user.id,
     webhookId,
-    phone: parsed.data.user.phone,
+    // Supabase supplies the actual OTP destination in sms.phone. During a
+    // phone-change flow user.phone can still be the previously confirmed
+    // number (or empty), so it must not override the signed SMS destination.
+    phone: parsed.data.sms.phone ?? parsed.data.user.phone,
     otp: parsed.data.sms.otp,
   });
 }

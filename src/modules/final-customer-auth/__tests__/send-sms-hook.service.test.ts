@@ -31,6 +31,34 @@ describe("Supabase Send SMS Hook", () => {
     expect(send).toHaveBeenCalledWith({ authUserId: "6481a5c1-3d37-4a56-9f6a-bee08c554965", webhookId: "message-0001", phone: "+37369123456", otp: "561166" });
   });
 
+  it("uses the signed SMS destination for phone-change enrollment", async () => {
+    const payload = JSON.stringify({
+      user: {
+        id: "6481a5c1-3d37-4a56-9f6a-bee08c554965",
+        phone: "",
+        role: "authenticated",
+      },
+      sms: {
+        otp: "561166",
+        phone: "+37368123456",
+        sms_type: "phone_change",
+      },
+    });
+    const send = vi.fn(async () => ({ purpose: "AUTH_OTP" as const, provider: "moldcell" as const, transport: "relay" as const, accepted: true as const, correlationId: "6481a5c1-3d37-4a56-9f6a-bee08c554965" }));
+
+    await handleSupabaseSendSmsHook(payload, signedRequest(payload), {
+      environment: { SUPABASE_SEND_SMS_HOOK_SECRET: configuredSecret },
+      service: { send },
+    });
+
+    expect(send).toHaveBeenCalledWith({
+      authUserId: "6481a5c1-3d37-4a56-9f6a-bee08c554965",
+      webhookId: "message-0001",
+      phone: "+37368123456",
+      otp: "561166",
+    });
+  });
+
   it("supports bounded secret rotation and rejects unsigned or malformed payloads", async () => {
     const payload = JSON.stringify({ user: { id: "6481a5c1-3d37-4a56-9f6a-bee08c554965", phone: "+37369123456" }, sms: { otp: "561166" } });
     const send = vi.fn(async () => ({ purpose: "AUTH_OTP" as const, provider: "moldcell" as const, transport: "relay" as const, accepted: true as const, correlationId: "6481a5c1-3d37-4a56-9f6a-bee08c554965" }));
