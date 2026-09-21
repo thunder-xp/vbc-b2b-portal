@@ -299,7 +299,10 @@ export class SupabaseStockSyncStore implements StockSyncStore {
     return { state: await this.getState(), resumed: data.result === "resumed" };
   }
   async heartbeat(): Promise<StockSyncHeartbeat> {
-    const { data, error } = await createAdminClient().rpc("heartbeat_stock_sync_scheduler");
+    const { data, error } = await createAdminClient().rpc(
+      "heartbeat_stock_sync_scheduler_v2",
+      { p_worker: "stock_sync_resume" },
+    );
     if (error || !isRecord(data)) throw dbError(error);
     return { recoveryRequired: data.recoveryRequired === true, recoveryAllowed: data.recoveryAllowed === true, schedulerState: data.schedulerState === "STALE" ? "STALE" : "FRESH" };
   }

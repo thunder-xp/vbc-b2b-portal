@@ -10,6 +10,10 @@ const watchdogRoute = readFileSync(
   resolve(process.cwd(), "app/api/cron/stock-sync-resume/route.ts"),
   "utf8",
 );
+const heartbeatRpcSql = readFileSync(
+  resolve(process.cwd(), "supabase/migrations/20260921052201_stock_scheduler_heartbeat_rpc_contract.sql"),
+  "utf8",
+);
 
 describe("stock source self-healing migration", () => {
   it("persists run history, per-call evidence, and independent freshness", () => {
@@ -43,10 +47,19 @@ describe("stock source self-healing migration", () => {
   });
 
   it("continues an active checkpoint even if heartbeat telemetry is unavailable", () => {
-    expect(watchdogRoute).toContain("let heartbeat = fallbackHeartbeat(state)");
+    expect(watchdogRoute).toContain("fallbackHeartbeat(state)");
     expect(watchdogRoute).toContain('event: "stock_sync_scheduler_heartbeat_failed"');
     expect(watchdogRoute.indexOf("let state = await service.getState()"))
       .toBeLessThan(watchdogRoute.indexOf("heartbeat = await service.heartbeat()"));
     expect(watchdogRoute).toContain("const result = await service.continue(state.activeSyncId)");
+  });
+
+  it("exposes an unambiguous server-only heartbeat RPC contract", () => {
+    expect(heartbeatRpcSql).toContain("create or replace function public.heartbeat_stock_sync_scheduler()");
+    expect(heartbeatRpcSql).toContain("where freshness.domain in ('physical_stock', 'supplier_arrivals')");
+    expect(heartbeatRpcSql).toContain("heartbeat_stock_sync_scheduler_v2(p_worker text)");
+    expect(heartbeatRpcSql).toContain("p_worker <> 'stock_sync_resume'");
+    expect(heartbeatRpcSql).toContain("from public, anon, authenticated");
+    expect(heartbeatRpcSql).toContain("to service_role");
   });
 });
