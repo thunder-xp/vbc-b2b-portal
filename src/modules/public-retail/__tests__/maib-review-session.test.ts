@@ -23,15 +23,26 @@ describe("MAIB review access", () => {
     expect(isMaibReviewAccessCodeValid("short", { MAIB_REVIEW_ACCESS_SECRET: "short" })).toBe(false);
   });
 
-  it("issues a signed bounded session and rejects expiry or tampering", () => {
+  it("issues a signed eight-hour session and rejects expiry or tampering", () => {
     const session = createMaibReviewSession(environment, now, "a".repeat(22));
     const sessionParts = session.split(".");
     sessionParts[3] = `${sessionParts[3]?.startsWith("a") ? "b" : "a"}${sessionParts[3]?.slice(1)}`;
 
+    expect(MAIB_REVIEW_SESSION_MAX_AGE_SECONDS).toBe(8 * 60 * 60);
     expect(validateMaibReviewSession(session, environment, now)).toBe(true);
+    expect(validateMaibReviewSession(session, environment, now + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000 - 1)).toBe(true);
     expect(validateMaibReviewSession(session, environment, now + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000)).toBe(false);
     expect(validateMaibReviewSession(sessionParts.join("."), environment, now)).toBe(false);
     expect(validateMaibReviewSession(session, { MAIB_REVIEW_ACCESS_SECRET: secret + "-other" }, now)).toBe(false);
+  });
+
+  it("keeps the access code reusable after an earlier session expires", () => {
+    const later = now + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000;
+    const refreshedSession = createMaibReviewSession(environment, later, "b".repeat(22));
+
+    expect(isMaibReviewAccessCodeValid(secret, environment)).toBe(true);
+    expect(validateMaibReviewSession(refreshedSession, environment, later)).toBe(true);
+    expect(validateMaibReviewSession(refreshedSession, environment, later + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000)).toBe(false);
   });
 
   it("keeps normal public gating unchanged and identifies review access centrally", () => {
