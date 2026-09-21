@@ -66,10 +66,22 @@ export class AgentDomainService {
     if (!allowed.includes(targetStatus)) {
       throw new AgentDomainValidationError("Недопустимый переход статуса агента.");
     }
-    if (targetStatus === "APPROVED" && detail.compliance?.complianceReviewStatus !== "APPROVED") {
+    if (["APPROVED", "ACTIVE"].includes(targetStatus) && detail.agent.complianceStatus !== "APPROVED") {
       throw new AgentDomainValidationError("Сначала завершите compliance-проверку.");
     }
+    if (["APPROVED", "ACTIVE"].includes(targetStatus) && !detail.agent.contractReady) {
+      throw new AgentDomainValidationError("Сначала подтвердите готовность договора.");
+    }
     return this.repository.transitionAgent(agentId, targetStatus, actorUserId);
+  }
+
+  async confirmCommercialAgentContract(agentId: string, actorUserId: string) {
+    const detail = await this.getAgent(agentId);
+    if (!detail) throw new AgentDomainValidationError("Коммерческий агент не найден.");
+    if (detail.agent.complianceStatus !== "APPROVED") {
+      throw new AgentDomainValidationError("Сначала завершите compliance-проверку.");
+    }
+    return this.repository.confirmContract(agentId, actorUserId);
   }
 
   reviewCompliance(input: Parameters<AgentDomainRepository["reviewCompliance"]>[0]) {
@@ -86,6 +98,11 @@ export class AgentDomainService {
     campaignRef?: string | null;
     expiresAt?: string | null;
   }) {
+    const detail = await this.getAgent(input.agentId);
+    if (!detail) throw new AgentDomainValidationError("Коммерческий агент не найден.");
+    if (detail.agent.status !== "ACTIVE") {
+      throw new AgentDomainValidationError("Реферальные ссылки доступны только активному агенту.");
+    }
     const rawToken = randomBytes(32).toString("base64url");
     const tokenHash = hashReferralToken(rawToken);
     const tokenId = await this.repository.createToken({

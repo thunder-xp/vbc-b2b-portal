@@ -13,5 +13,5 @@ export {
   resolveCurrentCustomerAccess,
   resolveCustomerAccessForUser,
 } from "./server";
-export { BusinessAccessResolver, CustomerAccessResolver, decideBusinessRoute } from "./service";
+export { BusinessAccessResolver, CustomerAccessResolver, decideBusinessRoute, decidePostSignInBusinessRoute } from "./service";
 export type * from "./types";

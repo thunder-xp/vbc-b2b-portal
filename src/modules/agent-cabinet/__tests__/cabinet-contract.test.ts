@@ -12,6 +12,8 @@ const layout = readFileSync(join(root, "app/(agent)/agent/layout.tsx"), "utf8");
 const qrPage = readFileSync(join(root, "app/(agent)/agent/qr/page.tsx"), "utf8");
 const service = readFileSync(join(root, "src/modules/agent-cabinet/service.ts"), "utf8");
 const profilePage = readFileSync(join(root, "app/(agent)/agent/profile/page.tsx"), "utf8");
+const statusGate = readFileSync(join(root, "src/modules/agent-cabinet/components/StatusGate.tsx"), "utf8");
+const adminAgentPage = readFileSync(join(root, "app/(admin)/admin/agents/[id]/page.tsx"), "utf8");
 
 describe("Agent Cabinet V1 contract", () => {
   it("maps every governed lifecycle and referral status to agent-safe RU copy", () => {
@@ -24,6 +26,17 @@ describe("Agent Cabinet V1 contract", () => {
     expect(layout).toContain('agent.accessMode === "OPERATIONAL"');
     expect(layout).toContain("<StatusGate context={agent} locale={locale}/>");
     expect(layout).not.toContain("/cabinet");
+  });
+
+  it("explains contract-pending status in both cabinet locales", () => {
+    expect(statusGate).toContain("После подтверждения договорных данных мы завершим активацию кабинета.");
+    expect(statusGate).toContain("După confirmarea datelor contractuale, vom finaliza activarea cabinetului.");
+  });
+
+  it("uses the governed contract action and hides token creation before ACTIVE", () => {
+    expect(adminAgentPage).toContain("confirmCommercialAgentContractAction");
+    expect(adminAgentPage).toContain("Подтверждайте после завершения договорного оформления.");
+    expect(adminAgentPage).toContain('canManage && agent.status === "ACTIVE"');
   });
 
   it("uses auth.uid ownership for every self-scoped detail and list projection", () => {

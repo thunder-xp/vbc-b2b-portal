@@ -76,14 +76,15 @@ begin
   if (select status from public.commercial_agents where id = active_agent_id) = 'COMPLIANCE_REVIEW' then
     perform public.transition_commercial_agent_record(active_agent_id, 'CONTRACT_PENDING', active_user_id);
   end if;
+  if not (select contract_ready from public.commercial_agents where id = active_agent_id) then
+    perform public.confirm_commercial_agent_contract(active_agent_id, active_user_id);
+  end if;
   if (select status from public.commercial_agents where id = active_agent_id) = 'CONTRACT_PENDING' then
     perform public.transition_commercial_agent_record(active_agent_id, 'APPROVED', active_user_id);
   end if;
   if (select status from public.commercial_agents where id = active_agent_id) = 'APPROVED' then
     perform public.transition_commercial_agent_record(active_agent_id, 'ACTIVE', active_user_id);
   end if;
-  update public.commercial_agents set contract_ready = true where id = active_agent_id and not contract_ready;
-
   if not exists (
     select 1 from public.agent_referral_tokens
     where agent_id = active_agent_id and token_hash = fixture_token_hash and status = 'ACTIVE'

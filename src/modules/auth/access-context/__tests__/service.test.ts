@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { BusinessAccessResolver, CustomerAccessResolver, decideBusinessRoute } from "../service";
+import { BusinessAccessResolver, CustomerAccessResolver, decideBusinessRoute, decidePostSignInBusinessRoute } from "../service";
 import type { BusinessAccessContext, BusinessAccessResolution } from "../types";
 
 const partnerA = context("PARTNER", "11111111-1111-4111-8111-111111111111", "Partner A", "AVAILABLE");
@@ -35,6 +35,22 @@ describe("BusinessAccessResolver routing", () => {
   it("does not operationally route a suspended Agent", () => {
     const suspended = { ...agent, status: "BLOCKED" as const };
     expect(decideBusinessRoute(resolution([suspended]))).toEqual({ kind: "ACCESS_STATE", targetRoute: "/auth/business-access-state" });
+  });
+
+  it("routes a pending Agent to the status-only cabinet only during post-sign-in", () => {
+    const pending = { ...agent, status: "PENDING" as const };
+    expect(decideBusinessRoute(resolution([pending]))).toEqual({ kind: "ACCESS_STATE", targetRoute: "/auth/business-access-state" });
+    expect(decidePostSignInBusinessRoute(resolution([pending]))).toEqual({ kind: "ROUTE", targetRoute: "/agent" });
+  });
+
+  it("keeps an available Partner authoritative when the Agent context is pending", () => {
+    const pending = { ...agent, status: "PENDING" as const };
+    expect(decidePostSignInBusinessRoute(resolution([partnerA, pending]))).toEqual({ kind: "ROUTE", targetRoute: "/cabinet" });
+  });
+
+  it("does not treat a pending Partner as a status-only Agent", () => {
+    const pending = { ...partnerA, status: "PENDING" as const };
+    expect(decidePostSignInBusinessRoute(resolution([pending]))).toEqual({ kind: "ACCESS_STATE", targetRoute: "/auth/business-access-state" });
   });
 
   it("delegates forged-context rejection to the server repository", async () => {

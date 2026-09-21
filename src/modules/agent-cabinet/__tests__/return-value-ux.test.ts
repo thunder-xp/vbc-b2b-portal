@@ -26,6 +26,14 @@ const context: AgentCabinetContext = {
 };
 
 describe("Agent return-value UX", () => {
+  it.each(["APPLIED", "COMPLIANCE_REVIEW", "CONTRACT_PENDING", "APPROVED", "TRAINING"] as const)(
+    "keeps %s status-only and activation incomplete",
+    (status) => {
+      const readiness = agentOnboardingReadiness({ ...context, status, complianceStatus: "APPROVED", contractReady: false });
+      expect(readiness.items.find((item) => item.code === "ACTIVATION")?.complete).toBe(false);
+      expect(readiness.nextAction).not.toBe("NONE");
+    },
+  );
   it("derives a truthful checklist and one governed next action", () => {
     expect(agentOnboardingReadiness(context)).toEqual({
       items: [
