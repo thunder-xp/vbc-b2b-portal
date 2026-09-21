@@ -2,16 +2,39 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { PublicRetailPublicationRepository } from "../repositories/public-retail.repository";
 import { PublicRetailPublicationService } from "../services/public-retail-publication.service";
+import { parsePublicRetailPublicationMetrics } from "../validation";
 
 const publicationId = "8d4fe3a1-3d8a-4fa0-9b0c-87df948fe07f";
 const checksum = "a".repeat(64);
 
 describe("PublicRetailPublicationService", () => {
+  it("accepts the legacy build response during the application-first rollout", () => {
+    const metrics = parsePublicRetailPublicationMetrics({
+      publicationId,
+      sourceProducts: 10,
+      eligibleProducts: 8,
+      excludedProducts: 2,
+      missingRetail: 2,
+      missingImage: 1,
+      missingCategory: 0,
+      productsWithStructuredSpecifications: 7,
+      checksum,
+    });
+
+    expect(metrics).toMatchObject({
+      candidatePublicationId: publicationId,
+      noOp: false,
+      productDelta: { inserted: 8, updated: 0, removed: 0, unchanged: 0 },
+    });
+  });
+
   it("builds and atomically publishes the validated candidate", async () => {
     const repository = {
       start: vi.fn().mockResolvedValue(publicationId),
       build: vi.fn().mockResolvedValue({
-        publicationId, sourceProducts: 10, eligibleProducts: 8, excludedProducts: 2,
+        publicationId, candidatePublicationId: publicationId, noOp: false,
+        productDelta: { inserted: 8, updated: 0, removed: 0, unchanged: 0 },
+        sourceProducts: 10, eligibleProducts: 8, excludedProducts: 2,
         missingRetail: 2, missingImage: 1, missingCategory: 0,
         productsWithStructuredSpecifications: 7, checksum,
       }),
@@ -23,6 +46,30 @@ describe("PublicRetailPublicationService", () => {
 
     expect(result.checksum).toBe(checksum);
     expect(repository.publish).toHaveBeenCalledWith(publicationId, checksum);
+    expect(repository.fail).not.toHaveBeenCalled();
+  });
+
+  it("returns the active generation without publishing or rewriting a no-op candidate", async () => {
+    const activePublicationId = "9d4fe3a1-3d8a-4fa0-9b0c-87df948fe07f";
+    const repository = {
+      start: vi.fn().mockResolvedValue(publicationId),
+      build: vi.fn().mockResolvedValue({
+        publicationId: activePublicationId,
+        candidatePublicationId: publicationId,
+        noOp: true,
+        productDelta: { inserted: 0, updated: 0, removed: 0, unchanged: 8 },
+        sourceProducts: 10, eligibleProducts: 8, excludedProducts: 2,
+        missingRetail: 2, missingImage: 1, missingCategory: 0,
+        productsWithStructuredSpecifications: 7, checksum,
+      }),
+      publish: vi.fn(),
+      fail: vi.fn(),
+    } satisfies PublicRetailPublicationRepository;
+
+    const result = await new PublicRetailPublicationService(repository).publishCurrentProjection();
+
+    expect(result).toMatchObject({ publicationId: activePublicationId, candidatePublicationId: publicationId, noOp: true });
+    expect(repository.publish).not.toHaveBeenCalled();
     expect(repository.fail).not.toHaveBeenCalled();
   });
 

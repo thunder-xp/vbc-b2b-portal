@@ -283,7 +283,18 @@ export class ChunkedStockSyncService {
 
   private completeOrchestration(syncId: string, state: StockSyncState): Promise<CatalogProjectionOutcome | null> {
     if (!this.orchestrator) return Promise.resolve(null);
-    return this.orchestrator.completeSourceSync({ sourceSyncId: syncId, sourceDomain: "stock", changedCounts: { stockRows: state.rowsPublished, deactivated: state.rowsDeactivated, productsMatched: state.productsMatched, productsUnmatched: state.productsUnmatched }, sourceDurationMs: durationBetween(state.startedAt, state.updatedAt) });
+    return this.orchestrator.completeSourceSync({
+      sourceSyncId: syncId,
+      sourceDomain: "stock",
+      changedCounts: {
+        stockRows: (state.stockDeltaInserted ?? 0) + (state.stockDeltaUpdated ?? 0) + (state.stockDeltaRemoved ?? 0),
+        deactivated: state.stockDeltaRemoved ?? 0,
+        arrivalRows: (state.arrivalsDeltaInserted ?? 0) + (state.arrivalsDeltaUpdated ?? 0) + (state.arrivalsDeltaRemoved ?? 0),
+        productsMatched: state.productsMatched,
+        productsUnmatched: state.productsUnmatched,
+      },
+      sourceDurationMs: durationBetween(state.startedAt, state.updatedAt),
+    });
   }
 }
 

@@ -10,7 +10,7 @@ export type CatalogProjectionOutcome = {
   runId: string | null;
   sourceDomain: CatalogSynchronizationSourceDomain | null;
   trigger: CatalogSynchronizationTrigger | null;
-  status: "succeeded" | "partial_success" | "queued" | "already_completed" | "no_pending";
+  status: "succeeded" | "no_op" | "skipped" | "partial_success" | "queued" | "already_completed" | "no_pending";
   publicationId: string | null;
   checksum: string | null;
   durationMs: number | null;
@@ -125,7 +125,13 @@ export class CatalogSynchronizationOrchestrator {
         runId: claim.runId,
         sourceDomain: claim.sourceDomain,
         trigger: claim.trigger,
-        status: claim.status === "already_completed" ? "already_completed" : claim.status === "queued" ? "queued" : "no_pending",
+        status: claim.status === "already_completed"
+          ? "already_completed"
+          : claim.status === "queued"
+            ? "queued"
+            : claim.status === "skipped"
+              ? "skipped"
+              : "no_pending",
         publicationId: claim.publicationId,
         checksum: null,
         durationMs: null,
@@ -142,12 +148,14 @@ export class CatalogSynchronizationOrchestrator {
         checksum: publication.checksum,
         durationMs: Math.max(0, Math.round(publication.durationMs)),
       });
-      await this.cacheInvalidator.invalidateAfterPublication();
+      if (!publication.noOp) {
+        await this.cacheInvalidator.invalidateAfterPublication();
+      }
       return {
         runId: claim.runId,
         sourceDomain: claim.sourceDomain,
         trigger: claim.trigger,
-        status: "succeeded",
+        status: publication.noOp ? "no_op" : "succeeded",
         publicationId: publication.publicationId,
         checksum: publication.checksum,
         durationMs: Math.max(0, Math.round(publication.durationMs)),

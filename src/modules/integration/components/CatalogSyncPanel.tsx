@@ -116,6 +116,7 @@ function stepLabel(status: CommercialSyncAllResult[keyof CommercialSyncAllResult
 
 function projectionLabel(status: CatalogProjectionOutcome["status"]): string {
   if (status === "succeeded" || status === "already_completed") return "Published";
+  if (status === "no_op" || status === "skipped") return "Already current";
   if (status === "queued") return "Queued";
   if (status === "partial_success") return "Failed after B2B update";
   return "Not started";

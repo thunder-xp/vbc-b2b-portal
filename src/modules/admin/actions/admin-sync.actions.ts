@@ -205,7 +205,7 @@ function isCatalogSyncActionResult(value: unknown): value is CatalogSyncActionRe
 function projectionStageStatus(
   projection: CatalogProjectionOutcome | null,
 ): CatalogStageStatus {
-  if (projection?.status === "succeeded" || projection?.status === "already_completed") {
+  if (["succeeded", "already_completed", "no_op", "skipped"].includes(projection?.status ?? "")) {
     return "succeeded";
   }
   return projection?.status === "queued" ? "queued" : "failed";
@@ -214,8 +214,10 @@ function projectionStageStatus(
 function publicationStageStatus(
   projection: CatalogProjectionOutcome | null,
 ): CatalogStageStatus {
+  if (projection?.status === "skipped") return "succeeded";
   if (
-    (projection?.status === "succeeded" || projection?.status === "already_completed") &&
+    projection &&
+    ["succeeded", "already_completed", "no_op"].includes(projection.status) &&
     projection.publicationId
   ) {
     return "succeeded";

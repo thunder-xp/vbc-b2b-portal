@@ -2,6 +2,7 @@ import { describe,expect,it,vi } from "vitest";
 vi.mock("server-only",()=>({}));
 import { IntegrationProviderUnavailableError,IntegrationTimeoutError } from "../../errors";
 import { ChunkedStockSyncService,isRetryableStockSourceError,type StockSyncState,type StockSyncStore } from "../chunked-stock-sync";
+import type { CatalogSynchronizationOrchestrator } from "../catalog-synchronization-orchestrator";
 import type { StockBalanceProvider,SupplierArrivalProvider } from "../../providers/one-c";
 
 describe("ChunkedStockSyncService",()=>{
@@ -13,6 +14,27 @@ describe("ChunkedStockSyncService",()=>{
   it("retries a transient incoming HTTP 500 and keeps the same checkpoint",async()=>{const store=fixture();store.state.currentStage="incoming_scan";const provider=providerFixture();provider.fetchBalances.mockRejectedValueOnce(httpError(500));const sleep=vi.fn(async()=>undefined);await new ChunkedStockSyncService(provider,supplierFixture(),store,Date.now,{sleep,random:()=>0}).continue(syncId);expect(provider.fetchBalances).toHaveBeenCalledTimes(2);expect(sleep).toHaveBeenCalledOnce();expect(store.recordSourceOperation).toHaveBeenNthCalledWith(1,syncId,expect.objectContaining({stage:"incoming_scan",outcome:"retryable_failure",errorCode:"INCOMING_SCAN_HTTP_500"}));expect(store.recordSourceOperation).toHaveBeenNthCalledWith(2,syncId,expect.objectContaining({stage:"incoming_scan",outcome:"succeeded",retryIndex:1}));});
   it("does not retry a permanent authorization response",async()=>{const store=fixture();store.state.currentStage="incoming_scan";const provider=providerFixture();provider.fetchBalances.mockRejectedValueOnce(httpError(403));const sleep=vi.fn(async()=>undefined);await new ChunkedStockSyncService(provider,supplierFixture(),store,Date.now,{sleep,random:()=>0}).continue(syncId);expect(provider.fetchBalances).toHaveBeenCalledOnce();expect(sleep).not.toHaveBeenCalled();expect(store.state.lastFailureRetryable).toBe(false);});
   it("classifies timeout and temporary network loss as retryable but malformed responses as permanent",()=>{expect(isRetryableStockSourceError(new IntegrationTimeoutError())).toBe(true);expect(isRetryableStockSourceError(Object.assign(new IntegrationProviderUnavailableError(),{networkCode:"ECONNRESET"}))).toBe(true);expect(isRetryableStockSourceError(new Error("malformed"))).toBe(false);});
+  it("reports persisted stock and arrival deltas instead of full snapshot row counts",async()=>{
+    const store=fixture();
+    store.state.currentStage="supplier_order_documents";
+    store.state.rowsPublished=1246;
+    store.state.stockDeltaInserted=1;
+    store.state.stockDeltaUpdated=2;
+    store.state.stockDeltaRemoved=3;
+    store.state.arrivalsDeltaInserted=4;
+    store.state.arrivalsDeltaUpdated=5;
+    store.state.arrivalsDeltaRemoved=6;
+    const completeSourceSync=vi.fn(async()=>null);
+    const orchestrator={completeSourceSync} as unknown as CatalogSynchronizationOrchestrator;
+
+    await new ChunkedStockSyncService(providerFixture(),supplierFixture(),store,Date.now,{},orchestrator).continue(syncId);
+
+    expect(completeSourceSync).toHaveBeenCalledWith(expect.objectContaining({
+      sourceSyncId:syncId,
+      sourceDomain:"stock",
+      changedCounts:expect.objectContaining({stockRows:6,deactivated:3,arrivalRows:15}),
+    }));
+  });
 });
 
 function providerFixture(){return{fetchWarehouses:vi.fn(async()=>({items:[],rowCount:0})),fetchBalances:vi.fn(async()=>({items:[],rowCount:0}))}satisfies StockBalanceProvider;}

@@ -8,7 +8,9 @@ export class PublicRetailPublicationService {
     const publicationId = await this.repository.start();
     try {
       const metrics = await this.repository.build(publicationId);
-      await this.repository.publish(publicationId, metrics.checksum);
+      if (!metrics.noOp) {
+        await this.repository.publish(metrics.candidatePublicationId, metrics.checksum);
+      }
       return { ...metrics, durationMs: Math.round((performance.now() - startedAt) * 100) / 100 };
     } catch (error) {
       if (!candidateFailureAlreadyRecorded(error)) {

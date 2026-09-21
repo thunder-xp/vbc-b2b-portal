@@ -29,6 +29,16 @@ describe("CatalogSynchronizationOrchestrator", () => {
     expect(result).toMatchObject({ status: "succeeded", publicationId, checksum });
   });
 
+  it("completes a no-op projection without invalidating the active cache", async () => {
+    publisher.publishCurrentProjection.mockResolvedValueOnce({ ...publication, noOp: true });
+
+    const result = await service.completeSourceSync(sourceCompletion);
+
+    expect(repository.completeProjection).toHaveBeenCalledWith({ runId, publicationId, checksum, durationMs: 125 });
+    expect(cache.invalidateAfterPublication).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: "no_op", publicationId, checksum });
+  });
+
   it("reports Public Retail failure as partial success without changing B2B source success", async () => {
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
     publisher.publishCurrentProjection.mockRejectedValueOnce(Object.assign(new Error("failed"), {
@@ -81,6 +91,13 @@ describe("CatalogSynchronizationOrchestrator", () => {
     expect(publisher.publishCurrentProjection).not.toHaveBeenCalled();
   });
 
+  it("reports a source-level no-change projection as skipped", async () => {
+    repository.claim.mockResolvedValueOnce({ ...claimed, claimed: false, status: "skipped", publicationId: null });
+    const result = await service.completeSourceSync(sourceCompletion);
+    expect(result).toMatchObject({ status: "skipped", publicationId: null });
+    expect(publisher.publishCurrentProjection).not.toHaveBeenCalled();
+  });
+
   it("drains one pending projection through the same publication method", async () => {
     await service.resumePendingProjection();
     expect(repository.claim).toHaveBeenCalledWith(undefined);
@@ -93,7 +110,21 @@ const runId = "22222222-2222-4222-8222-222222222222";
 const publicationId = "33333333-3333-4333-8333-333333333333";
 const checksum = "a".repeat(64);
 const claimed = { claimed: true, status: "running", runId, sourceDomain: "prices" as const, trigger: "scheduled" as const, publicationId: null };
-const publication = { publicationId, checksum, durationMs: 125, sourceProducts: 20, eligibleProducts: 18, excludedProducts: 2, missingRetail: 0, missingImage: 1, missingCategory: 0, productsWithStructuredSpecifications: 17 };
+const publication = {
+  publicationId,
+  candidatePublicationId: publicationId,
+  noOp: false,
+  productDelta: { inserted: 18, updated: 0, removed: 0, unchanged: 0 },
+  checksum,
+  durationMs: 125,
+  sourceProducts: 20,
+  eligibleProducts: 18,
+  excludedProducts: 2,
+  missingRetail: 0,
+  missingImage: 1,
+  missingCategory: 0,
+  productsWithStructuredSpecifications: 17,
+};
 const sourceCompletion = { sourceSyncId, sourceDomain: "prices" as const, changedCounts: { prices: 100 }, sourceDurationMs: 800 };
 
 function repositoryFixture() {

@@ -132,6 +132,14 @@ export type PublicRetailFacetDto = {
 
 export type PublicRetailPublicationMetrics = {
   publicationId: string;
+  candidatePublicationId: string;
+  noOp: boolean;
+  productDelta: {
+    inserted: number;
+    updated: number;
+    removed: number;
+    unchanged: number;
+  };
   sourceProducts: number;
   eligibleProducts: number;
   excludedProducts: number;

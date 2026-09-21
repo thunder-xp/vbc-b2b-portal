@@ -24,6 +24,7 @@ export async function runDailyCatalogSyncAction(): Promise<ActionResult<CatalogS
 
 function catalogCompletionMessage(projection: CatalogProjectionOutcome | null): string {
   if (projection?.status === "succeeded" || projection?.status === "already_completed") return "Catalog synchronization completed. B2B updated. Public Retail published.";
+  if (projection?.status === "no_op" || projection?.status === "skipped") return "Catalog synchronization completed. B2B updated. Public Retail was already current.";
   if (projection?.status === "queued") return "Catalog synchronization completed. B2B updated. Public Retail publication queued behind an active run.";
   return "Catalog synchronization completed with a partial result. B2B updated; Public Retail publication failed.";
 }

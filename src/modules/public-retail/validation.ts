@@ -106,6 +106,14 @@ const facet = z.object({
 
 const publicationMetrics = z.object({
   publicationId: uuid,
+  candidatePublicationId: uuid.optional(),
+  noOp: z.boolean().optional(),
+  productDelta: z.object({
+    inserted: z.coerce.number().int().nonnegative(),
+    updated: z.coerce.number().int().nonnegative(),
+    removed: z.coerce.number().int().nonnegative(),
+    unchanged: z.coerce.number().int().nonnegative(),
+  }).strict().optional(),
   sourceProducts: z.coerce.number().int().nonnegative(),
   eligibleProducts: z.coerce.number().int().nonnegative(),
   excludedProducts: z.coerce.number().int().nonnegative(),
@@ -115,7 +123,17 @@ const publicationMetrics = z.object({
   productsWithStructuredSpecifications: z.coerce.number().int().nonnegative(),
   checksum: z.string().regex(/^[0-9a-f]{64}$/),
   failed: z.never().optional(),
-}).strict();
+}).strict().transform((value) => ({
+  ...value,
+  candidatePublicationId: value.candidatePublicationId ?? value.publicationId,
+  noOp: value.noOp ?? false,
+  productDelta: value.productDelta ?? {
+    inserted: value.eligibleProducts,
+    updated: 0,
+    removed: 0,
+    unchanged: 0,
+  },
+}));
 
 export function parsePublicRetailCategories(value: unknown): PublicRetailCategoryDto[] {
   return z.array(category).parse(value);
