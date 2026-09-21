@@ -6,6 +6,10 @@ const sql = readFileSync(
   resolve(process.cwd(), "supabase/migrations/20260921044017_stock_incoming_scan_self_healing.sql"),
   "utf8",
 );
+const watchdogRoute = readFileSync(
+  resolve(process.cwd(), "app/api/cron/stock-sync-resume/route.ts"),
+  "utf8",
+);
 
 describe("stock source self-healing migration", () => {
   it("persists run history, per-call evidence, and independent freshness", () => {
@@ -36,5 +40,13 @@ describe("stock source self-healing migration", () => {
     expect(sql).toContain("interval '15 minutes'");
     expect(sql.match(/enable row level security/g)?.length).toBe(3);
     expect(sql).toContain("revoke all on table public.stock_sync_source_operations from public, anon, authenticated");
+  });
+
+  it("continues an active checkpoint even if heartbeat telemetry is unavailable", () => {
+    expect(watchdogRoute).toContain("let heartbeat = fallbackHeartbeat(state)");
+    expect(watchdogRoute).toContain('event: "stock_sync_scheduler_heartbeat_failed"');
+    expect(watchdogRoute.indexOf("let state = await service.getState()"))
+      .toBeLessThan(watchdogRoute.indexOf("heartbeat = await service.heartbeat()"));
+    expect(watchdogRoute).toContain("const result = await service.continue(state.activeSyncId)");
   });
 });

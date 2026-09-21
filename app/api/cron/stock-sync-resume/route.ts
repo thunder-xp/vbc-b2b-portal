@@ -14,8 +14,17 @@ export async function GET(request: Request) {
   }
 
   const service = createChunkedStockSyncService(getOneCEnv());
-  const heartbeat = await service.heartbeat();
   let state = await service.getState();
+  let heartbeat: Awaited<ReturnType<typeof service.heartbeat>> = fallbackHeartbeat(state);
+  try {
+    heartbeat = await service.heartbeat();
+    state = await service.getState();
+  } catch (error) {
+    console.error({
+      event: "stock_sync_scheduler_heartbeat_failed",
+      errorCode: readErrorCode(error),
+    });
+  }
   if (!state.activeSyncId || !["queued", "running"].includes(state.status)) {
     const projection = await service.resumePendingProjection();
     if (heartbeat.recoveryRequired && heartbeat.recoveryAllowed) {
@@ -50,4 +59,26 @@ export async function GET(request: Request) {
     pages: result.pages,
     scheduler: heartbeat.schedulerState,
   });
+}
+
+function fallbackHeartbeat(state: Awaited<ReturnType<ReturnType<typeof createChunkedStockSyncService>["getState"]>>) {
+  const now = Date.now();
+  const lastSuccess = state.lastSuccessfulSyncAt ? Date.parse(state.lastSuccessfulSyncAt) : Number.NaN;
+  const retryDue = !state.nextRecoveryAttemptAt || Date.parse(state.nextRecoveryAttemptAt) <= now;
+  const active = Boolean(state.activeSyncId) && ["queued", "running"].includes(state.status);
+  return {
+    recoveryRequired: (state.status === "failed" && state.lastFailureRetryable)
+      || !Number.isFinite(lastSuccess)
+      || lastSuccess <= now - 25 * 60 * 60 * 1_000,
+    recoveryAllowed: !active
+      && (state.status !== "failed" || state.lastFailureRetryable)
+      && retryDue,
+    schedulerState: "STALE" as const,
+  };
+}
+
+function readErrorCode(error: unknown) {
+  return typeof error === "object" && error && "code" in error
+    ? String(error.code).slice(0, 80)
+    : "UNKNOWN";
 }
