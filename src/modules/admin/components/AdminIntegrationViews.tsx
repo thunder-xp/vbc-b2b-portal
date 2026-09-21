@@ -60,6 +60,13 @@ function StockPublicationDiagnostics({
       <dl className="space-y-2 text-xs">
         <Row label="Источник: остатки / поступления" value={`${diagnostics.stockReceived} / ${diagnostics.arrivalsReceived}`} />
         <Row label="Вызовы источника" value={diagnostics.sourceCalls} />
+        <Row label="Успешные вызовы / retry" value={`${diagnostics.successfulSourceCalls ?? diagnostics.sourceCalls} / ${diagnostics.retryCount ?? 0}`} />
+        <Row label="Получено / нормализовано" value={`${diagnostics.stockReceived + diagnostics.arrivalsReceived} / ${diagnostics.sourceNormalizedRows ?? 0}`} />
+        <Row label="Source staging: остатки / входящие / поступления" value={`${diagnostics.stockSourceStagedRows ?? 0} / ${diagnostics.incomingSourceStagedRows ?? 0} / ${diagnostics.arrivalsSourceStagedRows ?? 0}`} />
+        <Row label="Последний успешный этап" value={diagnostics.lastSuccessfulSourcePhase ?? "—"} />
+        <Row label="Ошибка 1С" value={`${diagnostics.technicalErrorCode ?? "—"} / HTTP ${diagnostics.failedHttpStatus ?? "—"}`} />
+        <Row label="Операция / ресурс" value={`${diagnostics.failedRequestKind ?? "—"} / ${diagnostics.failedResourceName ?? "—"}`} />
+        <Row label="Scheduler / следующая попытка" value={`${diagnostics.schedulerState ?? "—"} / ${formatOptionalDate(diagnostics.nextRecoveryAttemptAt ?? null)}`} />
         <Row label="Staging: остатки / поступления" value={`${diagnostics.stockStagedRows} / ${diagnostics.arrivalsStagedRows}`} />
         <Row label="Delta остатков" value={delta(diagnostics.stockDelta)} />
         <Row label="Delta поступлений" value={delta(diagnostics.arrivalsDelta)} />
@@ -72,6 +79,9 @@ function StockPublicationDiagnostics({
         <Row label="SQLSTATE / этап" value={`${diagnostics.sqlState ?? "—"} / ${diagnostics.failedStage ?? "—"}`} />
         <Row label="Восстановление" value={diagnostics.recoveryState} />
         <Row label="Затронутые домены" value={diagnostics.affectedDomains.join(", ")} />
+        {(diagnostics.freshness ?? []).map((item) => (
+          <Row key={item.domain} label={`Freshness: ${item.domain}`} value={`${item.state} / ${formatOptionalDate(item.lastPublicationSuccessAt)}`} />
+        ))}
       </dl>
     </section>
   );
