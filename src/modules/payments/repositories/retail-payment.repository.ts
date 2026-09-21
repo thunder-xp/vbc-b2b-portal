@@ -21,10 +21,10 @@ export type MaibReconciliationContext = Readonly<{
 }>;
 
 export interface RetailPaymentRepository {
-  claim(input: Readonly<{ accessTokenHash: string; provider: PaymentProviderName; idempotencyKey: string; returnAccessTokenHash: string }>): Promise<PaymentClaim>;
+  claim(input: Readonly<{ accessTokenHash: string; checkoutChannel: "public" | "maib_review"; provider: PaymentProviderName; idempotencyKey: string; returnAccessTokenHash: string }>): Promise<PaymentClaim>;
   completeCheckout(input: Readonly<{ attemptId: string; idempotencyKey: string; checkoutId: string; checkoutUrl: string; providerStatus: string }>): Promise<boolean>;
   recordFailure(input: Readonly<{ attemptId: string; idempotencyKey: string; failureCode: string; terminal: boolean }>): Promise<boolean>;
-  confirmMaib(input: Readonly<{ evidence: MaibPaymentEvidence; source: "callback" | "reconciliation" }>): Promise<PaymentConfirmationResult>;
+  confirmMaib(input: Readonly<{ evidence: MaibPaymentEvidence; source: "callback" | "reconciliation"; checkoutChannel: "public" | "maib_review" }>): Promise<PaymentConfirmationResult>;
   getMaibReconciliationContext(attemptId: string): Promise<MaibReconciliationContext | null>;
   retryMaibActivation(attemptId: string): Promise<PaymentConfirmationResult>;
   getReturnState(paymentAttemptId: string, returnAccessTokenHash: string): Promise<PaymentReturnState | null>;

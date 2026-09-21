@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getRetailCartTokenCredential, rotateRetailCartTokenHash } from "../retail-cart-cookie";
-import { getRetailCheckoutService, hasRetailCheckoutAccess } from "../retail-checkout-server";
+import { getRetailCheckoutAccess, getRetailCheckoutService, hasRetailCheckoutAccess } from "../retail-checkout-server";
 import { deriveRetailOrderAccessToken } from "../retail-order-token";
 import { hashRetailOrderAccessToken } from "../retail-order-token";
 import { RetailCheckoutConflictError, RetailCheckoutInputError, RetailCheckoutUnavailableError, type RetailCheckoutInput } from "../services/retail-checkout.service";
@@ -31,7 +31,8 @@ export async function createPublicRetailCommercialOfferAction(input: { locale: "
 
 export async function createPublicRetailOrderAction(input: RetailCheckoutInput): Promise<RetailCheckoutActionResult> {
   const ru = input.locale === "ru";
-  if (!await hasRetailCheckoutAccess()) return failure(ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot.");
+  const checkoutAccess = await getRetailCheckoutAccess();
+  if (!checkoutAccess.allowed) return failure(ru ? "Оформление заказа пока доступно только в пилотном режиме." : "Plasarea comenzii este disponibilă momentan doar în regim pilot.");
   const credential = await getRetailCartTokenCredential();
   if (!credential) return failure(ru ? "Корзина больше недоступна. Вернитесь в корзину." : "Coșul nu mai este disponibil. Reveniți în coș.");
   const access = deriveRetailOrderAccessToken(credential.token, input.submissionKey);
@@ -43,8 +44,9 @@ export async function createPublicRetailOrderAction(input: RetailCheckoutInput):
       phone: verifiedOwner.verifiedPhone,
       email: verifiedOwner.email ?? input.email,
     } : input;
-    await getRetailCheckoutService().createOrder(credential.hash, access.hash, governedInput);
-    if (verifiedOwner) await bindRetailOrderToVerifiedOwner(access.hash, verifiedOwner);
+    const checkoutChannel = checkoutAccess.source === "maib_review" ? "maib_review" : "public";
+    await getRetailCheckoutService().createOrder(credential.hash, access.hash, governedInput, checkoutChannel);
+    if (verifiedOwner && checkoutChannel === "public") await bindRetailOrderToVerifiedOwner(access.hash, verifiedOwner);
     console.info({ event: "public_retail_order_locked", installerSelection: input.installationSelectionMode ?? "not_applicable", commercialOfferApplied: Boolean(input.commercialOfferId) });
     await rotateRetailCartTokenHash();
     return { success: true, message: ru ? "Заказ подготовлен." : "Comanda a fost pregătită.", orderToken: access.token, conflict: false };

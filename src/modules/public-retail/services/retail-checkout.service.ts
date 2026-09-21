@@ -51,7 +51,7 @@ export class RetailCheckoutService {
     return tokenHash ? this.repository.getCommercialOffer(validHash(tokenHash), locale) : Promise.resolve(null);
   }
 
-  async createOrder(tokenHash: string, accessTokenHash: string, input: RetailCheckoutInput) {
+  async createOrder(tokenHash: string, accessTokenHash: string, input: RetailCheckoutInput, checkoutChannel: "public" | "maib_review" = "public") {
     const customer = {
       name: boundedText(input.name, 2, 160),
       phone: normalizeMoldovaPhone(input.phone),
@@ -74,6 +74,7 @@ export class RetailCheckoutService {
       || (installationSelectionMode === null) !== (installationRegionCode === null)
       || (installationRegionCode !== null && !/^MD(?:-[A-Z0-9]{1,8})?$/.test(installationRegionCode))) throw new RetailCheckoutInputError();
     const command = {
+      checkoutChannel,
       locale: input.locale,
       checkoutFingerprint: input.checkoutFingerprint,
       submissionKey: input.submissionKey.toLowerCase(),
@@ -87,7 +88,7 @@ export class RetailCheckoutService {
       installationRegionCode,
       legalAcceptance: { termsVersion: input.termsVersion, privacyVersion: input.privacyVersion, locale: input.locale },
     };
-    const requestFingerprint = fingerprint({ locale: command.locale, checkoutFingerprint: command.checkoutFingerprint, customer,
+    const requestFingerprint = fingerprint({ checkoutChannel, locale: command.locale, checkoutFingerprint: command.checkoutFingerprint, customer,
       deliveryAddress, installationAddress, commercialOfferId, installationSelectionMode, preferredProviderId, installationRegionCode });
     try {
       return await this.repository.createOrder(validHash(tokenHash), { ...command, requestFingerprint });

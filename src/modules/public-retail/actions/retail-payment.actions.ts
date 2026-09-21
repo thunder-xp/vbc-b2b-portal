@@ -2,10 +2,10 @@
 
 import { cookies } from "next/headers";
 
-import { hasRetailCheckoutAccess } from "../retail-checkout-server";
+import { canInitiateRetailPaymentForAccess, getRetailCheckoutAccess } from "../retail-checkout-server";
 import { hashRetailOrderAccessToken } from "../retail-order-token";
 import { paymentReturnCookieMaxAgeSeconds, paymentReturnCookieName } from "@/src/modules/payments/payment-return-access";
-import { createRetailPaymentService } from "@/src/modules/payments/server";
+import { createMaibReviewPaymentService, createRetailPaymentService, maibConfigurationSummary, maibReviewConfigurationSummary } from "@/src/modules/payments/server";
 import type { PaymentInitiationOutcome } from "@/src/modules/payments";
 
 export type RetailPaymentActionResult = Readonly<{
@@ -15,11 +15,19 @@ export type RetailPaymentActionResult = Readonly<{
 }>;
 
 export async function initiateRetailPaymentAction(input: Readonly<{ orderToken: string; idempotencyKey: string }>): Promise<RetailPaymentActionResult> {
-  if (!await hasRetailCheckoutAccess()) return failure("NOT_ELIGIBLE");
+  const checkoutAccess = await getRetailCheckoutAccess();
+  const reviewMode = checkoutAccess.source === "maib_review";
+  const paymentConfiguration = reviewMode ? maibReviewConfigurationSummary() : maibConfigurationSummary();
+  if (!canInitiateRetailPaymentForAccess(checkoutAccess, paymentConfiguration)) return failure("NOT_ELIGIBLE");
   const accessTokenHash = hashRetailOrderAccessToken(input.orderToken);
   if (!accessTokenHash) return failure("NOT_ELIGIBLE");
   try {
-    const result = await createRetailPaymentService().initiate({ accessTokenHash, idempotencyKey: input.idempotencyKey });
+    const paymentService = reviewMode ? createMaibReviewPaymentService() : createRetailPaymentService();
+    const result = await paymentService.initiate({
+      accessTokenHash,
+      checkoutChannel: reviewMode ? "maib_review" : "public",
+      idempotencyKey: input.idempotencyKey,
+    });
     const cookieName = result.paymentAttemptId ? paymentReturnCookieName(result.paymentAttemptId) : null;
     if (result.outcome === "SUCCESS" && cookieName && result.returnAccessToken) {
       (await cookies()).set(cookieName, result.returnAccessToken, {
