@@ -3,7 +3,7 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const MAIB_REVIEW_COOKIE = "novotech_maib_review";
-export const MAIB_REVIEW_SESSION_MAX_AGE_SECONDS = 4 * 60 * 60;
+export const MAIB_REVIEW_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
 
 const ACCESS_CODE_MINIMUM_LENGTH = 24;
 const SESSION = /^v1\.([0-9]{10})\.([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/;
