@@ -6,6 +6,8 @@ import { createCommercialAgentApplicationService } from "@/src/modules/agent-app
 import { resolveInternalPostSignInDestination } from "@/src/modules/admin/services";
 
 import { createBusinessAccessResolver, decidePostSignInBusinessRoute } from "./access-context";
+import type { BusinessAccessResolution, BusinessRouteDecision } from "./access-context";
+import type { BusinessWorkspace, PostSignInContinuation } from "./redirects";
 
 export type PostSignInAccessKind =
   | "INTERNAL"
@@ -17,6 +19,7 @@ export type PostSignInAccessKind =
 export type PostSignInAccessDecision = Readonly<{
   kind: PostSignInAccessKind;
   targetRoute: string;
+  requiresBusinessPhoneEnrollment: boolean;
 }>;
 
 const APPLICATION_STATUSES = new Set(["DRAFT", "SUBMITTED", "NEEDS_CLARIFICATION", "APPROVED"]);
@@ -32,29 +35,83 @@ export async function resolvePostSignInAccess(
     // Internal access fails closed without preventing a legitimate external
     // Partner or Agent identity from resolving through its own authority.
   }
-  if (internalDestination) return { kind: "INTERNAL", targetRoute: internalDestination };
+  if (internalDestination) {
+    return { kind: "INTERNAL", targetRoute: internalDestination, requiresBusinessPhoneEnrollment: false };
+  }
 
   const business = await createBusinessAccessResolver().resolve(userId);
   const businessDecision = decidePostSignInBusinessRoute(business);
   if (businessDecision.kind !== "ACCESS_STATE") {
-    return { kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute: businessDecision.targetRoute };
+    return {
+      kind: "PARTNER_OR_AGENT_WORKSPACE",
+      targetRoute: businessDecision.targetRoute,
+      requiresBusinessPhoneEnrollment: requiresOperationalBusinessPhone(business, businessDecision),
+    };
   }
 
   const application = await createCommercialAgentApplicationService().getApplicantApplication(userId);
   if (application && APPLICATION_STATUSES.has(application.status)) {
-    return { kind: "AGENT_APPLICATION", targetRoute: preferredAgentApplicationRoute(metadata) };
+    return {
+      kind: "AGENT_APPLICATION",
+      targetRoute: preferredAgentApplicationRoute(metadata),
+      requiresBusinessPhoneEnrollment: false,
+    };
   }
 
-  if (application) return { kind: "NONE", targetRoute: businessDecision.targetRoute };
+  if (application) {
+    return { kind: "NONE", targetRoute: businessDecision.targetRoute, requiresBusinessPhoneEnrollment: false };
+  }
 
   if (registrationIntent(metadata) === "agent") {
-    return { kind: "AGENT_APPLICATION", targetRoute: preferredAgentApplicationRoute(metadata) };
+    return {
+      kind: "AGENT_APPLICATION",
+      targetRoute: preferredAgentApplicationRoute(metadata),
+      requiresBusinessPhoneEnrollment: false,
+    };
   }
   if (registrationIntent(metadata) === "installer") {
-    return { kind: "PARTNER_ONBOARDING", targetRoute: preferredPartnerOnboardingRoute(metadata) };
+    return {
+      kind: "PARTNER_ONBOARDING",
+      targetRoute: preferredPartnerOnboardingRoute(metadata),
+      requiresBusinessPhoneEnrollment: false,
+    };
   }
 
-  return { kind: "NONE", targetRoute: businessDecision.targetRoute };
+  return { kind: "NONE", targetRoute: businessDecision.targetRoute, requiresBusinessPhoneEnrollment: false };
+}
+
+export function resolveAuthorizedPostSignInTarget(
+  decision: PostSignInAccessDecision,
+  continuation: PostSignInContinuation | null,
+): string {
+  if (!continuation || continuation.kind === "DISCARD") return decision.targetRoute;
+  if (continuation.kind === "GENERAL_NAVIGATION") return continuation.path;
+  if (continuation.kind !== "WORKSPACE") return decision.targetRoute;
+  return workspaceForDecision(decision) === continuation.workspace
+    ? continuation.path
+    : decision.targetRoute;
+}
+
+function requiresOperationalBusinessPhone(
+  resolution: BusinessAccessResolution,
+  decision: BusinessRouteDecision,
+) {
+  if (decision.kind !== "ROUTE") return false;
+  return resolution.contexts.some(
+    (context) => context.status === "AVAILABLE" && context.targetRoute === decision.targetRoute,
+  );
+}
+
+function workspaceForDecision(decision: PostSignInAccessDecision): BusinessWorkspace | null {
+  if (decision.kind === "INTERNAL" && isPathWithin(decision.targetRoute, "/admin")) return "ADMIN";
+  if (decision.kind !== "PARTNER_OR_AGENT_WORKSPACE") return null;
+  if (isPathWithin(decision.targetRoute, "/cabinet")) return "PARTNER";
+  if (isPathWithin(decision.targetRoute, "/agent")) return "AGENT";
+  return null;
+}
+
+function isPathWithin(path: string, root: string) {
+  return path === root || path.startsWith(`${root}/`);
 }
 
 function registrationIntent(metadata: UserMetadata | null | undefined): "agent" | "installer" | null {

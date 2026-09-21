@@ -3,7 +3,6 @@ export {
   isCustomerAccessResolverEnabled,
   isCustomerPurchaseEntitlementEnforced,
   isUnifiedAuthCenterEnabled,
-  isUnifiedBusinessRoutingEnabled,
 } from "./flags";
 export {
   AccessContextAuthenticationError,

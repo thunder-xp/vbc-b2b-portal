@@ -127,13 +127,16 @@ All gates are enabled unless explicitly set to `false`:
 | Gate | Disabled behavior |
 | --- | --- |
 | `UNIFIED_AUTH_CENTER_ENABLED` | `/auth` returns to `/auth/sign-in`; `/account/sign-in` renders the legacy OTP page. |
-| `UNIFIED_BUSINESS_ROUTING_ENABLED` | Password login retains the legacy `next ?? /cabinet` behavior; selector returns to `/cabinet`. |
 | `CUSTOMER_ACCESS_RESOLVER_ENABLED` | OTP completion returns to the existing `/account` path. |
 | `CUSTOMER_PURCHASE_ENTITLEMENT_ENFORCED` | Existing ACTIVE accounts may pass by rollback compatibility; no account is created and the purchase provisioning authority is unchanged. |
 | `PHONE_FIRST_QUICK_AUTH_ENABLED` | `/auth/customer` returns to the prior `/account/sign-in` compatibility entry. |
 | `BUSINESS_PHONE_OTP_ENABLED` | Business enrollment prompts and Business phone/email OTP are disabled; classic email/password remains available. Per-user eligibility still requires a confirmed Auth phone when enabled. |
 
 The migration is additive and may safely remain deployed when a consuming gate is disabled.
+
+Business workspace routing is no longer rollback-gated. Password login and the
+context selector must always resolve current server-side authority; a generic
+`next` value cannot restore the legacy `next ?? /cabinet` bypass.
 
 ## Deliberate Slice 1 boundary
 

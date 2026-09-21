@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   redirect: vi.fn(), signInWithPassword: vi.fn(), signUp: vi.fn(), getCurrentProfile: vi.fn(),
   acceptInvitation: vi.fn(), activateCurrent: vi.fn(), resolvePostSignInAccess: vi.fn(),
-  isBusinessPhoneOtpEnabled: vi.fn(), setPartnerLocaleCookie: vi.fn(),
+  resolveAuthorizedPostSignInTarget: vi.fn(), isBusinessPhoneOtpEnabled: vi.fn(), setPartnerLocaleCookie: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -16,8 +16,10 @@ vi.mock("@/src/modules/admin/services", () => ({ createAdminInternalUserProvisio
 vi.mock("@/src/modules/partner-locale", () => ({ isPartnerLocale: vi.fn((value: unknown) => value === "ru" || value === "ro") }));
 vi.mock("@/src/modules/partner-locale/server", () => ({ setPartnerLocaleCookie: mocks.setPartnerLocaleCookie }));
 vi.mock("@/src/modules/quick-auth/factory", () => ({ isBusinessPhoneOtpEnabled: mocks.isBusinessPhoneOtpEnabled }));
-vi.mock("@/src/modules/auth/access-context", () => ({ isUnifiedBusinessRoutingEnabled: vi.fn(() => true) }));
-vi.mock("@/src/modules/auth/post-sign-in-routing", () => ({ resolvePostSignInAccess: mocks.resolvePostSignInAccess }));
+vi.mock("@/src/modules/auth/post-sign-in-routing", () => ({
+  resolvePostSignInAccess: mocks.resolvePostSignInAccess,
+  resolveAuthorizedPostSignInTarget: mocks.resolveAuthorizedPostSignInTarget,
+}));
 
 import { registerAgentAction, registerInstallerAction, signInAction } from "../auth.actions";
 
@@ -48,7 +50,10 @@ describe("classic password sign-in routing", () => {
     mocks.signInWithPassword.mockResolvedValue({ data: { user: { id: "user-1", phone: "+37360000000", phone_confirmed_at: "2026-09-20T00:00:00.000Z", user_metadata: {} } }, error: null });
     mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
     mocks.getCurrentProfile.mockResolvedValue(null);
-    mocks.resolvePostSignInAccess.mockResolvedValue({ kind: "NONE", targetRoute: "/auth/business-access-state" });
+    mocks.resolvePostSignInAccess.mockResolvedValue({
+      kind: "NONE", targetRoute: "/auth/business-access-state", requiresBusinessPhoneEnrollment: false,
+    });
+    mocks.resolveAuthorizedPostSignInTarget.mockImplementation((decision: { targetRoute: string }) => decision.targetRoute);
     mocks.isBusinessPhoneOtpEnabled.mockReturnValue(true);
   });
 
@@ -57,14 +62,72 @@ describe("classic password sign-in routing", () => {
     ["Agent application", "/become-partner/agent?lang=ru"], ["Partner onboarding", "/onboarding/profile?lang=ru"],
     ["no workspace", "/auth/business-access-state"],
   ])("preserves %s routing to %s", async (_case, targetRoute) => {
-    mocks.resolvePostSignInAccess.mockResolvedValue({ kind: "ROUTE", targetRoute });
+    mocks.resolvePostSignInAccess.mockResolvedValue({
+      kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute, requiresBusinessPhoneEnrollment: false,
+    });
     await expectSignInRedirect(undefined, targetRoute);
     expect(mocks.resolvePostSignInAccess).toHaveBeenCalledWith("user-1", {});
   });
 
-  it("honors any validated same-origin continuation before automatic resolution", async () => {
+  it("honors an explicitly governed onboarding continuation before automatic resolution", async () => {
     await expectSignInRedirect("/onboarding/profile?lang=ro", "/onboarding/profile?lang=ro");
     expect(mocks.resolvePostSignInAccess).not.toHaveBeenCalled();
+  });
+
+  it("discards stale access-state next and recomputes a pending Agent route", async () => {
+    mocks.resolvePostSignInAccess.mockResolvedValue({
+      kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute: "/agent", requiresBusinessPhoneEnrollment: false,
+    });
+    await expectSignInRedirect("/auth/business-access-state", "/agent");
+    expect(mocks.resolveAuthorizedPostSignInTarget).toHaveBeenCalledWith(
+      expect.objectContaining({ targetRoute: "/agent" }),
+      { kind: "DISCARD" },
+    );
+  });
+
+  it("does not send a pending Agent through operational phone enrollment", async () => {
+    mocks.signInWithPassword.mockResolvedValue({
+      data: { user: { id: "user-1", phone: null, phone_confirmed_at: null, user_metadata: {} } }, error: null,
+    });
+    mocks.resolvePostSignInAccess.mockResolvedValue({
+      kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute: "/agent", requiresBusinessPhoneEnrollment: false,
+    });
+    await expectSignInRedirect(undefined, "/agent");
+  });
+
+  it.each([["ACTIVE Agent", "/agent"], ["Partner", "/cabinet"]])(
+    "preserves %s operational phone enrollment",
+    async (_case, targetRoute) => {
+      mocks.signInWithPassword.mockResolvedValue({
+        data: { user: { id: "user-1", phone: null, phone_confirmed_at: null, user_metadata: {} } }, error: null,
+      });
+      mocks.resolvePostSignInAccess.mockResolvedValue({
+        kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute, requiresBusinessPhoneEnrollment: true,
+      });
+      await expectSignInRedirect(
+        undefined,
+        `/auth/business-phone-enrollment?lang=ru&next=${encodeURIComponent(targetRoute)}`,
+      );
+    },
+  );
+
+  it("does not let next=/agent authorize an unrelated user", async () => {
+    mocks.resolveAuthorizedPostSignInTarget.mockReturnValue("/auth/business-access-state");
+    await expectSignInRedirect("/agent", "/auth/business-access-state");
+    expect(mocks.resolveAuthorizedPostSignInTarget).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "NONE" }),
+      { kind: "WORKSPACE", path: "/agent", workspace: "AGENT" },
+    );
+  });
+
+  it("keeps canonical routing active when the retired production flag is false", async () => {
+    vi.stubEnv("UNIFIED_BUSINESS_ROUTING_ENABLED", "false");
+    mocks.resolvePostSignInAccess.mockResolvedValue({
+      kind: "INTERNAL", targetRoute: "/admin", requiresBusinessPhoneEnrollment: false,
+    });
+    await expectSignInRedirect(undefined, "/admin");
+    expect(mocks.resolvePostSignInAccess).toHaveBeenCalledOnce();
+    vi.unstubAllEnvs();
   });
 
   it("preserves internal invitation activation before explicit continuation", async () => {

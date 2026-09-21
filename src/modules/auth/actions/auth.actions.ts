@@ -10,12 +10,10 @@ import {
 import { isPartnerLocale } from "@/src/modules/partner-locale";
 import { setPartnerLocaleCookie } from "@/src/modules/partner-locale/server";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
-import {
-  isUnifiedBusinessRoutingEnabled,
-} from "../access-context";
-import { resolvePostSignInAccess } from "../post-sign-in-routing";
+import { resolveAuthorizedPostSignInTarget, resolvePostSignInAccess } from "../post-sign-in-routing";
 import { registrationEmailRedirectUrl } from "../registration.server";
 import {
+  classifyPostSignInContinuation,
   professionalRegistrationContinuation,
   safeRelativeAuthRedirect,
 } from "../redirects";
@@ -32,6 +30,7 @@ export async function signInAction(
   const password = String(formData.get("password") ?? "");
   const locale = String(formData.get("lang") ?? "") === "ro" ? "ro" : "ru";
   const nextPath = safeRelativeAuthRedirect(formData.get("next"));
+  const continuation = classifyPostSignInContinuation(nextPath);
 
   if (!email || !password) {
     return { error: "Enter your email and password." };
@@ -44,7 +43,7 @@ export async function signInAction(
     return { error: "Email or password is incorrect." };
   }
 
-  if (nextPath === "/auth/internal-invitation") {
+  if (continuation?.kind === "INTERNAL_INVITATION") {
     let activationFailed = false;
     try {
       await createAdminInternalUserProvisioningService().activateCurrent();
@@ -66,41 +65,37 @@ export async function signInAction(
     }
   }
 
-  const invitationToken = tokenFromInvitationPath(nextPath);
-  if (invitationToken) {
+  if (continuation?.kind === "COMPANY_INVITATION") {
     try {
-      await createCompanyUserManagementService().acceptInvitation(invitationToken);
+      await createCompanyUserManagementService().acceptInvitation(continuation.token);
     } catch {
-      redirect(`${nextPath}?error=acceptance_failed`);
+      redirect(`${continuation.path}?error=acceptance_failed`);
     }
     redirect("/cabinet");
   }
 
-  // A validated same-origin continuation is explicit user intent. The target
-  // page remains responsible for its own authorization and onboarding gates.
-  if (nextPath) redirect(nextPath);
+  if (continuation?.kind === "GOVERNED_ONBOARDING") redirect(continuation.path);
 
-  if (isUnifiedBusinessRoutingEnabled() && data.user?.id) {
-    let targetRoute: string;
-    let enrollmentRoute: string | null = null;
-    try {
-      const decision = await resolvePostSignInAccess(data.user.id, data.user.user_metadata);
-      targetRoute = decision.targetRoute;
-      if (
-        isBusinessPhoneOtpEnabled()
-        && (targetRoute === "/cabinet" || targetRoute === "/agent")
-        && !(data.user.phone && data.user.phone_confirmed_at)
-      ) {
-        const query = new URLSearchParams({ lang: locale, next: targetRoute });
-        enrollmentRoute = `/auth/business-phone-enrollment?${query.toString()}`;
-      }
-    } catch {
-      redirect("/auth/business-access-state?error=resolution");
+  if (!data.user?.id) redirect("/auth/business-access-state?error=resolution");
+
+  let targetRoute: string;
+  let enrollmentRoute: string | null = null;
+  try {
+    const decision = await resolvePostSignInAccess(data.user.id, data.user.user_metadata);
+    targetRoute = resolveAuthorizedPostSignInTarget(decision, continuation);
+    if (
+      isBusinessPhoneOtpEnabled()
+      && decision.requiresBusinessPhoneEnrollment
+      && !(data.user.phone && data.user.phone_confirmed_at)
+    ) {
+      const query = new URLSearchParams({ lang: locale, next: decision.targetRoute });
+      enrollmentRoute = `/auth/business-phone-enrollment?${query.toString()}`;
     }
-    if (enrollmentRoute) redirect(enrollmentRoute);
-    redirect(targetRoute);
+  } catch {
+    redirect("/auth/business-access-state?error=resolution");
   }
-  redirect(nextPath ?? "/cabinet");
+  if (enrollmentRoute) redirect(enrollmentRoute);
+  redirect(targetRoute);
 }
 
 export async function registerAgentAction(
@@ -158,12 +153,6 @@ async function registerProfessionalAction(
 
   const query = new URLSearchParams({ lang: locale, intent, next: nextPath });
   redirect(`/auth/check-email?${query.toString()}`);
-}
-
-function tokenFromInvitationPath(path: string | null): string | null {
-  if (!path) return null;
-  const match = /^\/auth\/invitations\/([A-Za-z0-9_-]{20,256})$/.exec(path);
-  return match?.[1] ?? null;
 }
 
 export async function signOutAction(): Promise<void> {
