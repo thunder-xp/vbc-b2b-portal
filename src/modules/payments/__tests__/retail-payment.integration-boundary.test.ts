@@ -6,7 +6,8 @@ describe("retail payment public integration boundary", () => {
     const action = readFileSync("src/modules/public-retail/actions/retail-payment.actions.ts", "utf8");
     expect(action).toContain("orderToken: string; idempotencyKey: string");
     expect(action).not.toMatch(/input\.(amount|currency|callbackUrl|successUrl|failUrl)/);
-    expect(action).toContain("hasRetailCheckoutAccess()");
+    expect(action).toContain("getRetailCheckoutAccess()");
+    expect(action).toContain("canInitiateRetailPaymentForAccess");
     expect(action).toContain("hashRetailOrderAccessToken");
   });
 

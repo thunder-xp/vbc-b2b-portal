@@ -24,8 +24,9 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
   }
 
   async claim(input: Parameters<RetailPaymentRepository["claim"]>[0]) {
-    return parseClaim(await this.rpc("claim_retail_payment_attempt_v2", {
+    return parseClaim(await this.rpc("claim_retail_payment_attempt_v3", {
       p_access_token_hash: input.accessTokenHash,
+      p_checkout_channel: input.checkoutChannel,
       p_provider: input.provider,
       p_idempotency_key: input.idempotencyKey,
       p_return_access_token_hash: input.returnAccessTokenHash,
@@ -52,7 +53,7 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
   }
 
   async confirmMaib(input: Parameters<RetailPaymentRepository["confirmMaib"]>[0]) {
-    return parseConfirmation(await this.rpc("confirm_maib_retail_payment_callback_v1", {
+    return parseConfirmation(await this.rpc("confirm_maib_retail_payment_callback_v2", {
       p_provider_checkout_id: input.evidence.checkoutId,
       p_provider_payment_id: input.evidence.paymentId,
       p_order_reference: input.evidence.orderReference,
@@ -64,6 +65,7 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
       p_provider_event_at: input.evidence.providerEventAt,
       p_provider_rrn: input.evidence.rrn,
       p_source: input.source,
+      p_checkout_channel: input.checkoutChannel,
     }));
   }
 

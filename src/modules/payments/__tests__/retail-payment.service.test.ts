@@ -5,7 +5,7 @@ import type { RetailPaymentRepository } from "../repositories/retail-payment.rep
 import { RetailPaymentService } from "../services/retail-payment.service";
 import type { PaymentClaim } from "../types";
 
-const input = { accessTokenHash: "a".repeat(64), idempotencyKey: "11111111-1111-4111-8111-111111111111" };
+const input = { accessTokenHash: "a".repeat(64), checkoutChannel: "public" as const, idempotencyKey: "11111111-1111-4111-8111-111111111111" };
 const claim: PaymentClaim = {
   outcome: "CLAIMED",
   attemptId: "22222222-2222-4222-8222-222222222222",
@@ -72,7 +72,7 @@ describe("RetailPaymentService", () => {
     const { repository, provider } = dependencies();
     const result = await new RetailPaymentService(repository, provider).confirmMaibCallback(evidence);
     expect(result.outcome).toBe("PAID");
-    expect(repository.confirmMaib).toHaveBeenCalledWith({ evidence, source: "callback" });
+    expect(repository.confirmMaib).toHaveBeenCalledWith({ evidence, source: "callback", checkoutChannel: "public" });
     expect(provider.getCheckoutEvidence).not.toHaveBeenCalled();
   });
 
@@ -83,7 +83,7 @@ describe("RetailPaymentService", () => {
     const result = await new RetailPaymentService(repository, provider).reconcileMaibPayment(claim.attemptId!);
     expect(result.outcome).toBe("PAID");
     expect(provider.getCheckoutEvidence).toHaveBeenCalledTimes(1);
-    expect(repository.confirmMaib).toHaveBeenCalledWith({ evidence, source: "reconciliation" });
+    expect(repository.confirmMaib).toHaveBeenCalledWith({ evidence, source: "reconciliation", checkoutChannel: "public" });
   });
 
   it("recovers paid_pending_activation locally without contacting MAIB again", async () => {
