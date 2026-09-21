@@ -1,6 +1,7 @@
 import type {
   UserProfileRepository,
 } from "../../repositories";
+import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
 import { cache } from "react";
 import {
   RepositoryOperationNotAvailableError,
@@ -43,7 +44,7 @@ export class DefaultUserProfileService implements UserProfileService {
         id: input.userId,
         email: input.email,
         fullName: input.fullName,
-        phone: input.phone,
+        phone: canonicalProfilePhone(input.phone),
       });
     } catch (error) {
       throw this.mapRepositoryError(error);
@@ -57,7 +58,7 @@ export class DefaultUserProfileService implements UserProfileService {
     try {
       return await this.userProfileRepository.updateOwnSafeFields(userId, {
         fullName: input.fullName,
-        phone: input.phone,
+        phone: input.phone === undefined ? undefined : canonicalProfilePhone(input.phone),
         preferredLocale: input.preferredLocale,
       });
     } catch (error) {
@@ -102,4 +103,11 @@ export class DefaultUserProfileService implements UserProfileService {
 
     return new AccessControlError();
   }
+}
+
+function canonicalProfilePhone(phone: string | null | undefined) {
+  if (phone == null || phone.trim() === "") return null;
+  const canonical = canonicalMoldovaE164(phone);
+  if (!canonical) throw new InvalidStateError("Phone must be a valid Moldova number.");
+  return canonical;
 }

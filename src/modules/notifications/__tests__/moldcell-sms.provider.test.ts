@@ -124,6 +124,31 @@ describe("MoldcellSmsProvider", () => {
     await expect(provider.send(providerMessage())).rejects.toMatchObject({ category: "timeout", retryable: true });
   });
 
+  it.each([
+    [429, "rate_limit"],
+    [500, "unavailable"],
+  ])("classifies provider HTTP %s as bounded retryable failure", async (status, category) => {
+    const transport = { mode: "DIRECT" as const, send: vi.fn().mockResolvedValue({
+      ok: false, status, body: JSON.stringify({ resultCode: `HTTP_${status}` }),
+    }) };
+    await expect(new MoldcellSmsProvider(directConfiguration(), transport).send(providerMessage()))
+      .rejects.toMatchObject({ category, retryable: true, providerHttpStatus: status });
+  });
+
+  it("bounds a hanging relay request with the same retryable timeout contract", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockImplementation((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    }));
+    const provider = new MoldcellSmsProvider(relayConfiguration(), new RelayMoldcellTransport(
+      "https://relay.example.com/internal/omnichannel/v1/sms/moldcell",
+      "key-1",
+      "test-only-relay-secret-at-least-32",
+      5,
+      fetcher,
+    ));
+    await expect(provider.send(providerMessage())).rejects.toMatchObject({ category: "timeout", retryable: true });
+  });
+
   it("signs the exact relay contract without sender, template, URL or credentials", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(response({ resultCode: "0" }));
     const secret = "test-only-relay-secret-at-least-32";

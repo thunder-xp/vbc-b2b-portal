@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
 
 import type { BusinessPhoneEnrollmentAuthGateway, BusinessPhoneEnrollmentRepository } from "./enrollment.repository";
+import { BusinessPhoneAuthError } from "./enrollment.errors";
 import type { BusinessProfilePhoneStateService } from "./profile-phone-state";
 import type { BusinessPhoneEnrollmentPublicState } from "./enrollment.types";
 
@@ -24,15 +25,22 @@ export class BusinessPhoneEnrollmentService {
       const preparation = await this.repository.prepare({ authUserId, phoneE164, phoneKeyHash });
       if (preparation.result === "CONFLICT") return { ok: false, error: "PHONE_CONFLICT" };
       if (preparation.result === "ALREADY_CONFIRMED") return { ok: true, step: "CONFIRMED" };
-      if (!(await this.repository.reserveSend({ challengeId: preparation.challengeId, authUserId, phoneE164, phoneKeyHash }))) {
-        return { ok: false, error: "RATE_LIMITED" };
+      const sendReservation = await this.repository.reserveSend({ challengeId: preparation.challengeId, authUserId, phoneE164, phoneKeyHash });
+      if (!sendReservation.allowed) {
+        return { ok: false, error: "RATE_LIMITED", retryAfterSeconds: sendReservation.retryAfterSeconds };
       }
       let result: { authUserId: string };
       try {
-        result = await this.auth.requestPhoneVerification(phoneE164, preparation.isPhoneChange);
-      } catch {
-        await this.repository.fail({ challengeId: preparation.challengeId, authUserId, phoneKeyHash });
-        return { ok: false, error: "UNAVAILABLE" };
+        result = await this.auth.requestPhoneVerification(phoneE164);
+      } catch (error) {
+        await this.repository.fail({
+          challengeId: preparation.challengeId,
+          authUserId,
+          phoneKeyHash,
+          failureStage: "AUTH_CHALLENGE_CREATE",
+          safeErrorCode: safeAuthError(error),
+        });
+        return { ok: false, error: "PROVIDER_TEMPORARY" };
       }
       if (!safeEqual(result.authUserId, authUserId)) {
         await this.repository.fail({ challengeId: preparation.challengeId, authUserId, phoneKeyHash });
@@ -48,12 +56,19 @@ export class BusinessPhoneEnrollmentService {
     const prepared = await this.prepareExisting(challengeId);
     if (!prepared.ok) return prepared.state;
     try {
-      if (!(await this.repository.reserveSend(prepared.input))) return { ok: false, error: "RATE_LIMITED" };
-      await this.auth.resendPhoneVerification(prepared.input.phoneE164, prepared.input.isPhoneChange);
+      const sendReservation = await this.repository.reserveSend(prepared.input);
+      if (!sendReservation.allowed) {
+        return { ok: false, error: "RATE_LIMITED", retryAfterSeconds: sendReservation.retryAfterSeconds };
+      }
+      await this.auth.resendPhoneVerification(prepared.input.phoneE164);
       return { ok: true, step: "OTP", challengeId, maskedPhone: maskPhone(prepared.input.phoneE164) };
-    } catch {
-      await this.repository.fail(prepared.input);
-      return { ok: false, error: "UNAVAILABLE" };
+    } catch (error) {
+      await this.repository.fail({
+        ...prepared.input,
+        failureStage: "AUTH_RESEND",
+        safeErrorCode: safeAuthError(error),
+      });
+      return { ok: false, error: "PROVIDER_TEMPORARY" };
     }
   }
 
@@ -69,11 +84,7 @@ export class BusinessPhoneEnrollmentService {
     };
     try {
       if (!(await this.repository.reserveVerification(challengeInput))) return { ok: false, error: "RATE_LIMITED" };
-      const result = await this.auth.verifyPhoneVerification(
-        prepared.input.phoneE164,
-        rawToken,
-        prepared.input.isPhoneChange,
-      );
+      const result = await this.auth.verifyPhoneVerification(prepared.input.phoneE164, rawToken);
       if (
         !safeEqual(result.authUserId, prepared.input.authUserId)
         || !result.phone
@@ -90,7 +101,12 @@ export class BusinessPhoneEnrollmentService {
       }
       await this.recordVerification(challengeInput, "VERIFIED", null);
       return { ok: true, step: "CONFIRMED" };
-    } catch {
+    } catch (error) {
+      await this.repository.fail({
+        ...challengeInput,
+        failureStage: "VERIFICATION",
+        safeErrorCode: safeAuthError(error),
+      });
       await this.recordVerification(challengeInput, "FAILED", "INVALID_OR_EXPIRED_CODE");
       return { ok: false, error: "INVALID_CODE" };
     }
@@ -162,6 +178,10 @@ export class BusinessPhoneEnrollmentService {
       // Verification/promotion remains authoritative; diagnostics cannot undo it.
     }
   }
+}
+
+function safeAuthError(error: unknown) {
+  return error instanceof BusinessPhoneAuthError ? error.safeCode : "AUTH_UNKNOWN";
 }
 
 function enrollmentError(error: unknown): BusinessPhoneEnrollmentPublicState {

@@ -38,7 +38,7 @@ const copy = {
     continue: "Продолжить",
     invalidPhone: "Сохраните действительный номер телефона Молдовы в профиле.",
     invalidCode: "Код не подошёл или истёк. Проверьте код и попробуйте снова.",
-    rateLimited: "Код уже был отправлен. Повторная отправка будет доступна позже.",
+    rateLimited: (seconds: number) => `Новый код можно отправить через ${seconds} секунд.`,
     sendUnavailable: "Не удалось отправить SMS. Попробуйте ещё раз через несколько минут.",
     verificationUnavailable: "Не удалось подтвердить номер. Попробуйте ещё раз.",
   },
@@ -65,7 +65,7 @@ const copy = {
     continue: "Continuă",
     invalidPhone: "Salvați în profil un număr de telefon valid din Moldova.",
     invalidCode: "Codul este incorect sau a expirat. Verificați-l și încercați din nou.",
-    rateLimited: "Codul a fost deja trimis. Retrimiterea va fi disponibilă mai târziu.",
+    rateLimited: (seconds: number) => `Un cod nou poate fi trimis peste ${seconds} secunde.`,
     sendUnavailable: "Codul SMS nu a putut fi trimis. Încercați din nou peste câteva minute.",
     verificationUnavailable: "Numărul nu a putut fi confirmat. Încercați din nou.",
   },
@@ -143,7 +143,8 @@ export function BusinessPhoneEnrollmentCard({
 
   function applyState(result: BusinessPhoneEnrollmentPublicState, unavailableMessage: string) {
     if (!result.ok) {
-      setError(errorMessage(result.error, labels, unavailableMessage));
+      setError(errorMessage(result, labels, unavailableMessage));
+      if (result.error === "RATE_LIMITED" && result.retryAfterSeconds) setCooldown(result.retryAfterSeconds);
       return;
     }
     setError(null);
@@ -250,14 +251,15 @@ function ErrorMessage({ message }: { message: string | null }) {
 }
 
 function errorMessage(
-  error: Extract<BusinessPhoneEnrollmentPublicState, { ok: false }>["error"],
+  result: Extract<BusinessPhoneEnrollmentPublicState, { ok: false }>,
   labels: typeof copy.ru | typeof copy.ro,
   unavailableMessage: string,
 ) {
+  const { error } = result;
   if (error === "INVALID_PHONE") return labels.invalidPhone;
   if (error === "INVALID_CODE") return labels.invalidCode;
   if (error === "PHONE_CONFLICT") return labels.conflictBody;
-  if (error === "RATE_LIMITED") return labels.rateLimited;
+  if (error === "RATE_LIMITED") return labels.rateLimited(result.retryAfterSeconds ?? 60);
   return unavailableMessage;
 }
 

@@ -60,6 +60,22 @@ describe("BusinessPhoneEnrollmentCard", () => {
     expect(mocks.refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the server-provided resend cooldown without exposing provider details", async () => {
+    mocks.start.mockResolvedValue({ ok: false, error: "RATE_LIMITED", retryAfterSeconds: 37 });
+    render(
+      <BusinessPhoneEnrollmentCard
+        initialState="VERIFICATION_REQUIRED"
+        locale="ro"
+        nextPath="/cabinet/profile"
+        targetPhone="+37369982220"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Trimite codul SMS" }));
+    expect(await screen.findByText("Un cod nou poate fi trimis peste 37 secunde.")).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(/Moldcell|HTTP|provider/i);
+  });
+
   it("shows safe CONFLICT and NOT_SET states without a send action", () => {
     const { unmount } = render(
       <BusinessPhoneEnrollmentCard initialState="CONFLICT" locale="ru" nextPath="/cabinet/profile" targetPhone="+37369982220" />,

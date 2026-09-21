@@ -98,17 +98,24 @@ describe("DefaultUserProfileService", () => {
 
     await service.updateOwnProfile("user-1", {
       fullName: "Partner User",
-      phone: "+359 1 234",
+      phone: "068 718 675",
     });
 
     expect(repository.lastUpdateInput).toEqual({
       userId: "user-1",
       input: {
         fullName: "Partner User",
-        phone: "+359 1 234",
+        phone: "+37368718675",
         preferredLocale: undefined,
       },
     });
+  });
+
+  it("rejects a profile phone that cannot be canonicalized", async () => {
+    const service = new DefaultUserProfileService(new FakeUserProfileRepository());
+
+    await expect(service.updateOwnProfile("user-1", { phone: "+37337368718675" }))
+      .rejects.toBeInstanceOf(InvalidStateError);
   });
 
   it("persists the governed locale through the existing self-profile boundary", async () => {

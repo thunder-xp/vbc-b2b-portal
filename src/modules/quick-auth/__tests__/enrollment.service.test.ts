@@ -19,7 +19,7 @@ describe("BusinessPhoneEnrollmentService", () => {
   beforeEach(() => {
     repository = {
       prepare: vi.fn(async () => ({ result: "READY" as const, challengeId, expiresAt: "2026-09-20T12:10:00.000Z", isPhoneChange: false })),
-      reserveSend: vi.fn(async () => true),
+      reserveSend: vi.fn(async () => ({ allowed: true, retryAfterSeconds: 0 })),
       reserveVerification: vi.fn(async () => true),
       complete: vi.fn(async () => true),
       fail: vi.fn(async () => undefined),
@@ -46,7 +46,7 @@ describe("BusinessPhoneEnrollmentService", () => {
     });
     expect(stateRepository.getProfilePhone).toHaveBeenCalledWith(authUserId);
     expect(repository.prepare).toHaveBeenCalledWith({ authUserId, phoneE164: "+37369982220", phoneKeyHash: phoneHash });
-    expect(auth.requestPhoneVerification).toHaveBeenCalledWith("+37369982220", false);
+    expect(auth.requestPhoneVerification).toHaveBeenCalledWith("+37369982220");
   });
 
   it("requires the authenticated same user", async () => {
@@ -62,9 +62,9 @@ describe("BusinessPhoneEnrollmentService", () => {
     expect(auth.requestPhoneVerification).not.toHaveBeenCalled();
   });
 
-  it("uses initial sms verification and completes only for the same confirmed Auth user", async () => {
+  it("uses the phone-change verification contract and completes only for the same confirmed Auth user", async () => {
     await expect(service().verify(challengeId, "123456")).resolves.toEqual({ ok: true, step: "CONFIRMED" });
-    expect(auth.verifyPhoneVerification).toHaveBeenCalledWith("+37369982220", "123456", false);
+    expect(auth.verifyPhoneVerification).toHaveBeenCalledWith("+37369982220", "123456");
     expect(repository.reserveVerification).toHaveBeenCalledWith({ challengeId, authUserId, phoneE164: "+37369982220", phoneKeyHash: phoneHash });
     expect(repository.complete).toHaveBeenCalledWith({ challengeId, authUserId, phoneE164: "+37369982220", phoneKeyHash: phoneHash });
     expect(repository.recordVerification).toHaveBeenCalledWith({ challengeId, authUserId, phoneKeyHash: phoneHash, state: "VERIFIED", safeErrorCode: null });
@@ -78,7 +78,7 @@ describe("BusinessPhoneEnrollmentService", () => {
     expect(repository.fail).toHaveBeenCalled();
   });
 
-  it("keeps the phone_change branch for an already confirmed different phone", async () => {
+  it("uses the same phone-change contract for an already confirmed different phone", async () => {
     vi.mocked(repository.prepare).mockResolvedValue({
       result: "READY",
       challengeId,
@@ -86,7 +86,13 @@ describe("BusinessPhoneEnrollmentService", () => {
       isPhoneChange: true,
     });
     await expect(service().start()).resolves.toMatchObject({ ok: true, step: "OTP" });
-    expect(auth.requestPhoneVerification).toHaveBeenCalledWith("+37369982220", true);
+    expect(auth.requestPhoneVerification).toHaveBeenCalledWith("+37369982220");
+  });
+
+  it("uses explicit resend and never replays the phone update", async () => {
+    await expect(service().resend(challengeId)).resolves.toMatchObject({ ok: true, step: "OTP" });
+    expect(auth.resendPhoneVerification).toHaveBeenCalledWith("+37369982220");
+    expect(auth.requestPhoneVerification).not.toHaveBeenCalled();
   });
 
   it("rejects unconfirmed or mismatched phones after provider verification", async () => {
@@ -99,8 +105,8 @@ describe("BusinessPhoneEnrollmentService", () => {
   });
 
   it("bounds enrollment sends and verification attempts", async () => {
-    vi.mocked(repository.reserveSend).mockResolvedValue(false);
-    await expect(service().start()).resolves.toEqual({ ok: false, error: "RATE_LIMITED" });
+    vi.mocked(repository.reserveSend).mockResolvedValue({ allowed: false, retryAfterSeconds: 37 });
+    await expect(service().start()).resolves.toEqual({ ok: false, error: "RATE_LIMITED", retryAfterSeconds: 37 });
     expect(auth.requestPhoneVerification).not.toHaveBeenCalled();
 
     vi.mocked(repository.reserveVerification).mockResolvedValue(false);
