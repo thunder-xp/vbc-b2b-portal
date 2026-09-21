@@ -23,11 +23,11 @@ export default async function MaibReviewPage({ searchParams }: { searchParams: P
         <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">MAIB Review</p>
         <h1 className="mt-2 text-2xl font-semibold">{ru ? "Проверка оформления заказа" : "Verificarea procesului de comandă"}</h1>
         <p className="mt-3 text-sm leading-6 text-zinc-600">{ru
-          ? "Введите временный код доступа, предоставленный Novotech. Доступ действует четыре часа и открывает только тестовый MAIB Checkout."
-          : "Introduceți codul temporar furnizat de Novotech. Accesul este valabil patru ore și deschide numai MAIB Checkout de test."}</p>
+          ? "Введите временный код доступа, предоставленный Novotech. После входа тестовый доступ действует 8 часов и открывает только MAIB Sandbox Checkout."
+          : "Introduceți codul temporar de acces furnizat de Novotech. După autentificare, accesul de test este valabil timp de 8 ore și permite accesul doar la MAIB Sandbox Checkout."}</p>
         {error ? <p className="mt-4 border-l-4 border-red-600 bg-red-50 p-3 text-sm text-red-900" role="alert">{error === "unavailable"
           ? (ru ? "Тестовый MAIB Checkout сейчас недоступен." : "MAIB Checkout de test nu este disponibil momentan.")
-          : (ru ? "Неверный или устаревший код доступа." : "Codul de acces este incorect sau expirat.")}</p> : null}
+          : (ru ? "Неверный код доступа." : "Codul de acces este incorect.")}</p> : null}
         <form action={authorizeMaibReviewAction} className="mt-6 grid gap-4">
           <input name="locale" type="hidden" value={locale} />
           <label className="text-sm font-medium text-zinc-700">{ru ? "Код доступа" : "Cod acces"}
