@@ -69,6 +69,18 @@ export function decideBusinessRoute(resolution: BusinessAccessResolution): Busin
   return { kind: "SELECT_CONTEXT", targetRoute: "/auth/select-context" };
 }
 
+export function decidePostSignInBusinessRoute(resolution: BusinessAccessResolution): BusinessRouteDecision {
+  const operationalDecision = decideBusinessRoute(resolution);
+  if (operationalDecision.kind !== "ACCESS_STATE") return operationalDecision;
+
+  const pendingAgent = resolution.contexts.find(
+    (context) => context.type === "AGENT" && context.status === "PENDING",
+  );
+  return pendingAgent
+    ? { kind: "ROUTE", targetRoute: pendingAgent.targetRoute }
+    : operationalDecision;
+}
+
 function sameContext(left: BusinessAccessContext, right: BusinessAccessContext) {
   return left.type === right.type && left.contextId === right.contextId;
 }

@@ -5,7 +5,7 @@ import type { UserMetadata } from "@supabase/supabase-js";
 import { createCommercialAgentApplicationService } from "@/src/modules/agent-application";
 import { resolveInternalPostSignInDestination } from "@/src/modules/admin/services";
 
-import { createBusinessAccessResolver, decideBusinessRoute } from "./access-context";
+import { createBusinessAccessResolver, decidePostSignInBusinessRoute } from "./access-context";
 
 export type PostSignInAccessKind =
   | "INTERNAL"
@@ -35,7 +35,7 @@ export async function resolvePostSignInAccess(
   if (internalDestination) return { kind: "INTERNAL", targetRoute: internalDestination };
 
   const business = await createBusinessAccessResolver().resolve(userId);
-  const businessDecision = decideBusinessRoute(business);
+  const businessDecision = decidePostSignInBusinessRoute(business);
   if (businessDecision.kind !== "ACCESS_STATE") {
     return { kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute: businessDecision.targetRoute };
   }

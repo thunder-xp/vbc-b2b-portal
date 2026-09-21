@@ -49,14 +49,14 @@ const nextActionCopy: Record<AgentCabinetLocale, Record<AgentOnboardingNextActio
   ru: {
     WAIT_REVIEW: "Novotech проверяет данные заявки. От вас пока не требуется действие.",
     CONTACT_COORDINATOR: "Свяжитесь с координатором Novotech и уточните требуемые данные.",
-    WAIT_CONTRACT: "Novotech готовит договор. От вас пока не требуется действие.",
+    WAIT_CONTRACT: "Novotech готовит договор. После подтверждения договорных данных мы завершим активацию кабинета.",
     WAIT_ACTIVATION: "Novotech завершает активацию кабинета.",
     NONE: "",
   },
   ro: {
     WAIT_REVIEW: "Novotech verifică datele cererii. Momentan nu este necesară nicio acțiune din partea dvs.",
     CONTACT_COORDINATOR: "Contactați coordonatorul Novotech pentru a clarifica datele necesare.",
-    WAIT_CONTRACT: "Novotech pregătește contractul. Momentan nu este necesară nicio acțiune din partea dvs.",
+    WAIT_CONTRACT: "Novotech pregătește contractul. După confirmarea datelor contractuale, vom finaliza activarea cabinetului.",
     WAIT_ACTIVATION: "Novotech finalizează activarea cabinetului.",
     NONE: "",
   },

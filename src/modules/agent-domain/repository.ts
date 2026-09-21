@@ -27,6 +27,7 @@ export interface AgentDomainRepository {
     workplace?: string | null;
   }): Promise<CommercialAgent>;
   transitionAgent(agentId: string, targetStatus: CommercialAgentStatus, actorUserId: string): Promise<CommercialAgent>;
+  confirmContract(agentId: string, actorUserId: string): Promise<CommercialAgent>;
   reviewCompliance(input: {
     agentId: string;
     actorUserId: string;

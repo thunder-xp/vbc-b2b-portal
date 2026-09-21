@@ -61,6 +61,7 @@ select public.review_commercial_agent_compliance(
 );
 select public.transition_commercial_agent_record((:'agent_record'::jsonb->>'id')::uuid, 'COMPLIANCE_REVIEW', '10000000-0000-4000-8000-000000000001');
 select public.transition_commercial_agent_record((:'agent_record'::jsonb->>'id')::uuid, 'CONTRACT_PENDING', '10000000-0000-4000-8000-000000000001');
+select public.confirm_commercial_agent_contract((:'agent_record'::jsonb->>'id')::uuid, '10000000-0000-4000-8000-000000000001');
 select public.transition_commercial_agent_record((:'agent_record'::jsonb->>'id')::uuid, 'APPROVED', '10000000-0000-4000-8000-000000000001');
 select public.transition_commercial_agent_record((:'agent_record'::jsonb->>'id')::uuid, 'ACTIVE', '10000000-0000-4000-8000-000000000001');
 

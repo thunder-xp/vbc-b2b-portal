@@ -67,6 +67,14 @@ export async function reviewAgentComplianceAction(formData: FormData): Promise<v
   revalidatePath(`/admin/agents/${agentId}`);
 }
 
+export async function confirmCommercialAgentContractAction(formData: FormData): Promise<void> {
+  const context = await requireAdminPermission("admin.agents.manage");
+  const agentId = requiredText(formData, "agentId");
+  await createAgentDomainService().confirmCommercialAgentContract(agentId, context.userId);
+  revalidatePath(`/admin/agents/${agentId}`);
+  revalidatePath("/admin/agents");
+}
+
 export async function createReferralTokenAction(
   _previous: ReferralTokenState,
   formData: FormData,

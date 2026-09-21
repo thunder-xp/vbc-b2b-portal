@@ -10,7 +10,7 @@ vi.mock("@/src/modules/agent-application", () => ({
 }));
 vi.mock("../access-context", () => ({
   createBusinessAccessResolver: () => ({ resolve: mocks.business }),
-  decideBusinessRoute: mocks.decide,
+  decidePostSignInBusinessRoute: mocks.decide,
 }));
 
 import { resolvePostSignInAccess } from "../post-sign-in-routing";
@@ -37,6 +37,17 @@ describe("persistent post-sign-in access routing", () => {
     });
     expect(mocks.application).not.toHaveBeenCalled();
   });
+
+  it.each(["APPLIED", "COMPLIANCE_REVIEW", "CONTRACT_PENDING", "APPROVED", "TRAINING"])(
+    "routes a pending %s Agent context to its status-only cabinet",
+    async () => {
+      mocks.decide.mockReturnValue({ kind: "ROUTE", targetRoute: "/agent" });
+      await expect(resolvePostSignInAccess("user-1", {})).resolves.toEqual({
+        kind: "PARTNER_OR_AGENT_WORKSPACE", targetRoute: "/agent",
+      });
+      expect(mocks.application).not.toHaveBeenCalled();
+    },
+  );
 
   it("fails an unavailable internal lookup closed but still resolves external access", async () => {
     mocks.internal.mockRejectedValue(new Error("internal registry unavailable"));

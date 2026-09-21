@@ -36,6 +36,8 @@ export type CommercialAgent = {
   complianceStatus: AgentComplianceStatus;
   level: CommercialAgentLevel;
   contractReady: boolean;
+  contractConfirmedAt: string | null;
+  contractConfirmedBy: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -115,6 +117,7 @@ export type AgentAttribution = {
 
 export type AgentDetail = {
   agent: CommercialAgent;
+  contractConfirmedByName: string | null;
   compliance: AgentCompliance | null;
   tokens: AgentReferralToken[];
   attributions: AgentAttribution[];
@@ -146,6 +149,7 @@ export type CommissionProjection = {
 
 export const AGENT_DOMAIN_EVENT_TYPES = [
   "AGENT_APPROVED",
+  "AGENT_CONTRACT_CONFIRMED",
   "REFERRAL_VERIFIED",
   "REFERRAL_REJECTED",
   "ATTRIBUTION_CONFIRMED",

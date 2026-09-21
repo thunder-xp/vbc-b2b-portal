@@ -36,8 +36,20 @@ export class SupabaseAgentDomainRepository implements AgentDomainRepository {
       if (result.error) throw repositoryError("get agent", result.error.code);
     }
     if (!agentResult.data) return null;
+    const confirmedBy = nullableText(agentResult.data.contract_confirmed_by);
+    let contractConfirmedByName: string | null = null;
+    if (confirmedBy) {
+      const { data: profile, error: profileError } = await admin
+        .from("user_profiles")
+        .select("full_name,email")
+        .eq("id", confirmedBy)
+        .maybeSingle();
+      if (profileError) throw repositoryError("get contract confirmer", profileError.code);
+      contractConfirmedByName = profile?.full_name || profile?.email || null;
+    }
     return {
       agent: mapAgent(agentResult.data),
+      contractConfirmedByName,
       compliance: complianceResult.data ? mapCompliance(complianceResult.data) : null,
       tokens: (tokensResult.data ?? []).map(mapToken),
       attributions: (attributionResult.data ?? []).map(mapAttribution),
@@ -79,6 +91,15 @@ export class SupabaseAgentDomainRepository implements AgentDomainRepository {
       p_actor_user_id: actorUserId,
     });
     if (error || !data) throw repositoryError("transition agent", error?.code);
+    return mapAgent(data);
+  }
+
+  async confirmContract(agentId: string, actorUserId: string) {
+    const { data, error } = await createAdminClient().rpc("confirm_commercial_agent_contract", {
+      p_agent_id: agentId,
+      p_actor_user_id: actorUserId,
+    });
+    if (error || !data) throw repositoryError("confirm agent contract", error?.code);
     return mapAgent(data);
   }
 
@@ -272,6 +293,8 @@ function mapAgent(row: DatabaseRow): CommercialAgent {
     complianceStatus: row.compliance_status as CommercialAgent["complianceStatus"],
     level: row.level as CommercialAgent["level"],
     contractReady: Boolean(row.contract_ready),
+    contractConfirmedAt: nullableText(row.contract_confirmed_at),
+    contractConfirmedBy: nullableText(row.contract_confirmed_by),
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
   };
