@@ -13,14 +13,15 @@ import {
 } from "@/src/modules/public-retail/presentation";
 import {
   getRetailCheckoutService,
-  hasRetailCheckoutAccess,
+  canInitiateRetailPaymentForAccess,
+  getRetailCheckoutAccess,
 } from "@/src/modules/public-retail/retail-checkout-server";
 import { hashRetailOrderAccessToken } from "@/src/modules/public-retail/retail-order-token";
 import type {
   PublicRetailLocale,
   RetailAddressDto,
 } from "@/src/modules/public-retail/types";
-import { getRetailOrderPaymentStateByNumber, maibConfigurationSummary } from "@/src/modules/payments/server";
+import { getRetailOrderPaymentStateByNumber, maibConfigurationSummary, maibReviewConfigurationSummary } from "@/src/modules/payments/server";
 
 export const metadata: Metadata = {
   title: "Order | Novotech",
@@ -46,13 +47,16 @@ export default async function PublicRetailOrderPage({
     getRetailCheckoutService()
       .getInstallationStatus(hash, locale)
       .catch(() => null),
-    hasRetailCheckoutAccess(),
+    getRetailCheckoutAccess(),
   ]);
   if (!order) notFound();
   const paymentState = (await getRetailOrderPaymentStateByNumber(order.orderNumber).catch(() => null))?.paymentState
     ?? (order.status === "confirmed" ? "PAID" : "UNPAID");
   const ru = locale === "ru";
-  const paymentReady = checkoutAccess && maibConfigurationSummary().ready;
+  const paymentConfiguration = checkoutAccess.source === "maib_review"
+    ? maibReviewConfigurationSummary()
+    : maibConfigurationSummary();
+  const paymentReady = canInitiateRetailPaymentForAccess(checkoutAccess, paymentConfiguration);
   const installationRequested = order.installationIntent.some((entry) =>
     Object.values(entry.intent).some(Boolean),
   );
@@ -232,7 +236,7 @@ export default async function PublicRetailOrderPage({
                 </strong>
               </section>
               {order.status === "awaiting_payment" && paymentReady ? (
-                <PublicRetailPaymentButton locale={locale} orderToken={token} />
+                <PublicRetailPaymentButton locale={locale} orderToken={token} reviewMode={checkoutAccess.source === "maib_review"} />
               ) : null}
               <section className="border border-zinc-200 bg-white p-5">
                 <h2 className="font-semibold">

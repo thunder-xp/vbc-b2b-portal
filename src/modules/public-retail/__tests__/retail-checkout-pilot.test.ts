@@ -34,7 +34,8 @@ describe("retail checkout pilot gate", () => {
   it("gates cart, checkout, offer creation, and order lock through the same runtime contract", () => {
     expect(cartPage).toContain("hasRetailCheckoutAccess()");
     expect(checkoutPage).toContain("await hasRetailCheckoutAccess()");
-    expect(checkoutActions.match(/await hasRetailCheckoutAccess\(\)/g)).toHaveLength(2);
+    expect(checkoutActions).toContain("await hasRetailCheckoutAccess()");
+    expect(checkoutActions).toContain("await getRetailCheckoutAccess()");
     expect(checkoutActions).not.toContain("isRetailCheckoutEnabled");
   });
 

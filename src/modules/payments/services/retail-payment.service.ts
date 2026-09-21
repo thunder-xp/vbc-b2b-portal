@@ -14,7 +14,7 @@ export class RetailPaymentService {
     private readonly provider: PaymentProvider,
   ) {}
 
-  async initiate(input: Readonly<{ accessTokenHash: string; idempotencyKey: string }>): Promise<PaymentInitiationResult> {
+  async initiate(input: Readonly<{ accessTokenHash: string; checkoutChannel: "public" | "maib_review"; idempotencyKey: string }>): Promise<PaymentInitiationResult> {
     if (!TOKEN_HASH.test(input.accessTokenHash) || !UUID.test(input.idempotencyKey)) return result("NOT_ELIGIBLE");
     const returnAccessToken = randomBytes(32).toString("hex");
     const returnAccessTokenHash = createHash("sha256").update(returnAccessToken).digest("hex");
@@ -57,8 +57,8 @@ export class RetailPaymentService {
     }
   }
 
-  async confirmMaibCallback(evidence: MaibPaymentEvidence): Promise<PaymentConfirmationResult> {
-    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "callback" }));
+  async confirmMaibCallback(evidence: MaibPaymentEvidence, checkoutChannel: "public" | "maib_review" = "public"): Promise<PaymentConfirmationResult> {
+    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "callback", checkoutChannel }));
   }
 
   async reconcileMaibPayment(paymentAttemptId: string): Promise<PaymentConfirmationResult> {
@@ -68,7 +68,7 @@ export class RetailPaymentService {
     if (context.status === "paid") return this.withPaidConfirmation({ ...confirmation("DUPLICATE"), attemptId: context.attemptId, paymentStatus: "paid", activationRepeated: true });
     if (context.status === "paid_pending_activation") return this.withPaidConfirmation(await this.repository.retryMaibActivation(context.attemptId));
     const evidence = await this.provider.getCheckoutEvidence(context.checkoutId);
-    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "reconciliation" }));
+    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "reconciliation", checkoutChannel: "public" }));
   }
 
   async getReturnState(paymentAttemptId: string, returnAccessToken: string): Promise<PaymentReturnState | null> {

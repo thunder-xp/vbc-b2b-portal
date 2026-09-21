@@ -1,4 +1,4 @@
-import { createRetailPaymentService } from "@/src/modules/payments/server";
+import { createMaibReviewPaymentService, createRetailPaymentService, maibReviewProviderEnvironment } from "@/src/modules/payments/server";
 import { authenticateMaibCallback } from "@/src/modules/payments/providers/maib/maib-callback-auth";
 import { parseMaibCallback } from "@/src/modules/payments/providers/maib/maib-callback";
 
@@ -13,17 +13,26 @@ export async function POST(request: Request) {
   const rawBody = new Uint8Array(await request.arrayBuffer());
   if (rawBody.byteLength === 0 || rawBody.byteLength > MAX_CALLBACK_BYTES) return empty(400);
 
-  const authentication = authenticateMaibCallback(
+  const publicAuthentication = authenticateMaibCallback(
     rawBody,
     request.headers.get("x-signature"),
     request.headers.get("x-signature-timestamp"),
   );
-  if (!authentication.valid) {
-    if (authentication.reason === "CONFIGURATION_ERROR") {
+  const reviewAuthentication = publicAuthentication.valid ? null : authenticateMaibCallback(
+    rawBody,
+    request.headers.get("x-signature"),
+    request.headers.get("x-signature-timestamp"),
+    maibReviewProviderEnvironment(),
+  );
+  const checkoutChannel = publicAuthentication.valid ? "public" : reviewAuthentication?.valid ? "maib_review" : null;
+  if (!checkoutChannel) {
+    if (!publicAuthentication.valid && publicAuthentication.reason === "CONFIGURATION_ERROR"
+      && reviewAuthentication && !reviewAuthentication.valid && reviewAuthentication.reason === "CONFIGURATION_ERROR") {
       console.error({ event: "maib_callback_configuration_error" });
       return empty(503);
     }
-    console.warn({ event: "maib_callback_rejected", reason: authentication.reason });
+    const reason = !publicAuthentication.valid ? publicAuthentication.reason : "INVALID_SIGNATURE";
+    console.warn({ event: "maib_callback_rejected", reason });
     return empty(401);
   }
 
@@ -31,7 +40,10 @@ export async function POST(request: Request) {
   if (!evidence) return empty(400);
 
   try {
-    const result = await createRetailPaymentService().confirmMaibCallback(evidence);
+    const paymentService = checkoutChannel === "maib_review"
+      ? createMaibReviewPaymentService()
+      : createRetailPaymentService();
+    const result = await paymentService.confirmMaibCallback(evidence, checkoutChannel);
     if (result.outcome === "PAID" || result.outcome === "DUPLICATE" || result.outcome === "NON_PAID") return empty(200);
     if (result.outcome === "PAID_PENDING_ACTIVATION") return empty(503);
     return empty(result.outcome === "UNKNOWN_CHECKOUT" ? 404 : 422);

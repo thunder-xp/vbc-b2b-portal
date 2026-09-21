@@ -1,6 +1,7 @@
 import type { PublicRetailCheckoutDto, PublicRetailCommercialOfferDto, PublicRetailInstallationStatusDto, PublicRetailLocale, PublicRetailOrderCreatedDto, PublicRetailOrderDto, RetailAddressDto } from "../types";
 
 export type RetailCheckoutCreateCommand = {
+  checkoutChannel: "public" | "maib_review";
   locale: PublicRetailLocale;
   checkoutFingerprint: string;
   submissionKey: string;
