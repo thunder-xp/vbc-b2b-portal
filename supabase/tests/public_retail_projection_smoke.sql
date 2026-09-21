@@ -20,7 +20,11 @@ begin
     or metrics->>'checksum' !~ '^[0-9a-f]{64}$' then
     raise exception 'First Public Retail candidate is invalid.';
   end if;
-  perform public.publish_public_retail_candidate(first_id, metrics->>'checksum');
+  if coalesce((metrics->>'noOp')::boolean, false) then
+    first_id := (metrics->>'publicationId')::uuid;
+  else
+    perform public.publish_public_retail_candidate(first_id, metrics->>'checksum');
+  end if;
   insert into public_retail_smoke_state(first_publication_id, first_metrics)
   values(first_id, metrics);
   raise notice 'public_retail_first_publication_ms=%',
@@ -64,8 +68,23 @@ declare
   metrics jsonb;
   current_id uuid;
 begin
+  update public.catalog_products product
+  set sort_order = coalesce(product.sort_order, 0) + 1
+  where product.id = (
+    select identity.source_product_id
+    from public.public_retail_products snapshot
+    join public.public_retail_product_identities identity on identity.public_id = snapshot.public_id
+    where snapshot.publication_id = (select first_publication_id from public_retail_smoke_state)
+    order by snapshot.public_id
+    limit 1
+  );
+
   second_id := public.start_public_retail_publication();
   metrics := public.build_public_retail_candidate(second_id);
+  if coalesce((metrics->>'noOp')::boolean, false)
+    or coalesce((metrics->'productDelta'->>'updated')::integer, 0) <> 1 then
+    raise exception 'Controlled Public Retail delta was not isolated to one product: %', metrics;
+  end if;
   perform public.publish_public_retail_candidate(second_id, metrics->>'checksum');
 
   select id into current_id from public.public_retail_publications where status = 'published';
