@@ -7,7 +7,7 @@ import {
   createMaibReviewSession,
   isMaibReviewAccessCodeValid,
   MAIB_REVIEW_COOKIE,
-  MAIB_REVIEW_SESSION_MAX_AGE_SECONDS,
+  MAIB_REVIEW_COOKIE_EXPIRES_AT,
 } from "@/src/modules/public-retail/maib-review-session";
 import { maibReviewConfigurationSummary } from "@/src/modules/payments/server";
 
@@ -22,8 +22,8 @@ export async function authorizeMaibReviewAction(formData: FormData) {
     redirect(`/maib-review?lang=${locale}&error=invalid`);
   }
   (await cookies()).set(MAIB_REVIEW_COOKIE, createMaibReviewSession(), {
+    expires: MAIB_REVIEW_COOKIE_EXPIRES_AT,
     httpOnly: true,
-    maxAge: MAIB_REVIEW_SESSION_MAX_AGE_SECONDS,
     path: "/",
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

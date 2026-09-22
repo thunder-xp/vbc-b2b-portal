@@ -16,12 +16,14 @@ const paymentServer = read("src/modules/payments/server.ts");
 const callbackRoute = read("app/api/payments/maib/callback/route.ts");
 
 describe("MAIB website review checkout contract", () => {
-  it("uses a POST server action and a bounded secure cookie without putting the credential in URLs", () => {
+  it("uses a POST server action and a persistent secure cookie without putting the credential in URLs", () => {
     expect(entryAction).toContain('"use server"');
     expect(entryAction).toContain("isMaibReviewAccessCodeValid");
     expect(entryAction).toContain("httpOnly: true");
     expect(entryAction).toContain('sameSite: "lax"');
     expect(entryAction).toContain('secure: process.env.NODE_ENV === "production"');
+    expect(entryAction).toContain("expires: MAIB_REVIEW_COOKIE_EXPIRES_AT");
+    expect(entryAction).not.toContain("maxAge:");
     expect(entryAction).not.toMatch(/redirect\([^\n]*accessCode/);
     expect(entryPage).toContain('type="password"');
     expect(entryPage).not.toContain("MAIB_REVIEW_ACCESS_SECRET");

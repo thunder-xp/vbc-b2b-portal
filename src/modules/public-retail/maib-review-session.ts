@@ -3,10 +3,12 @@ import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const MAIB_REVIEW_COOKIE = "novotech_maib_review";
-export const MAIB_REVIEW_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
+// Cookie persistence is transport metadata only. Session validity has no time limit and
+// is controlled by the current server-side review credential/configuration.
+export const MAIB_REVIEW_COOKIE_EXPIRES_AT = new Date("9999-12-31T23:59:59.000Z");
 
 const ACCESS_CODE_MINIMUM_LENGTH = 24;
-const SESSION = /^v1\.([0-9]{10})\.([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/;
+const SESSION = /^v2\.([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{43})$/;
 
 export function isMaibReviewAccessCodeValid(
   candidate: string,
@@ -14,40 +16,38 @@ export function isMaibReviewAccessCodeValid(
 ) {
   const expected = environment.MAIB_REVIEW_ACCESS_SECRET?.trim() ?? "";
   const supplied = candidate.trim();
-  if (expected.length < ACCESS_CODE_MINIMUM_LENGTH || supplied.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
+  if (!isReviewAccessEnabled(environment) || expected.length < ACCESS_CODE_MINIMUM_LENGTH || supplied.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
   return safeEqual(digest(supplied), digest(expected));
 }
 
 export function createMaibReviewSession(
   environment: Readonly<Record<string, string | undefined>> = process.env,
-  now = Date.now(),
   nonce = randomBytes(16).toString("base64url"),
 ) {
   const secret = reviewSecret(environment);
-  const expiresAt = Math.floor(now / 1_000) + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS;
-  const payload = `v1.${expiresAt}.${nonce}`;
+  const payload = `v2.${nonce}`;
   return `${payload}.${sign(payload, secret)}`;
 }
 
 export function validateMaibReviewSession(
   value: string | undefined,
   environment: Readonly<Record<string, string | undefined>> = process.env,
-  now = Date.now(),
 ) {
   const match = value?.match(SESSION);
   const secret = environment.MAIB_REVIEW_ACCESS_SECRET?.trim() ?? "";
-  if (!match || secret.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
-  const expiresAt = Number(match[1]);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(now / 1_000)) return false;
-  if (expiresAt > Math.floor(now / 1_000) + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS) return false;
-  const payload = `v1.${match[1]}.${match[2]}`;
-  return safeEqual(Buffer.from(match[3], "base64url"), Buffer.from(sign(payload, secret), "base64url"));
+  if (!match || !isReviewAccessEnabled(environment) || secret.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
+  const payload = `v2.${match[1]}`;
+  return safeEqual(Buffer.from(match[2], "base64url"), Buffer.from(sign(payload, secret), "base64url"));
 }
 
 function reviewSecret(environment: Readonly<Record<string, string | undefined>>) {
   const secret = environment.MAIB_REVIEW_ACCESS_SECRET?.trim() ?? "";
-  if (secret.length < ACCESS_CODE_MINIMUM_LENGTH) throw new Error("MAIB review access is not configured.");
+  if (!isReviewAccessEnabled(environment) || secret.length < ACCESS_CODE_MINIMUM_LENGTH) throw new Error("MAIB review access is not configured.");
   return secret;
+}
+
+function isReviewAccessEnabled(environment: Readonly<Record<string, string | undefined>>) {
+  return environment.MAIB_REVIEW_ACCESS_ENABLED?.trim().toLowerCase() !== "false";
 }
 
 function digest(value: string) { return createHmac("sha256", "novotech-maib-review-access-v1").update(value, "utf8").digest(); }

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createMaibReviewSession,
   isMaibReviewAccessCodeValid,
-  MAIB_REVIEW_SESSION_MAX_AGE_SECONDS,
+  MAIB_REVIEW_COOKIE_EXPIRES_AT,
   validateMaibReviewSession,
 } from "../maib-review-session";
 import {
@@ -13,8 +13,6 @@ import {
 
 const secret = "review-access-secret-with-32-bytes";
 const environment = { MAIB_REVIEW_ACCESS_SECRET: secret };
-const now = Date.parse("2026-09-21T12:00:00Z");
-
 describe("MAIB review access", () => {
   it("compares the server-only access code and rejects absent, short, or wrong values", () => {
     expect(isMaibReviewAccessCodeValid(secret, environment)).toBe(true);
@@ -23,26 +21,25 @@ describe("MAIB review access", () => {
     expect(isMaibReviewAccessCodeValid("short", { MAIB_REVIEW_ACCESS_SECRET: "short" })).toBe(false);
   });
 
-  it("issues a signed eight-hour session and rejects expiry or tampering", () => {
-    const session = createMaibReviewSession(environment, now, "a".repeat(22));
+  it("issues a signed session without a business expiry and rejects tampering", () => {
+    const session = createMaibReviewSession(environment, "a".repeat(22));
     const sessionParts = session.split(".");
-    sessionParts[3] = `${sessionParts[3]?.startsWith("a") ? "b" : "a"}${sessionParts[3]?.slice(1)}`;
+    sessionParts[2] = `${sessionParts[2]?.startsWith("a") ? "b" : "a"}${sessionParts[2]?.slice(1)}`;
 
-    expect(MAIB_REVIEW_SESSION_MAX_AGE_SECONDS).toBe(8 * 60 * 60);
-    expect(validateMaibReviewSession(session, environment, now)).toBe(true);
-    expect(validateMaibReviewSession(session, environment, now + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000 - 1)).toBe(true);
-    expect(validateMaibReviewSession(session, environment, now + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000)).toBe(false);
-    expect(validateMaibReviewSession(sessionParts.join("."), environment, now)).toBe(false);
-    expect(validateMaibReviewSession(session, { MAIB_REVIEW_ACCESS_SECRET: secret + "-other" }, now)).toBe(false);
+    expect(session).toMatch(/^v2\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}$/);
+    expect(MAIB_REVIEW_COOKIE_EXPIRES_AT.toISOString()).toBe("9999-12-31T23:59:59.000Z");
+    expect(validateMaibReviewSession(session, environment)).toBe(true);
+    expect(validateMaibReviewSession(sessionParts.join("."), environment)).toBe(false);
   });
 
-  it("keeps the access code reusable after an earlier session expires", () => {
-    const later = now + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000;
-    const refreshedSession = createMaibReviewSession(environment, later, "b".repeat(22));
+  it("invalidates issued sessions when the server-side credential is rotated or removed", () => {
+    const session = createMaibReviewSession(environment, "b".repeat(22));
 
-    expect(isMaibReviewAccessCodeValid(secret, environment)).toBe(true);
-    expect(validateMaibReviewSession(refreshedSession, environment, later)).toBe(true);
-    expect(validateMaibReviewSession(refreshedSession, environment, later + MAIB_REVIEW_SESSION_MAX_AGE_SECONDS * 1_000)).toBe(false);
+    expect(validateMaibReviewSession(session, environment)).toBe(true);
+    expect(validateMaibReviewSession(session, { MAIB_REVIEW_ACCESS_SECRET: `${secret}-rotated` })).toBe(false);
+    expect(validateMaibReviewSession(session, {})).toBe(false);
+    expect(validateMaibReviewSession(session, { ...environment, MAIB_REVIEW_ACCESS_ENABLED: "false" })).toBe(false);
+    expect(isMaibReviewAccessCodeValid(secret, { ...environment, MAIB_REVIEW_ACCESS_ENABLED: "false" })).toBe(false);
   });
 
   it("keeps normal public gating unchanged and identifies review access centrally", () => {
