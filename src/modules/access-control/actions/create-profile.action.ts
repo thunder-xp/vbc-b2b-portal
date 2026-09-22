@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import type { UserProfile, UserStatus } from "../types";
 import {
   type ActionResult,
@@ -31,14 +33,16 @@ export async function createProfileAction(
 ): Promise<ActionResult<CreatedProfileDto>> {
   try {
     const user = await getAuthenticatedUser();
+    const correlationId = randomUUID();
     const profile = await createUserProfileService().createProfileAfterSignup({
       userId: user.id,
       email: user.email,
       fullName: normalizeOptionalText(input.fullName),
       phone: normalizeOptionalText(input.phone),
+      correlationId,
     });
 
-    return success("Profile created.", toCreatedProfileDto(profile));
+    return success("Profile ready. Continuing onboarding.", toCreatedProfileDto(profile));
   } catch (error) {
     return failureFromError(error);
   }

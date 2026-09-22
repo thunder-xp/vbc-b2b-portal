@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   RepositoryOperationNotAvailableError,
+  RepositoryProfileCreationError,
   type CreateUserProfileInput,
   type UpdateOwnSafeUserProfileFieldsInput,
   type UserProfileRepository,
@@ -12,6 +13,7 @@ import {
   InvalidStateError,
   NotFoundError,
   OperationNotAvailableError,
+  ProfileCreationError,
 } from "../../errors";
 import { DefaultUserProfileService } from "../user-profile.service.impl";
 
@@ -189,8 +191,61 @@ describe("DefaultUserProfileService", () => {
       service.createProfileAfterSignup({
         userId: "user-1",
         email: "partner@example.com",
+        correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
       }),
     ).rejects.toBeInstanceOf(OperationNotAvailableError);
+  });
+
+  it("canonicalizes a Moldova phone for governed profile creation", async () => {
+    const repository = new FakeUserProfileRepository();
+    const service = new DefaultUserProfileService(repository);
+
+    await service.createProfileAfterSignup({
+      userId: "user-1",
+      email: "partner@example.com",
+      phone: "067 497 101",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+    });
+
+    expect(repository.lastCreateInput).toMatchObject({
+      phone: "+37367497101",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+    });
+  });
+
+  it("returns INVALID_PHONE before calling the repository", async () => {
+    const repository = new FakeUserProfileRepository();
+    const service = new DefaultUserProfileService(repository);
+
+    await expect(service.createProfileAfterSignup({
+      userId: "user-1",
+      email: "partner@example.com",
+      phone: "+373123",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+    })).rejects.toMatchObject({
+      name: "ProfileCreationError",
+      code: "INVALID_PHONE",
+    } satisfies Partial<ProfileCreationError>);
+    expect(repository.lastCreateInput).toBeNull();
+  });
+
+  it("preserves governed phone conflict diagnostics", async () => {
+    const repository = new FakeUserProfileRepository();
+    repository.createError = new RepositoryProfileCreationError(
+      "PHONE_ALREADY_IN_USE",
+      "8d216433-29d4-4785-9506-50ad2d515b04",
+    );
+    const service = new DefaultUserProfileService(repository);
+
+    await expect(service.createProfileAfterSignup({
+      userId: "user-1",
+      email: "partner@example.com",
+      phone: "+37367497101",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+    })).rejects.toMatchObject({
+      name: "ProfileCreationError",
+      code: "PHONE_ALREADY_IN_USE",
+    } satisfies Partial<ProfileCreationError>);
   });
 });
 

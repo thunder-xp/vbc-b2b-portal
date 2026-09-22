@@ -9,6 +9,7 @@ import {
   NotFoundError,
   OperationNotAvailableError,
   PermissionRequiredError,
+  ProfileCreationError,
   UnauthenticatedError,
 } from "../services";
 
@@ -52,6 +53,10 @@ export function failureFromError(error: unknown): FailedActionResult {
     return failure("AUTH_REQUIRED", "Authentication is required.");
   }
 
+  if (error instanceof ProfileCreationError) {
+    return profileCreationFailure(error);
+  }
+
   if (error instanceof ForbiddenError) {
     return failure("FORBIDDEN", "This action is not allowed.");
   }
@@ -92,6 +97,21 @@ export function failureFromError(error: unknown): FailedActionResult {
   }
 
   return failure("SYSTEM_ERROR", "Unexpected system failure.");
+}
+
+function profileCreationFailure(error: ProfileCreationError): FailedActionResult {
+  switch (error.code) {
+    case "AUTH_REQUIRED":
+      return failure("AUTH_REQUIRED", "Sign in again to create your profile.");
+    case "INVALID_PHONE":
+      return failure("INVALID_PHONE", "Enter a valid Moldova phone number, for example +37367497101.");
+    case "PHONE_ALREADY_IN_USE":
+      return failure("PHONE_ALREADY_IN_USE", "This phone is already linked to another account. Contact Novotech support for an ownership review.");
+    case "ONBOARDING_STATE_CONFLICT":
+      return failure("ONBOARDING_STATE_CONFLICT", `Your onboarding state needs review. Reload the page or contact Novotech support with code ${error.correlationId}.`);
+    case "TEMPORARY_SERVER_ERROR":
+      return failure("TEMPORARY_SERVER_ERROR", `We could not create your profile right now. Try again, or contact Novotech support with code ${error.correlationId}.`);
+  }
 }
 
 function approvalMessage(code: ApprovalError["code"]): string {

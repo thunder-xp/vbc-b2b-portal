@@ -9,6 +9,7 @@ import {
   NotFoundError,
   OperationNotAvailableError,
   PermissionRequiredError,
+  ProfileCreationError,
   UnauthenticatedError,
 } from "../../services";
 import {
@@ -119,11 +120,12 @@ describe("onboarding Server Actions", () => {
       email: "partner@example.com",
       fullName: "Partner User",
       phone: "+359 1 234",
+      correlationId: expect.any(String),
     });
     expect(result).toEqual({
       success: true,
       errorCode: null,
-      message: "Profile created.",
+      message: "Profile ready. Continuing onboarding.",
       data: {
         id: profile.id,
         email: profile.email,
@@ -135,6 +137,24 @@ describe("onboarding Server Actions", () => {
       },
     });
     expect(JSON.stringify(result)).not.toContain("userType");
+  });
+
+  it.each([
+    ["INVALID_PHONE", "Enter a valid Moldova phone number"],
+    ["PHONE_ALREADY_IN_USE", "already linked to another account"],
+    ["ONBOARDING_STATE_CONFLICT", "needs review"],
+    ["TEMPORARY_SERVER_ERROR", "could not create your profile"],
+  ] as const)("createProfileAction returns safe %s guidance", async (code, message) => {
+    mocks.userProfileService.createProfileAfterSignup.mockRejectedValue(
+      new ProfileCreationError(code, "8d216433-29d4-4785-9506-50ad2d515b04"),
+    );
+
+    await expect(createProfileAction({ phone: "+37367497101" })).resolves.toMatchObject({
+      success: false,
+      errorCode: code,
+      message: expect.stringContaining(message),
+      data: null,
+    });
   });
 
   it("getCurrentProfileAction returns profile data", async () => {

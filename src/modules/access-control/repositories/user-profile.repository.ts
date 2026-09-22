@@ -5,6 +5,7 @@ export interface CreateUserProfileInput {
   email: string;
   fullName?: string | null;
   phone?: string | null;
+  correlationId: string;
 }
 
 export interface UpdateOwnSafeUserProfileFieldsInput {
