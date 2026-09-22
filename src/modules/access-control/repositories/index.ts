@@ -34,3 +34,20 @@ export class RepositoryUnexpectedError extends Error {
     this.cause = input.cause;
   }
 }
+
+export type RepositoryProfileCreationErrorCode =
+  | "AUTH_REQUIRED"
+  | "PHONE_ALREADY_IN_USE"
+  | "ONBOARDING_STATE_CONFLICT"
+  | "INVALID_PHONE"
+  | "TEMPORARY_SERVER_ERROR";
+
+export class RepositoryProfileCreationError extends Error {
+  constructor(
+    readonly code: RepositoryProfileCreationErrorCode,
+    readonly correlationId: string,
+  ) {
+    super(code);
+    this.name = "RepositoryProfileCreationError";
+  }
+}

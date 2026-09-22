@@ -5,6 +5,7 @@ export interface CreateProfileAfterSignupInput {
   email: string;
   fullName?: string | null;
   phone?: string | null;
+  correlationId: string;
 }
 
 export interface UpdateOwnProfileInput {

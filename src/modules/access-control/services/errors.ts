@@ -68,6 +68,23 @@ export class OperationNotAvailableError extends AccessControlError {
   }
 }
 
+export type ProfileCreationErrorCode =
+  | "AUTH_REQUIRED"
+  | "PHONE_ALREADY_IN_USE"
+  | "ONBOARDING_STATE_CONFLICT"
+  | "INVALID_PHONE"
+  | "TEMPORARY_SERVER_ERROR";
+
+export class ProfileCreationError extends AccessControlError {
+  constructor(
+    readonly code: ProfileCreationErrorCode,
+    readonly correlationId: string,
+  ) {
+    super(code);
+    this.name = "ProfileCreationError";
+  }
+}
+
 export type ApprovalErrorCode =
   | "APPROVAL_REQUEST_NOT_FOUND"
   | "APPROVAL_REQUEST_NOT_PENDING"

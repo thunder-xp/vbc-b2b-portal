@@ -4,6 +4,7 @@ import type {
 import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-phone";
 import { cache } from "react";
 import {
+  RepositoryProfileCreationError,
   RepositoryOperationNotAvailableError,
   RepositoryUnexpectedError,
 } from "../../repositories";
@@ -19,6 +20,7 @@ import {
   InvalidStateError,
   NotFoundError,
   OperationNotAvailableError,
+  ProfileCreationError,
 } from "../errors";
 
 export class DefaultUserProfileService implements UserProfileService {
@@ -38,15 +40,29 @@ export class DefaultUserProfileService implements UserProfileService {
 
   async createProfileAfterSignup(
     input: CreateProfileAfterSignupInput,
-  ): Promise<UserProfile> {
+  ) {
+    let phone: string | null;
+    try {
+      phone = canonicalProfilePhone(input.phone);
+    } catch {
+      throw new ProfileCreationError("INVALID_PHONE", input.correlationId);
+    }
+
     try {
       return await this.userProfileRepository.create({
         id: input.userId,
         email: input.email,
         fullName: input.fullName,
-        phone: canonicalProfilePhone(input.phone),
+        phone,
+        correlationId: input.correlationId,
       });
     } catch (error) {
+      if (error instanceof RepositoryProfileCreationError) {
+        throw new ProfileCreationError(error.code, error.correlationId);
+      }
+      if (error instanceof RepositoryUnexpectedError) {
+        throw new ProfileCreationError("TEMPORARY_SERVER_ERROR", input.correlationId);
+      }
       throw this.mapRepositoryError(error);
     }
   }
