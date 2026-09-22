@@ -98,6 +98,9 @@ describe("PublicRetailService", () => {
       locale: "ru", limit: 24, offset: 0,
     }));
     expect(() => service.listRetailProducts({ search: "x".repeat(101) })).toThrow();
+    expect(() => service.listRetailProducts({ facets: {
+      "property_cb442472-ac8c-11f1-639c-bc2411369b92": ["01.08.2024"],
+    } })).toThrow("Invalid Public Retail facet.");
   });
 
   it("uses governed showcase modes and lets search override merchandising", async () => {

@@ -2,6 +2,7 @@ import type { CatalogCategoryDTO, CatalogProductAttributeDTO, CatalogProductDTO,
 import { IntegrationValidationError } from "../../errors";
 import { isOneCGuid } from "./one-c-guid";
 import { OneCODataClient } from "./one-c-odata-client";
+import { classifyCatalogAttribute, isCustomerFacingCatalogAttribute } from "../../../catalog/attribute-semantics";
 
 const RESOURCE = "Catalog_Номенклатура";
 const ROOT_NAME = "SECURITYPARK DISTRIBUTION";
@@ -173,7 +174,10 @@ function normalizeAttributes(requisites: AdditionalRequisite[], definitions: Map
     if (resolutionStatus === "unresolved") { diagnostics.referenceValuesUnresolved = (diagnostics.referenceValuesUnresolved ?? 0) + 1; diagnostics.attributesHiddenUnresolved = (diagnostics.attributesHiddenUnresolved ?? 0) + 1; }
     const displayValue = resolvedDisplayValue ?? (referenceValue ? "" : typeof rawValue === "boolean" ? (rawValue ? "Да" : "Нет") : normalizeTypedDisplayValue(rawValue, item.valueType));
     if (!displayValue && !referenceValue) return [];
-    return [{ propertyRef: item.propertyRef, key: `property_${item.propertyRef.toLowerCase()}`, label, rawValue, displayValue, resolvedDisplayValue, resolvedValueRef: referenceValue, resolutionStatus, valueType: item.valueType || definition.valueType, filterable: resolutionStatus !== "unresolved" && isFilterable(label, rawValue, displayValue, definition), visible: definition.visible && resolutionStatus !== "unresolved", available: definition.available }];
+    const sourceFilterable = resolutionStatus !== "unresolved" && isFilterable(label, rawValue, displayValue, definition);
+    const classification = classifyCatalogAttribute(item.propertyRef, sourceFilterable);
+    const customerFacing = isCustomerFacingCatalogAttribute(classification);
+    return [{ propertyRef: item.propertyRef, key: `property_${item.propertyRef.toLowerCase()}`, label, rawValue, displayValue, resolvedDisplayValue, resolvedValueRef: referenceValue, resolutionStatus, valueType: item.valueType || definition.valueType, classification, filterable: customerFacing && sourceFilterable, visible: customerFacing && definition.visible && resolutionStatus !== "unresolved", available: definition.available }];
   });
 }
 const CANONICAL_GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
