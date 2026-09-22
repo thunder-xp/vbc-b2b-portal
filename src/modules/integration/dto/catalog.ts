@@ -1,4 +1,5 @@
 import type { ExternalReferenceDTO, IntegrationMetadataDTO } from "./common";
+import type { CatalogAttributeClassification } from "../../catalog/attribute-semantics";
 
 export type CatalogCategoryDTO = {
   reference: ExternalReferenceDTO;
@@ -47,6 +48,7 @@ export type CatalogProductAttributeDTO = {
   resolvedValueRef: string | null;
   resolutionStatus: "not_required" | "resolved" | "unresolved" | "invalid";
   valueType: string | null;
+  classification: CatalogAttributeClassification;
   filterable: boolean;
   visible: boolean;
   available: boolean;

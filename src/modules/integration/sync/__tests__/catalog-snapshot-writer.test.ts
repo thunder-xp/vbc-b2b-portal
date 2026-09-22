@@ -105,7 +105,7 @@ function snapshotFixture(attributeCount: number): CatalogSnapshotDTO {
       shortDescription: null,
       description: null,
       imageUrl: null,
-      attributes: Array.from({ length: attributeCount }, (_, index) => ({ propertyRef: `property-${index}`, key: `key-${index}`, label: `Attribute ${index}`, rawValue: `Value ${index}`, displayValue: `Value ${index}`, resolvedDisplayValue: null, resolvedValueRef: null, resolutionStatus: "not_required" as const, valueType: "string", filterable: true, visible: true, available: true })),
+      attributes: Array.from({ length: attributeCount }, (_, index) => ({ propertyRef: `property-${index}`, key: `key-${index}`, label: `Attribute ${index}`, rawValue: `Value ${index}`, displayValue: `Value ${index}`, resolvedDisplayValue: null, resolvedValueRef: null, resolutionStatus: "not_required" as const, valueType: "string", classification: "FACETABLE_SPECIFICATION" as const, filterable: true, visible: true, available: true })),
       isActive: true,
       isVisible: true,
       metadata: { sourceReference: { providerCode: "one-c", externalId: "product-ref", externalType: "catalog-product" }, sourceUpdatedAt: null, importedAt: null },

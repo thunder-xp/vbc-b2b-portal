@@ -3,6 +3,7 @@ import type { MerchandisingLabelCode } from "../../merchandising/types";
 import type { CatalogCollection } from "../types";
 import type { CatalogQuickLinkCode } from "./catalog-quick-links";
 import type { NewRollingPeriod } from "../../commerce-period";
+import { isCustomerFacingCatalogAttributeKey } from "../attribute-semantics";
 
 export type CatalogSortHiddenField = { name: string; value: string };
 
@@ -11,7 +12,7 @@ export function parseCatalogAttributeFilters(params: Record<string, string | str
   for (const [name, input] of Object.entries(params ?? {})) {
     if (!name.startsWith("attr.")) continue;
     const key = name.slice(5);
-    if (!/^property_[0-9a-f-]{36}$/.test(key)) continue;
+    if (!/^property_[0-9a-f-]{36}$/.test(key) || !isCustomerFacingCatalogAttributeKey(key)) continue;
     const raw = Array.isArray(input) ? input.join(",") : input ?? "";
     const values = [...new Set(raw.split(",").map((value) => value.trim()).filter((value) => value.length > 0 && value.length <= 160 && !/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value)))].slice(0, 20);
     if (values.length) filters[key] = values;
@@ -48,7 +49,7 @@ export function buildCatalogSortHiddenFields(input: {
     fields.push({ name: "availability", value: input.availability });
   }
   for (const [key, values] of Object.entries(input.attributeFilters).sort(([a], [b]) => a.localeCompare(b))) {
-    if (!/^property_[0-9a-f-]{36}$/.test(key)) continue;
+    if (!/^property_[0-9a-f-]{36}$/.test(key) || !isCustomerFacingCatalogAttributeKey(key)) continue;
     const normalizedValues = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
     if (normalizedValues.length) fields.push({ name: `attr.${key}`, value: normalizedValues.join(",") });
   }

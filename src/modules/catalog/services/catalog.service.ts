@@ -27,6 +27,7 @@ import {
   type CatalogSort,
 } from "./catalog-sorting";
 import { deriveProductDescriptionSummary } from "./product-description-summary";
+import { isCustomerFacingCatalogAttributeKey } from "../attribute-semantics";
 
 export type CatalogCategoryDto = {
   id: string;
@@ -929,7 +930,7 @@ function createAttributeDatasheet(
   }
 }
 
-function normalizeAttributeFilters(filters: Record<string, string[]> | undefined): Record<string, string[]> { return Object.fromEntries(Object.entries(filters ?? {}).flatMap(([key, values]) => { const clean = [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0 && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)))].slice(0, 20); return /^property_[0-9a-f-]{36}$/.test(key) && clean.length ? [[key, clean]] : []; })); }
+function normalizeAttributeFilters(filters: Record<string, string[]> | undefined): Record<string, string[]> { return Object.fromEntries(Object.entries(filters ?? {}).flatMap(([key, values]) => { const clean = [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0 && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)))].slice(0, 20); return /^property_[0-9a-f-]{36}$/.test(key) && isCustomerFacingCatalogAttributeKey(key) && clean.length ? [[key, clean]] : []; })); }
 function intersectProductIds(left: string[] | undefined, right: string[] | undefined): string[] | undefined {
   if (left === undefined) return right;
   if (right === undefined) return left;

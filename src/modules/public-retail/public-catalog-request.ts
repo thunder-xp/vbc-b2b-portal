@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { PUBLIC_RETAIL_AVAILABILITY, PUBLIC_RETAIL_LOCALES } from "./types";
+import { isCustomerFacingCatalogAttributeKey } from "../catalog/attribute-semantics";
 
 export type PublicCatalogSearchParams = Record<string, string | string[] | undefined>;
 
@@ -15,7 +16,7 @@ const SINGLE_VALUE_PARAMS = ["lang", "q", "category", "availability", "view", "s
 export function isValidPublicCatalogRequest(params: PublicCatalogSearchParams): boolean {
   if (SINGLE_VALUE_PARAMS.some((name) => Array.isArray(params[name]) && params[name]!.length !== 1)) return false;
   const attributeEntries = Object.entries(params).filter(([key]) => key.startsWith("attr."));
-  if (attributeEntries.length > 8 || attributeEntries.some(([key]) => !ATTRIBUTE_KEY.test(key))) return false;
+  if (attributeEntries.length > 8 || attributeEntries.some(([key]) => !ATTRIBUTE_KEY.test(key) || !isCustomerFacingCatalogAttributeKey(key.slice(5)))) return false;
 
   for (const [, input] of attributeEntries) {
     if (Array.isArray(input) && input.length !== 1) return false;

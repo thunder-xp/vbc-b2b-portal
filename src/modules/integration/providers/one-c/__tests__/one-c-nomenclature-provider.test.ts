@@ -5,6 +5,7 @@ import { CatalogDuplicateRowsError, isGuidLike, OneCNomenclatureCatalogProvider 
 const root = "11111111-1111-4111-8111-111111111111";
 const folder = "22222222-2222-4222-8222-222222222222";
 const product = "33333333-3333-4333-8333-333333333333";
+const creationDateProperty = "cb442472-ac8c-11f1-639c-bc2411369b92";
 
 describe("OneCNomenclatureCatalogProvider", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -63,6 +64,29 @@ describe("OneCNomenclatureCatalogProvider", () => {
     const snapshot = await provider().fetchFullSnapshot();
     expect(snapshot.products[0]?.attributes?.[0]).toMatchObject({ displayValue: "Металл", resolvedDisplayValue: "Металл", resolutionStatus: "resolved", visible: true });
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("retains the creation date as internal source data without customer exposure", async () => {
+    const nomenclature = [
+      row(root, null, true, "SECURITYPARK DISTRIBUTION"),
+      row(product, root, false, "Camera", {
+        ДополнительныеРеквизиты: [requisite(creationDateProperty, "2024-08-01T00:00:00", "Edm.DateTime")],
+      }),
+    ];
+    const definition = { ...property(creationDateProperty, "Дата создания"), ValueType: "Edm.DateTime" };
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: URL | RequestInfo) => Promise.resolve(
+      jsonResponse(String(input).includes("ChartOfCharacteristicTypes") ? [definition] : nomenclature),
+    )));
+
+    const attribute = (await provider().fetchFullSnapshot()).products[0]?.attributes?.[0];
+
+    expect(attribute).toMatchObject({
+      propertyRef: creationDateProperty,
+      rawValue: "2024-08-01T00:00:00",
+      classification: "MERCHANDISING_INTERNAL",
+      filterable: false,
+      visible: false,
+    });
   });
 
   it("detects GUID references without misclassifying numbers", () => {

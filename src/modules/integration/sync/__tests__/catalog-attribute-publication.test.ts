@@ -20,7 +20,7 @@ describe("catalog attribute normalization", () => {
   it("prefers resolved, visible, non-empty and filterable values deterministically", () => {
     const result = normalizeCatalogAttributes([
       row({ resolutionStatus: "unresolved", visible: false, filterable: false, displayValue: "", rawValue: "raw" }),
-      row({ resolutionStatus: "resolved", resolvedDisplayValue: "Resolved", resolvedValueRef: "value-ref", visible: true, filterable: true, displayValue: "raw", rawValue: "raw" }),
+      row({ resolutionStatus: "resolved", resolvedDisplayValue: "Resolved", resolvedValueRef: "value-ref", visible: true, filterable: true, classification: "FACETABLE_SPECIFICATION", displayValue: "raw", rawValue: "raw" }),
     ], now);
 
     expect(result.rows[0]).toMatchObject({ resolution_status: "resolved", resolved_display_value: "Resolved", is_visible: true, is_filterable: true });
@@ -34,6 +34,28 @@ describe("catalog attribute normalization", () => {
     expect(forward.rows).toEqual(reverse.rows);
     expect(forward.rows[0].display_value).toBe("Alpha, Zulu");
     expect(forward.rows[0].raw_value).toEqual(["Alpha", "Zulu"]);
+  });
+
+  it("retains internal raw data but fails closed for visibility and filtering", () => {
+    const result = normalizeCatalogAttributes([
+      row({
+        propertyRef: "cb442472-ac8c-11f1-639c-bc2411369b92",
+        key: "property_cb442472-ac8c-11f1-639c-bc2411369b92",
+        label: "Дата создания",
+        rawValue: "2024-08-01T00:00:00",
+        displayValue: "01.08.2024",
+        classification: "MERCHANDISING_INTERNAL",
+        filterable: true,
+        visible: true,
+      }),
+    ], now);
+
+    expect(result.rows[0]).toMatchObject({
+      raw_value: "2024-08-01T00:00:00",
+      classification: "MERCHANDISING_INTERNAL",
+      is_filterable: false,
+      is_visible: false,
+    });
   });
 });
 
@@ -88,6 +110,7 @@ function row(overrides: Partial<CatalogAttributeSourceRow> = {}): CatalogAttribu
     resolvedValueRef: null,
     resolutionStatus: "not_required",
     valueType: "string",
+    classification: "CUSTOMER_SPECIFICATION",
     filterable: false,
     visible: true,
     available: true,

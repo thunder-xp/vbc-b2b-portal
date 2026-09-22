@@ -1,3 +1,5 @@
+import { isCustomerFacingCatalogAttributeKey } from "../attribute-semantics";
+
 export type CatalogFacetSelection = Record<string, string[]>;
 
 export function updateCatalogFacetSelection(
@@ -21,7 +23,7 @@ export function catalogFacetQueryFields(
 ): Record<string, string> {
   return Object.fromEntries(
     Object.entries(selection)
-      .filter(([, values]) => values.length)
+      .filter(([key, values]) => values.length && isCustomerFacingCatalogAttributeKey(key))
       .map(([key, values]) => [`attr.${key}`, values.join(",")]),
   );
 }

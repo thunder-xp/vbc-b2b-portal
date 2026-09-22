@@ -5,6 +5,7 @@ import { deduplicateCatalogFacets } from "../catalog.service";
 
 const keyA = "property_11111111-1111-4111-8111-111111111111";
 const keyB = "property_22222222-2222-4222-8222-222222222222";
+const creationDateKey = "property_cb442472-ac8c-11f1-639c-bc2411369b92";
 
 describe("buildCatalogSortHiddenFields", () => {
   it("preserves merchandising labels through sorting and pagination", () => {
@@ -108,5 +109,10 @@ describe("parseCatalogAttributeFilters", () => {
   });
   it("rejects unsupported keys, GUID values, and empty values", () => {
     expect(parseCatalogAttributeFilters({ "attr.label": "Пластик", [`attr.${key}`]: "00000000-0000-0000-0000-000000000001" })).toEqual({});
+  });
+  it("ignores the internal creation-date facet and never serializes it into a URL", () => {
+    expect(parseCatalogAttributeFilters({ [`attr.${creationDateKey}`]: "01.08.2024" })).toEqual({});
+    expect(buildCatalogHref({ attributeFilters: { [creationDateKey]: ["01.08.2024"] } }))
+      .toBe("/cabinet/catalog");
   });
 });
