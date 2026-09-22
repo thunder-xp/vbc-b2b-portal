@@ -13,11 +13,11 @@ import {
   type OneCODataProbeResult,
 } from "./one-c-odata-client";
 import { getOneCSafeDiagnostic } from "./one-c-safe-diagnostic";
+import { PRODUCT_CREATION_DATE_PROPERTY_REF } from "../../../catalog/attribute-semantics";
 
 const CREATION_REQUISITE_RESOURCE = "Catalog_Номенклатура_ДополнительныеРеквизиты";
 const RECEIPT_RESOURCE = "Document_ПриходнаяНакладная";
 const RECEIPT_LINE_RESOURCE = "Document_ПриходнаяНакладная_Запасы";
-const CREATION_REQUISITE_REF = "cb442472-ac8c-11f1-639c-bc2411369b92";
 const CONTROL_PRODUCT_EXTERNAL_ID = "4b7d580e-02a3-11ed-6a9e-7239d3b7bd5c";
 const RECEIPT_OPERATION = "ПоступлениеОтПоставщика";
 const PAGE_SIZE = 500;
@@ -396,7 +396,7 @@ function collectCreationDates(rows: Row[], productRefs: ReadonlySet<string>) {
   const invalid = new Set<string>();
   for (const row of rows) {
     const productRef = text(row.Ref_Key).toLowerCase();
-    if (!productRefs.has(productRef) || text(row["Свойство_Key"]).toLowerCase() !== CREATION_REQUISITE_REF) continue;
+    if (!productRefs.has(productRef) || text(row["Свойство_Key"]).toLowerCase() !== PRODUCT_CREATION_DATE_PROPERTY_REF) continue;
     if (row["Значение_Type"] !== "Edm.DateTime") {
       invalid.add(productRef);
       continue;

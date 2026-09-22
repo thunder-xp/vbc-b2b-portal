@@ -1,6 +1,7 @@
 import type { PublicRetailLocale, PublicRetailMerchandisingMode, PublicRetailPriceSort } from "./types";
 import { catalogFacetQueryFields, updateCatalogFacetSelection } from "../catalog/services/catalog-facet-state";
 import type { NewRollingPeriod, RollingPeriodState } from "../commerce-period";
+import { isCustomerFacingCatalogAttributeKey } from "../catalog/attribute-semantics";
 
 export type PublicRetailCatalogState = {
   q?: string;
@@ -72,7 +73,7 @@ export function publicRetailCatalogReturnHref(locale: PublicRetailLocale, raw: s
   }
   if (parsed.origin !== "https://www.nsd.md" || parsed.pathname !== "/catalog") return undefined;
   const allowed = new Set(["lang", "view", "q", "category", "availability", "sort", "page"]);
-  if ([...parsed.searchParams.keys()].some((key) => !allowed.has(key) && !/^attr\.property_[0-9a-f-]{36}$/.test(key))) return undefined;
+  if ([...parsed.searchParams.keys()].some((key) => !allowed.has(key) && (!/^attr\.property_[0-9a-f-]{36}$/.test(key) || !isCustomerFacingCatalogAttributeKey(key.slice(5))))) return undefined;
   if (parsed.searchParams.get("lang") !== locale || ![null, "all"].includes(parsed.searchParams.get("view"))) return undefined;
 
   const category = parsed.searchParams.get("category") ?? undefined;
@@ -86,7 +87,7 @@ export function publicRetailCatalogReturnHref(locale: PublicRetailLocale, raw: s
 
   const attributeFilters: Record<string, string[]> = {};
   for (const [key, value] of parsed.searchParams) {
-    if (!/^attr\.property_[0-9a-f-]{36}$/.test(key) || !value || value.length > 1_000) continue;
+    if (!/^attr\.property_[0-9a-f-]{36}$/.test(key) || !isCustomerFacingCatalogAttributeKey(key.slice(5)) || !value || value.length > 1_000) continue;
     attributeFilters[key.slice(5)] = value.split("|").filter(Boolean).slice(0, 20);
   }
   return publicRetailPlainCatalogHref(locale, {

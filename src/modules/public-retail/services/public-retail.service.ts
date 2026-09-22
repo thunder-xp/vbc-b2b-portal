@@ -7,6 +7,7 @@ import {
   type PublicRetailLocale,
 } from "../types";
 import { resolveRollingPeriod, type EffectiveRollingPeriod, type NewRollingPeriod } from "../../commerce-period";
+import { isCustomerFacingCatalogAttributeKey } from "../../catalog/attribute-semantics";
 
 export type PublicRetailListInput = {
   locale?: string;
@@ -106,7 +107,7 @@ function normalizeFacets(value: Record<string, string[]> | undefined): Record<st
   const normalized = Object.fromEntries(entries.map(([key, selected]) => {
     const normalizedKey = key.trim();
     const normalizedValues = [...new Set(selected.map((item) => item.trim()).filter(Boolean))];
-    if (!/^property_[0-9a-f-]{36}$/.test(normalizedKey) || normalizedValues.length < 1 || normalizedValues.length > 10
+    if (!/^property_[0-9a-f-]{36}$/.test(normalizedKey) || !isCustomerFacingCatalogAttributeKey(normalizedKey) || normalizedValues.length < 1 || normalizedValues.length > 10
       || normalizedValues.some((item) => item.length > 1000)) {
       throw new Error("Invalid Public Retail facet.");
     }

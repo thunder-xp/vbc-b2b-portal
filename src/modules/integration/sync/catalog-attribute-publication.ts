@@ -16,6 +16,7 @@ export type CatalogAttributePersistenceRow = {
   resolution_status: CatalogProductAttributeDTO["resolutionStatus"];
   resolved_value_ref: string | null;
   value_type: string | null;
+  classification: CatalogProductAttributeDTO["classification"];
   is_filterable: boolean;
   is_visible: boolean;
   source_updated_at: string | null;
@@ -56,6 +57,7 @@ export function normalizeCatalogAttributes(
   const rows = [...grouped.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, group]) => {
     const ranked = [...group].sort(compareAttributePriority);
     const canonical = ranked[0];
+    const classification = resolveClassification(group);
     const preferredResolution = group.some((row) => row.resolutionStatus === "resolved")
       ? group.filter((row) => row.resolutionStatus === "resolved")
       : group;
@@ -81,8 +83,9 @@ export function normalizeCatalogAttributes(
         : canonical.resolutionStatus,
       resolved_value_ref: uniqueSorted(group.flatMap((row) => row.resolvedValueRef ? [row.resolvedValueRef] : []))[0] ?? null,
       value_type: canonical.valueType,
-      is_filterable: group.some((row) => row.filterable),
-      is_visible: group.some((row) => row.visible),
+      classification,
+      is_filterable: classification === "FACETABLE_SPECIFICATION" && group.some((row) => row.filterable),
+      is_visible: (classification === "CUSTOMER_SPECIFICATION" || classification === "FACETABLE_SPECIFICATION") && group.some((row) => row.visible),
       source_updated_at: canonical.sourceUpdatedAt,
       updated_at: updatedAt,
     };
@@ -106,6 +109,13 @@ function compareAttributePriority(left: CatalogAttributeSourceRow, right: Catalo
     || Number(Boolean(right.displayValue.trim())) - Number(Boolean(left.displayValue.trim()))
     || Number(right.filterable) - Number(left.filterable)
     || stableAttributeKey(left).localeCompare(stableAttributeKey(right));
+}
+
+function resolveClassification(group: CatalogAttributeSourceRow[]): CatalogProductAttributeDTO["classification"] {
+  if (group.some((row) => row.classification === "SYSTEM_INTERNAL")) return "SYSTEM_INTERNAL";
+  if (group.some((row) => row.classification === "MERCHANDISING_INTERNAL")) return "MERCHANDISING_INTERNAL";
+  if (group.some((row) => row.classification === "FACETABLE_SPECIFICATION")) return "FACETABLE_SPECIFICATION";
+  return "CUSTOMER_SPECIFICATION";
 }
 
 function stableAttributeKey(row: CatalogAttributeSourceRow): string {

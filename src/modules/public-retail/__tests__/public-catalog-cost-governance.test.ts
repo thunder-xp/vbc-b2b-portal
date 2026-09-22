@@ -10,6 +10,7 @@ describe("public catalog cost governance", () => {
     const key = "attr.property_11111111-1111-4111-8111-111111111111";
     expect(isValidPublicCatalogRequest({ lang: "ro", category: "video", [key]: "alb,negru", page: "2" })).toBe(true);
     expect(isValidPublicCatalogRequest({ "attr.bad": "value" })).toBe(false);
+    expect(isValidPublicCatalogRequest({ "attr.property_cb442472-ac8c-11f1-639c-bc2411369b92": "01.08.2024" })).toBe(false);
     expect(isValidPublicCatalogRequest({ [key]: Array.from({ length: 11 }, (_, index) => `value-${index}`).join(",") })).toBe(false);
     expect(isValidPublicCatalogRequest({ [key]: "11111111-1111-4111-8111-111111111111" })).toBe(false);
     expect(isValidPublicCatalogRequest({ q: "a".repeat(101) })).toBe(false);
