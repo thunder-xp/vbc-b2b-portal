@@ -142,6 +142,23 @@ describe("ProfileForm", () => {
       await screen.findByText("This action is not allowed."),
     ).toBeInTheDocument();
   });
+
+  it("shows an actionable phone ownership error during profile creation", async () => {
+    const user = userEvent.setup();
+    mocks.createProfileAction.mockResolvedValue({
+      success: false,
+      errorCode: "PHONE_ALREADY_IN_USE",
+      message: "This phone is already linked to another account. Contact Novotech support for an ownership review.",
+      data: null,
+    });
+    render(<ProfileForm profile={null} />);
+
+    await user.type(screen.getByLabelText("Phone"), "+37367497101");
+    await user.click(screen.getByRole("button", { name: "Create profile" }));
+
+    expect(await screen.findByText(/ownership review/)).toBeInTheDocument();
+    expect(mocks.routerReplace).not.toHaveBeenCalled();
+  });
 });
 
 describe("AccessRequestForm", () => {

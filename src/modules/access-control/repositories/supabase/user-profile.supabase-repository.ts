@@ -12,11 +12,43 @@ import {
   type UserProfileRow,
 } from "./mappers";
 import {
+  RepositoryProfileCreationError,
   RepositoryUnexpectedError,
 } from "../index";
+import { z } from "zod";
 
 const USER_PROFILE_COLUMNS =
   "id, email, full_name, phone, preferred_locale, status, user_type, created_at, updated_at";
+
+const profileCreationResultSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    code: z.enum(["CREATED", "PROFILE_ALREADY_EXISTS", "RECOVERED"]),
+    correlationId: z.string().uuid(),
+    profile: z.object({
+      id: z.string().uuid(),
+      email: z.string().email(),
+      full_name: z.string().nullable(),
+      phone: z.string().nullable(),
+      preferred_locale: z.enum(["ru", "ro"]).nullable(),
+      status: z.string(),
+      user_type: z.string(),
+      created_at: z.string(),
+      updated_at: z.string(),
+    }),
+  }),
+  z.object({
+    ok: z.literal(false),
+    code: z.enum([
+      "AUTH_REQUIRED",
+      "PHONE_ALREADY_IN_USE",
+      "ONBOARDING_STATE_CONFLICT",
+      "INVALID_PHONE",
+      "TEMPORARY_SERVER_ERROR",
+    ]),
+    correlationId: z.string().uuid(),
+  }),
+]);
 
 export class SupabaseUserProfileRepository implements UserProfileRepository {
   async findById(userId: string): Promise<UserProfile | null> {
@@ -49,26 +81,30 @@ export class SupabaseUserProfileRepository implements UserProfileRepository {
     return data ? mapUserProfileRow(data as UserProfileRow) : null;
   }
 
-  async create(input: CreateUserProfileInput): Promise<UserProfile> {
+  async create(input: CreateUserProfileInput) {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("user_profiles")
-      .insert({
-        id: input.id,
-        email: input.email,
-        full_name: input.fullName ?? null,
-        phone: input.phone ?? null,
-        status: UserStatus.Registered,
-        user_type: UserType.External,
-      })
-      .select(USER_PROFILE_COLUMNS)
-      .single();
+      .rpc("create_own_user_profile_v1", {
+        p_full_name: input.fullName ?? null,
+        p_phone: input.phone ?? null,
+        p_correlation_id: input.correlationId,
+      });
 
     if (error) {
-      throw new RepositoryUnexpectedError();
+      throw new RepositoryUnexpectedError({
+        operation: "create_own_user_profile_v1",
+        table: "user_profiles",
+        payloadKeys: ["fullName", "phone", "correlationId"],
+        cause: error,
+      });
     }
 
-    return mapUserProfileRow(data as UserProfileRow);
+    const result = profileCreationResultSchema.parse(data);
+    if (!result.ok) {
+      throw new RepositoryProfileCreationError(result.code, result.correlationId);
+    }
+
+    return mapUserProfileRow(result.profile as UserProfileRow);
   }
 
   async activatePartnerProfile(userId: string): Promise<UserProfile> {
