@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(join(
   process.cwd(),
-  "supabase/migrations/20260922162041_new_partner_profile_creation_recovery.sql",
+  "supabase/migrations/20260922144751_new_partner_profile_creation_recovery.sql",
 ), "utf8");
 
 describe("new partner profile creation recovery migration", () => {
