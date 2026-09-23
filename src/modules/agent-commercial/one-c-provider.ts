@@ -79,9 +79,19 @@ export class OneCAgentCommercialProvider {
       filter: `ДокументОснование eq '${order.reference}'`,
       top: 20,
     }, { requestKind: "agent_commercial_realization_base_evidence" }));
-    const deliveries = [...orderRows, ...baseRows].filter((row) =>
-      guid(row.Ref_Key) && ((guid(row["Заказ"]) === order.reference && text(row["Заказ_Type"]) === ORDER_TYPE)
-        || (guid(row["ДокументОснование"]) === order.reference && text(row["ДокументОснование_Type"]) === ORDER_TYPE)) &&
+    const dateRows: Record<string, unknown>[] = [];
+    if (!orderRows.length && !baseRows.length) {
+      const date = order.date.slice(0, 10);
+      for (let page = 0; page < 5; page += 1) {
+        const rows = collection(await this.client.getLiteralDateRange(DELIVERY_RESOURCE, {
+          startDate: date, endDate: date, select: deliverySelect, top: 100, skip: page * 100,
+        }, { requestKind: "agent_commercial_realization_date_fallback" }));
+        dateRows.push(...rows);
+        if (rows.some((row) => exactOrderLink(row, order.reference)) || rows.length < 100) break;
+      }
+    }
+    const deliveries = [...orderRows, ...baseRows, ...dateRows].filter((row) =>
+      guid(row.Ref_Key) && exactOrderLink(row, order.reference) &&
       row.Posted === true && row.DeletionMark === false &&
       guid(row["Контрагент_Key"]) === order.customerRef && amount(row["СуммаДокумента"]) !== null);
 
@@ -224,6 +234,7 @@ function amount(value: unknown): number | null { const parsed = typeof value ===
 function requiredAmount(value: unknown, label: string): number { const parsed = amount(value); if (parsed === null || parsed < 0) throw new Error(`INVALID_ONEC_${label.toUpperCase().replaceAll(" ", "_")}`); return roundMoney(parsed); }
 function currencyCode(row: Record<string, unknown>): string { const normalized = normalizeOneCCurrencyCode(text(row.Code)) ?? normalizeOneCCurrencyCode(text(row.Description)); if (!normalized) throw new Error("INVALID_ONEC_CURRENCY"); return normalized; }
 function customerKind(value: unknown): "PERSON" | "LEGAL_ENTITY" { const normalized = text(value); if (normalized === "ФизическоеЛицо") return "PERSON"; if (normalized === "ЮридическоеЛицо") return "LEGAL_ENTITY"; throw new Error("UNMAPPED_ONEC_CUSTOMER_KIND"); }
+function exactOrderLink(row: Record<string, unknown>, reference: string): boolean { return (guid(row["Заказ"]) === reference && text(row["Заказ_Type"]) === ORDER_TYPE) || (guid(row["ДокументОснование"]) === reference && text(row["ДокументОснование_Type"]) === ORDER_TYPE); }
 function external(externalId: string, externalType: string) { return { providerCode: "one-c", externalId, externalType }; }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function sum(values: number[]): number { return roundMoney(values.reduce((total, value) => total + value, 0)); }
