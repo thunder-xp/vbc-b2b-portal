@@ -67,13 +67,21 @@ export class OneCAgentCommercialProvider {
   async projectionSource(orderReference: string): Promise<Record<string, unknown>> {
     requireGuid(orderReference, "1C order");
     const order = await this.readOrder(orderReference);
+    const deliverySelect = "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Заказ,Заказ_Type,ДокументОснование,ДокументОснование_Type,СуммаДокумента,DataVersion";
     const deliveryPayload = await this.client.getFilteredCollection(DELIVERY_RESOURCE, {
-      select: "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Заказ,Заказ_Type,СуммаДокумента,DataVersion",
+      select: deliverySelect,
       filter: `Заказ eq '${order.reference}'`,
       top: 20,
     }, { requestKind: "agent_commercial_realization_evidence" });
-    const deliveries = collection(deliveryPayload).filter((row) =>
-      guid(row.Ref_Key) && guid(row["Заказ"]) === order.reference && text(row["Заказ_Type"]) === ORDER_TYPE &&
+    const orderRows = collection(deliveryPayload);
+    const baseRows = orderRows.length ? [] : collection(await this.client.getFilteredCollection(DELIVERY_RESOURCE, {
+      select: deliverySelect,
+      filter: `ДокументОснование eq '${order.reference}'`,
+      top: 20,
+    }, { requestKind: "agent_commercial_realization_base_evidence" }));
+    const deliveries = [...orderRows, ...baseRows].filter((row) =>
+      guid(row.Ref_Key) && ((guid(row["Заказ"]) === order.reference && text(row["Заказ_Type"]) === ORDER_TYPE)
+        || (guid(row["ДокументОснование"]) === order.reference && text(row["ДокументОснование_Type"]) === ORDER_TYPE)) &&
       row.Posted === true && row.DeletionMark === false &&
       guid(row["Контрагент_Key"]) === order.customerRef && amount(row["СуммаДокумента"]) !== null);
 
