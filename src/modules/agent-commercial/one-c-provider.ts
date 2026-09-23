@@ -39,6 +39,7 @@ export class OneCAgentCommercialProvider {
   async searchOrders(number: string): Promise<OneCCommercialOrderCandidate[]> {
     const normalized = number.trim();
     if (!/^[\p{L}\p{N}._/-]{1,80}$/u.test(normalized)) throw new Error("INVALID_ONEC_ORDER_NUMBER");
+    if (GUID.test(normalized)) return [await this.readOrder(normalized.toLowerCase())];
     const payload = await this.client.getFilteredCollection(ORDER_RESOURCE, {
       select: ORDER_SELECT,
       filter: `Number eq '${normalized.replaceAll("'", "''")}'`,
