@@ -68,8 +68,8 @@ export class OneCAgentCommercialProvider {
     requireGuid(orderReference, "1C order");
     const order = await this.readOrder(orderReference);
     const deliveryPayload = await this.client.getFilteredCollection(DELIVERY_RESOURCE, {
-      select: "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Заказ,Заказ_Type,ДокументОснование,ДокументОснование_Type,СуммаДокумента,DataVersion",
-      filter: `(Заказ eq '${order.reference}' and Заказ_Type eq '${ORDER_TYPE}') or (ДокументОснование eq '${order.reference}' and ДокументОснование_Type eq '${ORDER_TYPE}')`,
+      select: "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Заказ,Заказ_Type,СуммаДокумента,DataVersion",
+      filter: `Заказ eq '${order.reference}' and Заказ_Type eq '${ORDER_TYPE}'`,
       top: 20,
     }, { requestKind: "agent_commercial_realization_evidence" });
     const deliveries = collection(deliveryPayload).filter((row) =>
