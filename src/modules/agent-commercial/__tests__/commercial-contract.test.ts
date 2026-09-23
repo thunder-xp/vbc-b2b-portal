@@ -23,6 +23,7 @@ describe("Agent commercial cabinet contract", () => {
     expect(provider).toContain("filter: `Number eq");
     expect(provider).toContain("Заказ eq '${order.reference}'");
     expect(provider).not.toContain("Заказ eq guid'${order.reference}'");
+    expect(provider).toContain('text(row["Заказ_Type"]) === ORDER_TYPE');
     expect(provider).not.toContain("ДокументОснование eq '${order.reference}'");
     expect(provider).toContain("getOrder(reference");
     expect(actions).toContain('formData.get("confirmExact")');
