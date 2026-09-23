@@ -15,6 +15,10 @@ export class AgentCabinetService {
   openAttention(eventId: string) { if (!UUID.test(eventId)) throw new Error("INVALID_ATTENTION"); return this.repository.openAttention(eventId); }
   referrals(page: number) { return this.repository.referrals(validPage(page)); }
   clients(page: number) { return this.repository.clients(validPage(page)); }
+  commercialKpis() { return this.repository.commercialKpis(); }
+  deals(page: number) { return this.repository.deals(validPage(page)); }
+  deal(id: string) { return UUID.test(id) ? this.repository.deal(id) : Promise.resolve(null); }
+  rewards() { return this.repository.rewards(); }
   referral(id: string) { return UUID.test(id) ? this.repository.referral(id) : Promise.resolve(null); }
   client(id: string) { return UUID.test(id) ? this.repository.client(id) : Promise.resolve(null); }
   updateProfile(input: { phone: string; email: string; locality: string; profession: string; workplace: string }) {

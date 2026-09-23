@@ -56,8 +56,8 @@ describe("Agent Cabinet V1 contract", () => {
     expect(migration).not.toContain("p_level text");
   });
 
-  it("does not expose partner commercial or commission data", () => {
-    expect(migration).not.toMatch(/partner_price|debt|credit_limit|commission_amount/i);
+  it("does not expose partner prices, debt, cost, margin, or profit", () => {
+    expect(migration).not.toMatch(/partner_price|debt|credit_limit/i);
     expect(qrPage).not.toMatch(/company_id|agent\.id}/);
   });
 
@@ -67,13 +67,15 @@ describe("Agent Cabinet V1 contract", () => {
     expect(auditMigration).not.toContain("jsonb_build_object('phone'");
   });
 
-  it("uses an action-first daily home without financial or KPI-dashboard claims", () => {
+  it("keeps the action-first home and adds only agent-owned commercial KPIs", () => {
     const home = readFileSync(join(root, "app/(agent)/agent/page.tsx"), "utf8");
     expect(home).toContain("copy.primaryAction");
     expect(home).toContain("overview.latestActivity");
     expect(home).toContain("copy.showQr");
     expect(home).not.toContain("const kpis =");
-    expect(home).not.toMatch(/balance|commission|payout|0 MDL/i);
+    expect(home).toContain("commercialKpis.expectedReward");
+    expect(home).toContain("commercialKpis.availablePayout");
+    expect(home).not.toMatch(/cost|margin|profit|procurement/i);
   });
 
   it("keeps acceptance identities local-only and outside migration data", () => {
