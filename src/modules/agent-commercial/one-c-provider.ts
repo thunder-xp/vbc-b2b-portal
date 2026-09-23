@@ -112,6 +112,19 @@ export class OneCAgentCommercialProvider {
     const fullyPaid = !reconciliationRequired && remaining !== null && remaining <= 0 && paid + 0.01 >= order.grossAmount;
     const realized = realizationComplete && order.posted && !order.deletionMarked;
 
+    if (deliveries.length > 0 && !realizationComplete) {
+      console.warn("[agent-commercial] realization reconciliation required", {
+        orderRef: order.reference,
+        deliveryRefs: deliveries.map((row) => guid(row.Ref_Key)),
+        orderGross: order.grossAmount,
+        orderLineGross,
+        realizedGross,
+        paidGross: paid,
+        remainingGross: remaining,
+        obligationFound: Boolean(obligation),
+      });
+    }
+
     return {
       order: {
         ref: order.reference,
