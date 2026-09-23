@@ -69,11 +69,12 @@ export class OneCAgentCommercialProvider {
     const order = await this.readOrder(orderReference);
     const deliveryPayload = await this.client.getFilteredCollection(DELIVERY_RESOURCE, {
       select: "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Заказ,Заказ_Type,СуммаДокумента,DataVersion",
-      filter: `Заказ eq '${order.reference}' and Заказ_Type eq '${ORDER_TYPE}'`,
+      filter: `Заказ eq '${order.reference}'`,
       top: 20,
     }, { requestKind: "agent_commercial_realization_evidence" });
     const deliveries = collection(deliveryPayload).filter((row) =>
-      guid(row.Ref_Key) && row.Posted === true && row.DeletionMark === false &&
+      guid(row.Ref_Key) && guid(row["Заказ"]) === order.reference && text(row["Заказ_Type"]) === ORDER_TYPE &&
+      row.Posted === true && row.DeletionMark === false &&
       guid(row["Контрагент_Key"]) === order.customerRef && amount(row["СуммаДокумента"]) !== null);
 
     const finance = await this.provider.finance.fetchPaymentObligations({
