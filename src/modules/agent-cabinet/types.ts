@@ -1,4 +1,5 @@
 import type { AgentComplianceStatus, AgentReferralStatus, CommercialAgentLevel, CommercialAgentStatus, CommercialAgentType } from "../agent-domain";
+import type { AgentCommercialKpis, AgentDealDetail, AgentDealSummary, AgentRewardsView } from "../agent-commercial/types";
 
 export type AgentCabinetAccessMode = "OPERATIONAL" | "RESTRICTED" | "STATUS_ONLY";
 
@@ -93,3 +94,4 @@ export type AgentCabinetOverview = {
 
 export type PageResult<T> = { items: T[]; total: number };
 export type AgentPrimaryToken = { id: string; publicToken: string; createdAt: string };
+export type { AgentCommercialKpis, AgentDealDetail, AgentDealSummary, AgentRewardsView };

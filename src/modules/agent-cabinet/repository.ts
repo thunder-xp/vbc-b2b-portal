@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/src/lib/supabase/server";
 
-import type { AgentCabinetContext, AgentCabinetOverview, AgentClientView, AgentPrimaryToken, AgentReferralView, PageResult } from "./types";
+import type { AgentCabinetContext, AgentCabinetOverview, AgentClientView, AgentCommercialKpis, AgentDealDetail, AgentDealSummary, AgentPrimaryToken, AgentReferralView, AgentRewardsView, PageResult } from "./types";
 
 export class AgentCabinetRepository {
   async context(): Promise<AgentCabinetContext | null> { return this.rpc("get_agent_cabinet_context"); }
@@ -20,6 +20,12 @@ export class AgentCabinetRepository {
   async client(id: string): Promise<AgentClientView | null> {
     return this.rpc("get_agent_cabinet_client", { p_attribution_id: id });
   }
+  async commercialKpis(): Promise<AgentCommercialKpis> { return this.rpc("get_agent_cabinet_commercial_kpis"); }
+  async deals(page: number): Promise<PageResult<AgentDealSummary>> {
+    return this.rpc("list_agent_cabinet_deals", { p_limit: 20, p_offset: (page - 1) * 20 });
+  }
+  async deal(id: string): Promise<AgentDealDetail | null> { return this.rpc("get_agent_cabinet_deal", { p_sale_link_id: id }); }
+  async rewards(): Promise<AgentRewardsView> { return this.rpc("get_agent_cabinet_rewards"); }
   async ensurePrimaryToken(publicToken: string, tokenHash: string): Promise<AgentPrimaryToken> {
     return this.rpc("ensure_agent_cabinet_primary_token", { p_public_token: publicToken, p_token_hash: tokenHash });
   }

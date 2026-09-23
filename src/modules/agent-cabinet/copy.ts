@@ -43,13 +43,19 @@ export const agentComplianceCopy: Record<AgentCabinetLocale, Record<AgentComplia
 
 export const agentCabinetCopy = {
   ru: {
-    cabinet: "Кабинет агента", role: "Коммерческий агент", home: "Главная", referrals: "Заявки", clients: "Клиенты", tools: "Инструменты", profile: "Профиль",
+    cabinet: "Кабинет агента", role: "Коммерческий агент", home: "Главная", referrals: "Рекомендации", clients: "Клиенты", deals: "Сделки", rewards: "Вознаграждения", tools: "Инструменты", profile: "Профиль",
+    commercialClients: "Клиенты", dealsInProgress: "Сделки в работе", expectedReward: "Ожидаемое вознаграждение", availablePayout: "Доступно к выплате",
+    dealsTitle: "Сделки", dealsBody: "Продажи 1С, связанные с вашими подтверждёнными рекомендациями.", noDeals: "Связанных сделок пока нет.",
+    rewardsTitle: "Вознаграждения", expected: "Ожидается", review: "На проверке", available: "Доступно к выплате", paid: "Выплачено", monthlyStatement: "История начислений", noRewards: "Начислений пока нет.",
     today: "Сегодня", primaryAction: "Создать рекомендацию", showQr: "Мой QR", activeReferrals: "Текущие рекомендации", allReferrals: "Все заявки", noReferrals: "Новых рекомендаций пока нет.",
     attention: "Следующий шаг", checkResult: "Проверьте результат рекомендации", open: "Открыть", share: "Привлечение клиентов", shareBody: "Покажите QR или отправьте персональную ссылку — рекомендация будет зафиксирована в системе.", materials: "Материалы", recentActivity: "Последние изменения", noActivity: "Здесь появятся изменения по вашим рекомендациям.",
     onboardingTitle: "Подготовка кабинета", onboardingBody: "Завершите текущий этап, чтобы открыть рабочие инструменты.", currentStage: "Текущий этап", verification: "Проверка", nextStep: "Следующий шаг", contactCoordinator: "Связаться с координатором Novotech",
   },
   ro: {
-    cabinet: "Cabinetul agentului", role: "Agent comercial", home: "Acasă", referrals: "Recomandări", clients: "Clienți", tools: "Instrumente", profile: "Profil",
+    cabinet: "Cabinetul agentului", role: "Agent comercial", home: "Acasă", referrals: "Recomandări", clients: "Clienți", deals: "Tranzacții", rewards: "Recompense", tools: "Instrumente", profile: "Profil",
+    commercialClients: "Clienți", dealsInProgress: "Tranzacții în lucru", expectedReward: "Recompensă estimată", availablePayout: "Disponibil pentru plată",
+    dealsTitle: "Tranzacții", dealsBody: "Vânzări 1C asociate recomandărilor dvs. confirmate.", noDeals: "Nu există tranzacții asociate.",
+    rewardsTitle: "Recompense", expected: "Se estimează", review: "În verificare", available: "Disponibil pentru plată", paid: "Plătit", monthlyStatement: "Istoricul calculărilor", noRewards: "Nu există calculări.",
     today: "Astăzi", primaryAction: "Creează recomandare", showQr: "QR-ul meu", activeReferrals: "Recomandări curente", allReferrals: "Toate recomandările", noReferrals: "Nu există recomandări noi.",
     attention: "Următorul pas", checkResult: "Verificați rezultatul recomandării", open: "Deschide", share: "Atrageți clienți", shareBody: "Arătați codul QR sau trimiteți linkul personal — recomandarea va fi înregistrată în sistem.", materials: "Materiale", recentActivity: "Modificări recente", noActivity: "Aici vor apărea modificările recomandărilor dvs.",
     onboardingTitle: "Pregătirea cabinetului", onboardingBody: "Finalizați etapa curentă pentru a deschide instrumentele de lucru.", currentStage: "Etapa curentă", verification: "Verificare", nextStep: "Următorul pas", contactCoordinator: "Contactați coordonatorul Novotech",

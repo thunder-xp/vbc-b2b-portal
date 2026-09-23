@@ -3,16 +3,26 @@ import { notFound } from "next/navigation";
 
 import { requireAdminPagePermission } from "@/src/modules/admin";
 import { ReferralTokenForm, confirmCommercialAgentContractAction, createAgentDomainService, reviewAgentComplianceAction, revokeReferralTokenAction, transitionCommercialAgentAction } from "@/src/modules/agent-domain";
+import { AdminCommercialBlock, createAgentCommercialService } from "@/src/modules/agent-commercial";
 
 const STATUS_TARGETS = ["COMPLIANCE_REVIEW", "CONTRACT_PENDING", "APPROVED", "TRAINING", "ACTIVE", "SUSPENDED", "TERMINATED", "REJECTED"] as const;
 
-export default async function AdminAgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminAgentDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ orderNumber?: string; agent1cRef?: string }> }) {
   const context = await requireAdminPagePermission("admin.agents.view");
   const { id } = await params;
-  const detail = await createAgentDomainService().getAgent(id);
+  const { orderNumber = "", agent1cRef = "" } = await searchParams;
+  const canManage = context.permissions.includes("admin.agents.manage");
+  const canViewCommercial = context.permissions.includes("admin.agent_commercial.view");
+  const canManageCommercial = context.permissions.includes("admin.agent_commercial.manage");
+  const canApproveRewards = context.permissions.includes("admin.agent_rewards.approve");
+  const [detail, commercial, candidates, agentCandidate] = await Promise.all([
+    createAgentDomainService().getAgent(id),
+    canViewCommercial ? createAgentCommercialService().detail(id) : Promise.resolve(null),
+    canManageCommercial && orderNumber.trim() ? createAgentCommercialService().searchOrders(orderNumber.trim()) : Promise.resolve([]),
+    canManageCommercial && agent1cRef.trim() ? createAgentCommercialService().resolveAgent(agent1cRef.trim()) : Promise.resolve(null),
+  ]);
   if (!detail) notFound();
   const { agent, compliance, tokens, attributions, contractConfirmedByName } = detail;
-  const canManage = context.permissions.includes("admin.agents.manage");
   return <main className="space-y-6">
     <header><Link className="text-sm font-semibold text-emerald-800 hover:underline" href="/admin/agents">← Все агенты</Link><div className="mt-3 flex flex-wrap items-end justify-between gap-3"><div><p className="font-mono text-xs text-zinc-500">{agent.agentCode}</p><h1 className="text-3xl font-semibold">{agent.displayName}</h1><p className="mt-1 text-sm text-zinc-600">{agent.agentType} · {agent.status} · {agent.level}</p></div>{canManage ? <form action={transitionCommercialAgentAction} className="flex gap-2"><input name="agentId" type="hidden" value={agent.id} /><select className="h-11 rounded-md border border-zinc-300 px-3 text-sm" defaultValue="" name="targetStatus" required><option disabled value="">Новый статус</option>{STATUS_TARGETS.map((status) => <option key={status} value={status}>{status}</option>)}</select><button className="h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">Изменить</button></form> : null}</div></header>
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[["Телефон", agent.phone ?? "—"], ["Email", agent.email ?? "—"], ["Локация", agent.locality ?? "—"], ["Профиль", agent.userId ? "Привязан" : "Без входа"]].map(([label, value]) => <div className="rounded-lg border border-zinc-200 bg-white p-4" key={label}><p className="text-xs uppercase text-zinc-500">{label}</p><p className="mt-1 font-medium">{value}</p></div>)}</section>
@@ -20,6 +30,7 @@ export default async function AdminAgentDetailPage({ params }: { params: Promise
     {canManage ? <section className="space-y-3"><h2 className="text-xl font-semibold">Compliance</h2><form action={reviewAgentComplianceAction} className="grid gap-3 rounded-lg border border-zinc-200 bg-white p-5 sm:grid-cols-2 xl:grid-cols-3"><input name="agentId" type="hidden" value={agent.id} /><Select label="Госсектор" name="publicSectorFlag" value={String(compliance?.publicSectorFlag ?? "unknown")} options={[["unknown", "Неизвестно"], ["true", "Да"], ["false", "Нет"]]} /><Select label="Внешняя оплачиваемая деятельность" name="externalPaidActivityStatus" value={compliance?.externalPaidActivityStatus ?? "UNKNOWN"} options={[["UNKNOWN", "Неизвестно"], ["ALLOWED", "Разрешено"], ["REQUIRES_REVIEW", "Нужна проверка"], ["PROHIBITED", "Запрещено"]]} /><Select label="Закупочные процедуры" name="procurementParticipationFlag" value={String(compliance?.procurementParticipationFlag ?? "unknown")} options={[["unknown", "Неизвестно"], ["true", "Да"], ["false", "Нет"]]} /><Select label="Конфликт интересов" name="conflictOfInterestStatus" value={compliance?.conflictOfInterestStatus ?? "UNREVIEWED"} options={[["UNREVIEWED", "Не проверено"], ["NONE_DECLARED", "Не заявлен"], ["REVIEW_REQUIRED", "Нужна проверка"], ["CONFIRMED", "Подтверждён"]]} /><Select label="Решение" name="reviewStatus" value={compliance?.complianceReviewStatus ?? "UNREVIEWED"} options={[["UNREVIEWED", "Не проверено"], ["PENDING", "На проверке"], ["APPROVED", "Одобрено"], ["REVIEW_REQUIRED", "Нужна проверка"], ["BLOCKED", "Заблокировано"], ["REJECTED", "Отклонено"]]} /><label className="text-sm font-medium">Безопасный комментарий<input className="mt-1 h-11 w-full rounded-md border border-zinc-300 px-3" defaultValue={compliance?.safeReviewNote ?? ""} maxLength={1000} name="safeReviewNote" /></label><button className="min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white sm:col-span-2 xl:col-span-3" type="submit">Сохранить проверку</button></form></section> : null}
     <section className="space-y-3"><h2 className="text-xl font-semibold">Реферальные ссылки</h2>{canManage && agent.status === "ACTIVE" ? <ReferralTokenForm agentId={agent.id} /> : null}<div className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">{tokens.map((token) => <div className="flex flex-wrap items-center justify-between gap-3 p-4" key={token.id}><div><p className="font-medium">{token.tokenType} · {token.status}</p><p className="text-xs text-zinc-500">{new Date(token.createdAt).toLocaleString("ru-RU")} · ID {token.id}</p></div>{canManage && token.status === "ACTIVE" ? <form action={revokeReferralTokenAction}><input name="agentId" type="hidden" value={agent.id} /><input name="tokenId" type="hidden" value={token.id} /><button className="min-h-11 rounded-md border border-red-300 px-4 text-sm font-semibold text-red-800" type="submit">Отозвать</button></form> : null}</div>)}{tokens.length === 0 ? <p className="p-4 text-sm text-zinc-600">Ссылок пока нет.</p> : null}</div></section>
     <section className="space-y-3"><h2 className="text-xl font-semibold">Атрибуция</h2><div className="rounded-lg border border-zinc-200 bg-white">{attributions.map((item) => <div className="border-b border-zinc-100 p-4 last:border-0" key={item.id}><p className="font-medium">{item.status} · до {new Date(item.protectionUntil).toLocaleDateString("ru-RU")}</p><p className="mt-1 font-mono text-xs text-zinc-500">Customer identity {item.customerIdentityId}</p></div>)}{attributions.length === 0 ? <p className="p-4 text-sm text-zinc-600">Активной истории пока нет.</p> : null}</div></section>
+    {commercial ? <AdminCommercialBlock agentCandidate={agentCandidate} agentId={id} agentSearchReference={agent1cRef} canApprove={canApproveRewards} canManage={canManageCommercial} candidates={candidates} detail={commercial} searchNumber={orderNumber}/> : null}
   </main>;
 }
 

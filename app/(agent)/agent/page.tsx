@@ -23,8 +23,9 @@ import { openAgentAttentionAction } from "@/src/modules/agent-cabinet/actions";
 import { ReferralStatusBadge } from "@/src/modules/agent-cabinet/components/StatusBadge";
 
 export default async function AgentHomePage() {
-  const [overview, locale] = await Promise.all([
+  const [overview, commercialKpis, locale] = await Promise.all([
     createAgentCabinetService().overview(),
+    createAgentCabinetService().commercialKpis(),
     getAgentCabinetLocale(),
   ]);
   if (!overview) return null;
@@ -36,6 +37,15 @@ export default async function AgentHomePage() {
       title={copy.cabinet}
       actions={<><Link className={cabinetPrimaryAction} href="/agent/qr#referral-link"><Plus aria-hidden className="size-4" />{copy.primaryAction}</Link><Link className={cabinetSecondaryAction} href="/agent/qr"><QrCode aria-hidden className="size-4" />{copy.showQr}</Link></>}
     />
+
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={copy.today}>
+      {[
+        [copy.commercialClients, String(commercialKpis.clients)],
+        [copy.dealsInProgress, String(commercialKpis.dealsInProgress)],
+        [copy.expectedReward, formatMoney(commercialKpis.expectedReward, commercialKpis.currency, locale)],
+        [copy.availablePayout, formatMoney(commercialKpis.availablePayout, commercialKpis.currency, locale)],
+      ].map(([label, value]) => <div className={`p-4 ${cabinetSurface}`} key={label}><p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p></div>)}
+    </section>
 
     {overview.attentionItems.length ? <section className="space-y-3" aria-label={copy.attention}><SectionHeader title={copy.attention}/><div className="space-y-2">{overview.attentionItems.map((item) => <AttentionActionItem action={openAgentAttentionAction} fields={{ eventId: item.id }} Icon={CircleAlert} detail={item.referralName ?? copy.checkResult} key={item.id} priority={item.priority} status={copy.open} title={agentEventCopy[locale][item.eventCode] ?? copy.checkResult}/>)}</div></section> : null}
 
@@ -68,4 +78,8 @@ function ActivityContent({ item, locale }: { item: { eventType: string; referral
 
 function formatDate(value: string, locale: "ru" | "ro") {
   return new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", { day: "2-digit", month: "short" }).format(new Date(value));
+}
+
+function formatMoney(value: number, currency: string, locale: "ru" | "ro") {
+  return new Intl.NumberFormat(locale === "ro" ? "ro-MD" : "ru-MD", { style: "currency", currency }).format(value);
 }
