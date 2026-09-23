@@ -3,6 +3,7 @@ import "server-only";
 import { getOneCEnv } from "@/src/lib/env";
 import { OneCProvider } from "@/src/modules/integration/providers/one-c/one-c-provider";
 import { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
+import { normalizeOneCCurrencyCode } from "@/src/modules/integration/providers/one-c/one-c-currency";
 import type { OneCAgentCandidate, OneCCommercialOrderCandidate, OneCCommercialOrderLine } from "./types";
 
 const GUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -125,7 +126,7 @@ export class OneCAgentCommercialProvider {
 
   private async readOrder(reference: string): Promise<OneCCommercialOrderCandidate> {
     const payload = await this.client.get(`${ORDER_RESOURCE}(guid'${reference}')`, {
-      $select: `${ORDER_SELECT},Запасы,Услуги`,
+      $select: `${ORDER_SELECT},Запасы`,
     }, { requestKind: "agent_commercial_order_exact" });
     return this.mapOrder(record(payload));
   }
@@ -212,7 +213,7 @@ function requiredDate(value: unknown): string { const parsed = new Date(text(val
 function requiredBoolean(value: unknown): boolean { if (typeof value !== "boolean") throw new Error("INVALID_ONEC_BOOLEAN"); return value; }
 function amount(value: unknown): number | null { const parsed = typeof value === "number" ? value : Number(value); return Number.isFinite(parsed) ? parsed : null; }
 function requiredAmount(value: unknown, label: string): number { const parsed = amount(value); if (parsed === null || parsed < 0) throw new Error(`INVALID_ONEC_${label.toUpperCase().replaceAll(" ", "_")}`); return roundMoney(parsed); }
-function currencyCode(row: Record<string, unknown>): string { const value = text(row.Code) || text(row.Description); const normalized = value.toUpperCase() === "LEI" ? "MDL" : value.toUpperCase(); if (!/^[A-Z]{3}$/.test(normalized)) throw new Error("INVALID_ONEC_CURRENCY"); return normalized; }
+function currencyCode(row: Record<string, unknown>): string { const normalized = normalizeOneCCurrencyCode(text(row.Code)) ?? normalizeOneCCurrencyCode(text(row.Description)); if (!normalized) throw new Error("INVALID_ONEC_CURRENCY"); return normalized; }
 function customerKind(value: unknown): "PERSON" | "LEGAL_ENTITY" { const normalized = text(value); if (normalized === "ФизическоеЛицо") return "PERSON"; if (normalized === "ЮридическоеЛицо") return "LEGAL_ENTITY"; throw new Error("UNMAPPED_ONEC_CUSTOMER_KIND"); }
 function external(externalId: string, externalType: string) { return { providerCode: "one-c", externalId, externalType }; }
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }

@@ -39,16 +39,17 @@ describe("OneCAgentCommercialProvider", () => {
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
       const url = decodeURIComponent(String(input)); calls.push(url);
       if (url.includes("Document_") && url.includes(`(guid'${ORDER}')`)) return json(orderRow());
-      if (url.includes("Catalog_") && url.includes("Code,Description")) return json({ Ref_Key: CURRENCY, Code: "MDL", Description: "Lei" });
+      if (url.includes("Catalog_") && url.includes("Code,Description")) return json({ Ref_Key: CURRENCY, Code: "498", Description: "MDL" });
       if (url.includes("Catalog_") && url.includes("Ref_Key,Description")) return json({ Ref_Key: CUSTOMER, Description: "Pilot customer", ["\u0412\u0438\u0434\u041a\u043e\u043d\u0442\u0440\u0430\u0433\u0435\u043d\u0442\u0430"]: "\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u043e\u0435\u041b\u0438\u0446\u043e" });
       throw new Error(`Unexpected URL: ${url}`);
     }));
 
     const result = await new OneCAgentCommercialProvider().searchOrders(ORDER.toUpperCase());
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ reference: ORDER, number: "NS-002691", grossAmount: 8494 });
+    expect(result[0]).toMatchObject({ reference: ORDER, number: "NS-002691", grossAmount: 8494, currency: "MDL" });
     expect(calls[0]).toContain(`(guid'${ORDER}')`);
     expect(calls[0]).not.toContain("$filter=Number eq");
+    expect(calls[0]).not.toContain("Услуги");
     expect(calls).toHaveLength(3);
   });
 
