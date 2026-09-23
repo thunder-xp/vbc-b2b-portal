@@ -25,6 +25,8 @@ describe("Agent commercial cabinet contract", () => {
     expect(provider).not.toContain("Заказ eq guid'${order.reference}'");
     expect(provider).toContain('text(row["Заказ_Type"]) === ORDER_TYPE');
     expect(provider).toContain("ДокументОснование eq '${order.reference}'");
+    expect(provider).toContain("getLiteralDateRange(DELIVERY_RESOURCE");
+    expect(provider).toContain("page < 5");
     expect(provider).toContain("getOrder(reference");
     expect(actions).toContain('formData.get("confirmExact")');
     expect(provider).not.toMatch(/includes\(.+name|name.+includes/i);
