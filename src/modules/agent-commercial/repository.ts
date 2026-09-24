@@ -9,7 +9,7 @@ export class AgentCommercialRepository {
     const [bindingResult, attributionResult, salesResult] = await Promise.all([
       client.from("agent_1c_bindings").select("source_agent_1c_id,source_external_code,source_fiscal_code,source_name_snapshot,linked_at").eq("agent_id", agentId).maybeSingle(),
       client.from("agent_attributions").select("id,referral_id,customer_identity_id,status,agent_referrals!inner(name_snapshot,referral_code)").eq("agent_id", agentId).order("valid_from", { ascending: false }),
-      client.from("agent_sale_links").select("id,source_order_1c_ref,source_order_number_snapshot,source_order_date_snapshot,source_customer_name_snapshot,source_currency_snapshot,agent_sale_projections(state,payment_state,source_realization_refs,gross_realized_amount,vat_amount,net_realized_amount,paid_gross_amount,fully_paid_at,source_observed_at),agent_reward_projections(state,forecast_reward_amount,classification_complete),agent_sale_projection_lines(source_line_ref,source_nomenclature_1c_ref,source_name_snapshot,net_amount,classification,classification_status)").eq("agent_id", agentId).order("source_order_date_snapshot", { ascending: false }),
+      client.from("agent_sale_links").select("id,source_order_1c_ref,source_order_number_snapshot,source_order_date_snapshot,source_customer_name_snapshot,source_currency_snapshot,agent_sale_projections(state,payment_state,source_realization_refs,realization_evidence,payment_evidence,gross_realized_amount,vat_amount,net_realized_amount,paid_gross_amount,fully_paid_at,source_observed_at),agent_reward_projections(state,forecast_reward_amount,classification_complete),agent_sale_projection_lines(source_line_ref,source_nomenclature_1c_ref,source_name_snapshot,net_amount,classification,classification_status)").eq("agent_id", agentId).order("source_order_date_snapshot", { ascending: false }),
     ]);
     for (const result of [bindingResult, attributionResult, salesResult]) if (result.error) throw new Error(`Agent commercial read failed: ${result.error.code}`);
     const binding = bindingResult.data as Record<string, unknown> | null;
@@ -41,6 +41,8 @@ export class AgentCommercialRepository {
           currency: row.source_currency_snapshot,
           classificationComplete: typeof reward?.classification_complete === "boolean" ? reward.classification_complete : null,
           realizationRefs: Array.isArray(projection?.source_realization_refs) ? projection.source_realization_refs.map(String) : [],
+          realizationEvidence: realizationEvidence(projection?.realization_evidence),
+          paymentEvidence: paymentEvidence(projection?.payment_evidence),
           realizedGrossAmount: Number(projection?.gross_realized_amount ?? 0),
           vatAmount: Number(projection?.vat_amount ?? 0),
           netRealizedAmount: Number(projection?.net_realized_amount ?? 0),
@@ -115,3 +117,23 @@ function relation(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? value as Record<string, unknown> : null;
 }
 function numberOrNull(value: unknown): number | null { const parsed = Number(value); return value !== null && Number.isFinite(parsed) ? parsed : null; }
+function realizationEvidence(value: unknown): AgentCommercialAdminDetail["sales"][number]["realizationEvidence"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const amount = Number(row.amount);
+    if ((row.type !== "DELIVERY" && row.type !== "WORK_ACT") || !Number.isFinite(amount)) return [];
+    return [{ type: row.type, ref: String(row.ref ?? ""), number: String(row.number ?? ""), date: String(row.date ?? ""), amount }];
+  });
+}
+function paymentEvidence(value: unknown): AgentCommercialAdminDetail["sales"][number]["paymentEvidence"] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const allocatedAmount = Number(row.allocatedAmount);
+    if ((row.type !== "BANK" && row.type !== "CASH") || !Number.isFinite(allocatedAmount)) return [];
+    return [{ type: row.type, ref: String(row.ref ?? ""), number: String(row.number ?? ""), date: String(row.date ?? ""), allocatedAmount }];
+  });
+}

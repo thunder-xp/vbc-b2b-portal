@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const migration = readFileSync(join(root, "supabase/migrations/20260923191606_agent_commercial_sales_rewards_v1.sql"), "utf8");
 const provider = readFileSync(join(root, "src/modules/agent-commercial/one-c-provider.ts"), "utf8");
+const evidence = readFileSync(join(root, "src/modules/agent-commercial/evidence.ts"), "utf8");
 const actions = readFileSync(join(root, "src/modules/agent-commercial/actions.ts"), "utf8");
 const navigation = readFileSync(join(root, "src/modules/agent-cabinet/components/AgentNavigation.tsx"), "utf8");
 
@@ -23,13 +24,13 @@ describe("Agent commercial cabinet contract", () => {
     expect(provider).toContain("filter: `Number eq");
     expect(provider).toContain("Заказ eq '${order.reference}'");
     expect(provider).not.toContain("Заказ eq guid'${order.reference}'");
-    expect(provider).toContain('text(row["Заказ_Type"]) === ORDER_TYPE');
+    expect(evidence).toContain("exactTypedOrder(row[\"Заказ\"], row[\"Заказ_Type\"], order.reference)");
     expect(provider).toContain("ДокументОснование eq '${order.reference}'");
-    expect(provider).toContain("getLiteralDateRange(DELIVERY_RESOURCE");
-    expect(provider).toContain("page < 5");
+    expect(provider).toContain("ЗаказПокупателя_Key eq guid'${order.reference}'");
+    expect(provider).toContain("page < EVIDENCE_MAX_PAGES");
     expect(provider).toContain("getOrder(reference");
     expect(actions).toContain('formData.get("confirmExact")');
-    expect(provider).not.toMatch(/includes\(.+name|name.+includes/i);
+    expect(evidence).not.toMatch(/includes\(.+name|name.+includes/i);
   });
 
   it("fails unclassified realization lines closed and never pays automatically", () => {

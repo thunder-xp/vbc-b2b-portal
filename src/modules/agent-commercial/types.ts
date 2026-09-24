@@ -64,6 +64,20 @@ export type AgentCommercialAdminDetail = {
     currency: string;
     classificationComplete: boolean | null;
     realizationRefs: string[];
+    realizationEvidence: Array<{
+      type: "DELIVERY" | "WORK_ACT";
+      ref: string;
+      number: string;
+      date: string;
+      amount: number;
+    }>;
+    paymentEvidence: Array<{
+      type: "BANK" | "CASH";
+      ref: string;
+      number: string;
+      date: string;
+      allocatedAmount: number;
+    }>;
     realizedGrossAmount: number;
     vatAmount: number;
     netRealizedAmount: number;

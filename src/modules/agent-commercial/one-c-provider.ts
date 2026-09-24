@@ -4,15 +4,21 @@ import { getOneCEnv } from "@/src/lib/env";
 import { OneCProvider } from "@/src/modules/integration/providers/one-c/one-c-provider";
 import { OneCODataClient } from "@/src/modules/integration/providers/one-c/one-c-odata-client";
 import { normalizeOneCCurrencyCode } from "@/src/modules/integration/providers/one-c/one-c-currency";
+import { buildAgentEvidenceProjection, exactTypedOrder, type TaggedOneCRow } from "./evidence";
 import type { OneCAgentCandidate, OneCCommercialOrderCandidate, OneCCommercialOrderLine } from "./types";
 
 const GUID = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const ORDER_RESOURCE = "Document_ЗаказПокупателя";
 const DELIVERY_RESOURCE = "Document_РасходнаяНакладная";
+const WORK_ACT_RESOURCE = "Document_АктВыполненныхРабот";
+const BANK_PAYMENT_RESOURCE = "Document_ПоступлениеНаСчет";
+const CASH_PAYMENT_RESOURCE = "Document_ПоступлениеВКассу";
+const SETTLEMENT_REGISTER = "AccumulationRegister_РасчетыСПокупателями";
 const COUNTERPARTY_RESOURCE = "Catalog_Контрагенты";
 const CURRENCY_RESOURCE = "Catalog_Валюты";
 const NOMENCLATURE_RESOURCE = "Catalog_Номенклатура";
-const ORDER_TYPE = "StandardODATA.Document_ЗаказПокупателя";
+const EVIDENCE_PAGE_SIZE = 100;
+const EVIDENCE_MAX_PAGES = 5;
 const ORDER_SELECT = [
   "Ref_Key", "Number", "Date", "Posted", "DeletionMark", "Контрагент_Key",
   "Организация_Key", "СуммаДокумента", "ВалютаДокумента_Key", "СостояниеЗаказа",
@@ -67,93 +73,65 @@ export class OneCAgentCommercialProvider {
   async projectionSource(orderReference: string): Promise<Record<string, unknown>> {
     requireGuid(orderReference, "1C order");
     const order = await this.readOrder(orderReference);
-    const deliverySelect = "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Заказ,Заказ_Type,ДокументОснование,ДокументОснование_Type,СуммаДокумента,DataVersion";
-    const deliveryPayload = await this.client.getFilteredCollection(DELIVERY_RESOURCE, {
-      select: deliverySelect,
-      filter: `Заказ eq '${order.reference}'`,
-      top: 20,
-    }, { requestKind: "agent_commercial_realization_evidence" });
-    const orderRows = collection(deliveryPayload);
-    const baseRows = orderRows.length ? [] : collection(await this.client.getFilteredCollection(DELIVERY_RESOURCE, {
-      select: deliverySelect,
-      filter: `ДокументОснование eq '${order.reference}'`,
-      top: 20,
-    }, { requestKind: "agent_commercial_realization_base_evidence" }));
-    const dateRows: Record<string, unknown>[] = [];
-    if (!orderRows.length && !baseRows.length) {
-      const date = order.date.slice(0, 10);
-      for (let page = 0; page < 5; page += 1) {
-        const rows = collection(await this.client.getLiteralDateRange(DELIVERY_RESOURCE, {
-          startDate: date, endDate: date, select: deliverySelect, top: 100, skip: page * 100,
-        }, { requestKind: "agent_commercial_realization_date_fallback" }));
-        dateRows.push(...rows);
-        if (rows.some((row) => exactOrderLink(row, order.reference)) || rows.length < 100) break;
-      }
-    }
-    const deliveries = [...orderRows, ...baseRows, ...dateRows].filter((row) =>
-      guid(row.Ref_Key) && exactOrderLink(row, order.reference) &&
-      row.Posted === true && row.DeletionMark === false &&
-      guid(row["Контрагент_Key"]) === order.customerRef && amount(row["СуммаДокумента"]) !== null);
+    const deliverySelect = "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Организация_Key,Заказ,Заказ_Type,ДокументОснование,ДокументОснование_Type,СуммаДокумента,DataVersion";
+    const actSelect = "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Организация_Key,ЗаказПокупателя_Key,СуммаДокумента,DataVersion";
+    const paymentSelect = "Ref_Key,Number,Date,Posted,DeletionMark,Контрагент_Key,Организация_Key,ВидОперации,ДокументОснование,ДокументОснование_Type,СуммаДокумента,РасшифровкаПлатежа,DataVersion";
+    const sourceFilter = `Контрагент_Key eq guid'${order.customerRef}' and Организация_Key eq guid'${order.organizationRef}' and Date ge datetime'${order.date.slice(0, 10)}T00:00:00'`;
+    const balanceCondition = `Организация_Key eq guid'${order.organizationRef}' and Контрагент_Key eq guid'${order.customerRef}'`;
 
-    const finance = await this.provider.finance.fetchPaymentObligations({
-      counterpartyReference: external(order.customerRef, "counterparty"),
-      organizationReference: external(order.organizationRef, "organization"),
-      synchronizedAt: new Date().toISOString(),
-      observationStartDate: order.date.slice(0, 10),
+    const [deliveryOrder, deliveryBase, workActs, bankDirect, cashDirect, bank, cash, balancePayload] = await Promise.all([
+      this.readEvidencePages(DELIVERY_RESOURCE, deliverySelect, `Заказ eq '${order.reference}'`, "agent_commercial_delivery_order_evidence"),
+      this.readEvidencePages(DELIVERY_RESOURCE, deliverySelect, `ДокументОснование eq '${order.reference}'`, "agent_commercial_delivery_base_evidence"),
+      this.readEvidencePages(WORK_ACT_RESOURCE, actSelect, `ЗаказПокупателя_Key eq guid'${order.reference}'`, "agent_commercial_work_act_evidence"),
+      this.readEvidencePages(BANK_PAYMENT_RESOURCE, paymentSelect, `ДокументОснование eq '${order.reference}'`, "agent_commercial_bank_payment_direct_evidence"),
+      this.readEvidencePages(CASH_PAYMENT_RESOURCE, paymentSelect, `ДокументОснование eq '${order.reference}'`, "agent_commercial_cash_payment_direct_evidence"),
+      this.readEvidencePages(BANK_PAYMENT_RESOURCE, paymentSelect, sourceFilter, "agent_commercial_bank_payment_evidence"),
+      this.readEvidencePages(CASH_PAYMENT_RESOURCE, paymentSelect, sourceFilter, "agent_commercial_cash_payment_evidence"),
+      this.client.get(`${SETTLEMENT_REGISTER}/Balance(Condition='${balanceCondition.replaceAll("'", "''")}',Dimensions='Договор,Заказ')`, {}, { requestKind: "agent_commercial_order_balance_corroboration" }),
+    ]);
+
+    const realizationRows: TaggedOneCRow[] = [
+      ...deliveryOrder.rows.map((row) => ({ kind: "DELIVERY" as const, row })),
+      ...deliveryBase.rows.map((row) => ({ kind: "DELIVERY" as const, row })),
+      ...workActs.rows.map((row) => ({ kind: "WORK_ACT" as const, row })),
+    ];
+    const paymentRows: TaggedOneCRow[] = [
+      ...bankDirect.rows.map((row) => ({ kind: "BANK" as const, row })),
+      ...cashDirect.rows.map((row) => ({ kind: "CASH" as const, row })),
+      ...bank.rows.map((row) => ({ kind: "BANK" as const, row })),
+      ...cash.rows.map((row) => ({ kind: "CASH" as const, row })),
+    ];
+    const registerRemaining = settlementBalance(collection(balancePayload), order.reference);
+    const projection = buildAgentEvidenceProjection({
+      order,
+      realizationRows,
+      paymentRows,
+      registerRemaining,
+      sourceTruncated: deliveryOrder.truncated || deliveryBase.truncated || workActs.truncated
+        || bankDirect.truncated || cashDirect.truncated || bank.truncated || cash.truncated,
     });
-    const obligation = finance.items.find((item) => item.orderReference.externalId.toLowerCase() === order.reference);
-    const remaining = obligation?.remainingAmount ?? null;
-    const paid = obligation?.paidAmount ?? 0;
-    const realizedGross = sum(deliveries.map((row) => amount(row["СуммаДокумента"]) ?? 0));
-    const orderLineGross = sum(order.lines.map((line) => line.gross));
-    const realizationComplete = deliveries.length > 0 && order.lines.length > 0 &&
-      Math.abs(realizedGross - order.grossAmount) <= 0.01 && Math.abs(orderLineGross - order.grossAmount) <= 0.01;
-    const reconciliationRequired = !obligation || (deliveries.length > 0 && !realizationComplete);
-    const fullyPaid = !reconciliationRequired && remaining !== null && remaining <= 0 && paid + 0.01 >= order.grossAmount;
-    const realized = realizationComplete && order.posted && !order.deletionMarked;
-
-    if (deliveries.length > 0 && !realizationComplete) {
-      console.warn("[agent-commercial] realization reconciliation required", {
+    const paymentProjection = record(record(projection).payment);
+    if (paymentProjection.reconciliationRequired === true) {
+      console.warn("[agent-commercial] evidence reconciliation required", {
         orderRef: order.reference,
-        deliveryRefs: deliveries.map((row) => guid(row.Ref_Key)),
-        orderGross: order.grossAmount,
-        orderLineGross,
-        realizedGross,
-        paidGross: paid,
-        remainingGross: remaining,
-        obligationFound: Boolean(obligation),
+        realizationRefs: collectionFromProjection(projection, "realization", "evidence").map((row) => row.ref),
+        paymentRefs: collectionFromProjection(projection, "payment", "evidence").map((row) => row.ref),
+        registerRemaining,
       });
     }
+    return projection;
+  }
 
-    return {
-      order: {
-        ref: order.reference,
-        customerRef: order.customerRef,
-        state: order.state,
-        posted: order.posted,
-        deletionMarked: order.deletionMarked,
-      },
-      realization: {
-        refs: deliveries.map((row) => guid(row.Ref_Key)),
-        realizedAt: realized ? latestDate(deliveries.map((row) => text(row.Date))) : null,
-        gross: realized ? order.grossAmount.toFixed(2) : "0.00",
-        vat: realized ? sum(order.lines.map((line) => line.vat)).toFixed(2) : "0.00",
-        net: realized ? sum(order.lines.map((line) => line.net)).toFixed(2) : "0.00",
-      },
-      payment: {
-        paidGross: paid.toFixed(2),
-        remainingGross: remaining === null ? null : Math.max(0, remaining).toFixed(2),
-        fullyPaidAt: fullyPaid ? obligation?.latestPaymentAt ?? null : null,
-        reconciliationRequired,
-      },
-      lines: order.lines.map((line) => ({
-        ...line,
-        realizationRef: guid(deliveries[0]?.Ref_Key),
-        gross: line.gross.toFixed(2), vat: line.vat.toFixed(2), net: line.net.toFixed(2),
-      })),
-      sourceVersion: [order.sourceVersion, ...deliveries.map((row) => text(row.DataVersion))].filter(Boolean).join(":"),
-      observedAt: new Date().toISOString(),
-    };
+  private async readEvidencePages(resource: string, select: string, filter: string, requestKind: string) {
+    const rows: Record<string, unknown>[] = [];
+    for (let page = 0; page < EVIDENCE_MAX_PAGES; page += 1) {
+      const current = collection(await this.client.getFilteredCollection(resource, {
+        select, filter, top: EVIDENCE_PAGE_SIZE, skip: page * EVIDENCE_PAGE_SIZE,
+      }, { requestKind }));
+      rows.push(...current);
+      if (current.length < EVIDENCE_PAGE_SIZE) return { rows, truncated: false };
+    }
+    return { rows, truncated: true };
   }
 
   private async readOrder(reference: string): Promise<OneCCommercialOrderCandidate> {
@@ -247,10 +225,17 @@ function amount(value: unknown): number | null { const parsed = typeof value ===
 function requiredAmount(value: unknown, label: string): number { const parsed = amount(value); if (parsed === null || parsed < 0) throw new Error(`INVALID_ONEC_${label.toUpperCase().replaceAll(" ", "_")}`); return roundMoney(parsed); }
 function currencyCode(row: Record<string, unknown>): string { const normalized = normalizeOneCCurrencyCode(text(row.Code)) ?? normalizeOneCCurrencyCode(text(row.Description)); if (!normalized) throw new Error("INVALID_ONEC_CURRENCY"); return normalized; }
 function customerKind(value: unknown): "PERSON" | "LEGAL_ENTITY" { const normalized = text(value); if (normalized === "ФизическоеЛицо") return "PERSON"; if (normalized === "ЮридическоеЛицо") return "LEGAL_ENTITY"; throw new Error("UNMAPPED_ONEC_CUSTOMER_KIND"); }
-function exactOrderLink(row: Record<string, unknown>, reference: string): boolean { return (guid(row["Заказ"]) === reference && text(row["Заказ_Type"]) === ORDER_TYPE) || (guid(row["ДокументОснование"]) === reference && text(row["ДокументОснование_Type"]) === ORDER_TYPE); }
-function external(externalId: string, externalType: string) { return { providerCode: "one-c", externalId, externalType }; }
+function settlementBalance(rows: Record<string, unknown>[], orderReference: string): number | null {
+  const exact = rows.filter((row) => exactTypedOrder(row["Заказ"], row["Заказ_Type"], orderReference));
+  if (!exact.length) return null;
+  const values = exact.map((row) => amount(row["СуммаBalance"]));
+  return values.some((value) => value === null) ? null : sum(values.filter((value): value is number => value !== null));
+}
+function collectionFromProjection(projection: Record<string, unknown>, section: string, field: string): Record<string, unknown>[] {
+  const value = record(projection[section])[field];
+  return Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") : [];
+}
 function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
 function sum(values: number[]): number { return roundMoney(values.reduce((total, value) => total + value, 0)); }
-function latestDate(values: string[]): string | null { const valid = values.map((value) => new Date(value)).filter((value) => Number.isFinite(value.getTime())).sort((a, b) => b.getTime() - a.getTime()); return valid[0]?.toISOString() ?? null; }
 function isString(value: string | null): value is string { return value !== null; }
 function isLine(value: OneCCommercialOrderLine | null): value is OneCCommercialOrderLine { return value !== null; }
