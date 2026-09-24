@@ -1,13 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  redirect: vi.fn(), signInWithPassword: vi.fn(), signUp: vi.fn(), getCurrentProfile: vi.fn(),
+  redirect: vi.fn(), signInWithPassword: vi.fn(), signUp: vi.fn(), resend: vi.fn(), getCurrentProfile: vi.fn(),
   acceptInvitation: vi.fn(), activateCurrent: vi.fn(), resolvePostSignInAccess: vi.fn(),
   resolveAuthorizedPostSignInTarget: vi.fn(), isBusinessPhoneOtpEnabled: vi.fn(), setPartnerLocaleCookie: vi.fn(),
+  resolveRegistrationState: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
-vi.mock("@/src/lib/supabase/server", () => ({ createClient: vi.fn(async () => ({ auth: { signInWithPassword: mocks.signInWithPassword, signUp: mocks.signUp } })) }));
+vi.mock("@/src/lib/supabase/server", () => ({ createClient: vi.fn(async () => ({ auth: { signInWithPassword: mocks.signInWithPassword, signUp: mocks.signUp, resend: mocks.resend } })) }));
+vi.mock("@/src/modules/auth/partner-registration-state", () => ({
+  PartnerRegistrationStateError: class PartnerRegistrationStateError extends Error {},
+  resolvePartnerRegistrationIdentityState: mocks.resolveRegistrationState,
+}));
 vi.mock("@/src/modules/access-control/actions/service-factory", () => ({
   createCompanyUserManagementService: vi.fn(() => ({ acceptInvitation: mocks.acceptInvitation })),
   createUserProfileService: vi.fn(() => ({ getCurrentProfile: mocks.getCurrentProfile })),
@@ -21,7 +26,7 @@ vi.mock("@/src/modules/auth/post-sign-in-routing", () => ({
   resolveAuthorizedPostSignInTarget: mocks.resolveAuthorizedPostSignInTarget,
 }));
 
-import { registerAgentAction, registerInstallerAction, signInAction } from "../auth.actions";
+import { registerAgentAction, registerInstallerAction, resendProfessionalConfirmationAction, signInAction } from "../auth.actions";
 
 const REDIRECT_PREFIX = "NEXT_REDIRECT:";
 
@@ -49,6 +54,8 @@ describe("classic password sign-in routing", () => {
     mocks.redirect.mockImplementation((destination: string) => { throw new Error(`${REDIRECT_PREFIX}${destination}`); });
     mocks.signInWithPassword.mockResolvedValue({ data: { user: { id: "user-1", phone: "+37360000000", phone_confirmed_at: "2026-09-20T00:00:00.000Z", user_metadata: {} } }, error: null });
     mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
+    mocks.resend.mockResolvedValue({ data: {}, error: null });
+    mocks.resolveRegistrationState.mockResolvedValue("MISSING");
     mocks.getCurrentProfile.mockResolvedValue(null);
     mocks.resolvePostSignInAccess.mockResolvedValue({
       kind: "NONE", targetRoute: "/auth/business-access-state", requiresBusinessPhoneEnrollment: false,
@@ -165,5 +172,36 @@ describe("classic password sign-in routing", () => {
       emailRedirectTo: "https://www.nsd.md/auth/sign-in?confirmed=1&lang=ru&intent=installer&next=%2Fonboarding%2Fprofile%3Flang%3Dru",
       data: { registration_intent: "installer", registration_legal_form: "INDIVIDUAL", preferred_registration_locale: "ru" },
     }) }));
+  });
+
+  it("does not create a second identity and exposes a governed resend only for an unconfirmed user", async () => {
+    mocks.resolveRegistrationState.mockResolvedValue("UNCONFIRMED");
+    await expect(registerAgentAction({ error: null }, registration({ email: "admin@psg.md", locale: "ru" })))
+      .resolves.toEqual({ error: null, status: "CONFIRMATION_PENDING", email: "admin@psg.md", intent: "agent", locale: "ru" });
+    expect(mocks.signUp).not.toHaveBeenCalled();
+
+    const resend = new FormData();
+    resend.set("email", "admin@psg.md"); resend.set("intent", "agent"); resend.set("locale", "ru");
+    await expect(resendProfessionalConfirmationAction({ error: null }, resend))
+      .resolves.toEqual({ error: null, status: "CONFIRMATION_SENT", email: "admin@psg.md", intent: "agent", locale: "ru" });
+    expect(mocks.resend).toHaveBeenCalledOnce();
+  });
+
+  it("does not offer resend when the identity is missing and maps Auth failures precisely", async () => {
+    const resend = new FormData();
+    resend.set("email", "missing@example.com"); resend.set("intent", "installer"); resend.set("locale", "ro");
+    mocks.resolveRegistrationState.mockResolvedValue("MISSING");
+    await expect(resendProfessionalConfirmationAction({ error: null }, resend)).resolves.toEqual({ error: "ACCOUNT_NOT_FOUND" });
+    expect(mocks.resend).not.toHaveBeenCalled();
+
+    mocks.resolveRegistrationState.mockResolvedValue("UNCONFIRMED");
+    mocks.resend.mockResolvedValue({ data: {}, error: { code: "over_email_send_rate_limit", status: 429 } });
+    await expect(resendProfessionalConfirmationAction({ error: null }, resend)).resolves.toEqual({ error: "RATE_LIMIT" });
+  });
+
+  it("classifies transient Supabase address validation as temporary instead of permanent invalid email", async () => {
+    mocks.signUp.mockResolvedValue({ data: { session: null }, error: { code: "email_address_invalid", status: 400 } });
+    await expect(registerAgentAction({ error: null }, registration({ email: "admin@psg.md" })))
+      .resolves.toEqual({ error: "TEMPORARY_EMAIL_VALIDATION" });
   });
 });

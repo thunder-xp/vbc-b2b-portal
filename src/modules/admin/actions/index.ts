@@ -43,3 +43,9 @@ export {
   type AdminCompanyLogoActionState,
   type AdminPublicPartnerDirectoryActionState,
 } from "./admin-public-partner-directory.actions";
+export {
+  diagnoseAuthEmailRecoveryAction,
+  executeAuthEmailRecoveryAction,
+  type AuthEmailRecoveryDiagnosticActionState,
+  type AuthEmailRecoveryExecutionActionState,
+} from "./auth-email-recovery.actions";
