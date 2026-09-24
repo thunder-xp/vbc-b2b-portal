@@ -22,11 +22,9 @@ Supabase Auth's ordinary email delivery path performs additional provider/addres
 
 ## Governed recovery result
 
-Pending production acceptance. Update this section with only safe outcomes:
-
-- Admin `generateLink`: pending
-- Identity count before/after: pending
-- Custom provider delivery: pending
+- Admin `generateLink`: passed through the governed service-role-only recovery path
+- Identity count before/after: 1 / 1
+- Custom provider delivery: accepted exactly once; three redacted audit events recorded
 - Supabase verification: pending
 - Sign-in/onboarding: pending
 
