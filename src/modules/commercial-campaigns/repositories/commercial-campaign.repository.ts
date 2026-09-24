@@ -1,4 +1,4 @@
-import type { AdminCampaignDetail, AdminCampaignPage, CampaignBuilderOptions, CampaignDraftInput, CampaignFilter, PartnerCampaign, PartnerCampaignPage } from "../types";
+import type { AdminCampaignDetail, AdminCampaignPage, CampaignBuilderOptions, CampaignBuilderProductPage, CampaignDraftFailureDiagnostic, CampaignDraftInput, CampaignFilter, CampaignProductSearchInput, PartnerCampaign, PartnerCampaignPage } from "../types";
 
 export interface CommercialCampaignRepository {
   listPartner(input: { companyId: string; filter: CampaignFilter; limit: number; offset: number }): Promise<PartnerCampaignPage>;
@@ -8,13 +8,15 @@ export interface CommercialCampaignRepository {
   listAdmin(limit: number, offset: number): Promise<AdminCampaignPage>;
   getAdmin(campaignId: string): Promise<AdminCampaignDetail | null>;
   getBuilderOptions(search?: string): Promise<CampaignBuilderOptions>;
+  searchBuilderProducts(input: Required<CampaignProductSearchInput>): Promise<CampaignBuilderProductPage>;
   createDraft(input: CampaignDraftInput): Promise<string>;
+  recordDraftFailure(input: CampaignDraftFailureDiagnostic): Promise<void>;
   publish(campaignId: string, requestId: string): Promise<{ status: string; version: number; audienceCount: number }>;
   pause(campaignId: string, reason: string): Promise<void>;
 }
 
 export class CommercialCampaignRepositoryError extends Error {
-  constructor(readonly code: string | null = null) {
+  constructor(readonly code: string | null = null, readonly safeCode: string | null = null) {
     super("Commercial campaigns are unavailable.");
     this.name = "CommercialCampaignRepositoryError";
   }

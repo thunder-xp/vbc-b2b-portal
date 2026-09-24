@@ -93,6 +93,9 @@ export function AdminOperationalIssueDetail({
     `Duration: ${issue.durationMs ?? "—"}`,
     `Source calls: ${issue.sourceCalls}`,
     `Retry count: ${issue.retryCount}`,
+    ...(issue.actorUserId ? [`Actor user ID: ${issue.actorUserId}`] : []),
+    ...(issue.hasDraftData === undefined ? [] : [`Draft data present: ${issue.hasDraftData}`]),
+    ...(issue.hasAudience === undefined ? [] : [`Audience present: ${issue.hasAudience}`]),
   ].join("\n");
 
   return (
@@ -141,6 +144,9 @@ export function AdminOperationalIssueDetail({
           <DiagnosticRow label="Длительность" value={issue.durationMs === null ? "—" : `${issue.durationMs} ms`} />
           <DiagnosticRow label="Обращений к источнику" value={String(issue.sourceCalls)} />
           <DiagnosticRow label="Повторных попыток" value={String(issue.retryCount)} />
+          {issue.actorUserId ? <DiagnosticRow label="Пользователь / администратор" value={issue.actorUserId} mono /> : null}
+          {issue.hasDraftData === undefined ? null : <DiagnosticRow label="Данные черновика переданы" value={issue.hasDraftData ? "Да" : "Нет"} />}
+          {issue.hasAudience === undefined ? null : <DiagnosticRow label="Аудитория передана" value={issue.hasAudience ? "Да" : "Нет"} />}
           {issue.failedPage == null ? null : <DiagnosticRow label="Страница сбоя" value={String(issue.failedPage)} />}
         </dl>
       </details>

@@ -194,6 +194,9 @@ function sanitizeOperationalIssue(issue: AdminOperationalIssue): AdminOperationa
     retryCount: safeCount(issue.retryCount),
     durationMs: issue.durationMs === null ? null : safeCount(issue.durationMs),
     failedPage: issue.failedPage == null ? null : safeCount(issue.failedPage),
+    actorUserId: validUuid(issue.actorUserId ?? undefined) ?? null,
+    hasDraftData: typeof issue.hasDraftData === "boolean" ? issue.hasDraftData : undefined,
+    hasAudience: typeof issue.hasAudience === "boolean" ? issue.hasAudience : undefined,
   };
 }
 

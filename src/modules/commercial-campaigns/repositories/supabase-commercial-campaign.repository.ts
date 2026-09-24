@@ -1,5 +1,5 @@
 import { createClient } from "@/src/lib/supabase/server";
-import type { AdminCampaignDetail, AdminCampaignPage, CampaignBuilderOptions, PartnerCampaign, PartnerCampaignPage } from "../types";
+import type { AdminCampaignDetail, AdminCampaignPage, CampaignBuilderOptions, CampaignBuilderProduct, CampaignBuilderProductPage, PartnerCampaign, PartnerCampaignPage } from "../types";
 import { CommercialCampaignRepositoryError, type CommercialCampaignRepository } from "./commercial-campaign.repository";
 
 type Row = Record<string, unknown>;
@@ -39,15 +39,45 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
   async getBuilderOptions(search = ""): Promise<CampaignBuilderOptions> {
     const { data, error } = await (await createClient()).rpc("get_commercial_campaign_builder_options", { p_search: search });
     if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    const products = records(data.products).map(mapBuilderProduct);
+    const totalCount = number(data.productTotalCount);
     return {
-      products: records(data.products).map((item) => ({ id: text(item.id), sku: text(item.sku), name: text(item.name), imageUrl: nullableText(item.imageUrl) })),
+      initialProductPage: { items: products, page: 1, pageSize: 25, totalCount, hasNextPage: products.length < totalCount },
+      categories: records(data.categories).map((item) => ({ id: text(item.id), parentId: nullableText(item.parentId), name: text(item.name) })),
+      brands: records(data.brands).map((item) => ({ id: text(item.id), name: text(item.name) })),
       companies: records(data.companies).map((item) => ({ id: text(item.id), name: text(item.name), status: text(item.status) })),
     };
   }
+  async searchBuilderProducts(input: Parameters<CommercialCampaignRepository["searchBuilderProducts"]>[0]): Promise<CampaignBuilderProductPage> {
+    const { data, error } = await (await createClient()).rpc("search_commercial_campaign_products_v1", {
+      p_search: input.search,
+      p_category_id: input.categoryId || null,
+      p_brand_id: input.brandId || null,
+      p_in_stock_only: input.inStockOnly,
+      p_limit: input.pageSize,
+      p_offset: (input.page - 1) * input.pageSize,
+    });
+    if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    const items = records(data.items).map(mapBuilderProduct);
+    const totalCount = number(data.totalCount);
+    return { items, page: input.page, pageSize: input.pageSize, totalCount, hasNextPage: input.page * input.pageSize < totalCount };
+  }
   async createDraft(input: Parameters<CommercialCampaignRepository["createDraft"]>[0]): Promise<string> {
     const { data, error } = await (await createClient()).rpc("create_commercial_campaign_draft", { p_input: input });
-    if (error || typeof data !== "string") throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    if (error || typeof data !== "string") throw new CommercialCampaignRepositoryError(error?.code ?? null, safeCampaignError(error?.message));
     return data;
+  }
+  async recordDraftFailure(input: Parameters<CommercialCampaignRepository["recordDraftFailure"]>[0]): Promise<void> {
+    const { error } = await (await createClient()).rpc("record_commercial_campaign_creation_failure", {
+      p_correlation_id: input.correlationId,
+      p_stage: input.stage,
+      p_safe_error_code: input.safeErrorCode,
+      p_server_rpc_code: input.serverRpcCode,
+      p_has_draft_data: input.hasDraftData,
+      p_item_count: input.itemCount,
+      p_has_audience: input.hasAudience,
+    });
+    if (error) throw new CommercialCampaignRepositoryError(error.code);
   }
   async publish(campaignId: string, requestId: string) {
     const { data, error } = await (await createClient()).rpc("publish_commercial_campaign", { p_campaign_id: campaignId, p_request_id: requestId });
@@ -58,6 +88,28 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
     const { error } = await (await createClient()).rpc("pause_commercial_campaign", { p_campaign_id: campaignId, p_reason: reason });
     if (error) throw new CommercialCampaignRepositoryError(error.code);
   }
+}
+
+function mapBuilderProduct(item: Row): CampaignBuilderProduct {
+  const price = record(item.currentPrice) ? item.currentPrice : null;
+  return {
+    id: text(item.id), sku: text(item.sku), model: nullableText(item.model), name: text(item.name), imageUrl: nullableText(item.imageUrl),
+    categoryId: nullableText(item.categoryId), categoryName: nullableText(item.categoryName),
+    brandId: nullableText(item.brandId), brandName: nullableText(item.brandName),
+    availableQuantity: nullableNumber(item.availableQuantity),
+    currentPrice: price ? { amount: number(price.amount), currency: text(price.currency) } : null,
+  };
+}
+
+function safeCampaignError(message: string | undefined): string | null {
+  const safeCodes = new Set([
+    "CAMPAIGN_CODE_INVALID", "CAMPAIGN_CODE_CONFLICT", "CAMPAIGN_NAME_REQUIRED", "CAMPAIGN_TITLE_REQUIRED",
+    "CAMPAIGN_DESCRIPTION_REQUIRED", "CAMPAIGN_PERIOD_INVALID", "CAMPAIGN_PRIORITY_INVALID",
+    "CAMPAIGN_IMAGE_PATH_INVALID", "CAMPAIGN_TERMS_REQUIRED", "CAMPAIGN_PRODUCTS_REQUIRED",
+    "CAMPAIGN_PRODUCTS_LIMIT_EXCEEDED", "CAMPAIGN_PRODUCT_LIMIT_INVALID", "CAMPAIGN_PRODUCT_UNAVAILABLE",
+    "CAMPAIGN_AUDIENCE_REQUIRED", "CAMPAIGN_REQUEST_INVALID",
+  ]);
+  return message && safeCodes.has(message) ? message : null;
 }
 
 function mapCampaign(value: unknown): PartnerCampaign[] {

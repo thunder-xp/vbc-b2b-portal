@@ -212,4 +212,7 @@ export interface AdminOperationalIssue extends AdminOperationalDiagnostic {
   severity: "HIGH" | "MEDIUM";
   status: "ACTIVE";
   detailHref: string;
+  actorUserId?: string | null;
+  hasDraftData?: boolean;
+  hasAudience?: boolean;
 }

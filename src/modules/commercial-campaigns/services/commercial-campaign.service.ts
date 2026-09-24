@@ -1,7 +1,8 @@
 import { InvalidStateError } from "../../access-control/services";
 import type { PartnerWorkspaceContextService } from "../../partner-cabinet/services";
+import { validateCampaignDraft, type CampaignValidationIssue } from "../campaign-draft.contract";
 import type { CommercialCampaignRepository } from "../repositories";
-import type { CampaignDraftInput, CampaignFilter } from "../types";
+import type { CampaignDraftFailureDiagnostic, CampaignDraftInput, CampaignFilter, CampaignProductSearchInput } from "../types";
 
 export class CommercialCampaignService {
   constructor(private readonly repository: CommercialCampaignRepository, private readonly workspaceContext: PartnerWorkspaceContextService) {}
@@ -24,7 +25,22 @@ export class CommercialCampaignService {
   listAdmin(page = 1) { const normalized = Math.max(1, Math.trunc(page)); return this.repository.listAdmin(50, (normalized - 1) * 50); }
   getAdmin(campaignId: string) { return this.repository.getAdmin(campaignId); }
   getBuilderOptions(search?: string) { return this.repository.getBuilderOptions(search?.trim().slice(0, 100)); }
-  createDraft(input: CampaignDraftInput) { validateDraft(input); return this.repository.createDraft(input); }
+  searchBuilderProducts(input: CampaignProductSearchInput) {
+    return this.repository.searchBuilderProducts({
+      search: input.search?.trim().slice(0, 100) ?? "",
+      categoryId: uuidOrEmpty(input.categoryId),
+      brandId: uuidOrEmpty(input.brandId),
+      inStockOnly: input.inStockOnly === true,
+      page: Math.max(1, Math.trunc(input.page ?? 1)),
+      pageSize: Math.min(30, Math.max(10, Math.trunc(input.pageSize ?? 25))),
+    });
+  }
+  createDraft(input: CampaignDraftInput) {
+    const issues = validateCampaignDraft(input);
+    if (issues.length) throw new CampaignDraftValidationError(issues);
+    return this.repository.createDraft(input);
+  }
+  recordDraftFailure(input: CampaignDraftFailureDiagnostic) { return this.repository.recordDraftFailure(input); }
   publish(campaignId: string, requestId: string) { return this.repository.publish(campaignId, requestId); }
   pause(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign pause reason is required."); return this.repository.pause(campaignId, reason.trim()); }
 
@@ -35,8 +51,15 @@ export class CommercialCampaignService {
   }
 }
 
-function validateDraft(input: CampaignDraftInput): void {
-  const starts = Date.parse(input.startsAt); const ends = Date.parse(input.endsAt);
-  if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(input.code) || input.name.trim().length < 3 || input.partnerTitle.trim().length < 3 || input.partnerDescription.trim().length < 10 || input.termsSummary.trim().length < 3 || !Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || !input.items.length || input.items.length > 50 || (input.audienceMode === "explicit_company" && !input.companyIds.length)) throw new InvalidStateError("Campaign input is invalid.");
-  if (input.items.some((item) => item.minimumQuantity < 1 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < item.minimumQuantity)) throw new InvalidStateError("Campaign quantity limits are invalid.");
+export class CampaignDraftValidationError extends Error {
+  readonly code = "CAMPAIGN_VALIDATION_FAILED";
+  constructor(readonly issues: CampaignValidationIssue[]) {
+    super("Campaign draft validation failed.");
+    this.name = "CampaignDraftValidationError";
+  }
+}
+
+function uuidOrEmpty(value: string | undefined): string {
+  const normalized = value?.trim() ?? "";
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized) ? normalized : "";
 }

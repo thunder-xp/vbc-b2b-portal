@@ -48,10 +48,42 @@ export type AdminCampaignSummary = {
 };
 export type AdminCampaignPage = { items: AdminCampaignSummary[]; totalCount: number };
 export type CampaignBuilderOptions = {
-  products: Array<{ id: string; sku: string; name: string; imageUrl: string | null }>;
+  initialProductPage: CampaignBuilderProductPage;
+  categories: Array<{ id: string; parentId: string | null; name: string }>;
+  brands: Array<{ id: string; name: string }>;
   companies: Array<{ id: string; name: string; status: string }>;
 };
+export type CampaignBuilderProduct = {
+  id: string;
+  sku: string;
+  model: string | null;
+  name: string;
+  imageUrl: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  brandId: string | null;
+  brandName: string | null;
+  availableQuantity: number | null;
+  currentPrice: CampaignMoney | null;
+};
+export type CampaignBuilderProductPage = {
+  items: CampaignBuilderProduct[];
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  hasNextPage: boolean;
+};
+export type CampaignProductSearchInput = {
+  search?: string;
+  categoryId?: string;
+  brandId?: string;
+  inStockOnly?: boolean;
+  page?: number;
+  pageSize?: number;
+};
 export type CampaignDraftInput = {
+  contractVersion: 1;
+  requestId: string;
   code: string;
   name: string;
   partnerTitle: string;
@@ -74,6 +106,15 @@ export type CampaignDraftInput = {
     governedBenefitReference: string | null;
     partnerMessage: string | null;
   }>;
+};
+export type CampaignDraftFailureDiagnostic = {
+  correlationId: string;
+  stage: "create_draft_rpc";
+  safeErrorCode: string;
+  serverRpcCode: string | null;
+  hasDraftData: boolean;
+  itemCount: number;
+  hasAudience: boolean;
 };
 export type AdminCampaignDetail = {
   campaign: Record<string, unknown>;

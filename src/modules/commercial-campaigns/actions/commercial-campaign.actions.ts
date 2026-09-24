@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { requireAdminPermission } from "../../admin/services";
+import { CAMPAIGN_ERROR_MESSAGES, type CampaignDraftErrorCode } from "../campaign-draft.contract";
+import { CommercialCampaignRepositoryError } from "../repositories";
+import { CampaignDraftValidationError } from "../services";
 import type { CampaignDraftInput, CampaignFilter, PartnerCampaign, PartnerCampaignPage } from "../types";
 import type { CampaignActionResult } from "./result";
 import { campaignFailure, campaignSuccess } from "./result";
@@ -43,13 +46,35 @@ export async function recordCampaignEngagementAction(input: { campaignId: string
 }
 
 export async function createCampaignDraftAction(input: CampaignDraftInput): Promise<CampaignActionResult<{ id: string }>> {
-  await requireAdminPermission("campaigns.create");
+  const context = await requireAdminPermission("campaigns.create");
+  const correlationId = crypto.randomUUID();
+  const service = createCommercialCampaignService();
   try {
-    const id = await createCommercialCampaignService().createDraft(input);
+    const id = await service.createDraft(input);
     revalidatePath("/admin/commercial/campaigns");
     return campaignSuccess({ id }, "Черновик кампании создан.");
   } catch (error) {
-    return fail(error, "Не удалось создать кампанию. Проверьте обязательные поля.", "campaign_create_failed");
+    if (error instanceof CampaignDraftValidationError) {
+      console.warn({ event: "campaign_create_rejected", correlationId, actorUserId: context.userId, stage: "validation", safeErrorCode: error.issues[0]?.code ?? "CAMPAIGN_REQUEST_INVALID", issueCount: error.issues.length, itemCount: input.items.length, hasAudience: input.audienceMode !== "explicit_company" || input.companyIds.length > 0 });
+      return campaignFailure(error.issues[0]?.message ?? CAMPAIGN_ERROR_MESSAGES.CAMPAIGN_REQUEST_INVALID, correlationId, { errorCode: error.issues[0]?.code, issues: error.issues });
+    }
+    const repositoryError = error instanceof CommercialCampaignRepositoryError ? error : null;
+    const safeCode = repositoryError?.safeCode as CampaignDraftErrorCode | null;
+    console.error({ event: "campaign_create_failed", correlationId, actorUserId: context.userId, stage: "create_draft_rpc", safeErrorCode: safeCode ?? "UNKNOWN_SERVER_ERROR", serverRpcCode: repositoryError?.code ?? null, itemCount: input.items.length, hasAudience: input.audienceMode !== "explicit_company" || input.companyIds.length > 0 });
+    try {
+      await service.recordDraftFailure({
+        correlationId,
+        stage: "create_draft_rpc",
+        safeErrorCode: safeCode ?? "UNKNOWN_SERVER_ERROR",
+        serverRpcCode: repositoryError?.code ?? null,
+        hasDraftData: Boolean(input.code || input.name || input.partnerTitle || input.partnerDescription),
+        itemCount: input.items.length,
+        hasAudience: input.audienceMode !== "explicit_company" || input.companyIds.length > 0,
+      });
+    } catch (diagnosticError) {
+      console.error({ event: "campaign_create_failure_diagnostic_failed", correlationId, errorType: diagnosticError instanceof Error ? diagnosticError.name : typeof diagnosticError });
+    }
+    return campaignFailure(safeCode ? CAMPAIGN_ERROR_MESSAGES[safeCode] : CAMPAIGN_ERROR_MESSAGES.UNKNOWN_SERVER_ERROR, correlationId, { errorCode: safeCode ?? "UNKNOWN_SERVER_ERROR" });
   }
 }
 
@@ -80,5 +105,5 @@ export async function pauseCampaignAction(campaignId: string, reason: string): P
 function fail<T>(error: unknown, message: string, event: string) {
   const correlationId = crypto.randomUUID();
   console.error({ event, correlationId, errorType: error instanceof Error ? error.name : typeof error });
-  return campaignFailure<T>(`${message} Код: ${correlationId}.`, correlationId);
+  return campaignFailure<T>(message, correlationId, { errorCode: "UNKNOWN_SERVER_ERROR" });
 }
