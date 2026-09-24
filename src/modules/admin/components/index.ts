@@ -34,3 +34,4 @@ export { AdminGovernanceSummary } from "./AdminGovernanceSummary";
 export { AdminPartnerIntegrityDetail } from "./AdminPartnerIntegrityDetail";
 export { AdminPartnerPasswordControl } from "./AdminPartnerPasswordControl";
 export { AdminPublicPartnerDirectory } from "./AdminPublicPartnerDirectory";
+export { AdminAuthEmailRecovery } from "./AdminAuthEmailRecovery";

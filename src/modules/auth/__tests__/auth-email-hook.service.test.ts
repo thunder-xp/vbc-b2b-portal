@@ -1,7 +1,11 @@
 import { Webhook } from "standardwebhooks";
 import { describe, expect, it, vi } from "vitest";
 
-import { handleSupabaseSendEmailHook, SendEmailHookError } from "../auth-email-hook.service";
+import {
+  buildGeneratedSignupEmail,
+  handleSupabaseSendEmailHook,
+  SendEmailHookError,
+} from "../auth-email-hook.service";
 
 const base64Secret = Buffer.from("partner-auth-email-hook-secret-32bytes").toString("base64");
 const configuredSecret = `v1,whsec_${base64Secret}`;
@@ -35,6 +39,30 @@ function signupPayload() {
 }
 
 describe("Supabase Send Email Hook", () => {
+  it("builds a provider-ready recovery message only for the canonical Supabase verify URL", () => {
+    const message = buildGeneratedSignupEmail({
+      to: "admin@psg.md",
+      locale: "ru",
+      actionLink: "https://project.supabase.co/auth/v1/verify?token=hash&type=signup&redirect_to=https%3A%2F%2Fwww.nsd.md%2Fauth%2Fsign-in",
+      emailOtp: "123456",
+      correlationId: "44444444-4444-4444-8444-444444444444",
+      supabaseUrl: "https://project.supabase.co",
+    });
+    expect(message).toMatchObject({
+      to: "admin@psg.md",
+      text: expect.stringContaining("/auth/v1/verify?token=hash"),
+      messageId: expect.stringMatching(/^<supabase-auth-[a-f0-9]{64}@nsd\.md>$/),
+    });
+    expect(() => buildGeneratedSignupEmail({
+      to: "admin@psg.md",
+      locale: "ru",
+      actionLink: "https://attacker.example/auth/v1/verify?token=hash&type=signup",
+      emailOtp: "123456",
+      correlationId: "44444444-4444-4444-8444-444444444444",
+      supabaseUrl: "https://project.supabase.co",
+    })).toThrowError(SendEmailHookError);
+  });
+
   it("verifies the webhook and sends a governed confirmation link through SMTP", async () => {
     const payload = signupPayload();
     const send = vi.fn<(message: { text: string }) => Promise<{ messageId: string; category: "accepted" }>>(async () => ({ messageId: "accepted", category: "accepted" }));

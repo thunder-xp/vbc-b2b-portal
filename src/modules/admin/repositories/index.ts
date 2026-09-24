@@ -41,4 +41,11 @@ export {
   type AdminPartnerPasswordRepository,
 } from "./admin-partner-password.repository";
 export type { AdminPublicPartnerDirectoryRepository } from "./admin-public-partner-directory.repository";
+export type {
+  AuthEmailRecoveryAttempt,
+  AuthEmailRecoveryIdentity,
+  AuthEmailRecoveryRepository,
+  AuthEmailRecoveryReservation,
+  GeneratedSignupLink,
+} from "./auth-email-recovery.repository";
 export * from "./supabase";

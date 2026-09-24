@@ -6,7 +6,11 @@ import { Webhook } from "standardwebhooks";
 import { z } from "zod";
 
 import { getSupabaseServerEnv } from "@/src/lib/env";
-import { SmtpEmailProvider, SmtpEmailProviderError } from "@/src/lib/email/smtp-email-provider";
+import {
+  SmtpEmailProvider,
+  SmtpEmailProviderError,
+  type SmtpEmailMessage,
+} from "@/src/lib/email/smtp-email-provider";
 
 const basicEmail = z.string().trim().min(3).max(254).refine(
   (value) => /^[^\s@]+@[^\s@]+$/.test(value),
@@ -49,6 +53,47 @@ export class SendEmailHookError extends Error {
     super("Send Email hook request rejected.");
     this.name = "SendEmailHookError";
   }
+}
+
+export function buildGeneratedSignupEmail(input: Readonly<{
+  to: string;
+  locale: "ru" | "ro";
+  actionLink: string;
+  emailOtp: string;
+  correlationId: string;
+  supabaseUrl?: string;
+}>): SmtpEmailMessage {
+  const recipient = basicEmail.safeParse(input.to);
+  if (!recipient.success || !z.string().uuid().safeParse(input.correlationId).success) {
+    throw new SendEmailHookError("PAYLOAD_INVALID");
+  }
+  let actionUrl: URL;
+  let expectedOrigin: string;
+  try {
+    actionUrl = new URL(input.actionLink);
+    expectedOrigin = new URL(input.supabaseUrl ?? getSupabaseServerEnv().url).origin;
+  } catch {
+    throw new SendEmailHookError("PAYLOAD_INVALID");
+  }
+  if (
+    actionUrl.protocol !== "https:"
+    || actionUrl.origin !== expectedOrigin
+    || actionUrl.pathname !== "/auth/v1/verify"
+    || actionUrl.searchParams.get("type") !== "signup"
+    || !actionUrl.searchParams.get("token")
+    || input.emailOtp.length < 4
+    || input.emailOtp.length > 32
+  ) {
+    throw new SendEmailHookError("PAYLOAD_INVALID");
+  }
+  return message({
+    to: recipient.data,
+    action: "signup",
+    locale: input.locale,
+    token: input.emailOtp,
+    link: actionUrl.toString(),
+    messageId: deterministicMessageId(`recovery:${input.correlationId}`, 0),
+  });
 }
 
 export async function handleSupabaseSendEmailHook(

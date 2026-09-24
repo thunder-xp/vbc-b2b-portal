@@ -61,3 +61,11 @@ export {
   AdminPublicPartnerDirectoryService,
   createAdminPublicPartnerDirectoryService,
 } from "./admin-public-partner-directory.service";
+export {
+  AuthEmailRecoveryError,
+  AuthEmailRecoveryService,
+  createAuthEmailRecoveryService,
+  type AuthEmailRecoveryDiagnosis,
+  type AuthEmailRecoveryErrorCode,
+  type AuthEmailRecoveryExecutionResult,
+} from "./auth-email-recovery.service";
