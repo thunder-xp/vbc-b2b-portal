@@ -27,6 +27,7 @@ describe("Agent commercial cabinet contract", () => {
     expect(evidence).toContain("exactTypedOrder(row[\"Заказ\"], row[\"Заказ_Type\"], order.reference)");
     expect(provider).toContain("ДокументОснование eq '${order.reference}'");
     expect(provider).toContain("ЗаказПокупателя_Key eq guid'${order.reference}'");
+    expect(provider).toContain("agent_commercial_delivery_bounded_scan");
     expect(provider).toContain("page < EVIDENCE_MAX_PAGES");
     expect(provider).toContain("getOrder(reference");
     expect(actions).toContain('formData.get("confirmExact")');

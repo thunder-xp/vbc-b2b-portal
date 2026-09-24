@@ -79,9 +79,10 @@ export class OneCAgentCommercialProvider {
     const sourceFilter = `Контрагент_Key eq guid'${order.customerRef}' and Организация_Key eq guid'${order.organizationRef}' and Date ge datetime'${order.date.slice(0, 10)}T00:00:00'`;
     const balanceCondition = `Организация_Key eq guid'${order.organizationRef}' and Контрагент_Key eq guid'${order.customerRef}'`;
 
-    const [deliveryOrder, deliveryBase, workActs, bankDirect, cashDirect, bank, cash, balancePayload] = await Promise.all([
+    const [deliveryOrder, deliveryBase, deliveryScan, workActs, bankDirect, cashDirect, bank, cash, balancePayload] = await Promise.all([
       this.readEvidencePages(DELIVERY_RESOURCE, deliverySelect, `Заказ eq '${order.reference}'`, "agent_commercial_delivery_order_evidence"),
       this.readEvidencePages(DELIVERY_RESOURCE, deliverySelect, `ДокументОснование eq '${order.reference}'`, "agent_commercial_delivery_base_evidence"),
+      this.readEvidencePages(DELIVERY_RESOURCE, deliverySelect, sourceFilter, "agent_commercial_delivery_bounded_scan"),
       this.readEvidencePages(WORK_ACT_RESOURCE, actSelect, `ЗаказПокупателя_Key eq guid'${order.reference}'`, "agent_commercial_work_act_evidence"),
       this.readEvidencePages(BANK_PAYMENT_RESOURCE, paymentSelect, `ДокументОснование eq '${order.reference}'`, "agent_commercial_bank_payment_direct_evidence"),
       this.readEvidencePages(CASH_PAYMENT_RESOURCE, paymentSelect, `ДокументОснование eq '${order.reference}'`, "agent_commercial_cash_payment_direct_evidence"),
@@ -93,6 +94,7 @@ export class OneCAgentCommercialProvider {
     const realizationRows: TaggedOneCRow[] = [
       ...deliveryOrder.rows.map((row) => ({ kind: "DELIVERY" as const, row })),
       ...deliveryBase.rows.map((row) => ({ kind: "DELIVERY" as const, row })),
+      ...deliveryScan.rows.map((row) => ({ kind: "DELIVERY" as const, row })),
       ...workActs.rows.map((row) => ({ kind: "WORK_ACT" as const, row })),
     ];
     const paymentRows: TaggedOneCRow[] = [
@@ -107,7 +109,7 @@ export class OneCAgentCommercialProvider {
       realizationRows,
       paymentRows,
       registerRemaining,
-      sourceTruncated: deliveryOrder.truncated || deliveryBase.truncated || workActs.truncated
+      sourceTruncated: deliveryOrder.truncated || deliveryBase.truncated || deliveryScan.truncated || workActs.truncated
         || bankDirect.truncated || cashDirect.truncated || bank.truncated || cash.truncated,
     });
     const paymentProjection = record(record(projection).payment);
