@@ -11,6 +11,7 @@ import { PUBLIC_LOCALE_STORAGE_KEY } from "@/src/modules/public-locale";
 vi.mock("../../actions/auth.actions", () => ({
   registerAgentAction: vi.fn(async () => ({ error: null })),
   registerInstallerAction: vi.fn(async () => ({ error: null })),
+  resendProfessionalConfirmationAction: vi.fn(async () => ({ error: null })),
   signInAction: vi.fn(async () => ({ error: null })),
 }));
 vi.mock("@/src/modules/quick-auth/actions", () => ({
@@ -126,6 +127,9 @@ describe("authentication localization", () => {
     expect(localizeSignInError("ru", "Email or password is incorrect.")).toBe(authCopy.ru.signIn.invalidCredentials);
     expect(localizeSignInError("ro", "unexpected")).toBe(authCopy.ro.signIn.genericError);
     expect(localizeRegistrationError("ru", "Passwords do not match.")).toBe(authCopy.ru.registration.passwordMismatch);
+    expect(localizeRegistrationError("ru", "TEMPORARY_EMAIL_VALIDATION")).toBe(authCopy.ru.registration.temporaryEmailValidation);
+    expect(localizeRegistrationError("ro", "RATE_LIMIT")).toBe(authCopy.ro.registration.rateLimit);
+    expect(localizeRegistrationError("ru", "DELIVERY_FAILURE")).toBe(authCopy.ru.registration.deliveryFailure);
     expect(localizeRegistrationError("ro", "unexpected")).toBe(authCopy.ro.registration.genericError);
   });
 

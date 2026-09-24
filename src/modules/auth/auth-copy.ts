@@ -34,6 +34,16 @@ type AuthCopy = {
     passwordMismatch: string;
     genericError: string;
     required: string;
+    invalidSyntax: string;
+    rateLimit: string;
+    temporaryEmailValidation: string;
+    confirmationPending: string;
+    confirmationSent: string;
+    deliveryFailure: string;
+    accountExists: string;
+    accountNotFound: string;
+    resendConfirmation: string;
+    resending: string;
   };
 };
 
@@ -73,6 +83,16 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
       passwordMismatch: "Пароли не совпадают.",
       genericError: "Не удалось создать аккаунт. Попробуйте ещё раз.",
       required: "обязательно",
+      invalidSyntax: "Проверьте формат электронной почты.",
+      rateLimit: "Слишком много запросов. Повторите через 60 минут.",
+      temporaryEmailValidation: "Не удалось проверить почтовый домен. Повторите позже.",
+      confirmationPending: "Письмо подтверждения уже отправлено.",
+      confirmationSent: "Новое письмо подтверждения отправлено.",
+      deliveryFailure: "Не удалось отправить письмо подтверждения.",
+      accountExists: "Аккаунт уже зарегистрирован. Войдите, чтобы продолжить.",
+      accountNotFound: "Аккаунт не найден. Зарегистрируйтесь, чтобы продолжить.",
+      resendConfirmation: "Отправить письмо повторно",
+      resending: "Отправка письма...",
     },
   },
   ro: {
@@ -110,6 +130,16 @@ export const authCopy: Record<PublicLocale, AuthCopy> = {
       passwordMismatch: "Parolele nu coincid.",
       genericError: "Contul nu a putut fi creat. Încercați din nou.",
       required: "obligatoriu",
+      invalidSyntax: "Verificați formatul adresei de e-mail.",
+      rateLimit: "Prea multe solicitări. Încercați din nou peste 60 de minute.",
+      temporaryEmailValidation: "Domeniul de e-mail nu a putut fi verificat. Încercați mai târziu.",
+      confirmationPending: "Mesajul de confirmare a fost deja trimis.",
+      confirmationSent: "Un nou mesaj de confirmare a fost trimis.",
+      deliveryFailure: "Mesajul de confirmare nu a putut fi trimis.",
+      accountExists: "Contul este deja înregistrat. Autentificați-vă pentru a continua.",
+      accountNotFound: "Contul nu a fost găsit. Înregistrați-vă pentru a continua.",
+      resendConfirmation: "Retrimite mesajul de confirmare",
+      resending: "Mesajul se trimite...",
     },
   },
 };
@@ -123,7 +153,13 @@ export function localizeSignInError(locale: PublicLocale, error: string | null) 
 
 export function localizeRegistrationError(locale: PublicLocale, error: string | null) {
   if (!error) return null;
-  if (error === "Complete all fields.") return authCopy[locale].registration.requiredFields;
-  if (error === "Passwords do not match.") return authCopy[locale].registration.passwordMismatch;
+  if (error === "REQUIRED_FIELDS" || error === "Complete all fields.") return authCopy[locale].registration.requiredFields;
+  if (error === "PASSWORD_MISMATCH" || error === "Passwords do not match.") return authCopy[locale].registration.passwordMismatch;
+  if (error === "INVALID_SYNTAX") return authCopy[locale].registration.invalidSyntax;
+  if (error === "RATE_LIMIT") return authCopy[locale].registration.rateLimit;
+  if (error === "TEMPORARY_EMAIL_VALIDATION") return authCopy[locale].registration.temporaryEmailValidation;
+  if (error === "DELIVERY_FAILURE") return authCopy[locale].registration.deliveryFailure;
+  if (error === "ACCOUNT_EXISTS") return authCopy[locale].registration.accountExists;
+  if (error === "ACCOUNT_NOT_FOUND") return authCopy[locale].registration.accountNotFound;
   return authCopy[locale].registration.genericError;
 }

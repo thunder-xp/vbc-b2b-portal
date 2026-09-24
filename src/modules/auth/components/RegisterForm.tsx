@@ -8,6 +8,7 @@ import type { PublicLocale } from "@/src/modules/public-locale";
 import {
   registerAgentAction,
   registerInstallerAction,
+  resendProfessionalConfirmationAction,
 } from "../actions/auth.actions";
 import { authCopy, localizeRegistrationError } from "../auth-copy";
 
@@ -22,13 +23,20 @@ export function RegisterForm({
   const [state, formAction, isPending] = useActionState(registrationAction, {
     error: null,
   });
+  const [resendState, resendAction, isResending] = useActionState(resendProfessionalConfirmationAction, {
+    error: null,
+  });
   const copy = authCopy[locale].registration;
   const errorMessage = localizeRegistrationError(locale, state.error);
+  const resendErrorMessage = localizeRegistrationError(locale, resendState.error);
+  const confirmationEmail = resendState.email ?? state.email;
+  const confirmationStatus = resendState.status ?? state.status;
   const nextPath = intent === "agent"
     ? `/become-partner/agent?lang=${locale}`
     : `/onboarding/profile?lang=${locale}`;
 
   return (
+    <div className="grid gap-4">
     <form action={formAction} className="grid gap-4">
       <input name="locale" type="hidden" value={locale} />
       <label className="grid gap-1.5 text-sm font-medium text-zinc-800">
@@ -66,6 +74,27 @@ export function RegisterForm({
         {copy.alreadyRegistered}
       </Link>
     </form>
+    {confirmationStatus && confirmationEmail ? (
+      <form action={resendAction} className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3">
+        <input name="email" type="hidden" value={confirmationEmail} />
+        <input name="intent" type="hidden" value={intent} />
+        <input name="locale" type="hidden" value={locale} />
+        <p className="text-sm text-emerald-900" role="status">
+          {confirmationStatus === "CONFIRMATION_SENT" ? copy.confirmationSent : copy.confirmationPending}
+        </p>
+        {resendErrorMessage ? <p className="text-sm text-red-800" role="alert">{resendErrorMessage}</p> : null}
+        {confirmationStatus === "CONFIRMATION_PENDING" ? (
+          <button
+            className="min-h-11 rounded-md border border-emerald-700 px-4 text-sm font-semibold text-emerald-800 disabled:opacity-60"
+            disabled={isResending}
+            type="submit"
+          >
+            {isResending ? copy.resending : copy.resendConfirmation}
+          </button>
+        ) : null}
+      </form>
+    ) : null}
+    </div>
   );
 }
 

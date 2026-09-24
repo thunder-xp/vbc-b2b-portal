@@ -13,6 +13,10 @@ import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 import { resolveAuthorizedPostSignInTarget, resolvePostSignInAccess } from "../post-sign-in-routing";
 import { registrationEmailRedirectUrl } from "../registration.server";
 import {
+  PartnerRegistrationStateError,
+  resolvePartnerRegistrationIdentityState,
+} from "../partner-registration-state";
+import {
   classifyPostSignInContinuation,
   professionalRegistrationContinuation,
   safeRelativeAuthRedirect,
@@ -20,6 +24,10 @@ import {
 
 export type AuthActionState = {
   error: string | null;
+  status?: "CONFIRMATION_PENDING" | "CONFIRMATION_SENT";
+  email?: string;
+  intent?: "agent" | "installer";
+  locale?: "ru" | "ro";
 };
 
 export async function signInAction(
@@ -112,6 +120,36 @@ export async function registerInstallerAction(
   return registerProfessionalAction("installer", formData);
 }
 
+export async function resendProfessionalConfirmationAction(
+  _state: AuthActionState,
+  formData: FormData,
+): Promise<AuthActionState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const intent = String(formData.get("intent") ?? "") === "installer" ? "installer" : "agent";
+  const locale = String(formData.get("locale") ?? "") === "ro" ? "ro" : "ru";
+  if (!isBasicEmailSyntax(email)) return { error: "INVALID_SYNTAX" };
+
+  let identityState: Awaited<ReturnType<typeof resolvePartnerRegistrationIdentityState>>;
+  try {
+    identityState = await resolvePartnerRegistrationIdentityState(email);
+  } catch (error) {
+    if (error instanceof PartnerRegistrationStateError) return { error: "TEMPORARY_EMAIL_VALIDATION" };
+    return { error: "DELIVERY_FAILURE" };
+  }
+  if (identityState === "MISSING") return { error: "ACCOUNT_NOT_FOUND" };
+  if (identityState === "CONFIRMED") return { error: "ACCOUNT_EXISTS" };
+
+  const nextPath = professionalRegistrationContinuation(intent, locale);
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: registrationEmailRedirectUrl(intent, locale, nextPath) },
+  });
+  if (error) return { error: classifyRegistrationError(error) };
+  return { error: null, status: "CONFIRMATION_SENT", email, intent, locale };
+}
+
 async function registerProfessionalAction(
   intent: "agent" | "installer",
   formData: FormData,
@@ -124,11 +162,24 @@ async function registerProfessionalAction(
   const nextPath = professionalRegistrationContinuation(intent, locale);
 
   if (!email || !password || !confirmPassword) {
-    return { error: "Complete all fields." };
+    return { error: "REQUIRED_FIELDS" };
   }
 
   if (password !== confirmPassword) {
-    return { error: "Passwords do not match." };
+    return { error: "PASSWORD_MISMATCH" };
+  }
+
+  if (!isBasicEmailSyntax(email)) return { error: "INVALID_SYNTAX" };
+
+  try {
+    const identityState = await resolvePartnerRegistrationIdentityState(email);
+    if (identityState === "UNCONFIRMED") {
+      return { error: null, status: "CONFIRMATION_PENDING", email, intent, locale };
+    }
+    if (identityState === "CONFIRMED") return { error: "ACCOUNT_EXISTS" };
+  } catch (error) {
+    if (error instanceof PartnerRegistrationStateError) return { error: "TEMPORARY_EMAIL_VALIDATION" };
+    return { error: "DELIVERY_FAILURE" };
   }
 
   const supabase = await createClient();
@@ -146,13 +197,26 @@ async function registerProfessionalAction(
   });
 
   if (error) {
-    return { error: "Account could not be created." };
+    return { error: classifyRegistrationError(error) };
   }
 
   if (data.session) redirect(nextPath);
 
   const query = new URLSearchParams({ lang: locale, intent, next: nextPath });
   redirect(`/auth/check-email?${query.toString()}`);
+}
+
+function classifyRegistrationError(error: { code?: string; status?: number; message?: string }): string {
+  const code = error.code?.toLowerCase() ?? "";
+  if (error.status === 429 || code.includes("rate_limit")) return "RATE_LIMIT";
+  if (code === "email_address_invalid") return "TEMPORARY_EMAIL_VALIDATION";
+  if (code === "email_exists" || code === "user_already_exists") return "ACCOUNT_EXISTS";
+  if (error.status && error.status >= 500) return "DELIVERY_FAILURE";
+  return "DELIVERY_FAILURE";
+}
+
+function isBasicEmailSyntax(value: string): boolean {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+$/.test(value);
 }
 
 export async function signOutAction(): Promise<void> {
