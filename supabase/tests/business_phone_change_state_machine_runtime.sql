@@ -197,8 +197,9 @@ select ok(
   'confirmed Auth target promotes successfully'
 );
 select is(
-  (select phone from public.user_profiles
-   where id = '79000000-0000-4000-8000-000000000001'),
+  public.get_current_business_phone_state_v1(
+    '79000000-0000-4000-8000-000000000001'
+  ) ->> 'profilePhoneE164',
   '+37369000718',
   'profile contact projection follows confirmed Auth target'
 );
@@ -248,8 +249,9 @@ select is(
   'active change takes precedence over the still-valid old verified phone'
 );
 select is(
-  (select phone from public.user_profiles
-   where id = '79000000-0000-4000-8000-000000000003'),
+  public.get_current_business_phone_state_v1(
+    '79000000-0000-4000-8000-000000000003'
+  ) ->> 'profilePhoneE164',
   '+37369000003',
   'old profile phone remains active until the change is verified'
 );
