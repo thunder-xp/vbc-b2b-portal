@@ -1,10 +1,12 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { cookies } from "next/headers";
 
 import { requireAdminPermission } from "@/src/modules/admin/services";
 
 import { createRetailPaymentService, maibConfigurationSummary, verifyMaibConnectivity } from "./server";
+import { paymentReturnCookieMaxAgeSeconds, paymentReturnCookieName } from "./payment-return-access";
 import type { PaymentRefundResult } from "./types";
 
 export type MaibConnectivityActionState = Readonly<{
@@ -46,6 +48,46 @@ export async function verifyMaibConnectivityAdminAction(_previous: MaibConnectiv
       safeError,
     };
   }
+}
+
+export type ControlledLivePaymentActionState = Readonly<{
+  status: "IDLE" | "READY" | "FAIL";
+  outcome: string | null;
+  paymentAttemptId: string | null;
+  checkoutUrl: string | null;
+}>;
+
+export async function initiateControlledLivePaymentAdminAction(
+  _previous: ControlledLivePaymentActionState,
+  formData: FormData,
+): Promise<ControlledLivePaymentActionState> {
+  void _previous;
+  await requireAdminPermission("admin.payments.refund");
+  const configuration = maibConfigurationSummary();
+  if (process.env.RETAIL_CHECKOUT_ENABLED === "true" || !configuration.ready || !configuration.production
+    || configuration.apiOrigin !== "https://api.maibmerchants.md"
+    || configuration.callbackUrl !== "https://www.nsd.md/api/payments/maib/callback") {
+    return { status: "FAIL", outcome: "CONFIGURATION_ERROR", paymentAttemptId: null, checkoutUrl: null };
+  }
+  const orderNumber = String(formData.get("orderNumber") ?? "").trim();
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "").trim();
+  const result = await createRetailPaymentService().initiateControlledRetailPayment({ orderNumber, idempotencyKey });
+  const cookieName = result.paymentAttemptId ? paymentReturnCookieName(result.paymentAttemptId) : null;
+  if (result.outcome === "SUCCESS" && cookieName && result.returnAccessToken) {
+    (await cookies()).set(cookieName, result.returnAccessToken, {
+      httpOnly: true,
+      maxAge: paymentReturnCookieMaxAgeSeconds,
+      path: "/payment/return",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+  return {
+    status: result.outcome === "SUCCESS" ? "READY" : "FAIL",
+    outcome: result.outcome,
+    paymentAttemptId: result.paymentAttemptId,
+    checkoutUrl: result.checkoutUrl,
+  };
 }
 
 export async function refundRetailPaymentAdminAction(input: Readonly<{

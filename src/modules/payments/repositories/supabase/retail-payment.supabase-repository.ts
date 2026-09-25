@@ -119,6 +119,33 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
     return data ? parsePaymentState(data) : null;
   }
 
+  async getControlledPaymentOrder(orderNumber: string) {
+    const client = createAdminClient();
+    const { data: order, error: orderError } = await client
+      .from("retail_orders")
+      .select("id,public_number,status,currency,priced_scope_total,checkout_channel")
+      .eq("public_number", orderNumber)
+      .maybeSingle();
+    if (orderError) throw new RetailPaymentRepositoryError(orderError.code);
+    if (!order || order.status !== "awaiting_payment" || order.currency !== "MDL" || order.checkout_channel !== "public"
+      || !isMoney(order.priced_scope_total)) return null;
+
+    const [{ data: attempt, error: attemptError }, { data: token, error: tokenError }] = await Promise.all([
+      client.from("retail_payment_attempts").select("id").eq("retail_order_id", order.id).limit(1).maybeSingle(),
+      client.from("retail_order_access_tokens").select("token_hash").eq("order_id", order.id)
+        .is("revoked_at", null).gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    if (attemptError) throw new RetailPaymentRepositoryError(attemptError.code);
+    if (tokenError) throw new RetailPaymentRepositoryError(tokenError.code);
+    if (attempt || !token || typeof token.token_hash !== "string" || !/^[0-9a-f]{64}$/.test(token.token_hash)) return null;
+    return {
+      orderNumber: order.public_number,
+      amount: Number(order.priced_scope_total).toFixed(2),
+      currency: "MDL" as const,
+      accessTokenHash: token.token_hash,
+    };
+  }
+
   async claimRefund(input: Parameters<RetailPaymentRepository["claimRefund"]>[0]) {
     return parseRefundClaim(await this.rpc("claim_retail_payment_refund_v1", {
       p_payment_attempt_id: input.paymentAttemptId,
