@@ -23,7 +23,7 @@ describe("retail payment public integration boundary", () => {
     expect(returnPage).toContain("paymentReturnCookieName");
     expect(returnPage).not.toContain("query.returnToken");
     expect(returnPage).toContain("Платёж обрабатывается");
-    expect(returnPage).toContain("Оплата подтверждена");
+    expect(returnPage).toContain("Оплата прошла успешно");
     expect(returnPage).toContain("Plata este în curs de procesare");
     expect(returnPage).toContain("Plata a fost confirmată");
     expect(returnPage).toContain("state?.locale ?? publicRetailLocale(query.lang)");
