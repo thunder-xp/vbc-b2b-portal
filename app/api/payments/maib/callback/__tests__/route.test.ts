@@ -8,7 +8,11 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/src/modules/payments/providers/maib/maib-callback-auth", () => ({ authenticateMaibCallback: mocks.authenticate }));
 vi.mock("@/src/modules/payments/providers/maib/maib-callback", () => ({ parseMaibCallback: mocks.parse }));
-vi.mock("@/src/modules/payments/server", () => ({ createRetailPaymentService: () => ({ confirmMaibCallback: mocks.confirm }) }));
+vi.mock("@/src/modules/payments/server", () => ({
+  createRetailPaymentService: () => ({ confirmMaibCallback: mocks.confirm }),
+  createMaibReviewPaymentService: () => ({ confirmMaibCallback: mocks.confirm }),
+  maibReviewProviderEnvironment: () => ({ MAIB_SIGNATURE_KEY: "review-signature-key" }),
+}));
 
 import { POST } from "../route";
 
