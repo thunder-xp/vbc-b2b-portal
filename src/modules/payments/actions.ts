@@ -18,7 +18,7 @@ export type MaibConnectivityActionState = Readonly<{
 
 export async function verifyMaibConnectivityAdminAction(_previous: MaibConnectivityActionState): Promise<MaibConnectivityActionState> {
   void _previous;
-  await requireAdminPermission("admin.payments.refund");
+  await requireAdminPermission("admin.finance.view");
   const configuration = maibConfigurationSummary();
   if (!configuration.ready) {
     return {
