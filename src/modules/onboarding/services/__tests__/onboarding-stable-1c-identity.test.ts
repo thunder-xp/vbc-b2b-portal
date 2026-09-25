@@ -83,8 +83,8 @@ describe("stable 1C identity for onboarding", () => {
   });
 
   it("shows explicit inactive and identity-conflict messages", () => {
-    expect(actions).toContain('counterparty_no_longer_active: "Компания больше не активна в 1С."');
-    expect(actions).toContain('counterparty_identity_conflict: "Конфликт идентичности 1С. Требуется проверка администратора."');
+    expect(actions).toContain('counterparty_no_longer_active: "Контрагент больше не активен в 1С. Выберите другую запись."');
+    expect(actions).toContain('counterparty_identity_conflict: "Обнаружено несколько записей с одинаковыми реквизитами. Требуется проверка."');
     expect(actions).not.toContain("Справочник 1С обновился. Подтвердите компанию заново.");
   });
 });
