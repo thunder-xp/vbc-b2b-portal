@@ -41,7 +41,7 @@ function Detail({ label, value }: { label: string; value: string }) { return <di
 
 function paymentCopy(status: "PROCESSING" | "PAID" | "REFUND_PENDING" | "REFUNDED" | "FAILED" | "CANCELLED", locale: "ru" | "ro") {
   const ro = locale === "ro";
-  if (status === "PAID") return { title: ro ? "Plata a fost confirmată" : "Оплата подтверждена", detail: ro ? "Comanda a fost confirmată pe baza stării verificate a plății." : "Заказ подтверждён на основании проверенного статуса платежа." };
+  if (status === "PAID") return { title: ro ? "Plata a fost confirmată" : "Оплата прошла успешно", detail: ro ? "Comanda a fost confirmată pe baza stării verificate a plății." : "Заказ подтверждён на основании проверенного статуса платежа." };
   if (status === "REFUND_PENDING") return { title: ro ? "Rambursarea este procesată" : "Возврат обрабатывается", detail: ro ? "Starea finală va fi afișată după confirmarea MAIB." : "Итоговый статус появится после подтверждения MAIB." };
   if (status === "REFUNDED") return { title: ro ? "Rambursarea a fost efectuată" : "Возврат выполнен", detail: ro ? "Plata inițială rămâne în istoric, iar suma rambursabilă rămasă este zero." : "Первичная оплата сохранена в истории, остаток к возврату равен нулю." };
   if (status === "FAILED") return { title: ro ? "Plata nu a fost finalizată" : "Платёж не завершён", detail: ro ? "Comanda nu a fost activată. Puteți reveni la catalog." : "Заказ не был активирован. Вы можете вернуться в каталог." };
