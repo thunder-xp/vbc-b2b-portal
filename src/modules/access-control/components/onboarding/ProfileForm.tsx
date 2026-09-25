@@ -5,14 +5,19 @@ import { type FormEvent, type ReactNode, useState, useTransition } from "react";
 
 import { createProfileAction } from "../../actions/create-profile.action";
 import { updateOwnProfileAction } from "../../actions/update-profile.action";
+import { saveBusinessProfileAction } from "@/src/modules/quick-auth/enrollment.actions";
 import type { CurrentProfileDto } from "../../actions/current-profile.action";
 
 type ProfileFormProps = {
   profile: CurrentProfileDto | null;
   phoneStatus?: ReactNode;
+  businessPhoneVerification?: {
+    locale: "ru" | "ro";
+    returnTo: string;
+  };
 };
 
-export function ProfileForm({ profile, phoneStatus }: ProfileFormProps) {
+export function ProfileForm({ profile, phoneStatus, businessPhoneVerification }: ProfileFormProps) {
   const router = useRouter();
   const isNewProfile = !profile;
   const [fullName, setFullName] = useState(profile?.fullName ?? "");
@@ -30,7 +35,9 @@ export function ProfileForm({ profile, phoneStatus }: ProfileFormProps) {
       const payload = { fullName, phone };
       const result = isNewProfile
         ? await createProfileAction(payload)
-        : await updateOwnProfileAction(payload);
+        : businessPhoneVerification
+          ? await saveBusinessProfileAction({ fullName, targetPhone: phone })
+          : await updateOwnProfileAction(payload);
 
       if (result.success) {
         if (isNewProfile) {
@@ -38,9 +45,36 @@ export function ProfileForm({ profile, phoneStatus }: ProfileFormProps) {
           return;
         }
 
-        setFullName(result.data.fullName ?? "");
-        setPhone(result.data.phone ?? "");
-        setMessage(result.message);
+        if (businessPhoneVerification && "profile" in result) {
+          if (!result.profile) {
+            setError(profileSaveFailed(businessPhoneVerification.locale));
+            return;
+          }
+          setFullName(result.profile.fullName ?? "");
+          const verification = result.phoneVerification;
+          if (verification?.ok && verification.step === "OTP") {
+            const query = new URLSearchParams({
+              lang: businessPhoneVerification.locale,
+              next: businessPhoneVerification.returnTo,
+              challenge: verification.challengeId,
+            });
+            router.replace(`/auth/business-phone-enrollment?${query.toString()}`);
+            return;
+          }
+          if (verification?.ok && verification.step === "CONFIRMED") {
+            setPhone(result.profile.phone ?? phone);
+            setMessage(profileSaved(businessPhoneVerification.locale));
+          } else if (verification && !verification.ok) {
+            setMessage(profileSaved(businessPhoneVerification.locale));
+            setError(phoneVerificationError(verification.error, businessPhoneVerification.locale));
+          } else {
+            setMessage(profileSaved(businessPhoneVerification.locale));
+          }
+        } else if ("data" in result) {
+          setFullName(result.data.fullName ?? "");
+          setPhone(result.data.phone ?? "");
+          setMessage(result.message);
+        }
         router.refresh();
         return;
       }
@@ -112,4 +146,38 @@ export function ProfileForm({ profile, phoneStatus }: ProfileFormProps) {
       </button>
     </form>
   );
+}
+
+function profileSaved(locale: "ru" | "ro") {
+  return locale === "ro" ? "Profilul a fost salvat." : "Профиль сохранён.";
+}
+
+function profileSaveFailed(locale: "ru" | "ro") {
+  return locale === "ro"
+    ? "Profilul nu a putut fi salvat. Încercați din nou."
+    : "Не удалось сохранить профиль. Попробуйте ещё раз.";
+}
+
+function phoneVerificationError(
+  code: string,
+  locale: "ru" | "ro",
+) {
+  if (code === "PHONE_CONFLICT") {
+    return locale === "ro"
+      ? "Acest număr este deja utilizat de alt cont."
+      : "Этот номер уже используется другим аккаунтом.";
+  }
+  if (code === "INVALID_PHONE") {
+    return locale === "ro"
+      ? "Introduceți un număr de telefon valid din Moldova."
+      : "Введите действительный номер телефона Молдовы.";
+  }
+  if (code === "PROVIDER_TEMPORARY") {
+    return locale === "ro"
+      ? "SMS-ul nu a putut fi trimis. Încercați mai târziu."
+      : "Не удалось отправить SMS. Попробуйте позже.";
+  }
+  return locale === "ro"
+    ? "Numărul nu a putut fi trimis spre verificare. Încercați din nou."
+    : "Не удалось начать проверку номера. Попробуйте ещё раз.";
 }

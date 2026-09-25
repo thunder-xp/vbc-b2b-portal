@@ -33,6 +33,7 @@ export default async function CabinetProfilePage() {
   return (
     <div className="grid gap-5">
       <ProfileForm
+        businessPhoneVerification={{ locale, returnTo: "/cabinet/profile" }}
         phoneStatus={
           <BusinessPhoneEnrollmentLink
             canEnroll={isBusinessPhoneOtpEnabled()}

@@ -13,7 +13,7 @@ export const AUTH_SMS_PURPOSE = "AUTH_OTP" as const;
 export type AuthSmsMode = "DISABLED" | "SANDBOX" | "PRODUCTION";
 
 export class AuthSmsDeliveryError extends Error {
-  constructor(readonly code: "DISABLED" | "RECIPIENT_NOT_ALLOWED" | "RATE_LIMITED" | "DELIVERY_FAILED") {
+  constructor(readonly code: "DISABLED" | "RECIPIENT_NOT_ALLOWED" | "RATE_LIMITED" | "DELIVERY_FAILED" | "TARGET_MISMATCH") {
     super("Authentication code delivery failed.");
     this.name = "AuthSmsDeliveryError";
   }
@@ -23,7 +23,10 @@ export interface AuthSmsRateLimitRepository {
   reserve(phoneKeyHash: string): Promise<boolean>;
 }
 
-export type GovernedBusinessAuthSmsIntent = "BUSINESS_PHONE_ENROLLMENT" | "BUSINESS_QUICK_AUTH";
+export type GovernedBusinessAuthSmsIntent =
+  | "BUSINESS_PHONE_ENROLLMENT"
+  | "BUSINESS_QUICK_AUTH"
+  | "BUSINESS_PHONE_TARGET_MISMATCH";
 
 export interface GovernedBusinessAuthSmsRepository {
   resolve(authUserId: string, phoneKeyHash: string): Promise<GovernedBusinessAuthSmsIntent | null>;
@@ -85,9 +88,11 @@ export class FinalCustomerAuthSmsService {
     if (!/^\d{6}$/.test(input.otp)) throw new AuthSmsDeliveryError("DELIVERY_FAILED");
     const phoneKey = hashCustomerIdentityKey("PHONE", phone, true);
     const policy = readAuthSmsPolicy(this.environment);
-    const governedIntent = policy.enabled && policy.mode !== "DISABLED"
+    const governedResolution = policy.enabled && policy.mode !== "DISABLED"
       ? await this.governedBusinessAuth.resolve(input.authUserId, phoneKey.keyHash)
       : null;
+    const targetMismatch = governedResolution === "BUSINESS_PHONE_TARGET_MISMATCH";
+    const governedIntent = targetMismatch ? null : governedResolution;
     const requestHash = createHash("sha256").update(`auth-otp:${input.webhookId}`, "utf8").digest("hex");
     const correlationId = deterministicUuid(requestHash);
     const transport = this.environment.MOLDCELL_TRANSPORT_MODE?.toLowerCase() === "direct" ? "direct" : "relay";
@@ -106,6 +111,16 @@ export class FinalCustomerAuthSmsService {
       return { purpose: AUTH_SMS_PURPOSE, provider: "moldcell", transport, accepted: true, correlationId };
     }
     if (registration.result !== "DISPATCH") throw new AuthSmsDeliveryError("DELIVERY_FAILED");
+
+    if (targetMismatch) {
+      await this.audit.complete(failure(
+        correlationId,
+        "POLICY",
+        "BUSINESS_PHONE_TARGET_MISMATCH",
+        false,
+      ));
+      throw new AuthSmsDeliveryError("TARGET_MISMATCH");
+    }
 
     if (!policy.enabled || policy.mode === "DISABLED") {
       await this.audit.complete(failure(correlationId, "POLICY", "AUTH_SMS_DISABLED", false));

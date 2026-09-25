@@ -17,8 +17,8 @@ import type { BusinessPhoneEnrollmentPublicState } from "../enrollment.types";
 const copy = {
   ru: {
     title: "Подтверждение номера",
-    intro: "SMS-код будет отправлен на номер, сохранённый в профиле.",
-    target: "Номер профиля",
+    intro: "SMS-код будет отправлен на номер, который вы указали для подтверждения.",
+    target: "Номер для подтверждения",
     send: "Отправить SMS-код",
     sending: "Отправляем…",
     otpTitle: "Код подтверждения",
@@ -44,8 +44,8 @@ const copy = {
   },
   ro: {
     title: "Confirmarea numărului",
-    intro: "Codul SMS va fi trimis la numărul salvat în profil.",
-    target: "Numărul din profil",
+    intro: "Codul SMS va fi trimis la numărul indicat pentru confirmare.",
+    target: "Numărul pentru confirmare",
     send: "Trimite codul SMS",
     sending: "Se trimite…",
     otpTitle: "Cod de confirmare",
@@ -74,11 +74,13 @@ const copy = {
 type Step = "TARGET" | "OTP" | "CONFIRMED" | "CONFLICT" | "NOT_SET";
 
 export function BusinessPhoneEnrollmentCard({
+  initialEnrollment,
   initialState,
   locale,
   nextPath,
   targetPhone,
 }: {
+  initialEnrollment?: BusinessPhoneEnrollmentPublicState;
   initialState: BusinessProfilePhoneStateCode;
   locale: PublicLocale;
   nextPath: string;
@@ -86,9 +88,14 @@ export function BusinessPhoneEnrollmentCard({
 }) {
   const labels = copy[locale];
   const router = useRouter();
-  const [step, setStep] = useState<Step>(() => initialStep(initialState));
-  const [challengeId, setChallengeId] = useState<string | null>(null);
-  const [maskedPhone, setMaskedPhone] = useState("");
+  const [step, setStep] = useState<Step>(() =>
+    initialEnrollment?.ok && initialEnrollment.step === "OTP" ? "OTP" : initialStep(initialState));
+  const [challengeId, setChallengeId] = useState<string | null>(
+    initialEnrollment?.ok && initialEnrollment.step === "OTP" ? initialEnrollment.challengeId : null,
+  );
+  const [maskedPhone, setMaskedPhone] = useState(
+    initialEnrollment?.ok && initialEnrollment.step === "OTP" ? initialEnrollment.maskedPhone : "",
+  );
   const [otp, setOtp] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +111,7 @@ export function BusinessPhoneEnrollmentCard({
     setPending(true);
     setError(null);
     try {
-      applyState(await startBusinessPhoneEnrollmentAction(), labels.sendUnavailable);
+      applyState(await startBusinessPhoneEnrollmentAction(targetPhone ?? ""), labels.sendUnavailable);
     } catch {
       setError(labels.sendUnavailable);
     } finally {
@@ -259,6 +266,7 @@ function errorMessage(
   if (error === "INVALID_PHONE") return labels.invalidPhone;
   if (error === "INVALID_CODE") return labels.invalidCode;
   if (error === "PHONE_CONFLICT") return labels.conflictBody;
+  if (error === "PHONE_TARGET_MISMATCH") return unavailableMessage;
   if (error === "RATE_LIMITED") return labels.rateLimited(result.retryAfterSeconds ?? 60);
   return unavailableMessage;
 }
@@ -266,6 +274,6 @@ function errorMessage(
 function initialStep(state: BusinessProfilePhoneStateCode): Step {
   if (state === "VERIFIED") return "CONFIRMED";
   if (state === "CONFLICT") return "CONFLICT";
-  if (state === "NOT_SET") return "NOT_SET";
+  if (state === "NO_PHONE") return "NOT_SET";
   return "TARGET";
 }

@@ -4,7 +4,6 @@ import { canonicalMoldovaE164 } from "@/src/modules/final-customer-auth/auth-pho
 
 import type { BusinessPhoneEnrollmentAuthGateway, BusinessPhoneEnrollmentRepository } from "./enrollment.repository";
 import { BusinessPhoneAuthError } from "./enrollment.errors";
-import type { BusinessProfilePhoneStateService } from "./profile-phone-state";
 import type { BusinessPhoneEnrollmentPublicState } from "./enrollment.types";
 
 export class BusinessPhoneEnrollmentService {
@@ -12,11 +11,10 @@ export class BusinessPhoneEnrollmentService {
     private readonly repository: BusinessPhoneEnrollmentRepository,
     private readonly auth: BusinessPhoneEnrollmentAuthGateway,
     private readonly hashPhone: (phoneE164: string) => string,
-    private readonly profilePhoneState: BusinessProfilePhoneStateService,
   ) {}
 
-  async start(): Promise<BusinessPhoneEnrollmentPublicState> {
-    const target = await this.resolveTarget();
+  async start(rawTargetPhone: string): Promise<BusinessPhoneEnrollmentPublicState> {
+    const target = await this.resolveSubmittedTarget(rawTargetPhone);
     if (!target.ok) return target.state;
     const { authUserId, phoneE164 } = target;
     const phoneKeyHash = this.hashPhone(phoneE164);
@@ -27,6 +25,9 @@ export class BusinessPhoneEnrollmentService {
       if (preparation.result === "ALREADY_CONFIRMED") return { ok: true, step: "CONFIRMED" };
       const sendReservation = await this.repository.reserveSend({ challengeId: preparation.challengeId, authUserId, phoneE164, phoneKeyHash });
       if (!sendReservation.allowed) {
+        if (sendReservation.reason === "TARGET_MISMATCH") return { ok: false, error: "PHONE_TARGET_MISMATCH" };
+        if (sendReservation.reason === "PHONE_CONFLICT") return { ok: false, error: "PHONE_CONFLICT" };
+        if (sendReservation.reason === "EXPIRED") return { ok: false, error: "EXPIRED" };
         return { ok: false, error: "RATE_LIMITED", retryAfterSeconds: sendReservation.retryAfterSeconds };
       }
       let result: { authUserId: string };
@@ -52,12 +53,27 @@ export class BusinessPhoneEnrollmentService {
     }
   }
 
+  async load(challengeId: string): Promise<BusinessPhoneEnrollmentPublicState> {
+    const prepared = await this.prepareExisting(challengeId);
+    if (!prepared.ok) return prepared.state;
+    if (prepared.input.status === "VERIFIED") return { ok: true, step: "CONFIRMED" };
+    return {
+      ok: true,
+      step: "OTP",
+      challengeId,
+      maskedPhone: maskPhone(prepared.input.phoneE164),
+    };
+  }
+
   async resend(challengeId: string): Promise<BusinessPhoneEnrollmentPublicState> {
     const prepared = await this.prepareExisting(challengeId);
     if (!prepared.ok) return prepared.state;
     try {
       const sendReservation = await this.repository.reserveSend(prepared.input);
       if (!sendReservation.allowed) {
+        if (sendReservation.reason === "TARGET_MISMATCH") return { ok: false, error: "PHONE_TARGET_MISMATCH" };
+        if (sendReservation.reason === "PHONE_CONFLICT") return { ok: false, error: "PHONE_CONFLICT" };
+        if (sendReservation.reason === "EXPIRED") return { ok: false, error: "EXPIRED" };
         return { ok: false, error: "RATE_LIMITED", retryAfterSeconds: sendReservation.retryAfterSeconds };
       }
       await this.auth.resendPhoneVerification(prepared.input.phoneE164);
@@ -76,6 +92,7 @@ export class BusinessPhoneEnrollmentService {
     if (!/^\d{6}$/.test(rawToken)) return { ok: false, error: "INVALID_CODE" };
     const prepared = await this.prepareExisting(challengeId);
     if (!prepared.ok) return prepared.state;
+    if (prepared.input.status === "VERIFIED") return { ok: true, step: "CONFIRMED" };
     const challengeInput = {
       challengeId: prepared.input.challengeId,
       authUserId: prepared.input.authUserId,
@@ -113,49 +130,54 @@ export class BusinessPhoneEnrollmentService {
   }
 
   private async prepareExisting(challengeId: string): Promise<
-    | { ok: true; input: { challengeId: string; authUserId: string; phoneE164: string; phoneKeyHash: string; isPhoneChange: boolean } }
+    | { ok: true; input: {
+      challengeId: string;
+      authUserId: string;
+      phoneE164: string;
+      phoneKeyHash: string;
+      isPhoneChange: boolean;
+      status: "OPEN" | "OTP_SENT" | "VERIFIED";
+    } }
     | { ok: false; state: BusinessPhoneEnrollmentPublicState }
   > {
     if (!isUuid(challengeId)) return { ok: false, state: { ok: false, error: "EXPIRED" } };
-    const target = await this.resolveTarget();
-    if (!target.ok) return target;
-    const preparation = await this.repository.prepare({
-      authUserId: target.authUserId,
-      phoneE164: target.phoneE164,
-      phoneKeyHash: this.hashPhone(target.phoneE164),
-    });
-    if (preparation.result !== "READY" || preparation.challengeId !== challengeId) {
+    const user = await this.auth.currentUser();
+    if (!user) return { ok: false, state: { ok: false, error: "AUTH_REQUIRED" } };
+    const target = await this.repository.readTarget({ challengeId, authUserId: user.id });
+    if (!target) {
       return { ok: false, state: { ok: false, error: "EXPIRED" } };
+    }
+    if (target.status === "TARGET_MISMATCH" || !target.phoneE164) {
+      return { ok: false, state: { ok: false, error: "PHONE_TARGET_MISMATCH" } };
+    }
+    const computedHash = this.hashPhone(target.phoneE164);
+    if (!safeEqual(computedHash, target.phoneKeyHash)
+      || target.targetPhoneSuffix !== target.phoneE164.slice(-3)) {
+      return { ok: false, state: { ok: false, error: "PHONE_TARGET_MISMATCH" } };
     }
     return {
       ok: true,
       input: {
         challengeId,
-        authUserId: target.authUserId,
+        authUserId: user.id,
         phoneE164: target.phoneE164,
-        phoneKeyHash: this.hashPhone(target.phoneE164),
-        isPhoneChange: preparation.isPhoneChange,
+        phoneKeyHash: computedHash,
+        isPhoneChange: target.isPhoneChange,
+        status: target.status,
       },
     };
   }
 
-  private async resolveTarget(): Promise<
+  private async resolveSubmittedTarget(rawTargetPhone: string): Promise<
     | { ok: true; authUserId: string; phoneE164: string }
     | { ok: false; state: BusinessPhoneEnrollmentPublicState }
   > {
     try {
-      const state = await this.profilePhoneState.resolveCurrent();
-      if (!state) return { ok: false, state: { ok: false, error: "AUTH_REQUIRED" } };
-      if (state.state === "VERIFIED") {
-        return { ok: false, state: { ok: true, step: "CONFIRMED" } };
-      }
-      if (state.state === "CONFLICT") {
-        return { ok: false, state: { ok: false, error: "PHONE_CONFLICT" } };
-      }
-      if (state.state !== "VERIFICATION_REQUIRED" || !state.profilePhoneE164) {
-        return { ok: false, state: { ok: false, error: "INVALID_PHONE" } };
-      }
-      return { ok: true, authUserId: state.authUserId, phoneE164: state.profilePhoneE164 };
+      const user = await this.auth.currentUser();
+      if (!user) return { ok: false, state: { ok: false, error: "AUTH_REQUIRED" } };
+      const phoneE164 = canonicalMoldovaE164(rawTargetPhone);
+      if (!phoneE164) return { ok: false, state: { ok: false, error: "INVALID_PHONE" } };
+      return { ok: true, authUserId: user.id, phoneE164 };
     } catch {
       return { ok: false, state: { ok: false, error: "UNAVAILABLE" } };
     }
@@ -196,7 +218,7 @@ function isUuid(value: string) {
 }
 
 function maskPhone(phoneE164: string) {
-  return `+373 ** *** ${phoneE164.slice(-2)}`;
+  return `+373*****${phoneE164.slice(-3)}`;
 }
 
 function safeEqual(left: string, right: string) {

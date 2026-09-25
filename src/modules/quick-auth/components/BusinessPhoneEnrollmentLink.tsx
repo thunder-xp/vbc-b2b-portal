@@ -14,7 +14,7 @@ const copy = {
     },
     VERIFICATION_REQUIRED: {
       status: "Требуется подтверждение",
-      description: "Подтвердите новый номер, чтобы использовать его для быстрого входа по SMS.",
+      description: "Подтвердите новый номер телефона. После подтверждения его можно использовать для быстрого входа по SMS.",
       action: "Подтвердить номер",
     },
     CONFLICT: {
@@ -64,9 +64,16 @@ export function BusinessPhoneEnrollmentLink({
   returnTo: string;
   state?: BusinessProfilePhoneStateCode;
 }) {
-  const resolvedState = state ?? "VERIFICATION_REQUIRED";
+  const resolvedState = state ?? "PHONE_VERIFICATION_REQUIRED";
   const labels = copy[locale];
-  const stateCopy = labels[resolvedState];
+  const displayState = resolvedState === "NO_PHONE"
+    ? "NOT_SET"
+    : resolvedState === "VERIFIED"
+      ? "VERIFIED"
+      : resolvedState === "CONFLICT"
+        ? "CONFLICT"
+        : "VERIFICATION_REQUIRED";
+  const stateCopy = labels[displayState];
   const query = new URLSearchParams({ lang: locale, next: returnTo });
   const actionClass = "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-semibold";
 
@@ -74,7 +81,7 @@ export function BusinessPhoneEnrollmentLink({
     <section aria-label={labels.title} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
       <p className="text-sm font-semibold text-zinc-950">{stateCopy.status}</p>
       <p className="mt-1 text-sm leading-5 text-zinc-600">{stateCopy.description}</p>
-      {stateCopy.action && resolvedState === "VERIFICATION_REQUIRED" && canEnroll ? (
+      {stateCopy.action && displayState === "VERIFICATION_REQUIRED" && canEnroll ? (
         <Link
           className={`${actionClass} border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100`}
           href={`/auth/business-phone-enrollment?${query.toString()}`}
@@ -82,7 +89,7 @@ export function BusinessPhoneEnrollmentLink({
           {stateCopy.action}
         </Link>
       ) : null}
-      {stateCopy.action && (resolvedState !== "VERIFICATION_REQUIRED" || !canEnroll) ? (
+      {stateCopy.action && (displayState !== "VERIFICATION_REQUIRED" || !canEnroll) ? (
         <button
           className={`${actionClass} cursor-not-allowed border-zinc-200 bg-zinc-100 text-zinc-500`}
           disabled

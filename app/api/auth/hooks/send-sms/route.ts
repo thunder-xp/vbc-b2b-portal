@@ -37,7 +37,10 @@ export async function POST(request: Request): Promise<Response> {
       return response(publicCode, status);
     }
     if (error instanceof AuthSmsDeliveryError) {
-      return response(error.code === "RATE_LIMITED" ? "RATE_LIMITED" : "DELIVERY_UNAVAILABLE", error.code === "RATE_LIMITED" ? 429 : 503);
+      return response(
+        error.code === "RATE_LIMITED" ? "RATE_LIMITED" : "DELIVERY_UNAVAILABLE",
+        error.code === "RATE_LIMITED" ? 429 : 503,
+      );
     }
     return response("DELIVERY_UNAVAILABLE", 503);
   }

@@ -16,6 +16,7 @@ describe("BusinessProfilePhoneStateService", () => {
     repository = {
       getProfilePhone: vi.fn(async () => "+37360433603"),
       hasOperationalConflict: vi.fn(async () => false),
+      getCanonicalState: vi.fn(async () => null),
     };
     auth = {
       currentUser: vi.fn(async () => ({ id: authUserId, phone: "37360433603", phoneConfirmed: true })),
@@ -36,14 +37,14 @@ describe("BusinessProfilePhoneStateService", () => {
   it("returns VERIFICATION_REQUIRED after the Profile phone changes", async () => {
     vi.mocked(repository.getProfilePhone).mockResolvedValue("+37368123456");
     await expect(service().resolveCurrent()).resolves.toMatchObject({
-      state: "VERIFICATION_REQUIRED",
+      state: "PHONE_VERIFICATION_REQUIRED",
       profilePhoneE164: "+37368123456",
     });
   });
 
   it("returns VERIFICATION_REQUIRED when Auth phone is missing", async () => {
     vi.mocked(auth.currentUser).mockResolvedValue({ id: authUserId, phone: null, phoneConfirmed: false });
-    await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "VERIFICATION_REQUIRED" });
+    await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "PHONE_VERIFICATION_REQUIRED" });
   });
 
   it("returns VERIFICATION_REQUIRED when the same Auth phone exists but is still unconfirmed", async () => {
@@ -53,7 +54,7 @@ describe("BusinessProfilePhoneStateService", () => {
       phoneConfirmed: false,
     });
     await expect(service().resolveCurrent()).resolves.toMatchObject({
-      state: "VERIFICATION_REQUIRED",
+      state: "PHONE_VERIFICATION_REQUIRED",
       profilePhoneE164: "+37360433603",
     });
   });
@@ -68,9 +69,9 @@ describe("BusinessProfilePhoneStateService", () => {
 
   it("returns NOT_SET for a missing or invalid Profile phone", async () => {
     vi.mocked(repository.getProfilePhone).mockResolvedValue(null);
-    await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "NOT_SET" });
+    await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "NO_PHONE" });
     vi.mocked(repository.getProfilePhone).mockResolvedValue("not-a-phone");
-    await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "NOT_SET" });
+    await expect(service().resolveCurrent()).resolves.toMatchObject({ state: "NO_PHONE" });
   });
 
   function service() {

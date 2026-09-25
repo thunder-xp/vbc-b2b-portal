@@ -68,6 +68,31 @@ describe("governed AUTH_OTP SMS", () => {
       .toContain("Код подтверждения телефона NSD: 123456");
   });
 
+  it("blocks a Business enrollment target mismatch before provider dispatch", async () => {
+    const fetchImplementation = vi.fn() as unknown as typeof fetch;
+    const audit = {
+      begin: vi.fn(async () => ({ result: "DISPATCH" as const, isNew: true, attemptCount: 0 })),
+      startProviderAttempt: vi.fn(async () => 1),
+      complete: vi.fn(async () => undefined),
+    };
+    const service = new FinalCustomerAuthSmsService(
+      { reserve: async () => true },
+      baseEnvironment,
+      fetchImplementation,
+      { resolve: async () => "BUSINESS_PHONE_TARGET_MISMATCH" },
+      audit,
+    );
+
+    await expect(service.send(input("wrong-target", "+37369000717")))
+      .rejects.toMatchObject({ code: "TARGET_MISMATCH" });
+    expect(audit.complete).toHaveBeenCalledWith(expect.objectContaining({
+      stage: "POLICY",
+      safeErrorCode: "BUSINESS_PHONE_TARGET_MISMATCH",
+    }));
+    expect(audit.startProviderAttempt).not.toHaveBeenCalled();
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
   it("allows governed Business Quick Auth and keeps login wording", async () => {
     const fetchImplementation = vi.fn(async () => acceptedResponse()) as unknown as typeof fetch;
     const reserve = vi.fn(async () => true);
@@ -195,7 +220,6 @@ describe("governed AUTH_OTP SMS", () => {
 function input(webhookId: string, phone: string) {
   return { authUserId, webhookId, phone, otp: "123456" };
 }
-
 function serviceWithIntent(
   intent: GovernedBusinessAuthSmsIntent | null,
   reserve: (phoneKeyHash: string) => Promise<boolean>,

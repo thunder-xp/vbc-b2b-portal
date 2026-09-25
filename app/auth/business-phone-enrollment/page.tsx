@@ -4,13 +4,14 @@ import { redirect } from "next/navigation";
 import { decideBusinessRoute, resolveCurrentBusinessAccess } from "@/src/modules/auth/access-context";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { BusinessPhoneEnrollmentCard } from "@/src/modules/quick-auth/components/BusinessPhoneEnrollmentCard";
+import { createBusinessPhoneEnrollmentService } from "@/src/modules/quick-auth/enrollment.factory";
 import { createBusinessProfilePhoneStateService } from "@/src/modules/quick-auth/enrollment.factory";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
 
 export default async function BusinessPhoneEnrollmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{ lang?: string; next?: string }>;
+  searchParams: Promise<{ challenge?: string; lang?: string; next?: string }>;
 }) {
   const query = await searchParams;
   const locale = query.lang === "ro" || query.lang === "ru" ? query.lang : await getPartnerLocale();
@@ -23,6 +24,10 @@ export default async function BusinessPhoneEnrollmentPage({
   if (!isBusinessPhoneOtpEnabled()) redirect(nextPath);
   const phoneState = await createBusinessProfilePhoneStateService().resolveCurrent();
   if (!phoneState) redirect(`/auth/sign-in?lang=${locale}`);
+  const challengeId = query.challenge ?? phoneState.challengeId ?? undefined;
+  const initialEnrollment = challengeId
+    ? await createBusinessPhoneEnrollmentService().load(challengeId)
+    : undefined;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-4 py-6 text-zinc-950 sm:px-6 sm:py-8">
@@ -30,10 +35,11 @@ export default async function BusinessPhoneEnrollmentPage({
         <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700" href={nextPath}>Novotech Systems Distribution</Link>
         <div className="mt-4">
           <BusinessPhoneEnrollmentCard
+            initialEnrollment={initialEnrollment}
             initialState={phoneState.state}
             locale={locale}
             nextPath={nextPath}
-            targetPhone={phoneState.profilePhoneE164}
+            targetPhone={phoneState.targetPhoneE164}
           />
         </div>
       </section>

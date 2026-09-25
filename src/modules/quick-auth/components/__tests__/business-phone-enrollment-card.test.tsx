@@ -26,7 +26,7 @@ describe("BusinessPhoneEnrollmentCard", () => {
     mocks.start.mockResolvedValue({ ok: true, step: "OTP", challengeId: "11111111-1111-4111-8111-111111111111", maskedPhone: "+373 ** *** 20" });
     render(
       <BusinessPhoneEnrollmentCard
-        initialState="VERIFICATION_REQUIRED"
+        initialState="PHONE_VERIFICATION_REQUIRED"
         locale="ru"
         nextPath="/cabinet/profile"
         targetPhone="+37369982220"
@@ -36,7 +36,7 @@ describe("BusinessPhoneEnrollmentCard", () => {
     expect(screen.getByText("+37369982220")).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /телефон/i })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Отправить SMS-код" }));
-    expect(mocks.start).toHaveBeenCalledWith();
+    expect(mocks.start).toHaveBeenCalledWith("+37369982220");
     expect(await screen.findByRole("heading", { name: "Код подтверждения" })).toBeInTheDocument();
   });
 
@@ -45,7 +45,7 @@ describe("BusinessPhoneEnrollmentCard", () => {
     mocks.verify.mockResolvedValue({ ok: true, step: "CONFIRMED" });
     render(
       <BusinessPhoneEnrollmentCard
-        initialState="VERIFICATION_REQUIRED"
+        initialState="PHONE_VERIFICATION_REQUIRED"
         locale="ro"
         nextPath="/cabinet/profile"
         targetPhone="+37369982220"
@@ -64,7 +64,7 @@ describe("BusinessPhoneEnrollmentCard", () => {
     mocks.start.mockResolvedValue({ ok: false, error: "RATE_LIMITED", retryAfterSeconds: 37 });
     render(
       <BusinessPhoneEnrollmentCard
-        initialState="VERIFICATION_REQUIRED"
+        initialState="PHONE_VERIFICATION_REQUIRED"
         locale="ro"
         nextPath="/cabinet/profile"
         targetPhone="+37369982220"
@@ -86,7 +86,7 @@ describe("BusinessPhoneEnrollmentCard", () => {
 
     unmount();
     render(
-      <BusinessPhoneEnrollmentCard initialState="NOT_SET" locale="ro" nextPath="/cabinet/profile" targetPhone={null} />,
+      <BusinessPhoneEnrollmentCard initialState="NO_PHONE" locale="ro" nextPath="/cabinet/profile" targetPhone={null} />,
     );
     expect(screen.getByRole("heading", { name: "Numărul de telefon nu este indicat" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /trimite/i })).not.toBeInTheDocument();
@@ -110,7 +110,7 @@ describe("BusinessPhoneEnrollmentLink", () => {
   });
 
   it("renders an enabled RO verification action only for VERIFICATION_REQUIRED", () => {
-    render(<BusinessPhoneEnrollmentLink locale="ro" returnTo="/cabinet/profile" state="VERIFICATION_REQUIRED" />);
+    render(<BusinessPhoneEnrollmentLink locale="ro" returnTo="/cabinet/profile" state="PHONE_VERIFICATION_REQUIRED" />);
     expect(screen.getByText("Este necesară confirmarea")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Confirmați numărul" })).toHaveAttribute(
       "href",

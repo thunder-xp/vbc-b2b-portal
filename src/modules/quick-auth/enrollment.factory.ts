@@ -16,10 +16,6 @@ export function createBusinessPhoneEnrollmentService() {
     new SupabaseBusinessPhoneEnrollmentRepository(),
     auth,
     (phone) => hashCustomerIdentityKey("PHONE", phone, true).keyHash,
-    new BusinessProfilePhoneStateService(
-      new SupabaseBusinessProfilePhoneStateRepository(),
-      auth,
-    ),
   );
 }
 

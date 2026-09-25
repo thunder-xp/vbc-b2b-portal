@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   routerRefresh: vi.fn(),
   routerReplace: vi.fn(),
   updateOwnProfileAction: vi.fn(),
+  saveBusinessProfileAction: vi.fn(),
   submitAccessRequestAction: vi.fn(),
   cancelOwnAccessRequestAction: vi.fn(),
 }));
@@ -35,6 +36,10 @@ vi.mock("../../../actions/create-profile.action", () => ({
 
 vi.mock("../../../actions/update-profile.action", () => ({
   updateOwnProfileAction: mocks.updateOwnProfileAction,
+}));
+
+vi.mock("@/src/modules/quick-auth/enrollment.actions", () => ({
+  saveBusinessProfileAction: mocks.saveBusinessProfileAction,
 }));
 
 vi.mock("../../../actions/submit-access-request.action", () => ({
@@ -124,6 +129,39 @@ describe("ProfileForm", () => {
     await user.click(screen.getByRole("button", { name: "Save profile" }));
 
     expect(await screen.findByText("Profile updated.")).toBeInTheDocument();
+  });
+
+  it("preserves the submitted Business phone and routes to its bound challenge", async () => {
+    const user = userEvent.setup();
+    mocks.saveBusinessProfileAction.mockResolvedValue({
+      success: true,
+      message: "PHONE_VERIFICATION_REQUIRED",
+      profile: makeProfile({ fullName: "Updated User", phone: "+37369000266" }),
+      phoneVerification: {
+        ok: true,
+        step: "OTP",
+        challengeId: "11111111-1111-4111-8111-111111111111",
+        maskedPhone: "+373*****717",
+      },
+    });
+    render(
+      <ProfileForm
+        businessPhoneVerification={{ locale: "ru", returnTo: "/cabinet/profile" }}
+        profile={makeProfile({ phone: "+37369000266" })}
+      />,
+    );
+    await user.clear(screen.getByLabelText("Phone"));
+    await user.type(screen.getByLabelText("Phone"), "+37369000717");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+
+    expect(mocks.saveBusinessProfileAction).toHaveBeenCalledWith({
+      fullName: "Partner User",
+      targetPhone: "+37369000717",
+    });
+    expect(mocks.routerReplace).toHaveBeenCalledWith(
+      "/auth/business-phone-enrollment?lang=ru&next=%2Fcabinet%2Fprofile&challenge=11111111-1111-4111-8111-111111111111",
+    );
+    expect(screen.getByLabelText("Phone")).toHaveValue("+37369000717");
   });
 
   it("displays error result", async () => {
