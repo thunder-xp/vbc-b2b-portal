@@ -703,6 +703,8 @@ function extractSafeReason(error: unknown): string {
     const known = [
       "stale_request_revision",
       "stale_approval_draft",
+      "counterparty_no_longer_active",
+      "counterparty_identity_conflict",
       "counterparty_snapshot_stale",
       "duplicate_company_conflict",
       "counterparty_already_linked",
@@ -751,14 +753,20 @@ class WizardMutationError extends Error {
 }
 
 function approvalFailureMessage(code?: string, currentWizardStep?: number | null): string {
-  if (currentWizardStep === 2) {
+  if (currentWizardStep === 2 && ![
+    "counterparty_no_longer_active",
+    "counterparty_identity_conflict",
+    "counterparty_snapshot_stale",
+  ].includes(code ?? "")) {
     return "Не удалось сохранить коммерческие условия. Черновик сохранён.";
   }
   const message = {
     confirmation_required: "Подтвердите, что компания и условия доступа проверены.",
     stale_request_revision: "Заявка изменилась. Обновите черновик перед продолжением.",
     stale_approval_draft: "Черновик изменён другим менеджером. Обновите страницу.",
-    counterparty_snapshot_stale: "Справочник 1С обновился. Подтвердите компанию заново.",
+    counterparty_no_longer_active: "Компания больше не активна в 1С.",
+    counterparty_identity_conflict: "Конфликт идентичности 1С. Требуется проверка администратора.",
+    counterparty_snapshot_stale: "Конфликт идентичности 1С. Требуется проверка администратора.",
     duplicate_company_conflict: "Обнаружен конфликт компании. Требуется проверка администратора.",
     counterparty_already_linked: "Контрагент уже связан с другой компанией портала.",
     user_membership_conflict: "Пользователь уже связан с другой компанией.",

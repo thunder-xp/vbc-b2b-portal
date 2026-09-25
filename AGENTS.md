@@ -57,3 +57,7 @@ Do not weaken reliability, security, auditability, reconciliation, or critical-p
 Release checklist:
 
 [ ] Cost impact reviewed; no unjustified increase in builds, invocations, CPU, memory, logs, or transfer.
+
+## Stable 1C Directory Identity
+
+Durable onboarding and commercial references use the 1C `Ref_Key` (`external_1c_id`) as identity. Published directory row UUIDs belong to one import snapshot and may be retained only as replaceable caches. On read, save, and approval boundaries, resolve stable identities against the current published snapshot and the governed fiscal identity. Fail closed for missing, inactive, deleted, ambiguous, or conflicting records. Never recover identity by company name.
