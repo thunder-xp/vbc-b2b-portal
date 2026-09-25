@@ -92,6 +92,18 @@ export class RetailPaymentService {
       : null;
   }
 
+  async getControlledPaymentOrder(orderNumber: string) {
+    return /^R-[0-9]{4}-[0-9]{6}$/.test(orderNumber)
+      ? this.repository.getControlledPaymentOrder(orderNumber)
+      : null;
+  }
+
+  async initiateControlledRetailPayment(input: Readonly<{ orderNumber: string; idempotencyKey: string }>) {
+    const order = await this.getControlledPaymentOrder(input.orderNumber);
+    if (!order) return result("NOT_ELIGIBLE");
+    return this.initiate({ accessTokenHash: order.accessTokenHash, checkoutChannel: "public", idempotencyKey: input.idempotencyKey });
+  }
+
   async refundRetailPayment(input: Readonly<{ paymentAttemptId: string; reason: string; idempotencyKey: string }>): Promise<PaymentRefundResult> {
     const reason = input.reason.trim();
     if (!UUID.test(input.paymentAttemptId) || !UUID.test(input.idempotencyKey) || reason.length < 1 || reason.length > 500) {

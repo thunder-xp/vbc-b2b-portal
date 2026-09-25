@@ -20,6 +20,13 @@ export type MaibReconciliationContext = Readonly<{
   currency: string;
 }>;
 
+export type ControlledRetailPaymentOrder = Readonly<{
+  orderNumber: string;
+  amount: string;
+  currency: "MDL";
+  accessTokenHash: string;
+}>;
+
 export interface RetailPaymentRepository {
   claim(input: Readonly<{ accessTokenHash: string; checkoutChannel: "public" | "maib_review"; provider: PaymentProviderName; idempotencyKey: string; returnAccessTokenHash: string }>): Promise<PaymentClaim>;
   completeCheckout(input: Readonly<{ attemptId: string; idempotencyKey: string; checkoutId: string; checkoutUrl: string; providerStatus: string }>): Promise<boolean>;
@@ -32,6 +39,7 @@ export interface RetailPaymentRepository {
   listOrderPaymentStates(retailOrderIds: string[]): Promise<RetailOrderPaymentState[]>;
   getOrderPaymentStateByNumber(orderNumber: string): Promise<RetailOrderPaymentState | null>;
   listRecentPaymentStates(limit: number): Promise<RetailOrderPaymentState[]>;
+  getControlledPaymentOrder(orderNumber: string): Promise<ControlledRetailPaymentOrder | null>;
   claimRefund(input: Readonly<{ paymentAttemptId: string; reason: string; idempotencyKey: string }>): Promise<PaymentRefundClaim>;
   startRefundRequest(refundId: string): Promise<boolean>;
   assignProviderRefund(input: Readonly<{ refundId: string; providerRefundId: string; providerStatus: string }>): Promise<boolean>;

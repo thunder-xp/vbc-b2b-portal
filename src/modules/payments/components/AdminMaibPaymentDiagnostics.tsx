@@ -3,7 +3,9 @@
 import { useActionState } from "react";
 
 import {
+  type ControlledLivePaymentActionState,
   type MaibConnectivityActionState,
+  initiateControlledLivePaymentAdminAction,
   verifyMaibConnectivityAdminAction,
 } from "../actions";
 import type { MaibConfigurationSummary } from "../providers/maib/maib-checkout-v2.adapter";
@@ -17,15 +19,24 @@ const INITIAL: MaibConnectivityActionState = {
   authLatencyMs: null,
   safeError: null,
 };
+const CONTROLLED_INITIAL: ControlledLivePaymentActionState = {
+  status: "IDLE",
+  outcome: null,
+  paymentAttemptId: null,
+  checkoutUrl: null,
+};
 
 export function AdminMaibPaymentDiagnostics({
   configuration,
+  controlledIdempotencyKey,
   payments,
 }: Readonly<{
   configuration: MaibConfigurationSummary;
+  controlledIdempotencyKey: string;
   payments: RetailOrderPaymentState[];
 }>) {
   const [connectivity, action, pending] = useActionState(verifyMaibConnectivityAdminAction, INITIAL);
+  const [controlled, controlledAction, controlledPending] = useActionState(initiateControlledLivePaymentAdminAction, CONTROLLED_INITIAL);
   return (
     <section className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -47,6 +58,23 @@ export function AdminMaibPaymentDiagnostics({
       {connectivity.status !== "IDLE" ? (
         <p className={`rounded-md p-3 text-sm ${connectivity.status === "PASS" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`} role="status">
           {connectivity.status}{connectivity.authLatencyMs !== null ? ` · ${connectivity.authLatencyMs} ms` : ""}{connectivity.safeError ? ` · ${connectivity.safeError}` : ""}
+        </p>
+      ) : null}
+      <form action={controlledAction} className="grid gap-3 border-t border-zinc-200 pt-4 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div>
+          <label className="text-sm font-semibold" htmlFor="controlled-maib-order">Controlled production order</label>
+          <input className="mt-1 min-h-11 w-full rounded-md border border-zinc-300 px-3 font-mono text-sm" id="controlled-maib-order" name="orderNumber" pattern="R-[0-9]{4}-[0-9]{6}" placeholder="R-2026-000000" required />
+          <input name="idempotencyKey" type="hidden" value={controlledIdempotencyKey} />
+          <p className="mt-1 text-xs text-zinc-500">Finance-only, one governed public order, production MAIB, public checkout remains disabled.</p>
+        </div>
+        <button className="min-h-11 self-end rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={controlledPending}>
+          {controlledPending ? "Creating checkout…" : "Create controlled MAIB checkout"}
+        </button>
+      </form>
+      {controlled.status !== "IDLE" ? (
+        <p className={`rounded-md p-3 text-sm ${controlled.status === "READY" ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`} role="status">
+          {controlled.outcome}{controlled.paymentAttemptId ? ` · ${controlled.paymentAttemptId}` : ""}
+          {controlled.checkoutUrl ? <a className="ml-2 font-semibold underline" href={controlled.checkoutUrl} rel="noreferrer" target="_blank">Open MAIB hosted checkout</a> : null}
         </p>
       ) : null}
       <div className="overflow-x-auto">

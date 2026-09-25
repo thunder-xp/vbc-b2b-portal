@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { AdminSupportPageView } from "@/src/modules/admin";
 import { requireAdminPagePermission } from "@/src/modules/admin/services";
 import { createFinanceOperationsService } from "@/src/modules/finance/actions/service-factory";
@@ -16,5 +18,5 @@ export default async function AdminFinancePage({
     createFinanceOperationsService().getOperations(),
     getRecentRetailPaymentStates(50).catch(() => []),
   ]);
-  return <div className="space-y-6"><AdminMaibPaymentDiagnostics configuration={maibConfigurationSummary()} payments={payments} /><AdminFinanceOperationsPanel data={operations} /><AdminSupportPageView page={Number(page ?? 1)} view="finance" /></div>;
+  return <div className="space-y-6"><AdminMaibPaymentDiagnostics configuration={maibConfigurationSummary()} controlledIdempotencyKey={randomUUID()} payments={payments} /><AdminFinanceOperationsPanel data={operations} /><AdminSupportPageView page={Number(page ?? 1)} view="finance" /></div>;
 }
