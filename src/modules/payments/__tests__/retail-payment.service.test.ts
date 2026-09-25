@@ -34,6 +34,22 @@ describe("RetailPaymentService", () => {
     expect(repository.claim).toHaveBeenCalledWith(expect.objectContaining({ returnAccessTokenHash: expect.stringMatching(/^[0-9a-f]{64}$/) }));
   });
 
+  it("starts a controlled checkout only from a server-resolved eligible order token", async () => {
+    const { repository, provider } = dependencies();
+    const service = new RetailPaymentService(repository, provider);
+    const result = await service.initiateControlledRetailPayment({
+      orderNumber: "R-2026-000018",
+      idempotencyKey: input.idempotencyKey,
+    });
+
+    expect(repository.getControlledPaymentOrder).toHaveBeenCalledWith("R-2026-000018");
+    expect(repository.claim).toHaveBeenCalledWith(expect.objectContaining({
+      accessTokenHash: "b".repeat(64),
+      checkoutChannel: "public",
+    }));
+    expect(result.outcome).toBe("SUCCESS");
+  });
+
   it.each(["NOT_ELIGIBLE", "INVALID_ORDER_STATE", "UNPRICED_ORDER", "PAYMENT_ATTEMPT_EXISTS", "TERMS_NOT_ACCEPTED", "EMAIL_REQUIRED", "CONTENT_NOT_ELIGIBLE"] as const)("does not call MAIB for %s", async (outcome) => {
     const { repository, provider } = dependencies({ ...claim, outcome });
     const result = await new RetailPaymentService(repository, provider).initiate(input);
@@ -109,6 +125,7 @@ function dependencies(claimResult: PaymentClaim = claim) {
     listOrderPaymentStates: vi.fn().mockResolvedValue([]),
     getOrderPaymentStateByNumber: vi.fn().mockResolvedValue(null),
     listRecentPaymentStates: vi.fn().mockResolvedValue([]),
+    getControlledPaymentOrder: vi.fn().mockResolvedValue({ orderNumber: "R-2026-000018", amount: "99.50", currency: "MDL", accessTokenHash: "b".repeat(64) }),
     claimRefund: vi.fn(),
     startRefundRequest: vi.fn(),
     assignProviderRefund: vi.fn(),

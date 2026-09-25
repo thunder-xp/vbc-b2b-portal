@@ -96,6 +96,7 @@ function dependencies(claimResult: PaymentRefundClaim = claim) {
     claim: vi.fn(), completeCheckout: vi.fn(), recordFailure: vi.fn(), confirmMaib: vi.fn(),
     getMaibReconciliationContext: vi.fn(), retryMaibActivation: vi.fn(), getReturnState: vi.fn(), persistPaidConfirmationEmail: vi.fn(),
     listOrderPaymentStates: vi.fn().mockResolvedValue([]), getOrderPaymentStateByNumber: vi.fn().mockResolvedValue(null), listRecentPaymentStates: vi.fn().mockResolvedValue([]),
+    getControlledPaymentOrder: vi.fn().mockResolvedValue(null),
     claimRefund: vi.fn().mockResolvedValue(claimResult),
     startRefundRequest: vi.fn().mockResolvedValue(true),
     assignProviderRefund: vi.fn().mockResolvedValue(true),
