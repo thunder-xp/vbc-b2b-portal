@@ -59,7 +59,31 @@ export class AgentCommercialService {
 
   transitionReward(input: { saleLinkId: string; targetState: AgentRewardState; actorUserId: string; reason: string | null }) {
     requireUuid(input.saleLinkId); requireUuid(input.actorUserId);
+    if (input.targetState === "PAID") throw new Error("PAYOUT_EVIDENCE_REQUIRED");
     return this.repository.transitionReward({ ...input, reason: input.reason?.trim().slice(0, 1000) || null });
+  }
+
+  financeQueue(limit = 50) { return this.repository.financeQueue(limit); }
+
+  financeReward(saleLinkId: string) {
+    requireUuid(saleLinkId);
+    return this.repository.financeReward(saleLinkId);
+  }
+
+  confirmPayout(input: {
+    saleLinkId: string;
+    actorUserId: string;
+    expectedUpdatedAt: string;
+    idempotencyKey: string;
+    payoutReference: string;
+    note: string | null;
+  }) {
+    requireUuid(input.saleLinkId); requireUuid(input.actorUserId); requireUuid(input.idempotencyKey);
+    if (!Number.isFinite(Date.parse(input.expectedUpdatedAt))) throw new Error("INVALID_EXPECTED_REWARD_VERSION");
+    const payoutReference = input.payoutReference.trim();
+    if (!payoutReference || payoutReference.length > 160) throw new Error("INVALID_PAYOUT_REFERENCE");
+    const note = input.note?.trim().slice(0, 1000) || null;
+    return this.repository.confirmPayout({ ...input, payoutReference, note });
   }
 
   private async findSale(saleLinkId: string) {

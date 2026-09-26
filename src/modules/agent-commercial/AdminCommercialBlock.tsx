@@ -49,7 +49,7 @@ export function AdminCommercialBlock({
 }
 
 function RewardActions({ agentId, saleLinkId, state }: { agentId: string; saleLinkId: string; state: AgentRewardState }) {
-  const targets: Partial<Record<AgentRewardState, AgentRewardState[]>> = { ELIGIBLE: ["FINANCE_REVIEW"], FINANCE_REVIEW: ["APPROVED", "BLOCKED"], APPROVED: ["READY_FOR_PAYOUT", "ADJUSTED"], READY_FOR_PAYOUT: ["PAID", "ADJUSTED"], PAID: ["ADJUSTED"] };
+  const targets: Partial<Record<AgentRewardState, AgentRewardState[]>> = { ELIGIBLE: ["FINANCE_REVIEW"], FINANCE_REVIEW: ["APPROVED", "BLOCKED"], APPROVED: ["READY_FOR_PAYOUT", "ADJUSTED"], READY_FOR_PAYOUT: ["ADJUSTED"], PAID: ["ADJUSTED"] };
   const available = targets[state] ?? [];
   return available.length ? <form action={transitionAgentRewardAction} className="mt-4 flex flex-wrap items-end gap-2 border-t border-zinc-100 pt-4"><input name="agentId" type="hidden" value={agentId}/><input name="saleLinkId" type="hidden" value={saleLinkId}/><select className="h-10 rounded-md border border-zinc-300 px-3 text-sm" name="targetState">{available.map((target) => <option key={target} value={target}>{target}</option>)}</select><input className="h-10 min-w-64 rounded-md border border-zinc-300 px-3 text-sm" maxLength={1000} name="reason" placeholder="Основание решения"/><button className="h-10 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">Применить</button></form> : null;
 }

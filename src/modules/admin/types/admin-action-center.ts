@@ -8,13 +8,15 @@ export type AdminActionDomain =
   | "integration"
   | "service"
   | "onboarding"
-  | "agent";
+  | "agent"
+  | "finance";
 
 export type AdminActionKind =
   | "operational_issue"
   | "service_attention"
   | "partner_review"
-  | "agent_application";
+  | "agent_application"
+  | "agent_reward_payout";
 
 export interface AdminActionItem {
   id: string;

@@ -1,7 +1,15 @@
 import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
-import type { AgentCommercialAdminDetail, AgentCommissionClassification, AgentRewardState, OneCCommercialOrderCandidate } from "./types";
+import type {
+  AgentCommercialAdminDetail,
+  AgentCommissionClassification,
+  AgentRewardFinanceDetail,
+  AgentRewardFinanceQueueItem,
+  AgentRewardPayoutResult,
+  AgentRewardState,
+  OneCCommercialOrderCandidate,
+} from "./types";
 
 export class AgentCommercialRepository {
   async adminDetail(agentId: string): Promise<AgentCommercialAdminDetail> {
@@ -103,6 +111,101 @@ export class AgentCommercialRepository {
       p_sale_link_id: input.saleLinkId, p_target_state: input.targetState,
       p_actor_user_id: input.actorUserId, p_reason: input.reason,
     });
+  }
+
+  async financeQueue(limit = 50): Promise<AgentRewardFinanceQueueItem[]> {
+    const { data, error } = await createAdminClient()
+      .from("agent_reward_projections")
+      .select("sale_link_id,state,forecast_reward_amount,currency,updated_at,agent_sale_links!inner(agent_id,source_order_number_snapshot,source_order_date_snapshot,source_customer_name_snapshot,commercial_agents!inner(agent_code,display_name))")
+      .in("state", ["ELIGIBLE", "FINANCE_REVIEW", "APPROVED", "READY_FOR_PAYOUT"])
+      .order("updated_at", { ascending: true })
+      .limit(Math.min(Math.max(limit, 1), 50));
+    if (error) throw new Error(`Agent reward queue read failed: ${error.code}`);
+    return (data ?? []).flatMap((row) => {
+      const link = relation(row.agent_sale_links);
+      const agent = relation(link?.commercial_agents);
+      if (!link || !agent) return [];
+      return [{
+        saleLinkId: String(row.sale_link_id),
+        agentId: String(link.agent_id),
+        agentName: String(agent.display_name),
+        agentCode: String(agent.agent_code),
+        customerName: String(link.source_customer_name_snapshot),
+        orderNumber: String(link.source_order_number_snapshot),
+        orderDate: String(link.source_order_date_snapshot),
+        state: row.state as AgentRewardState,
+        amount: Number(row.forecast_reward_amount),
+        currency: String(row.currency),
+        updatedAt: String(row.updated_at),
+      }];
+    });
+  }
+
+  async financeReward(saleLinkId: string): Promise<AgentRewardFinanceDetail | null> {
+    const { data, error } = await createAdminClient()
+      .from("agent_reward_projections")
+      .select("sale_link_id,state,classification_complete,equipment_net_amount,installation_net_amount,excluded_net_amount,equipment_rate_percent,installation_rate_percent,forecast_reward_amount,currency,updated_at,paid_at,paid_by,payout_reference,payout_note,agent_sale_links!inner(agent_id,source_order_number_snapshot,source_order_date_snapshot,source_customer_name_snapshot,commercial_agents!inner(agent_code,display_name),agent_sale_projections(state,payment_state,gross_realized_amount,paid_gross_amount,fully_paid_at,realization_evidence,payment_evidence),agent_reward_events(id,from_state,to_state,actor_user_id,reason,reward_amount,currency,payout_reference,created_at))")
+      .eq("sale_link_id", saleLinkId)
+      .order("created_at", { ascending: false, referencedTable: "agent_sale_links.agent_reward_events" })
+      .limit(20, { referencedTable: "agent_sale_links.agent_reward_events" })
+      .maybeSingle();
+    if (error) throw new Error(`Agent reward detail read failed: ${error.code}`);
+    if (!data) return null;
+    const link = relation(data.agent_sale_links);
+    const agent = relation(link?.commercial_agents);
+    const projection = relation(link?.agent_sale_projections);
+    if (!link || !agent || !projection) return null;
+    const events = Array.isArray(link.agent_reward_events) ? link.agent_reward_events : [];
+    return {
+      saleLinkId: String(data.sale_link_id), agentId: String(link.agent_id),
+      agentName: String(agent.display_name), agentCode: String(agent.agent_code),
+      customerName: String(link.source_customer_name_snapshot),
+      orderNumber: String(link.source_order_number_snapshot), orderDate: String(link.source_order_date_snapshot),
+      state: data.state as AgentRewardState, amount: Number(data.forecast_reward_amount),
+      currency: String(data.currency), updatedAt: String(data.updated_at),
+      classificationComplete: Boolean(data.classification_complete),
+      equipmentNetAmount: Number(data.equipment_net_amount), installationNetAmount: Number(data.installation_net_amount),
+      excludedNetAmount: Number(data.excluded_net_amount), equipmentRatePercent: Number(data.equipment_rate_percent),
+      installationRatePercent: Number(data.installation_rate_percent),
+      saleState: projection.state as AgentRewardFinanceDetail["saleState"], paymentState: String(projection.payment_state),
+      realizedGrossAmount: Number(projection.gross_realized_amount), paidGrossAmount: Number(projection.paid_gross_amount),
+      fullyPaidAt: projection.fully_paid_at ? String(projection.fully_paid_at) : null,
+      realizationEvidence: realizationEvidence(projection.realization_evidence),
+      paymentEvidence: paymentEvidence(projection.payment_evidence),
+      paidAt: data.paid_at ? String(data.paid_at) : null,
+      paidBy: data.paid_by ? String(data.paid_by) : null,
+      payoutReference: data.payout_reference ? String(data.payout_reference) : null,
+      payoutNote: data.payout_note ? String(data.payout_note) : null,
+      events: events.map((event) => ({
+        id: String(event.id), fromState: event.from_state ? String(event.from_state) : null,
+        toState: String(event.to_state), actorUserId: event.actor_user_id ? String(event.actor_user_id) : null,
+        reason: event.reason ? String(event.reason) : null,
+        amount: numberOrNull(event.reward_amount), currency: event.currency ? String(event.currency) : null,
+        payoutReference: event.payout_reference ? String(event.payout_reference) : null,
+        createdAt: String(event.created_at),
+      })).sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)).slice(0, 20),
+    };
+  }
+
+  async confirmPayout(input: {
+    saleLinkId: string;
+    actorUserId: string;
+    expectedUpdatedAt: string;
+    idempotencyKey: string;
+    payoutReference: string;
+    note: string | null;
+  }): Promise<AgentRewardPayoutResult> {
+    const { data, error } = await createAdminClient().rpc("confirm_agent_reward_payout_record", {
+      p_sale_link_id: input.saleLinkId, p_actor_user_id: input.actorUserId,
+      p_expected_updated_at: input.expectedUpdatedAt, p_idempotency_key: input.idempotencyKey,
+      p_payout_reference: input.payoutReference, p_note: input.note,
+    });
+    if (error) {
+      if (error.code === "40001") throw new Error("REWARD_PAYOUT_CONFLICT");
+      if (error.code === "23514") throw new Error("REWARD_NOT_READY_FOR_PAYOUT");
+      throw new Error(`Agent reward payout failed: ${error.code}`);
+    }
+    return data as AgentRewardPayoutResult;
   }
 
   private async rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {

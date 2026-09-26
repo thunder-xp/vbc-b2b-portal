@@ -62,6 +62,7 @@ const DOMAINS: ReadonlyArray<{
 }> = [
   { domain: "onboarding", label: "Партнёры" },
   { domain: "agent", label: "Агенты" },
+  { domain: "finance", label: "Финансы / Агенты" },
   { domain: "service", label: "Сервис" },
   { domain: "integration", label: "Интеграции" },
 ];

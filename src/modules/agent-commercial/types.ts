@@ -119,6 +119,8 @@ export type AgentDealDetail = AgentDealSummary & {
   equipmentRatePercent: number;
   installationRatePercent: number;
   classificationComplete: boolean;
+  paidAt: string | null;
+  safeBlockedReason: "CLASSIFICATION_PENDING" | "PAYMENT_RECONCILIATION" | "REVIEW_REQUIRED" | null;
 };
 
 export type AgentRewardsView = {
@@ -130,7 +132,63 @@ export type AgentRewardsView = {
     state: AgentRewardState;
     amount: number;
     currency: string;
+    paidAt: string | null;
+    safeBlockedReason: "CLASSIFICATION_PENDING" | "PAYMENT_RECONCILIATION" | "REVIEW_REQUIRED" | null;
   }>;
+};
+
+export type AgentRewardFinanceQueueItem = {
+  saleLinkId: string;
+  agentId: string;
+  agentName: string;
+  agentCode: string;
+  customerName: string;
+  orderNumber: string;
+  orderDate: string;
+  state: AgentRewardState;
+  amount: number;
+  currency: string;
+  updatedAt: string;
+};
+
+export type AgentRewardFinanceDetail = AgentRewardFinanceQueueItem & {
+  classificationComplete: boolean;
+  equipmentNetAmount: number;
+  installationNetAmount: number;
+  excludedNetAmount: number;
+  equipmentRatePercent: number;
+  installationRatePercent: number;
+  saleState: AgentSaleProjectionState;
+  paymentState: string;
+  realizedGrossAmount: number;
+  paidGrossAmount: number;
+  fullyPaidAt: string | null;
+  realizationEvidence: AgentCommercialAdminDetail["sales"][number]["realizationEvidence"];
+  paymentEvidence: AgentCommercialAdminDetail["sales"][number]["paymentEvidence"];
+  paidAt: string | null;
+  paidBy: string | null;
+  payoutReference: string | null;
+  payoutNote: string | null;
+  events: Array<{
+    id: string;
+    fromState: string | null;
+    toState: string;
+    actorUserId: string | null;
+    reason: string | null;
+    amount: number | null;
+    currency: string | null;
+    payoutReference: string | null;
+    createdAt: string;
+  }>;
+};
+
+export type AgentRewardPayoutResult = {
+  outcome: "APPLIED" | "ALREADY_APPLIED";
+  saleLinkId: string;
+  state: "PAID";
+  amount: number;
+  currency: string;
+  paidAt: string;
 };
 
 export type AgentCommercialKpis = {

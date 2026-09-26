@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/src/modules/agent-application", () => ({ createCommercialAgentApplicationService: vi.fn() }));
+vi.mock("@/src/modules/agent-commercial/service", () => ({ createAgentCommercialService: vi.fn() }));
 vi.mock("@/src/modules/onboarding", () => ({ SupabaseOnboardingRepository: vi.fn() }));
 vi.mock("@/src/modules/service-center", () => ({ createServiceCenterService: vi.fn() }));
 vi.mock("../admin-operations.service", () => ({ createAdminOperationsService: vi.fn() }));
 
 import type { CommercialAgentApplication } from "@/src/modules/agent-application";
+import type { AgentRewardFinanceQueueItem } from "@/src/modules/agent-commercial/types";
 import type { OnboardingQueue, OnboardingQueueRow } from "@/src/modules/onboarding";
 import type { ServiceAdminAttentionItem } from "@/src/modules/service-center";
 
@@ -21,6 +23,7 @@ function dependencies(overrides: Partial<AdminActionCenterDependencies> = {}): A
     listServiceAttention: vi.fn(async () => []),
     listOnboardingQueue: vi.fn(async () => queue([])),
     listAgentApplications: vi.fn(async () => []),
+    listAgentRewardQueue: vi.fn(async () => []),
     ...overrides,
   };
 }
@@ -119,12 +122,37 @@ describe("AdminActionCenterService", () => {
     expect(center.actionableCount).toBe(0);
   });
 
+  it("shows actionable Agent rewards only to Finance-authorized users and removes them after payout", async () => {
+    let paid = false;
+    const deps = dependencies({
+      listAgentRewardQueue: vi.fn(async () => paid ? [] : [agentReward()]),
+    });
+    const service = new AdminActionCenterService(deps);
+
+    const unauthorized = await service.getActionCenter(["admin.agents.view"], NOW);
+    expect(unauthorized.items).toHaveLength(0);
+    expect(deps.listAgentRewardQueue).not.toHaveBeenCalled();
+
+    const actionable = await service.getActionCenter(["admin.agent_rewards.approve"], NOW);
+    expect(actionable.items).toEqual([
+      expect.objectContaining({
+        domain: "finance",
+        kind: "agent_reward_payout",
+        title: "Вознаграждение агента готово к выплате",
+        actionHref: "/admin/agents/rewards/reward-sale-link",
+      }),
+    ]);
+    paid = true;
+    expect((await service.getActionCenter(["admin.agent_rewards.approve"], NOW)).items).toHaveLength(0);
+  });
+
   it("does not execute or expose unauthorized domain sources", async () => {
     const deps = dependencies({
       listOperationalIssues: vi.fn(async () => [operationalIssue()]),
       listServiceAttention: vi.fn(async () => [serviceItem()]),
       listOnboardingQueue: vi.fn(async () => queue([onboardingRow("received")])),
       listAgentApplications: vi.fn(async () => [agentApplication("SUBMITTED", "agent-1")]),
+      listAgentRewardQueue: vi.fn(async () => [agentReward()]),
     });
     const center = await new AdminActionCenterService(deps).getActionCenter(["admin.dashboard.view"], NOW);
     expect(center.items).toHaveLength(1);
@@ -132,6 +160,7 @@ describe("AdminActionCenterService", () => {
     expect(deps.listServiceAttention).not.toHaveBeenCalled();
     expect(deps.listOnboardingQueue).not.toHaveBeenCalled();
     expect(deps.listAgentApplications).not.toHaveBeenCalled();
+    expect(deps.listAgentRewardQueue).not.toHaveBeenCalled();
   });
 
   it("bounds each source and the initial mixed queue", async () => {
@@ -223,5 +252,21 @@ function agentApplication(status: "SUBMITTED" | "NEEDS_CLARIFICATION", id: strin
     submittedAt: "2026-09-26T06:00:00.000Z", reviewedAt: null, reviewedBy: null,
     provisionedAgentId: null, revision: 1, createdAt: "2026-09-26T06:00:00.000Z",
     updatedAt: "2026-09-26T06:00:00.000Z",
+  };
+}
+
+function agentReward(): AgentRewardFinanceQueueItem {
+  return {
+    saleLinkId: "reward-sale-link",
+    agentId: "agent-id",
+    agentName: "Culacov Vasili",
+    agentCode: "AG-000001",
+    customerName: "Pilot customer",
+    orderNumber: "NS-002691",
+    orderDate: "2026-09-20",
+    state: "READY_FOR_PAYOUT",
+    amount: 333.13,
+    currency: "MDL",
+    updatedAt: "2026-09-26T05:00:00.000Z",
   };
 }

@@ -4,6 +4,8 @@ import {
   createCommercialAgentApplicationService,
   type CommercialAgentApplication,
 } from "@/src/modules/agent-application";
+import { createAgentCommercialService } from "@/src/modules/agent-commercial/service";
+import type { AgentRewardFinanceQueueItem } from "@/src/modules/agent-commercial/types";
 import {
   SupabaseOnboardingRepository,
   type OnboardingQueue,
@@ -35,6 +37,7 @@ export interface AdminActionCenterDependencies {
     limit: number,
   ): Promise<OnboardingQueue>;
   listAgentApplications(limit: number): Promise<readonly CommercialAgentApplication[]>;
+  listAgentRewardQueue(limit: number): Promise<readonly AgentRewardFinanceQueueItem[]>;
 }
 
 type SourceDefinition = {
@@ -148,8 +151,39 @@ export class AdminActionCenterService {
         load: async () => (await this.dependencies.listAgentApplications(MAX_ITEMS_PER_SOURCE))
           .map((application) => agentApplicationItem(application, now)),
       },
+      {
+        domain: "finance",
+        label: "Финансы / Агенты",
+        permission: "admin.agent_rewards.approve",
+        load: async () => (await this.dependencies.listAgentRewardQueue(MAX_ITEMS_PER_SOURCE))
+          .map((reward) => agentRewardPayoutItem(reward, now)),
+      },
     ];
   }
+}
+
+function agentRewardPayoutItem(
+  reward: AgentRewardFinanceQueueItem,
+  now: Date,
+): AdminActionSignal {
+  return {
+    id: `finance:agent-reward:${reward.saleLinkId}:${reward.state}`,
+    situationKey: `finance:agent-reward:${reward.saleLinkId}`,
+    signalCount: 1,
+    signalPrecedence: reward.state === "READY_FOR_PAYOUT" ? 400 : reward.state === "APPROVED" ? 300 : reward.state === "FINANCE_REVIEW" ? 200 : 100,
+    domain: "finance",
+    kind: "agent_reward_payout",
+    level: "ACTION_REQUIRED",
+    title: reward.state === "READY_FOR_PAYOUT"
+      ? "Вознаграждение агента готово к выплате"
+      : "Вознаграждение агента требует решения Finance",
+    explanation: `${bounded(reward.agentName)} · заказ ${bounded(reward.orderNumber)} · ${formatMoney(reward.amount, reward.currency)}`,
+    entityLabel: bounded(reward.agentName),
+    createdAt: validDate(reward.updatedAt, now),
+    actionLabel: "Открыть",
+    actionHref: `/admin/agents/rewards/${reward.saleLinkId}`,
+    permission: "admin.agent_rewards.approve",
+  };
 }
 
 function operationalIssueItem(
@@ -314,6 +348,10 @@ function validDate(value: string | null | undefined, fallback: Date): string {
   return value && Number.isFinite(Date.parse(value)) ? value : fallback.toISOString();
 }
 
+function formatMoney(value: number, currency: string): string {
+  return new Intl.NumberFormat("ru-MD", { style: "currency", currency }).format(value);
+}
+
 function safeAdminHref(value: string, fallback: string): string {
   return value.startsWith("/admin/") && !value.startsWith("//") ? value : fallback;
 }
@@ -390,6 +428,7 @@ function defaultDependencies(): AdminActionCenterDependencies {
   const serviceCenter = createServiceCenterService();
   const onboarding = new SupabaseOnboardingRepository();
   const agents = createCommercialAgentApplicationService();
+  const agentCommercial = createAgentCommercialService();
   return {
     listOperationalIssues: (now) => operations.listOperationalIssues(now),
     listServiceAttention: () => serviceCenter.adminAttention(MAX_SERVICE_SIGNALS),
@@ -411,6 +450,7 @@ function defaultDependencies(): AdminActionCenterDependencies {
       statuses: ["SUBMITTED", "NEEDS_CLARIFICATION"],
       limit,
     }),
+    listAgentRewardQueue: (limit) => agentCommercial.financeQueue(limit),
   };
 }
 
