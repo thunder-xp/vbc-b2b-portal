@@ -14,7 +14,7 @@ export interface CommercialAgentApplicationRepository {
   }): Promise<CommercialAgentApplication | null>;
   submit(applicantUserId: string, input: CommercialAgentApplicationInput): Promise<CommercialAgentApplication>;
   withdraw(applicantUserId: string): Promise<CommercialAgentApplication>;
-  listForAdmin(): Promise<CommercialAgentApplication[]>;
+  listForAdmin(input?: CommercialAgentApplicationListInput): Promise<CommercialAgentApplication[]>;
   countReviewQueue(): Promise<number>;
   getForAdmin(applicationId: string): Promise<CommercialAgentApplication | null>;
   review(input: {
@@ -24,3 +24,8 @@ export interface CommercialAgentApplicationRepository {
     safeNote?: string | null;
   }): Promise<CommercialAgentApplication>;
 }
+
+export type CommercialAgentApplicationListInput = {
+  statuses?: readonly CommercialAgentApplication["status"][];
+  limit?: number;
+};

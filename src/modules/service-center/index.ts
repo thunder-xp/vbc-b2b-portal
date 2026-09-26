@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./repository";
 export * from "./supabase.repository";
 export * from "./service";
+export * from "./factory";
 export * from "./actions";
 export * from "./components";
 export * from "./views";

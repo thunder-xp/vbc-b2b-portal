@@ -59,7 +59,7 @@ describe("Admin operational drilldown", () => {
     expect(screen.getByRole("link", { name: /Остатки: Устарело/ })).toHaveAttribute("href", "/admin/operations/issues/stock:stale");
     expect(screen.getByRole("link", { name: /Поступления: Ещё не синхронизировано/ })).toBeInTheDocument();
     expect(screen.getByText("Нет данных в 1С")).toHaveClass("text-emerald-700");
-    expect(screen.getByRole("link", { name: "Посмотреть проблемы →" })).toHaveAttribute("href", "/admin/operations/issues");
+    expect(screen.getByText("Состояние данных и последние события")).toBeInTheDocument();
   });
 
   it("lists exactly the supplied active issues", () => {
