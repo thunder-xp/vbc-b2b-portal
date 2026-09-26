@@ -132,7 +132,7 @@ describe("DefaultProposalService", () => {
     expect(proposal.projectName).toBe("Проект Chișinău 2026");
     expect(proposal.sections.map((section) => section.name)).toEqual([
       "Оборудование",
-      "Монтажные материалы",
+      "Материалы",
       "Монтажные работы",
       "Пусконаладочные работы",
     ]);

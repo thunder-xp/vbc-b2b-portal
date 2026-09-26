@@ -9,12 +9,27 @@ export const CANONICAL_ESTIMATE_SECTIONS: ReadonlyArray<{
   allowedModes: ReadonlyArray<"product" | "service" | "external">;
 }> = [
   { key: "equipment", name: "Оборудование", addLabel: "Добавить оборудование", subtotalLabel: "Итого за оборудование", defaultMode: "product", allowedModes: ["product", "external"] },
-  { key: "installation_materials", name: "Монтажные материалы", addLabel: "Добавить материалы", subtotalLabel: "Итого за монтажные материалы", defaultMode: "product", allowedModes: ["product", "external"] },
+  { key: "installation_materials", name: "Материалы", addLabel: "Добавить материалы", subtotalLabel: "Итого за материалы", defaultMode: "product", allowedModes: ["product", "external"] },
   { key: "installation_works", name: "Монтажные работы", addLabel: "Добавить вид работ", subtotalLabel: "Итого за монтажные работы", defaultMode: "service", allowedModes: ["service", "external"] },
   { key: "commissioning_works", name: "Пусконаладочные работы", addLabel: "Добавить вид работ", subtotalLabel: "Итого за пусконаладочные работы", defaultMode: "service", allowedModes: ["service", "external"] },
 ] as const;
 
 export const CANONICAL_ESTIMATE_SECTION_BY_KEY = new Map(CANONICAL_ESTIMATE_SECTIONS.map((section) => [section.key, section]));
+const LEGACY_DEFAULT_SECTION_NAMES = new Map<EstimateSectionSystemKey, ReadonlySet<string>>([
+  ["installation_materials", new Set(["Монтажные материалы", "Materiale de instalare"])],
+]);
+
+export function isDefaultEstimateSectionName(key: EstimateSectionSystemKey, name: string): boolean {
+  return CANONICAL_ESTIMATE_SECTION_BY_KEY.get(key)?.name === name
+    || LEGACY_DEFAULT_SECTION_NAMES.get(key)?.has(name)
+    || false;
+}
+
+export function estimateSectionPresentationName(key: EstimateSectionSystemKey, persistedName: string | null | undefined): string {
+  const canonical = CANONICAL_ESTIMATE_SECTION_BY_KEY.get(key);
+  if (!canonical) return persistedName ?? "";
+  return !persistedName || isDefaultEstimateSectionName(key, persistedName) ? canonical.name : persistedName;
+}
 
 export function canonicalSectionOrder(key: EstimateSectionSystemKey | null): number {
   if (!key) return CANONICAL_ESTIMATE_SECTIONS.length;
@@ -26,7 +41,7 @@ export function resolveCanonicalSectionKey(section: {
   systemKey?: EstimateSectionSystemKey | null;
 }): EstimateSectionSystemKey | null {
   if (section.systemKey) return section.systemKey;
-  return CANONICAL_ESTIMATE_SECTIONS.find((candidate) => candidate.name === section.name)?.key ?? null;
+  return CANONICAL_ESTIMATE_SECTIONS.find((candidate) => isDefaultEstimateSectionName(candidate.key, section.name))?.key ?? null;
 }
 
 export function resolveCanonicalLineSectionKey(
@@ -87,7 +102,7 @@ export function buildCanonicalEstimateSectionPresentation<TLine extends {
   return CANONICAL_ESTIMATE_SECTIONS.map((config) => ({
     config,
     targetSectionId: input.sections.find((section) => resolveCanonicalSectionKey(section) === config.key)?.id ?? null,
-    customName: input.sections.find((section) => resolveCanonicalSectionKey(section) === config.key && section.name !== config.name)?.name ?? null,
+    customName: input.sections.find((section) => resolveCanonicalSectionKey(section) === config.key && !isDefaultEstimateSectionName(config.key, section.name))?.name ?? null,
     lines: linesByKey.get(config.key) ?? [],
     total: Math.round((totalsByKey.get(config.key) ?? 0) * 100) / 100,
   }));
