@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Check, ExternalLink } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -10,6 +10,7 @@ import { notificationCopy, presentPartnerNotification, usePartnerLocale } from "
 import type { NotificationSummary } from "../types";
 import { NotificationSeverityLabel } from "./NotificationSeverityLabel";
 import { NOTIFICATIONS_MARKED_ALL_READ_EVENT } from "./notification-client-events";
+import { NotificationBellTrigger } from "./NotificationBellTrigger";
 
 export function NotificationBell({ initialSummary }: { initialSummary: NotificationSummary }) {
   const locale = usePartnerLocale();
@@ -76,13 +77,12 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
 
   return (
     <div className="relative shrink-0" ref={rootRef}>
-      <button
-        aria-controls="partner-notification-popover"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={`${copy.title}: ${copy.unreadCount} ${summary.unreadCount}`}
-        className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-700 transition hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-        data-header-control="notifications"
+      <NotificationBellTrigger
+        badgeCount={summary.unreadCount}
+        controls="partner-notification-popover"
+        expanded={open}
+        headerControl="notifications"
+        label={`${copy.title}: ${copy.unreadCount} ${summary.unreadCount}`}
         onClick={() => setOpen((value) => {
           const next = !value;
           if (next) {
@@ -95,15 +95,8 @@ export function NotificationBell({ initialSummary }: { initialSummary: Notificat
           return next;
         })}
         ref={triggerRef}
-        type="button"
-      >
-        <Bell aria-hidden="true" size={19} />
-        {summary.unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-600 px-1 text-center text-[11px] font-semibold leading-5 text-white" data-partner-radius="semantic">
-            {summary.unreadCount > 99 ? "99+" : summary.unreadCount}
-          </span>
-        )}
-      </button>
+        testId="partner-notification-trigger"
+      />
 
       {open && (
         <section

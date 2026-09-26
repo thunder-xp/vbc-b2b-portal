@@ -45,9 +45,14 @@ const context = {
   deploymentId: null,
 };
 
+const notificationCenter = {
+  items: [], actionableCount: 0, waitingCount: 0, hasMore: false,
+  generatedAt: "2026-09-26T12:00:00.000Z", sourceWarnings: [],
+};
+
 describe("AdminShell", () => {
   it("renders identity, active navigation, breadcrumb, and environment", () => {
-    render(<AdminShell context={context}>Content</AdminShell>);
+    render(<AdminShell context={context} notificationCenter={notificationCenter}>Content</AdminShell>);
 
     expect(screen.getAllByText("Панель администратора").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Заявки на доступ").length).toBeGreaterThan(0);
@@ -57,10 +62,11 @@ describe("AdminShell", () => {
       "aria-current",
       "page",
     );
+    expect(screen.getByRole("button", { name: "Центр уведомлений: требуют внимания 0" })).toBeInTheDocument();
   });
 
   it("opens and closes mobile navigation with Escape", () => {
-    render(<AdminShell context={context}>Content</AdminShell>);
+    render(<AdminShell context={context} notificationCenter={notificationCenter}>Content</AdminShell>);
     fireEvent.click(screen.getByRole("button", { name: "Открыть навигацию" }));
     expect(screen.getByTestId("admin-navigation-overlay")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
@@ -69,7 +75,7 @@ describe("AdminShell", () => {
   });
 
   it("keeps specialized destinations in one progressive disclosure group", () => {
-    render(<AdminShell context={context}>Content</AdminShell>);
+    render(<AdminShell context={context} notificationCenter={notificationCenter}>Content</AdminShell>);
 
     const disclosure = screen.getByText("Система и ещё").closest("details");
     expect(disclosure).not.toHaveAttribute("open");
@@ -79,5 +85,11 @@ describe("AdminShell", () => {
       "href",
       "/admin/integrations/jobs",
     );
+  });
+
+  it("opens the Admin Notification Center from the header bell", () => {
+    render(<AdminShell context={context} notificationCenter={notificationCenter}>Content</AdminShell>);
+    fireEvent.click(screen.getByRole("button", { name: "Центр уведомлений: требуют внимания 0" }));
+    expect(screen.getByRole("dialog", { name: "Центр уведомлений" })).toBeInTheDocument();
   });
 });

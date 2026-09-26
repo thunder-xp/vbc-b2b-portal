@@ -22,7 +22,7 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
           <h2 className="mt-1 text-xl font-semibold" id="admin-operational-summary-title">
             Операционная картина
           </h2>
-          <p className="mt-1 text-sm text-zinc-600">Краткие показатели после очереди текущих задач.</p>
+          <p className="mt-1 text-sm text-zinc-600">Ключевые показатели ежедневной работы.</p>
         </div>
 
         <div className="mt-4 grid gap-px overflow-hidden border border-zinc-200 bg-zinc-200 md:grid-cols-3">

@@ -14,7 +14,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { signOutAction } from "@/src/modules/auth/actions/auth.actions";
 
 import { findAdminNavigationItem } from "../navigation";
-import type { AdminWorkspaceContext } from "../types";
+import type { AdminActionCenter, AdminWorkspaceContext } from "../types";
+import { AdminNotificationCenter } from "./AdminNotificationCenter";
 
 const ENVIRONMENT_LABELS = {
   production: "Production",
@@ -24,9 +25,11 @@ const ENVIRONMENT_LABELS = {
 
 export function AdminShell({
   children,
+  notificationCenter,
   context,
 }: {
   children: ReactNode;
+  notificationCenter: AdminActionCenter;
   context: AdminWorkspaceContext;
 }) {
   const pathname = usePathname();
@@ -188,6 +191,7 @@ export function AdminShell({
               {activeItem?.label ?? "Внутренняя рабочая область"}
             </p>
           </div>
+          <AdminNotificationCenter center={notificationCenter} />
           <span className="rounded border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-600">
             {ENVIRONMENT_LABELS[context.environment]}
           </span>

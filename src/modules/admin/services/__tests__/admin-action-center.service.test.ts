@@ -102,6 +102,23 @@ describe("AdminActionCenterService", () => {
     expect(center.actionableCount).toBe(2);
   });
 
+  it("naturally removes a situation after its authoritative domain state resolves", async () => {
+    let resolved = false;
+    const deps = dependencies({
+      listServiceAttention: vi.fn(async () =>
+        resolved ? [] : [serviceItem("event-1", "case-1", "service_case_overdue")]
+      ),
+    });
+    const service = new AdminActionCenterService(deps);
+
+    expect((await service.getActionCenter(["admin.service.view"], NOW)).items)
+      .toHaveLength(1);
+    resolved = true;
+    const center = await service.getActionCenter(["admin.service.view"], NOW);
+    expect(center.items).toHaveLength(0);
+    expect(center.actionableCount).toBe(0);
+  });
+
   it("does not execute or expose unauthorized domain sources", async () => {
     const deps = dependencies({
       listOperationalIssues: vi.fn(async () => [operationalIssue()]),

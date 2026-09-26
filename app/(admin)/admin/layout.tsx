@@ -5,7 +5,11 @@ import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 
 import { UnauthenticatedError } from "@/src/modules/access-control/services";
-import { AdminShell, getAdminWorkspaceContext } from "@/src/modules/admin";
+import {
+  AdminShell,
+  createAdminActionCenterService,
+  getAdminWorkspaceContext,
+} from "@/src/modules/admin";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -20,5 +24,12 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     notFound();
   }
 
-  return <AdminShell context={context}>{children}</AdminShell>;
+  const notificationCenter = await createAdminActionCenterService()
+    .getActionCenter(context.permissions);
+
+  return (
+    <AdminShell context={context} notificationCenter={notificationCenter}>
+      {children}
+    </AdminShell>
+  );
 }

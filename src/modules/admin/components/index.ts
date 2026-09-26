@@ -1,6 +1,7 @@
 export { AdminShell } from "./AdminShell";
 export { AdminDashboardView } from "./AdminDashboardView";
 export { AdminActionCenterView } from "./AdminActionCenterView";
+export { AdminNotificationCenter } from "./AdminNotificationCenter";
 export { AdminOperationalIssueDetail, AdminOperationalIssueList } from "./AdminOperationalIssues";
 export { AdminPageHeader } from "./AdminPageHeader";
 export { AdminCompanyDirectory } from "./AdminCompanyDirectory";
