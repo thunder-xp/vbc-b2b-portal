@@ -116,6 +116,8 @@ export const getEstimatesCopy = definePartnerCopy(
     totalDiscount: "Общая скидка",
     totalWithoutVat: "Итого без НДС",
     payable: "К оплате",
+    myProfit: "Моя прибыль",
+    profitIncomplete: "Не рассчитано для внешних позиций: {count}",
     incompletePricing: "Есть позиции без рассчитанной цены.",
     quoteWarnings: "Требует внимания",
     noStockWarning: "Нет в наличии: {count}",
@@ -124,7 +126,7 @@ export const getEstimatesCopy = definePartnerCopy(
     uncertainStockWarning: "Наличие уточняется: {count}",
     changedPriceWarning: "Текущая цена изменилась: {count}",
     equipment: "Оборудование",
-    installationMaterials: "Монтажные материалы",
+    installationMaterials: "Материалы",
     installationWorks: "Монтажные работы",
     commissioningWorks: "Пусконаладочные работы",
     addEquipment: "Добавить оборудование",
@@ -139,6 +141,7 @@ export const getEstimatesCopy = definePartnerCopy(
     workService: "Работа / услуга",
     equipmentInstallationWork: "Монтаж оборудования",
     cableRoutingWork: "Трассировка кабеля",
+    scenarioProgrammingWork: "Программирование сценария",
     externalLine: "Внешняя позиция",
     manualLine: "Ручная позиция",
     vatIncluded: "НДС включён",
@@ -617,6 +620,8 @@ export const getEstimatesCopy = definePartnerCopy(
     totalDiscount: "Reducere totală",
     totalWithoutVat: "Total fără TVA",
     payable: "De achitat",
+    myProfit: "Profitul meu",
+    profitIncomplete: "Nu este calculat pentru poziții externe: {count}",
     incompletePricing: "Există poziții fără preț calculat.",
     quoteWarnings: "Necesită atenție",
     noStockWarning: "Lipsă din stoc: {count}",
@@ -625,7 +630,7 @@ export const getEstimatesCopy = definePartnerCopy(
     uncertainStockWarning: "Disponibilitate de confirmat: {count}",
     changedPriceWarning: "Preț curent modificat: {count}",
     equipment: "Echipamente",
-    installationMaterials: "Materiale de instalare",
+    installationMaterials: "Materiale",
     installationWorks: "Lucrări de instalare",
     commissioningWorks: "Lucrări de punere în funcțiune",
     addEquipment: "Adaugă echipament",
@@ -640,6 +645,7 @@ export const getEstimatesCopy = definePartnerCopy(
     workService: "Lucrare / serviciu",
     equipmentInstallationWork: "Montajul echipamentului",
     cableRoutingWork: "Trasarea cablului",
+    scenarioProgrammingWork: "Programarea scenariului",
     externalLine: "Poziție externă",
     manualLine: "Poziție manuală",
     vatIncluded: "TVA inclus",
@@ -1080,5 +1086,6 @@ export function estimateWorkNameForLocale(name: string, locale: PartnerLocale): 
   const copy = getEstimatesCopy(locale);
   if (key === "equipment_installation") return copy.equipmentInstallationWork;
   if (key === "cable_routing") return copy.cableRoutingWork;
+  if (key === "scenario_programming") return copy.scenarioProgrammingWork;
   return name;
 }

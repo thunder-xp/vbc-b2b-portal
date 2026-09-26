@@ -1,6 +1,6 @@
 import Decimal from "decimal.js";
 
-import type { EstimatePricingMode, EstimateVatMode } from "../types";
+import type { EstimateLineType, EstimatePricingMode, EstimateVatMode } from "../types";
 
 Decimal.set({ precision: 28, rounding: Decimal.ROUND_HALF_UP });
 
@@ -18,12 +18,19 @@ export class EstimateCalculationError extends Error {
 export type CommercialLineInput = {
   id: string;
   sectionId: string;
+  profitCostBasis: "authoritative" | "zero" | "unknown";
   quantity: number;
   pricingMode: EstimatePricingMode;
   pricingInputValue: number | null;
   convertedCostUnitPrice: number | null;
   lineDiscountPercent: number;
 };
+
+export function profitCostBasisForLineType(lineType: EstimateLineType): CommercialLineInput["profitCostBasis"] {
+  if (lineType === "product") return "authoritative";
+  if (lineType === "service") return "zero";
+  return "unknown";
+}
 
 export type CommercialSectionInput = {
   id: string;
@@ -60,6 +67,7 @@ export type EstimateCommercialTotals = {
   totalExcludingVat: number;
   finalTotal: number;
   grossProfit: number | null;
+  profitIncompleteLineCount: number;
   overallMarginPercent: number | null;
   incompletePricing: boolean;
 };
@@ -106,12 +114,19 @@ export function calculateEstimateCommercials(input: {
     finalTotal = money(beforeVat.plus(vatAmount));
   }
 
-  const hasMissingCost = input.lines.some((line) => line.convertedCostUnitPrice === null);
+  const profitIncompleteLineCount = input.lines.filter((line) =>
+    line.profitCostBasis === "unknown"
+    || line.profitCostBasis === "authoritative" && line.convertedCostUnitPrice === null
+  ).length;
   const totalCost = sum(input.lines.map((line) => withTarget({ kind: "line", lineId: line.id }, () => {
-    const cost = line.convertedCostUnitPrice === null ? new Decimal(0) : nonNegative(line.convertedCostUnitPrice, "Себестоимость некорректна.");
+    const cost = line.profitCostBasis === "zero"
+      ? new Decimal(0)
+      : line.convertedCostUnitPrice === null
+        ? new Decimal(0)
+        : nonNegative(line.convertedCostUnitPrice, "Себестоимость некорректна.");
     return cost.mul(positive(line.quantity, "Количество должно быть больше нуля."));
   })));
-  const grossProfit = hasMissingCost ? null : money(excludingVat.minus(totalCost));
+  const grossProfit = profitIncompleteLineCount ? null : money(excludingVat.minus(totalCost));
   const overallMargin = grossProfit !== null && excludingVat.gt(0) ? percentValue(grossProfit.div(excludingVat).mul(100)) : null;
 
   return {
@@ -128,6 +143,7 @@ export function calculateEstimateCommercials(input: {
     totalExcludingVat: number(excludingVat),
     finalTotal: number(finalTotal),
     grossProfit: grossProfit === null ? null : number(grossProfit),
+    profitIncompleteLineCount,
     overallMarginPercent: overallMargin,
     incompletePricing: lines.some((line) => line.incomplete),
   };

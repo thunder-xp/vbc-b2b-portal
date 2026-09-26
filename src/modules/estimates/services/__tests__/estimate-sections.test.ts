@@ -6,7 +6,7 @@ describe("estimate canonical section presentation", () => {
   it("keeps the exact four business sections in order", () => {
     expect(CANONICAL_ESTIMATE_SECTIONS.map((section) => section.name)).toEqual([
       "Оборудование",
-      "Монтажные материалы",
+      "Материалы",
       "Монтажные работы",
       "Пусконаладочные работы",
     ]);
@@ -20,6 +20,7 @@ describe("estimate canonical section presentation", () => {
 
   it("respects governed and exact-name section identity", () => {
     expect(resolveCanonicalLineSectionKey("product", { name: "Legacy", systemKey: "installation_materials" })).toBe("installation_materials");
+    expect(resolveCanonicalLineSectionKey("product", { name: "Монтажные материалы", systemKey: null })).toBe("installation_materials");
     expect(resolveCanonicalLineSectionKey("service", { name: "Пусконаладочные работы", systemKey: null })).toBe("commissioning_works");
   });
 

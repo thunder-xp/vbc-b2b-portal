@@ -43,7 +43,7 @@ describe("EstimateLinePicker", () => {
     const user = userEvent.setup();
     vi.mocked(searchEstimateProductsAction).mockResolvedValue({ success: true, data: products, message: "Загружено", errorCode: null });
     vi.mocked(addEstimateProductsAction).mockResolvedValue({ success: true, data: estimate, message: "Добавлено", errorCode: null });
-    render(<EstimateLinePicker allowedModes={["product", "external"]} contextLabel="Монтажные материалы" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" targetSectionKey="installation_materials" />);
+    render(<EstimateLinePicker allowedModes={["product", "external"]} contextLabel="Материалы" disabled={false} estimate={estimate} externalItemType="material" mode="product" onModeChange={vi.fn()} onResult={vi.fn()} services={services} targetSectionId="section-2" targetSectionKey="installation_materials" />);
 
     await user.type(screen.getByLabelText("SKU, модель или название"), "camera");
     await user.click(screen.getByRole("button", { name: "Найти" }));
@@ -62,7 +62,7 @@ describe("EstimateLinePicker", () => {
       { productId: "product-2", quantity: 3 },
     ], expect.objectContaining({ targetSectionId: "section-2", requestKey: expect.any(String) }));
     expect(screen.queryByRole("combobox", { name: "Раздел назначения" })).not.toBeInTheDocument();
-    expect(screen.getByText("Добавление: Монтажные материалы")).toBeInTheDocument();
+    expect(screen.getByText("Добавление: Материалы")).toBeInTheDocument();
   });
 
   it("selects all visible product results in one action", async () => {

@@ -5,12 +5,14 @@ import {
   calculateEstimateCommercials,
   convertMoney,
   EstimateCalculationError,
+  profitCostBasisForLineType,
   resolveCurrencyRate,
 } from "../commercial-calculation";
 
 const directLine = {
   id: "line-1",
   sectionId: "section-1",
+  profitCostBasis: "authoritative" as const,
   quantity: 2,
   pricingMode: "direct" as const,
   pricingInputValue: 100,
@@ -63,7 +65,7 @@ describe("estimate commercial calculation", () => {
 
   it("treats the approved 600 MDL service default as VAT-inclusive without adding VAT twice", () => {
     const result = calculateEstimateCommercials({
-      lines: [{ ...directLine, quantity: 1, pricingInputValue: 600, convertedCostUnitPrice: null, lineDiscountPercent: 0 }],
+      lines: [{ ...directLine, profitCostBasis: "zero", quantity: 1, pricingInputValue: 600, convertedCostUnitPrice: null, lineDiscountPercent: 0 }],
       sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
       vatMode: "included", vatRatePercent: 20,
     });
@@ -73,16 +75,55 @@ describe("estimate commercial calculation", () => {
   it("reconciles all approved CCTV service tariffs as VAT-inclusive", () => {
     const result = calculateEstimateCommercials({
       lines: [
-        { ...directLine, id: "camera-install", quantity: 12, pricingInputValue: 600, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
-        { ...directLine, id: "cable-install", quantity: 300, pricingInputValue: 50, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
-        { ...directLine, id: "commissioning", quantity: 12, pricingInputValue: 250, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
-        { ...directLine, id: "remote-viewing", quantity: 1, pricingInputValue: 150, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, profitCostBasis: "zero", id: "camera-install", quantity: 12, pricingInputValue: 600, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, profitCostBasis: "zero", id: "cable-install", quantity: 300, pricingInputValue: 50, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, profitCostBasis: "zero", id: "commissioning", quantity: 12, pricingInputValue: 250, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
+        { ...directLine, profitCostBasis: "zero", id: "remote-viewing", quantity: 1, pricingInputValue: 150, convertedCostUnitPrice: null, lineDiscountPercent: 0 },
       ],
       sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
       vatMode: "included", vatRatePercent: 20,
     });
 
     expect(result).toMatchObject({ subtotal: 25_350, totalExcludingVat: 21_125, vatAmount: 4_225, finalTotal: 25_350 });
+  });
+
+  it("calculates product and material profit from authoritative cost with quantity and discounts", () => {
+    const result = calculateEstimateCommercials({
+      lines: [
+        { ...directLine, id: "equipment", quantity: 2, pricingInputValue: 100, convertedCostUnitPrice: 60, lineDiscountPercent: 10 },
+        { ...directLine, id: "material", quantity: 3, pricingInputValue: 20, convertedCostUnitPrice: 8, lineDiscountPercent: 0 },
+      ],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 10,
+      vatMode: "none", vatRatePercent: 0,
+    });
+    expect(result).toMatchObject({ totalExcludingVat: 216, grossProfit: 72, profitIncompleteLineCount: 0 });
+  });
+
+  it("uses zero cost for works, excludes VAT from profit, and applies monetary rounding", () => {
+    const result = calculateEstimateCommercials({
+      lines: [{ ...directLine, profitCostBasis: "zero", quantity: 1, pricingInputValue: 120, convertedCostUnitPrice: 999, lineDiscountPercent: 0 }],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
+      vatMode: "included", vatRatePercent: 20,
+    });
+    expect(result).toMatchObject({ finalTotal: 120, vatAmount: 20, totalExcludingVat: 100, grossProfit: 100, profitIncompleteLineCount: 0 });
+  });
+
+  it("fails profit closed when an external line has no authoritative cost", () => {
+    const result = calculateEstimateCommercials({
+      lines: [{ ...directLine, profitCostBasis: "unknown", convertedCostUnitPrice: 1 }],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
+      vatMode: "none", vatRatePercent: 0,
+    });
+    expect(result).toMatchObject({ grossProfit: null, profitIncompleteLineCount: 1 });
+  });
+
+  it("allows negative total profit for danger-state presentation", () => {
+    const result = calculateEstimateCommercials({
+      lines: [{ ...directLine, quantity: 1, pricingInputValue: 50, convertedCostUnitPrice: 80, lineDiscountPercent: 0 }],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
+      vatMode: "none", vatRatePercent: 0,
+    });
+    expect(result.grossProfit).toBe(-30);
   });
 
   it("uses deterministic financial rounding", () => {
@@ -94,6 +135,19 @@ describe("estimate commercial calculation", () => {
     expect(resolveCurrencyRate("MDL", "USD", 20)).toBe(0.05);
     expect(convertMoney(100, 0.05)).toBe(5);
     expect(() => resolveCurrencyRate("EUR", "MDL", 20)).toThrowError(EstimateCalculationError);
+  });
+
+  it("uses the governed line-type cost policy and converted authoritative cost", () => {
+    expect(profitCostBasisForLineType("product")).toBe("authoritative");
+    expect(profitCostBasisForLineType("service")).toBe("zero");
+    expect(profitCostBasisForLineType("external")).toBe("unknown");
+    const convertedCost = convertMoney(80, resolveCurrencyRate("USD", "MDL", 17.5));
+    const result = calculateEstimateCommercials({
+      lines: [{ ...directLine, quantity: 1, pricingInputValue: 2_000, convertedCostUnitPrice: convertedCost, lineDiscountPercent: 0 }],
+      sections: [{ id: "section-1", discountPercent: 0 }], charges: [], globalDiscountPercent: 0,
+      vatMode: "none", vatRatePercent: 0,
+    });
+    expect(result.grossProfit).toBe(600);
   });
 
   it("rejects invalid values, percentages, non-finite numbers, and overflow", () => {
