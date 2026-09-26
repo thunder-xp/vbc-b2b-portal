@@ -1,4 +1,4 @@
-﻿-- Correct the accepted Estimate revision guard after lifecycle transitions.
+-- Correct the accepted Estimate revision guard after lifecycle transitions.
 -- The existing v2 transfer remains the sole cart/unmet-demand mutation engine.
 -- Historical conversion rows are append-only audit evidence and can contain
 -- multiple entries for a version. The transaction-scoped advisory lock below
@@ -163,4 +163,3 @@ revoke all on function public.transfer_accepted_estimate_to_cart_v3(uuid, uuid, 
   from public, anon, authenticated;
 grant execute on function public.transfer_accepted_estimate_to_cart_v3(uuid, uuid, integer, uuid, jsonb)
   to authenticated;
-
