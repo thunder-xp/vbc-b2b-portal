@@ -1,9 +1,10 @@
 -- Bind Estimate-to-cart transfer to the immutable accepted version.
 -- The existing v2 transfer remains the sole cart/unmet-demand mutation engine.
-
-create unique index if not exists estimate_cart_conversions_one_per_version_idx
-  on public.estimate_cart_conversions(estimate_id, version_id, direction)
-  where version_id is not null and direction = 'estimate_to_cart';
+-- Historical conversion rows are append-only audit evidence and can contain
+-- multiple entries for a version. The transaction-scoped advisory lock below
+-- serializes new attempts before the existing-version check, so retries and
+-- concurrent submissions reuse the first canonical conversion without
+-- rewriting that evidence.
 
 create or replace function public.transfer_accepted_estimate_to_cart_v3(
   target_estimate_id uuid,

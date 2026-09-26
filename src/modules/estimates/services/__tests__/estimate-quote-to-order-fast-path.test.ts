@@ -19,8 +19,10 @@ describe("accepted Estimate quote-to-order database boundary", () => {
     expect(sql).toContain("target_version.status <> 'accepted'");
     expect(sql).toContain("target_estimate.revision <> expected_estimate_revision");
     expect(sql).toContain("target_version.estimate_revision <> expected_estimate_revision");
-    expect(sql).toContain("estimate_cart_conversions_one_per_version_idx");
     expect(sql).toContain("pg_advisory_xact_lock");
+    expect(sql).toContain("order by conversion.created_at, conversion.id");
+    expect(sql).not.toContain("estimate_cart_conversions_one_per_version_idx");
+    expect(sql).not.toMatch(/delete\s+from\s+public\.estimate_cart_conversions/i);
   });
 
   it("derives allowed product identity and quantity from the stored version snapshot", () => {
