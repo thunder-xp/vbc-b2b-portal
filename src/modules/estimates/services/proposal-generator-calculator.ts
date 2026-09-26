@@ -194,7 +194,7 @@ function requirementDescription(requirement: CctvTechnicalRequirement): string {
     case "cable": return "Кабель Cat.5e для системы видеонаблюдения";
     case "mounting_material": return "Монтажные коробки и комплектующие";
     case "camera_installation": return "Монтаж камеры видеонаблюдения";
-    case "cable_laying": return "Прокладка кабеля";
+    case "cable_laying": return "Трассировка кабеля";
     case "commissioning": return "Пусконаладочные работы CCTV";
     case "remote_configuration": return "Настройка удалённого просмотра";
   }

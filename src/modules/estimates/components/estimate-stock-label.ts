@@ -6,5 +6,5 @@ export function estimateStockLabel(stock: { stockStatus?: string | null; availab
   if (stock.stockStatus === "low_stock") return stock.availableQuantity == null ? copy.lowStock : `${copy.lowStock}: ${stock.availableQuantity}`;
   if (stock.stockStatus === "expected") return copy.expected;
   if (stock.stockStatus === "out_of_stock") return copy.outOfStock;
-  return copy.availabilityPending;
+  return `${copy.availabilityPending}: 0`;
 }

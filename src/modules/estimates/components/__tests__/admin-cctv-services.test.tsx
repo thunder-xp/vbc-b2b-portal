@@ -17,7 +17,7 @@ describe("admin CCTV services workspace", () => {
   });
 
   it("keeps family headings outside the row geometry and separates class from service", () => {
-    for (const family of ["Прокладка кабеля", "Монтаж оборудования", "Пусконаладка", "Программирование AI-сценариев"]) {
+    for (const family of ["Трассировка кабеля", "Монтаж оборудования", "Пусконаладка", "Программирование AI-сценариев"]) {
       expect(component).toContain(family);
     }
     expect(component).toContain("familyLabels[row.family]");
