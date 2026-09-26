@@ -93,8 +93,10 @@ export class SupabaseCartRepository implements CartRepository {
   }
 
   async mergeEstimateProducts(input: Parameters<CartRepository["mergeEstimateProducts"]>[0]) {
-    const { data, error } = await (await createClient()).rpc("transfer_estimate_to_cart_v2", {
+    const { data, error } = await (await createClient()).rpc("transfer_accepted_estimate_to_cart_v3", {
       target_estimate_id: input.estimateId,
+      target_version_id: input.versionId,
+      expected_estimate_revision: input.expectedRevision,
       target_request_key: input.requestKey,
       target_items: input.items.map((item) => ({
         line_id: item.lineId,

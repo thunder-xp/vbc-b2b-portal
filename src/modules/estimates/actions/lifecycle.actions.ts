@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { type ActionResult, failureFromError, success } from "../../access-control/actions/action-result";
-import type { EstimateCartConversionSummary, EstimateRejectionReason, EstimateSentChannel, EstimateWorkflowDto, ProposalTemplate } from "../types";
+import type { EstimateCartConversionSummary, EstimateOrderConversionPreviewDto, EstimateRejectionReason, EstimateSentChannel, EstimateWorkflowDto, ProposalTemplate } from "../types";
 import { createEstimateLifecycleService, getAuthenticatedUserId } from "./service-factory";
 import { EstimateVersionConflictError } from "../repositories";
 
@@ -111,9 +111,17 @@ export async function createEstimateFromCartAction(name: string, requestKey: str
   } catch (error) { return failureFromError(error); }
 }
 
-export async function addEstimateEquipmentToCartAction(estimateId: string, versionId: string | null, requestKey: string): Promise<ActionResult<EstimateCartConversionSummary>> {
+export async function getEstimateOrderConversionPreviewAction(estimateId: string, versionId: string, expectedRevision: number): Promise<ActionResult<EstimateOrderConversionPreviewDto>> {
   try {
-    const result = await createEstimateLifecycleService().addEquipmentToCart(await getAuthenticatedUserId(), estimateId, versionId, requestKey);
+    return success("Проверка заказа выполнена.", await createEstimateLifecycleService().getOrderConversionPreview(
+      await getAuthenticatedUserId(), estimateId, versionId, expectedRevision,
+    ));
+  } catch (error) { return failureFromError(error); }
+}
+
+export async function addEstimateEquipmentToCartAction(estimateId: string, versionId: string, expectedRevision: number, requestKey: string): Promise<ActionResult<EstimateCartConversionSummary>> {
+  try {
+    const result = await createEstimateLifecycleService().addEquipmentToCart(await getAuthenticatedUserId(), estimateId, versionId, expectedRevision, requestKey);
     revalidatePath("/cabinet/cart");
     return success("Оборудование добавлено в корзину по текущим ценам.", result);
   } catch (error) { return failureFromError(error); }

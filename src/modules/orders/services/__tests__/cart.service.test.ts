@@ -202,7 +202,7 @@ describe("DefaultCartService", () => {
   it("keeps estimate line identities while resolving current price and stock in bounded batches", async () => {
     const dependencies = makeDependencies();
     const result = await dependencies.service.mergeEstimateProducts("user-1", {
-      estimateId: "estimate-1", versionId: "version-1", requestKey: "request-1",
+      estimateId: "estimate-1", versionId: "version-1", expectedRevision: 3, requestKey: "request-1",
       lines: [{ lineId: "line-1", productId: "product-1", quantity: 2, snapshotPartnerPrice: 8 }, { lineId: "line-2", productId: "product-1", quantity: 3, snapshotPartnerPrice: 8 }],
     });
     expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
@@ -227,7 +227,7 @@ describe("DefaultCartService", () => {
       stock: { exactAvailableQuantity: availableQuantity },
     }]);
     await dependencies.service.mergeEstimateProducts("user-1", {
-      estimateId: "estimate-1", versionId: null, requestKey: "request-1",
+      estimateId: "estimate-1", versionId: "version-1", expectedRevision: 3, requestKey: "request-1",
       lines: [{ lineId: "line-1", productId: "product-1", quantity: 5, snapshotPartnerPrice: 8 }],
     });
     expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({
@@ -239,7 +239,7 @@ describe("DefaultCartService", () => {
     const dependencies = makeDependencies();
     dependencies.catalogService.getProductsByIds.mockResolvedValue([]);
     await dependencies.service.mergeEstimateProducts("user-1", {
-      estimateId: "estimate-1", versionId: null, requestKey: "request-1",
+      estimateId: "estimate-1", versionId: "version-1", expectedRevision: 3, requestKey: "request-1",
       lines: [{ lineId: "line-1", productId: "product-1", quantity: 5, snapshotPartnerPrice: 8 }],
     });
     expect(dependencies.repository.mergeEstimateProducts).toHaveBeenCalledWith(expect.objectContaining({

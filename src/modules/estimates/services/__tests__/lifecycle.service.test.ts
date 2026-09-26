@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { NotFoundError } from "../../../access-control/services";
+import { InvalidStateError, NotFoundError } from "../../../access-control/services";
 import { EstimateVersionConflictError, type EstimateLifecycleRepository, type EstimateRepository } from "../../repositories";
 import type { CustomerProposalDto, Estimate, EstimateVersion } from "../../types";
 import { EstimateLifecycleService } from "../lifecycle.service";
@@ -128,36 +128,79 @@ describe("EstimateLifecycleService", () => {
 
   it("passes only product lines to the cart conversion service", async () => {
     const dependencies = makeDependencies();
-    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", "22222222-2222-2222-2222-222222222222");
+    vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, lifecycleStatus: "accepted", acceptedVersionId: "version-1" });
+    vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue({ ...dependencies.version, status: "accepted" });
+    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222");
     expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledWith("user-1", expect.objectContaining({
       estimateId: "estimate-1", versionId: "version-1",
-      lines: [{ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 }],
+      lines: [expect.objectContaining({ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 })],
     }));
+  });
+
+  it("builds the accepted-version conversion review server-side with explicit exclusions and differences", async () => {
+    const dependencies = makeDependencies();
+    const acceptedEstimate = { ...dependencies.estimate, lifecycleStatus: "accepted" as const, acceptedVersionId: "version-1" };
+    const acceptedVersion = {
+      ...dependencies.version,
+      status: "accepted" as const,
+      snapshot: {
+        ...dependencies.version.snapshot,
+        estimate: { customer_name: "Customer", project_name: "Site" },
+        items: [
+          ...dependencies.version.snapshot.items,
+          { id: "item-2", line_type: "external", description: "Special bracket", quantity: 1, unit: "pcs" },
+          { id: "item-3", line_type: "custom", description: "Note", quantity: 1, unit: "pcs" },
+        ],
+      },
+    };
+    vi.mocked(dependencies.estimates.findById).mockResolvedValue(acceptedEstimate);
+    vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue(acceptedVersion);
+
+    const preview = await dependencies.service.getOrderConversionPreview("user-1", "estimate-1", "version-1", 3);
+
+    expect(preview).toMatchObject({
+      estimateNumber: "KP-2026-000001", customerName: "Customer", projectName: "Site",
+      orderableLineCount: 1, orderableUnitCount: 2, excludedLineCount: 3,
+      serviceLineCount: 1, externalLineCount: 1, invalidLineCount: 1,
+      changedPriceCount: 1, stockIssueCount: 0,
+    });
+    expect(preview.lines.map((line) => line.classification)).toEqual([
+      "ORDERABLE", "NON_ORDERABLE_WORK", "EXTERNAL_NOMENCLATURE", "CUSTOM_LINE",
+    ]);
+    expect(dependencies.cart.previewEstimateProducts).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a stale accepted-version revision before any commercial lookup or cart mutation", async () => {
+    const dependencies = makeDependencies();
+    vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, lifecycleStatus: "accepted", acceptedVersionId: "version-1" });
+    vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue({ ...dependencies.version, status: "accepted" });
+
+    await expect(dependencies.service.getOrderConversionPreview("user-1", "estimate-1", "version-1", 2))
+      .rejects.toBeInstanceOf(InvalidStateError);
+    expect(dependencies.cart.previewEstimateProducts).not.toHaveBeenCalled();
+    expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
   });
 
   it.each([
     ["draft", "draft"],
     ["sent", "sent"],
-    ["accepted", "accepted"],
     ["rejected", "rejected"],
     ["sent", "expired"],
     ["accepted", "converted_to_order"],
     ["archived", "accepted"],
-  ] as const)("transfers a non-deleted %s/%s estimate without changing its evidence", async (status, lifecycleStatus) => {
+  ] as const)("rejects a non-eligible %s/%s estimate before cart mutation", async (status, lifecycleStatus) => {
     const dependencies = makeDependencies();
-    const estimate = { ...dependencies.estimate, status, lifecycleStatus };
+    const estimate = { ...dependencies.estimate, status, lifecycleStatus, acceptedVersionId: lifecycleStatus === "accepted" ? "version-1" : null };
     vi.mocked(dependencies.estimates.findById).mockResolvedValue(estimate);
-    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({ ...dependencies.aggregate, estimate });
-    const before = structuredClone(estimate);
-    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", null, "22222222-2222-2222-2222-222222222222");
-    expect(estimate).toEqual(before);
-    expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledOnce();
+    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222"))
+      .rejects.toBeInstanceOf(InvalidStateError);
+    expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
   });
 
   it("blocks a soft-deleted or otherwise unreadable estimate before cart mutation", async () => {
     const dependencies = makeDependencies();
     vi.mocked(dependencies.estimates.findById).mockResolvedValue(null);
-    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", null, "22222222-2222-2222-2222-222222222222"))
+    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222"))
       .rejects.toBeInstanceOf(NotFoundError);
     expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
   });
@@ -183,6 +226,7 @@ function makeDependencies(lineCount = 1) {
   const proposalService = { preparePreview: vi.fn().mockResolvedValue({ proposal }) };
   const cart = {
     getEstimateSource: vi.fn().mockResolvedValue({ companyId: "company-1", cartId: "cart-1", lines: [{ productId: "product-1", sku: "SKU-1", productName: "Camera", quantity: 2, partnerPrice: 12, currencyCode: "USD", priceUpdatedAt: "2026-07-16T10:00:00Z" }] }),
+    previewEstimateProducts: vi.fn().mockResolvedValue([{ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10, snapshotCurrencyCode: "USD", skuSnapshot: "SKU-1", productNameSnapshot: "Camera", classification: "ORDERABLE", sku: "SKU-1", productName: "Camera", currentPrice: 12, currentCurrencyCode: "USD", priceChanged: true, availableQuantity: 2, stockStatus: "FULLY_AVAILABLE", expectedArrivalDate: null }]),
     mergeEstimateProducts: vi.fn().mockResolvedValue({ cartId: "cart-1", totalLines: 1, catalogLines: 1, fullyAvailable: 1, partiallyAvailable: 0, unavailable: 0, stockUnknown: 0, externalLines: 0, changedPrice: 1, demandCaptured: 0, correlationId: "correlation-1", repeated: false }), addItem: vi.fn(),
   };
   const catalog = { getProductsByIds: vi.fn().mockResolvedValue([{ id: "product-1" }]) };
@@ -203,5 +247,5 @@ function makeProposal(lineCount: number): CustomerProposalDto {
 }
 
 function makeVersion(proposal: CustomerProposalDto): EstimateVersion {
-  return { id: "version-1", estimateId: "estimate-1", companyId: "company-1", versionNumber: 1, estimateRevision: 3, status: "prepared", estimateNumber: "KP-2026-000001", currencyCode: "USD", totalAmount: 24, snapshot: { estimate: {}, sections: [], items: [{ line_type: "product", product_id: "product-1", quantity: 2, source_unit_price: 10 }, { line_type: "service", quantity: 1 }], charges: [] }, customerProposalSnapshot: proposal, proposalTemplateId: null, note: null, changeReason: null, createdBy: "user-1", createdByName: "Partner User", createdAt: "2026-07-16T10:00:00Z", sentAt: null, sentChannel: null, acceptedAt: null, rejectedAt: null, rejectionReason: null };
+  return { id: "version-1", estimateId: "estimate-1", companyId: "company-1", versionNumber: 1, estimateRevision: 3, status: "prepared", estimateNumber: "KP-2026-000001", currencyCode: "USD", totalAmount: 24, snapshot: { estimate: {}, sections: [], items: [{ id: "item-0", line_type: "product", product_id: "product-1", quantity: 2, source_unit_price: 10, source_currency_code: "USD", sku_snapshot: "SKU-1", product_name_snapshot: "Camera", unit: "pcs" }, { id: "item-1", line_type: "service", quantity: 1 }], charges: [] }, customerProposalSnapshot: proposal, proposalTemplateId: null, note: null, changeReason: null, createdBy: "user-1", createdByName: "Partner User", createdAt: "2026-07-16T10:00:00Z", sentAt: null, sentChannel: null, acceptedAt: null, rejectedAt: null, rejectionReason: null };
 }

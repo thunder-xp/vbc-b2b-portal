@@ -50,10 +50,9 @@ describe("Estimate-to-cart unmet demand migration", () => {
     expect(sql).toContain("'unmet_assortment_demand_captured'");
   });
 
-  it("exposes the transfer for every workflow rather than only accepted estimates", () => {
-    expect(workflow).toContain("initialWorkflow.permissions.canConvert");
-    expect(workflow).toContain('data-testid="estimate-transfer-to-cart"');
-    expect(workflow).not.toMatch(/lifecycleStatus.*estimate-transfer-to-cart/);
+  it("exposes conversion only through the accepted Estimate guided state", () => {
+    expect(workflow).toContain('guided.primaryAction === "continue_order"');
+    expect(workflow).not.toContain('data-testid="estimate-transfer-to-cart"');
   });
 
   it("retains product identity when an Estimate-owned cart line leaves the active catalog", () => {

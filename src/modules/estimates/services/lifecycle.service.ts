@@ -8,6 +8,8 @@ import { EstimateVersionConflictError, type EstimateLifecycleRepository, type Es
 import type {
   Estimate,
   EstimateCartConversionSummary,
+  EstimateOrderConversionLineDto,
+  EstimateOrderConversionPreviewDto,
   EstimateSentChannel,
   EstimateRejectionReason,
   EstimateVersion,
@@ -264,20 +266,99 @@ export class EstimateLifecycleService {
     });
   }
 
-  async addEquipmentToCart(userId: string, estimateId: string, versionId: string | null, requestKey: string): Promise<EstimateCartConversionSummary> {
-    const companyId = await this.resolveCompany(userId, CONVERT_PERMISSION);
-    const estimate = await this.estimateRepository.findById(normalizeId(estimateId));
-    if (!estimate || estimate.companyId !== companyId) throw new NotFoundError("Смета не найдена.");
-    const aggregate = await this.estimateRepository.findAggregateById(estimate.id);
-    if (!aggregate) throw new NotFoundError("Смета не найдена.");
-    const lines = aggregate.items.flatMap((item) => item.lineType === "product" && item.productId
-      ? [{ lineId: item.id, productId: item.productId, quantity: item.quantity, snapshotPartnerPrice: item.sourceUnitPrice }]
-      : []);
-    const result = await this.cartService.mergeEstimateProducts(userId, {
-      estimateId: estimate.id, versionId, requestKey: normalizeUuid(requestKey), lines,
+  async getOrderConversionPreview(userId: string, estimateId: string, versionId: string, expectedRevision: number): Promise<EstimateOrderConversionPreviewDto> {
+    const source = await this.acceptedConversionSource(userId, estimateId, versionId, expectedRevision);
+    const productLines = versionProductLines(source.version);
+    const resolvedProducts = await this.cartService.previewEstimateProducts(userId, productLines);
+    const resolvedByLineId = new Map(resolvedProducts.map((line) => [line.lineId, line]));
+    const lines = source.version.snapshot.items.map((item, index): EstimateOrderConversionLineDto => {
+      const lineId = textValue(item.id) ?? `snapshot-line-${index + 1}`;
+      const lineType = textValue(item.line_type);
+      const quantity = numberValue(item.quantity) ?? 0;
+      const unit = textValue(item.unit) ?? "pcs";
+      const snapshotName = textValue(item.product_name_snapshot) ?? textValue(item.description) ?? `#${index + 1}`;
+      if (lineType === "product") {
+        const resolved = resolvedByLineId.get(lineId);
+        if (!resolved) return excludedLine(lineId, "PRODUCT_INVALID", snapshotName, quantity, unit, item);
+        return {
+          lineId,
+          classification: resolved.classification,
+          sku: resolved.sku,
+          name: resolved.productName,
+          quantity,
+          unit,
+          estimateUnitPrice: resolved.snapshotPartnerPrice,
+          estimateCurrencyCode: resolved.snapshotCurrencyCode ?? null,
+          currentUnitPrice: resolved.currentPrice,
+          currentCurrencyCode: resolved.currentCurrencyCode,
+          priceChanged: resolved.priceChanged,
+          stockStatus: resolved.stockStatus,
+          availableQuantity: resolved.availableQuantity,
+          expectedArrivalDate: resolved.expectedArrivalDate,
+        };
+      }
+      const classification = lineType === "service"
+        ? "NON_ORDERABLE_WORK" as const
+        : lineType === "external"
+          ? "EXTERNAL_NOMENCLATURE" as const
+          : lineType === "custom"
+            ? "CUSTOM_LINE" as const
+            : "PRODUCT_INVALID" as const;
+      return excludedLine(lineId, classification, snapshotName, quantity, unit, item);
     });
-    console.info({ event: "estimate_equipment_added_to_cart", estimateId: estimate.id, versionId, ...result });
+    const orderable = lines.filter((line) => line.classification === "ORDERABLE");
+    return {
+      estimateId: source.estimate.id,
+      versionId: source.version.id,
+      estimateRevision: source.version.estimateRevision,
+      estimateNumber: source.version.estimateNumber,
+      customerName: textValue(source.version.snapshot.estimate.customer_name) ?? source.estimate.customerName,
+      projectName: textValue(source.version.snapshot.estimate.project_name) ?? source.estimate.projectName,
+      currencyCode: source.version.currencyCode,
+      orderableLineCount: orderable.length,
+      orderableUnitCount: orderable.reduce((sum, line) => sum + line.quantity, 0),
+      excludedLineCount: lines.length - orderable.length,
+      serviceLineCount: lines.filter((line) => line.classification === "NON_ORDERABLE_WORK").length,
+      externalLineCount: lines.filter((line) => line.classification === "EXTERNAL_NOMENCLATURE").length,
+      unavailableLineCount: lines.filter((line) => line.classification === "PRODUCT_UNAVAILABLE").length,
+      invalidLineCount: lines.filter((line) => ["PRODUCT_INVALID", "CUSTOM_LINE"].includes(line.classification)).length,
+      changedPriceCount: orderable.filter((line) => line.priceChanged).length,
+      stockIssueCount: orderable.filter((line) => line.stockStatus !== "FULLY_AVAILABLE").length,
+      lines,
+    };
+  }
+
+  async addEquipmentToCart(userId: string, estimateId: string, versionId: string, expectedRevision: number, requestKey: string): Promise<EstimateCartConversionSummary> {
+    const source = await this.acceptedConversionSource(userId, estimateId, versionId, expectedRevision);
+    const lines = versionProductLines(source.version);
+    if (!lines.length) throw new InvalidStateError("В принятом КП нет товарных позиций для заказа.");
+    const result = await this.cartService.mergeEstimateProducts(userId, {
+      estimateId: source.estimate.id, versionId: source.version.id, expectedRevision: source.version.estimateRevision,
+      requestKey: normalizeUuid(requestKey), lines,
+    });
+    console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, versionId: source.version.id, ...result });
     return result;
+  }
+
+  private async acceptedConversionSource(userId: string, estimateId: string, versionId: string, expectedRevision: number) {
+    const companyId = await this.resolveCompany(userId, CONVERT_PERMISSION);
+    const normalizedEstimateId = normalizeId(estimateId);
+    const normalizedVersionId = normalizeId(versionId);
+    const revision = normalizeRevision(expectedRevision);
+    const [estimate, version] = await Promise.all([
+      this.estimateRepository.findById(normalizedEstimateId),
+      this.lifecycleRepository.findVersion(normalizedVersionId),
+    ]);
+    if (!estimate || estimate.companyId !== companyId || !version || version.companyId !== companyId || version.estimateId !== estimate.id) {
+      throw new NotFoundError("Смета не найдена.");
+    }
+    if (estimate.lifecycleStatus !== "accepted" || estimate.acceptedVersionId !== version.id || version.status !== "accepted") {
+      throw new InvalidStateError("Для заказа доступна только текущая принятая версия КП.");
+    }
+    if (estimate.revision !== revision || version.estimateRevision !== revision) {
+      throw new InvalidStateError("КП изменилось. Обновите страницу и проверьте состав заказа ещё раз.");
+    }
+    return { estimate, version };
   }
 
   private async readiness(userId: string, estimateId: string) {
@@ -382,10 +463,64 @@ function readinessFromProposal(proposal: import("../types").CustomerProposalDto)
   });
 }
 
-function versionProductLines(version: EstimateVersion): Array<{ productId: string; quantity: number; snapshotPartnerPrice: number | null }> {
-  return version.snapshot.items.flatMap((item) => item.line_type === "product" && typeof item.product_id === "string"
-    ? [{ productId: item.product_id, quantity: Number(item.quantity), snapshotPartnerPrice: nullableNumber(item.source_unit_price) }]
+function versionProductLines(version: EstimateVersion): Array<{
+  lineId: string;
+  productId: string;
+  quantity: number;
+  snapshotPartnerPrice: number | null;
+  snapshotCurrencyCode: string | null;
+  skuSnapshot: string | null;
+  productNameSnapshot: string | null;
+}> {
+  return version.snapshot.items.flatMap((item) => item.line_type === "product"
+    && typeof item.id === "string"
+    && typeof item.product_id === "string"
+    && Number.isInteger(Number(item.quantity))
+    ? [{
+      lineId: item.id,
+      productId: item.product_id,
+      quantity: Number(item.quantity),
+      snapshotPartnerPrice: nullableNumber(item.source_unit_price),
+      snapshotCurrencyCode: textValue(item.source_currency_code),
+      skuSnapshot: textValue(item.sku_snapshot),
+      productNameSnapshot: textValue(item.product_name_snapshot),
+    }]
     : []);
+}
+
+function excludedLine(
+  lineId: string,
+  classification: EstimateOrderConversionLineDto["classification"],
+  name: string,
+  quantity: number,
+  unit: string,
+  item: Record<string, unknown>,
+): EstimateOrderConversionLineDto {
+  return {
+    lineId,
+    classification,
+    sku: textValue(item.sku_snapshot),
+    name,
+    quantity,
+    unit,
+    estimateUnitPrice: nullableNumber(item.source_unit_price),
+    estimateCurrencyCode: textValue(item.source_currency_code),
+    currentUnitPrice: null,
+    currentCurrencyCode: null,
+    priceChanged: false,
+    stockStatus: null,
+    availableQuantity: null,
+    expectedArrivalDate: null,
+  };
+}
+
+function textValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function numberValue(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function nullableNumber(value: unknown): number | null { const number = Number(value); return value === null || value === undefined || !Number.isFinite(number) ? null : number; }

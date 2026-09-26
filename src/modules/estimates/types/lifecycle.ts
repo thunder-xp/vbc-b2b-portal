@@ -187,3 +187,55 @@ export type EstimateCartConversionSummary = {
   correlationId: string;
   repeated: boolean;
 };
+
+export type EstimateOrderConversionClassification =
+  | "ORDERABLE"
+  | "NON_ORDERABLE_WORK"
+  | "EXTERNAL_NOMENCLATURE"
+  | "PRODUCT_UNAVAILABLE"
+  | "PRODUCT_INVALID"
+  | "CUSTOM_LINE";
+
+export type EstimateOrderConversionStockStatus =
+  | "FULLY_AVAILABLE"
+  | "PARTIAL_STOCK"
+  | "OUT_OF_STOCK"
+  | "STOCK_UNKNOWN"
+  | "NOT_STOCKED";
+
+export type EstimateOrderConversionLineDto = {
+  lineId: string;
+  classification: EstimateOrderConversionClassification;
+  sku: string | null;
+  name: string;
+  quantity: number;
+  unit: string;
+  estimateUnitPrice: number | null;
+  estimateCurrencyCode: string | null;
+  currentUnitPrice: number | null;
+  currentCurrencyCode: string | null;
+  priceChanged: boolean;
+  stockStatus: EstimateOrderConversionStockStatus | null;
+  availableQuantity: number | null;
+  expectedArrivalDate: string | null;
+};
+
+export type EstimateOrderConversionPreviewDto = {
+  estimateId: string;
+  versionId: string;
+  estimateRevision: number;
+  estimateNumber: string;
+  customerName: string | null;
+  projectName: string | null;
+  currencyCode: string;
+  orderableLineCount: number;
+  orderableUnitCount: number;
+  excludedLineCount: number;
+  serviceLineCount: number;
+  externalLineCount: number;
+  unavailableLineCount: number;
+  invalidLineCount: number;
+  changedPriceCount: number;
+  stockIssueCount: number;
+  lines: EstimateOrderConversionLineDto[];
+};
