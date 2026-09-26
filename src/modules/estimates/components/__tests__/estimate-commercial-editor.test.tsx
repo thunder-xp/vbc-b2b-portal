@@ -88,6 +88,7 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Сохранить и выйти" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Сохранить" })).not.toBeInTheDocument();
     expect(screen.getByTestId("estimate-customer-field")).not.toHaveClass("sm:col-span-2");
     expect(within(screen.getByTestId("estimate-customer-field")).getByText("Заказчик")).toBeInTheDocument();
   });
@@ -304,7 +305,8 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByTestId("estimate-mobile-actions-trigger")).toHaveFocus();
   });
 
-  it("uses a safe PDP link, compact description, governed stock tone, and shortened source-price label", () => {
+  it("uses a compact expandable description, governed stock tone, and authoritative pricing helper", async () => {
+    const user = userEvent.setup();
     render(<EstimateCommercialEditor
       commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
       initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], description: "Compact customer-facing product summary.", currentStockStatus: "out_of_stock", currentAvailableQuantity: 0 }] }}
@@ -314,12 +316,41 @@ describe("EstimateCommercialEditor", () => {
     const productLink = screen.getByRole("link", { name: "Camera" });
     expect(productLink).toHaveAttribute("href", "/cabinet/catalog/camera");
     expect(productLink).toHaveAttribute("target", "_blank");
-    expect(screen.getByText("Compact customer-facing product summary.")).toHaveClass("line-clamp-3");
+    const description = screen.getByText("Compact customer-facing product summary.");
+    expect(description).toHaveClass("line-clamp-1");
+    await user.click(screen.getByRole("button", { name: "Подробнее" }));
+    expect(description).not.toHaveClass("line-clamp-1");
+    expect(screen.getByRole("button", { name: "Скрыть описание" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Ваша цена:")).toBeInTheDocument();
     expect(screen.queryByText(/Ваша цена Novotech/)).not.toBeInTheDocument();
     expect(screen.getByText("$80.00")).toHaveClass("text-emerald-700");
+    expect(screen.getByText("Наценка: 25%")).toBeInTheDocument();
     expect(screen.getByTestId("estimate-line-stock")).toHaveClass("text-rose-950");
     expect(screen.getByTestId("estimate-line-stock")).not.toHaveTextContent("уточняется");
+  });
+
+  it("keeps one canonical Preview control and surfaces actual stock warnings in the summary", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], currentStockStatus: "out_of_stock", currentAvailableQuantity: 0 }] }}
+      services={[]}
+      workflow={workflow}
+    />);
+    expect(screen.getAllByRole("link", { name: "Предпросмотр КП" })).toHaveLength(1);
+    expect(screen.getByTestId("estimate-summary-warnings")).toHaveTextContent("Недостаточный остаток: 1");
+    expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
+    expect(screen.getByText("✓ Сохранено")).toHaveAttribute("role", "status");
+  });
+
+  it("switches from direct selling price to authoritative markup without changing commercial truth", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole("button", { name: "Описание, единица и скидка" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Способ расчёта цены" }), "markup");
+    const markup = screen.getByRole("spinbutton", { name: "Наценка %" });
+    expect(markup).toHaveValue(25);
+    expect(await screen.findByText(/Продажа:/)).toHaveTextContent(/100,00/);
+    expect(screen.getByText("● Не сохранено")).toHaveAttribute("role", "status");
   });
 
   it("does not generate a broken PDP link for an unavailable or external line", () => {
@@ -410,7 +441,7 @@ describe("EstimateCommercialEditor", () => {
 
     const actionBar = screen.getByTestId("estimate-mobile-action-bar");
     expect(await within(actionBar).findByRole("button", { name: "Поделиться" })).toBeInTheDocument();
-    expect(actionBar.firstElementChild).toHaveClass("grid-cols-[repeat(3,minmax(0,1fr))_3rem]");
+    expect(actionBar.firstElementChild).toHaveClass("grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]");
 
     const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
     await user.clear(quantity);
