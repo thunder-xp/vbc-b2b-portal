@@ -17,6 +17,7 @@ import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureItemType, ExternalNomenclatureRecord, PartnerNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
 import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateSectionSystemKey, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
+import { canonicalEstimateWorkName } from "../estimate-work-labels";
 import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 import { CANONICAL_ESTIMATE_SECTION_BY_KEY, canonicalSectionOrder } from "./estimate-sections";
 
@@ -621,7 +622,7 @@ export class DefaultEstimateService implements EstimateService {
     const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
     return (await this.repository.listServices(companyId)).map((service) => ({
       id: service.id,
-      name: service.name,
+      name: canonicalEstimateWorkName(service.name),
       description: service.description,
       defaultUnit: service.defaultUnit,
       unitLabel: unitLabel(service.defaultUnit),
@@ -1078,7 +1079,7 @@ export class DefaultEstimateService implements EstimateService {
         convertedCostUnitPrice: service.defaultCost,
         exchangeRate: service.defaultCost === null ? null : 1,
         exchangeRateEffectiveDate: null,
-        description: service.name,
+        description: canonicalEstimateWorkName(service.name),
         quantity: normalizeQuantity(selection.quantity),
         unit: service.defaultUnit,
         sellingUnitPrice: normalizeMoney(selection.sellingUnitPrice),

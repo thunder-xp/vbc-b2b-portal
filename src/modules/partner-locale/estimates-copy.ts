@@ -1,6 +1,7 @@
 import { definePartnerCopy } from "./define-copy";
 import type { FinalCustomerIndustryCode } from "../estimates/types";
 import type { PartnerLocale } from "./locale";
+import { estimateWorkLabelKey } from "../estimates/estimate-work-labels";
 
 export const getEstimatesCopy = definePartnerCopy(
   {
@@ -117,6 +118,8 @@ export const getEstimatesCopy = definePartnerCopy(
     payable: "К оплате",
     incompletePricing: "Есть позиции без рассчитанной цены.",
     quoteWarnings: "Требует внимания",
+    noStockWarning: "Нет в наличии: {count}",
+    negativeMarkupWarning: "Наценка ниже 0: {count}",
     insufficientStockWarning: "Недостаточный остаток: {count}",
     uncertainStockWarning: "Наличие уточняется: {count}",
     changedPriceWarning: "Текущая цена изменилась: {count}",
@@ -134,6 +137,8 @@ export const getEstimatesCopy = definePartnerCopy(
     collapseSection: "Свернуть раздел",
     expandSection: "Развернуть раздел",
     workService: "Работа / услуга",
+    equipmentInstallationWork: "Монтаж оборудования",
+    cableRoutingWork: "Трассировка кабеля",
     externalLine: "Внешняя позиция",
     manualLine: "Ручная позиция",
     vatIncluded: "НДС включён",
@@ -614,6 +619,8 @@ export const getEstimatesCopy = definePartnerCopy(
     payable: "De achitat",
     incompletePricing: "Există poziții fără preț calculat.",
     quoteWarnings: "Necesită atenție",
+    noStockWarning: "Lipsă din stoc: {count}",
+    negativeMarkupWarning: "Adaos sub 0: {count}",
     insufficientStockWarning: "Stoc insuficient: {count}",
     uncertainStockWarning: "Disponibilitate de confirmat: {count}",
     changedPriceWarning: "Preț curent modificat: {count}",
@@ -631,6 +638,8 @@ export const getEstimatesCopy = definePartnerCopy(
     collapseSection: "Restrânge secțiunea",
     expandSection: "Extinde secțiunea",
     workService: "Lucrare / serviciu",
+    equipmentInstallationWork: "Montajul echipamentului",
+    cableRoutingWork: "Trasarea cablului",
     externalLine: "Poziție externă",
     manualLine: "Poziție manuală",
     vatIncluded: "TVA inclus",
@@ -1064,4 +1073,12 @@ export function finalCustomerIndustryLabelForLocale(
   fallback: string,
 ): string {
   return code ? industryLabels[locale][code] : fallback;
+}
+
+export function estimateWorkNameForLocale(name: string, locale: PartnerLocale): string {
+  const key = estimateWorkLabelKey(name);
+  const copy = getEstimatesCopy(locale);
+  if (key === "equipment_installation") return copy.equipmentInstallationWork;
+  if (key === "cable_routing") return copy.cableRoutingWork;
+  return name;
 }

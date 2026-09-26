@@ -73,7 +73,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     }} revision={4} />);
 
     expect(screen.getByRole("button", { name: "Отправить повторно" })).toBeEnabled();
-    expect(screen.getByRole("heading", { name: "КП отправлено" })).toBeInTheDocument();
+    expect(screen.queryByText("Текущий этап")).not.toBeInTheDocument();
     expect(screen.queryByText(/Смета изменилась/i)).not.toBeInTheDocument();
   });
 
@@ -121,7 +121,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    expect(screen.getByRole("heading", { name: "Смета в работе" })).toBeInTheDocument();
+    expect(screen.queryByText("Текущий этап")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Предпросмотр" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Сформировать PDF" })).toBeInTheDocument();
     expect(screen.queryByText(/версия/i)).not.toBeInTheDocument();
@@ -221,7 +221,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(addEmail).toHaveClass("w-full", "border-zinc-300");
     expect(addEmail).not.toHaveClass("bg-emerald-700");
     expect(screen.getAllByRole("button", { name: "Добавить email" })).toHaveLength(1);
-    expect(screen.getByText("Текущий этап").compareDocumentPosition(stageActions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText("Текущий этап")).not.toBeInTheDocument();
     expect(refreshMock).not.toHaveBeenCalled();
   });
 
@@ -256,12 +256,12 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       ] }],
     }} revision={4} />);
 
-    expect(screen.getByRole("heading", { name: "Клиент открыл КП" })).toBeInTheDocument();
-    expect(screen.getByText("latest@example.com")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Клиент открыл КП" })).not.toBeInTheDocument();
+    expect(screen.queryByText("latest@example.com")).not.toBeInTheDocument();
     expect(screen.queryByText("older@example.com")).not.toBeInTheDocument();
     expect(screen.queryByTestId("estimate-primary-next-action")).not.toBeInTheDocument();
     await user.click(screen.getByText("История отправок (2)"));
     expect(await screen.findByText(/older@example.com/)).toBeInTheDocument();
-    expect(screen.getAllByText(/latest@example.com/)).toHaveLength(2);
+    expect(screen.getByText(/latest@example.com/)).toBeInTheDocument();
   });
 });

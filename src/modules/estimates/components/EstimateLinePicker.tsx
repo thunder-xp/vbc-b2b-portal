@@ -16,13 +16,13 @@ import type { EstimateSectionSystemKey } from "../types";
 import type { ExternalNomenclatureItemType } from "../repositories";
 import { ExternalNomenclaturePicker } from "./ExternalNomenclaturePicker";
 import { estimateStockLabel as pickerStockLabel } from "./estimate-stock-label";
-import { getCatalogCopy, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
+import { estimateWorkNameForLocale, getCatalogCopy, getEstimatesCopy, usePartnerLocale, type EstimatesCopy } from "../../partner-locale";
 
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const buttonClass = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 export type EstimateLinePickerMode = "product" | "service" | "external";
 
-export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, targetSectionKey, allowedModes, contextLabel, externalItemType }: {
+export function EstimateLinePicker({ estimate, services, onResult, disabled, mode, onModeChange, targetSectionId, targetSectionKey, allowedModes, contextLabel, externalItemType, beforeInsert }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   onResult: (next: EstimateDetailDto, message: string) => void;
@@ -34,6 +34,7 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
   allowedModes: ReadonlyArray<EstimateLinePickerMode>;
   contextLabel: string;
   externalItemType: ExternalNomenclatureItemType;
+  beforeInsert?: () => Promise<EstimateDetailDto | null>;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -60,8 +61,10 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
     if (insertionRequest.current?.signature !== signature) insertionRequest.current = { signature, key: crypto.randomUUID() };
     return insertionRequest.current.key;
   };
-  const run = (operation: () => Promise<{ success: boolean; message: string; data: EstimateDetailDto | null }>, eventName?: "estimate_product_added" | "estimate_service_added") => startTransition(async () => {
-    const result = await operation();
+  const run = (operation: (currentEstimate: EstimateDetailDto) => Promise<{ success: boolean; message: string; data: EstimateDetailDto | null }>, eventName?: "estimate_product_added" | "estimate_service_added") => startTransition(async () => {
+    const currentEstimate = beforeInsert ? await beforeInsert() : estimate;
+    if (!currentEstimate) return;
+    const result = await operation(currentEstimate);
     setMessage(result.success ? copy.operationSucceeded : copy.operationFailed);
     if (result.success && result.data) {
       if (eventName) recordBehaviorInteraction({ eventName, route: "/cabinet/estimates/detail", sourceSurface: "estimate_line_picker" });
@@ -109,7 +112,6 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
       </div>
       {message && <p aria-live="polite" className="text-sm text-zinc-600">{message}</p>}
     </div>
-    {disabled && <p className="mt-3 text-xs text-amber-800">{copy.saveBeforeAdding}</p>}
 
     {mode === "product" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
       <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); if (!disabled) searchProducts(event.currentTarget); }}>
@@ -150,11 +152,11 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
             })} type="checkbox" />
             <div className="relative flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50"><ProductThumbnail alt={product.name} className="object-contain p-1" sizes="48px" src={product.imageUrl} variant="xs" /></div>
             <div className="min-w-0"><p className="truncate text-sm font-semibold text-zinc-900">{product.name}</p><p className="mt-1 text-xs text-zinc-500">SKU {product.sku} · {[product.brandName, product.categoryName].filter(Boolean).join(" · ")}</p><p className="mt-1 text-xs"><span className="font-semibold">{copy.partnerNovotechPrice}: {product.partnerPrice ?? copy.pricePending}</span> · {pickerStockLabel(product, catalogCopy)}{product.expectedArrival ? ` · ${copy.arrival} ${product.expectedArrival}` : ""}</p></div>
-            <label className="text-xs text-zinc-600">{copy.quantity}<input aria-label={`${copy.quantity} ${product.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0.001" onChange={(event) => setProductSelection((current) => ({ ...current, [product.id]: Number(event.target.value) }))} step="0.001" type="number" value={productSelection[product.id] ?? 1} /></label>
+            <label className="text-xs text-zinc-600">{copy.quantity}<input aria-label={`${copy.quantity} ${product.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="1" onChange={(event) => setProductSelection((current) => ({ ...current, [product.id]: Number(event.target.value) }))} step="1" type="number" value={productSelection[product.id] ?? 1} /></label>
           </article>;
         })}
       </div>
-      <div className="sticky bottom-16 z-10 flex justify-end bg-white py-2 xl:static xl:py-0"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => { const selections = Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateProductsAction(estimate.id, estimate.revision, selections, insertion), "estimate_product_added"); }} type="button"><PackagePlus className="size-4" />{copy.addSelected} ({Object.keys(productSelection).length})</button></div>
+      <div className="sticky bottom-16 z-10 flex justify-end bg-white py-2 xl:static xl:py-0"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(productSelection).length} onClick={() => { const selections = Object.entries(productSelection).map(([productId, quantity]) => ({ productId, quantity })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run((currentEstimate) => addEstimateProductsAction(currentEstimate.id, currentEstimate.revision, selections, insertion), "estimate_product_added"); }} type="button"><PackagePlus className="size-4" />{copy.addSelected} ({Object.keys(productSelection).length})</button></div>
     </div>}
 
     {mode === "service" && <div className="space-y-3 border-t border-zinc-200 p-3 sm:p-4">
@@ -166,15 +168,15 @@ export function EstimateLinePicker({ estimate, services, onResult, disabled, mod
             if (event.target.checked) return { ...current, [service.id]: { quantity: 1, price: service.defaultSellingPrice ?? 0 } };
             const next = { ...current }; delete next[service.id]; return next;
           })} type="checkbox" />
-          <div><p className="text-sm font-semibold">{service.name}</p><p className="text-xs text-zinc-500">{service.category} · {service.unitLabel}</p></div>
-          <label className="text-xs">{copy.quantity}<input aria-label={`${copy.quantity} ${service.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0.001" onChange={(event) => setServiceSelection((current) => ({ ...current, [service.id]: { ...current[service.id], quantity: Number(event.target.value) } }))} step="0.001" type="number" value={selected?.quantity ?? 1} /></label>
+          <div><p className="text-sm font-semibold">{estimateWorkNameForLocale(service.name, locale)}</p><p className="text-xs text-zinc-500">{service.category} · {service.unitLabel}</p></div>
+          <label className="text-xs">{copy.quantity}<input aria-label={`${copy.quantity} ${estimateWorkNameForLocale(service.name, locale)}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="1" onChange={(event) => setServiceSelection((current) => ({ ...current, [service.id]: { ...current[service.id], quantity: Number(event.target.value) } }))} step="1" type="number" value={selected?.quantity ?? 1} /></label>
           <label className="text-xs">{copy.price}<input aria-label={`${copy.price} ${service.name}`} className={`${inputClass} mt-1 w-full`} disabled={!selected} min="0" onChange={(event) => setServiceSelection((current) => ({ ...current, [service.id]: { ...current[service.id], price: Number(event.target.value) } }))} step="0.01" type="number" value={selected?.price ?? service.defaultSellingPrice ?? 0} /></label>
         </div>;
       })}</div>
-      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => { const selections = Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run(() => addEstimateServicesAction(estimate.id, estimate.revision, selections, insertion), "estimate_service_added"); }} type="button"><Wrench className="size-4" />{copy.addSelected} ({Object.keys(serviceSelection).length})</button></div>
+      <div className="flex justify-end"><button className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45" disabled={disabled || pending || !Object.keys(serviceSelection).length} onClick={() => { const selections = Object.entries(serviceSelection).map(([serviceId, selection]) => ({ serviceId, quantity: selection.quantity, sellingUnitPrice: selection.price })); const insertion = { targetSectionId, requestKey: requestKeyFor({ targetSectionId, selections }) }; run((currentEstimate) => addEstimateServicesAction(currentEstimate.id, currentEstimate.revision, selections, insertion), "estimate_service_added"); }} type="button"><Wrench className="size-4" />{copy.addSelected} ({Object.keys(serviceSelection).length})</button></div>
     </div>}
 
-    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker disabled={disabled} estimate={estimate} itemType={externalItemType} onResult={onResult} targetSectionId={targetSectionId} /></div>}
+    {mode === "external" && <div className="border-t border-zinc-200 p-3 sm:p-4"><ExternalNomenclaturePicker beforeInsert={beforeInsert} disabled={disabled} estimate={estimate} itemType={externalItemType} onResult={onResult} targetSectionId={targetSectionId} /></div>}
   </section>;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { EstimateCommercialCheckDto, EstimateLineDto } from "../estimate.service";
+import type { EstimateLineDto } from "../estimate.service";
 import { deriveEstimateEditorWarnings } from "../estimate-editor-warnings";
 
 const product = (patch: Partial<EstimateLineDto> = {}): EstimateLineDto => ({
@@ -16,18 +16,16 @@ describe("deriveEstimateEditorWarnings", () => {
     expect(deriveEstimateEditorWarnings([product()], null)).toEqual([]);
   });
 
-  it("aggregates server-resolved stock and governed price-check conditions", () => {
-    const check = {
-      checkedAt: "2026-09-26T10:00:00Z",
-      lines: [{ lineId: "line-1", sku: "SKU-1", description: "Camera", oldPrice: 100, currentPrice: 105, currencyCode: "USD", priceChanged: true, currentStock: "1", currentArrival: null }],
-    } satisfies EstimateCommercialCheckDto;
+  it("aggregates no-stock and authoritative negative-markup conditions", () => {
     expect(deriveEstimateEditorWarnings([
-      product({ currentAvailableQuantity: 1 }),
+      product({ currentStockStatus: "out_of_stock", currentAvailableQuantity: 0 }),
       product({ id: "line-2", productId: "product-2", currentStockStatus: "unknown", currentAvailableQuantity: null }),
-    ], check)).toEqual([
-      { kind: "insufficient_stock", count: 1, lineIds: ["line-1"] },
-      { kind: "uncertain_stock", count: 1, lineIds: ["line-2"] },
-      { kind: "changed_price", count: 1, lineIds: ["line-1"] },
+    ], null, [
+      { id: "line-1", markupPercent: -5 },
+      { id: "line-2", markupPercent: 10 },
+    ])).toEqual([
+      { kind: "no_stock", count: 1, lineIds: ["line-1"] },
+      { kind: "negative_markup", count: 1, lineIds: ["line-1"] },
     ]);
   });
 });

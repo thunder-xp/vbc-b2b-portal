@@ -20,7 +20,6 @@ import { generateEstimateVersionPdfAction } from "../actions/proposal.actions";
 import type {
   EstimateDraftReadinessDto,
   EstimateDraftReadinessState,
-  EstimateGuidedState,
   EstimateRejectionReason,
   EstimateCartConversionSummary,
   EstimateOrderConversionLineDto,
@@ -68,7 +67,6 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     state: "ready_to_send" as const,
     primaryAction: initialWorkflow.permissions.canSend ? "send" as const : null,
   } : initialWorkflow.guidedState;
-  const latestDelivery = proposal?.deliveries[0] ?? null;
 
   useEffect(() => {
     const receiveDirtyState = (event: Event) => {
@@ -172,14 +170,6 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       </div> : null}
     </div>
 
-    <div className="mt-3 min-w-0 border-t border-zinc-100 pt-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{copy.guidedCurrentState}</p>
-      <h2 className="mt-1 text-sm font-semibold text-zinc-950">{draftGuide ? draftStateLabel(draftGuide.state, draftGuide.linePosition, copy) : guidedStateLabel(guided.state, copy)}</h2>
-      {draftGuide
-        ? <DraftGuidedContext copy={copy} state={draftGuide.state} />
-        : <GuidedContext copy={copy} latestDelivery={latestDelivery} locale={locale} proposalSentAt={proposal?.sentAt ?? null} state={guided.state} />}
-    </div>
-
     {message ? <p aria-live="polite" className="mt-3 border-l-4 border-emerald-600 bg-emerald-50 px-3 py-2 text-sm">{message}</p> : null}
 
     {conversionResult ? <div aria-live="polite" className="mt-3 border-l-4 border-emerald-600 bg-emerald-50 px-4 py-3 text-sm text-zinc-800" data-testid="estimate-cart-transfer-summary">
@@ -271,56 +261,6 @@ function moneyOrDash(amount: number | null, currency: string | null, locale: "ru
   return amount !== null && currency ? formatPartnerMoney(amount, currency, locale) : "—";
 }
 
-function GuidedContext({ copy, latestDelivery, locale, proposalSentAt, state }: {
-  copy: EstimatesCopy;
-  latestDelivery: ProposalDeliverySummaryDto | null;
-  locale: "ru" | "ro";
-  proposalSentAt: string | null;
-  state: EstimateGuidedState;
-}) {
-  const awaiting = state === "awaiting_customer" || state === "awaiting_customer_opened";
-  const timestamp = state === "awaiting_customer_opened" && latestDelivery?.openedAt ? latestDelivery.openedAt : latestDelivery?.sentAt ?? proposalSentAt;
-  const timestampLabel = state === "awaiting_customer_opened" ? copy.lastOpenedAt : copy.sentAtLabel;
-  return <div className="mt-1 text-sm text-zinc-600">
-    {awaiting ? <p>{copy.awaitingCustomerDecision}</p> : null}
-    {state === "accepted_already_converted" ? <p>{copy.acceptedAlreadyConvertedHint}</p> : null}
-    {latestDelivery?.recipient ? <p className="truncate font-medium text-zinc-800">{latestDelivery.recipient}</p> : null}
-    {timestamp ? <p>{timestampLabel}: {formatPartnerDateTime(timestamp, locale)}</p> : null}
-  </div>;
-}
-
-function DraftGuidedContext({ copy, state }: { copy: EstimatesCopy; state: EstimateDraftReadinessState }) {
-  const hint = ({
-    add_product: copy.draftAddProductHint,
-    fix_quantity: copy.draftFixQuantityHint,
-    fix_price: copy.draftFixPriceHint,
-    fix_line: copy.draftFixLineHint,
-    fix_settings: copy.draftFixSettingsHint,
-    save_changes: copy.draftSaveHint,
-    prepare_proposal: copy.draftPrepareHint,
-    prepare_pdf: copy.draftPdfHint,
-    handoff: "",
-    not_applicable: "",
-  })[state];
-  return hint ? <p className="mt-1 text-sm text-zinc-600">{hint}</p> : null;
-}
-
-function draftStateLabel(state: EstimateDraftReadinessState, linePosition: number | null, copy: EstimatesCopy): string {
-  const position = String(linePosition ?? 1);
-  return ({
-    add_product: copy.draftAddProductTitle,
-    fix_quantity: copy.draftFixQuantityTitle.replace("{position}", position),
-    fix_price: copy.draftFixPriceTitle.replace("{position}", position),
-    fix_line: copy.draftFixLineTitle.replace("{position}", position),
-    fix_settings: copy.draftFixSettingsTitle,
-    save_changes: copy.draftSaveTitle,
-    prepare_proposal: copy.draftPrepareTitle,
-    prepare_pdf: copy.draftPdfTitle,
-    handoff: copy.guidedReadyToSend,
-    not_applicable: copy.guidedDraft,
-  })[state];
-}
-
 function draftPrimaryLabel(state: EstimateDraftReadinessState, copy: EstimatesCopy): string {
   if (state === "add_product") return copy.mobileAddProduct;
   if (state === "save_changes") return copy.save;
@@ -345,21 +285,6 @@ function DeliveryRow({ copy, delivery, locale, onRevoke, pending }: {
     <span><strong>{delivery.recipient}</strong> · {deliveryStatusLabel(delivery.status, copy)}{delivery.sentAt ? ` · ${formatPartnerDateTime(delivery.sentAt, locale)}` : ""}{delivery.openedAt ? ` · ${copy.opened} ${formatPartnerDateTime(delivery.openedAt, locale)}` : ""}{delivery.response ? ` · ${delivery.response === "accepted" ? copy.acceptedShort : copy.rejectedShort}` : ""}{delivery.failureReason ? ` · ${copy.deliveryFailed}` : ""}</span>
     {!delivery.response && delivery.status !== "revoked" ? <button className="min-h-11 self-start font-semibold text-red-700 sm:self-auto" disabled={pending} onClick={() => onRevoke(delivery.id)} type="button">{copy.revokeLink}</button> : null}
   </div>;
-}
-
-function guidedStateLabel(state: EstimateGuidedState, copy: EstimatesCopy): string {
-  return ({
-    draft: copy.guidedDraft,
-    ready_to_send: copy.guidedReadyToSend,
-    awaiting_customer: copy.guidedAwaitingCustomer,
-    awaiting_customer_opened: copy.guidedOpened,
-    expired: copy.guidedExpired,
-    accepted_ready_to_order: copy.guidedAccepted,
-    resume_checkout: copy.guidedResumeCheckout,
-    accepted_already_converted: copy.guidedAlreadyConverted,
-    rejected: copy.guidedRejected,
-    converted_to_order: copy.guidedConverted,
-  })[state];
 }
 
 function deliveryStatusLabel(status: ProposalDeliverySummaryDto["status"], copy: EstimatesCopy): string { return ({ queued: copy.deliveryQueued, sending: copy.deliverySending, sent: copy.deliverySent, delivered: copy.deliveryDelivered, failed: copy.deliveryFailed, revoked: copy.deliveryRevoked, responded: copy.deliveryResponded })[status]; }

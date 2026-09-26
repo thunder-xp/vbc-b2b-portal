@@ -5,13 +5,13 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { addEstimateProductsAction, addEstimateServicesAction, searchEstimateProductsAction } from "../actions/estimate.actions";
 import type { EstimateDetailDto, EstimateProductPickerDto, EstimateServiceDto } from "../services";
 import type { EstimateSectionSystemKey } from "../types";
-import { getCatalogCopy, getEstimatesCopy, usePartnerLocale } from "../../partner-locale";
+import { estimateWorkNameForLocale, getCatalogCopy, getEstimatesCopy, usePartnerLocale } from "../../partner-locale";
 import { estimateStockLabel } from "./estimate-stock-label";
 
 type Choice = { id: string; name: string; sku: string | null; price: string | null; stock: string | null; servicePrice?: number };
 
 /** Keyboard selection is local; the explicit quantity confirmation is one structural command. */
-export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, serviceWorkSectionKey, disabled, onResult, onExternal, onBatch, onPendingChange }: {
+export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, serviceWorkSectionKey, disabled, onResult, onExternal, onBatch, onPendingChange, beforeInsert }: {
   estimate: EstimateDetailDto;
   services: EstimateServiceDto[];
   sectionId: string;
@@ -22,6 +22,7 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, s
   onExternal: () => void;
   onBatch: () => void;
   onPendingChange?: (pending: boolean) => void;
+  beforeInsert?: () => Promise<EstimateDetailDto | null>;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -57,7 +58,7 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, s
   const queryText = query.trim();
   const searching = searchingQuery === queryText;
   const choices: Choice[] = serviceMode
-    ? services.filter(item => item.workSectionKey === serviceWorkSectionKey && `${item.name} ${item.category}`.toLocaleLowerCase().includes(queryText.toLocaleLowerCase())).slice(0, 12).map(item => ({ id: item.id, name: item.name, sku: null, price: item.defaultSellingPrice?.toString() ?? null, stock: null, servicePrice: item.defaultSellingPrice ?? 0 }))
+    ? services.filter(item => item.workSectionKey === serviceWorkSectionKey && `${item.name} ${item.category}`.toLocaleLowerCase().includes(queryText.toLocaleLowerCase())).slice(0, 12).map(item => ({ id: item.id, name: estimateWorkNameForLocale(item.name, locale), sku: null, price: item.defaultSellingPrice?.toString() ?? null, stock: null, servicePrice: item.defaultSellingPrice ?? 0 }))
     : result.query === queryText ? result.products.map(item => ({ id: item.id, name: item.name, sku: item.sku, price: item.partnerPrice ?? null, stock: estimateStockLabel(item, catalogCopy) })) : [];
 
   useEffect(() => {
@@ -99,15 +100,17 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, s
       quantityRef.current?.reportValidity(); return;
     }
     const selected = choice;
-    const signature = JSON.stringify({ sectionId, id: selected.id, amount, serviceMode, revision: estimate.revision });
-    if (request.current?.signature !== signature) request.current = { signature, key: crypto.randomUUID() };
-    const insertion = { targetSectionId: sectionId, requestKey: request.current.key, mergeExisting: !serviceMode };
     onPendingChange?.(true);
     startTransition(async () => {
       try {
+        const currentEstimate = beforeInsert ? await beforeInsert() : estimate;
+        if (!currentEstimate) return;
+        const signature = JSON.stringify({ sectionId, id: selected.id, amount, serviceMode, revision: currentEstimate.revision });
+        if (request.current?.signature !== signature) request.current = { signature, key: crypto.randomUUID() };
+        const insertion = { targetSectionId: sectionId, requestKey: request.current.key, mergeExisting: !serviceMode };
         const response = serviceMode
-          ? await addEstimateServicesAction(estimate.id, estimate.revision, [{ serviceId: selected.id, quantity: amount, sellingUnitPrice: selected.servicePrice ?? 0 }], insertion)
-          : await addEstimateProductsAction(estimate.id, estimate.revision, [{ productId: selected.id, quantity: amount }], insertion);
+          ? await addEstimateServicesAction(currentEstimate.id, currentEstimate.revision, [{ serviceId: selected.id, quantity: amount, sellingUnitPrice: selected.servicePrice ?? 0 }], insertion)
+          : await addEstimateProductsAction(currentEstimate.id, currentEstimate.revision, [{ productId: selected.id, quantity: amount }], insertion);
         if (!response.success) { setMessage(response.message); return; }
         request.current = null;
         restoreSearchFocus.current = true;
@@ -134,11 +137,10 @@ export function EstimateQuickAdd({ estimate, services, sectionId, serviceMode, s
       </div>
       <button type="button" aria-label={text.batch} title={text.batch} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-md border border-zinc-300 px-3 text-xs font-semibold" disabled={disabled || pending} onClick={onBatch}><ListPlus className="size-4" /><span className="hidden sm:inline">{text.batch}</span></button>
     </div>
-    {disabled && <p className="mt-1 text-xs text-amber-800">{copy.saveBeforeAdding}</p>}
     {message && <p role="alert" className="mt-1 text-sm text-red-700">{message}</p>}
     {choice ? <form className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 p-2" onSubmit={event => { event.preventDefault(); add(); }}>
       <span className="min-w-0 flex-1 truncate text-sm font-semibold">{choice.name}</span>
-      <input ref={quantityRef} aria-label={text.quantity} className="h-11 w-24 rounded border border-zinc-300 bg-white px-2 text-sm" type="number" min="0.001" max="999999" step="0.001" required value={quantity} disabled={pending || disabled} onFocus={event => event.currentTarget.select()} onChange={event => setQuantity(event.target.value)} />
+      <input ref={quantityRef} aria-label={text.quantity} className="h-11 w-24 rounded border border-zinc-300 bg-white px-2 text-sm" type="number" min="1" max="999999" step="1" required value={quantity} disabled={pending || disabled} onFocus={event => event.currentTarget.select()} onChange={event => setQuantity(event.target.value)} />
       <button className="inline-flex min-h-11 items-center gap-1 rounded bg-emerald-700 px-3 text-sm font-semibold text-white disabled:opacity-40" disabled={pending || disabled} type="submit"><Plus className="size-4" />{pending ? copy.savingShort : text.add}</button>
       <button aria-label={text.cancel} className="inline-flex size-11 items-center justify-center" type="button" disabled={pending} onClick={close}><X className="size-4" /></button>
     </form> : open && !disabled && (queryText.length >= 2 || serviceMode) ? <div className="absolute inset-x-0 top-full z-30 mt-1 max-h-[min(55dvh,26rem)] overflow-y-auto rounded-md border border-zinc-200 bg-white shadow-lg">

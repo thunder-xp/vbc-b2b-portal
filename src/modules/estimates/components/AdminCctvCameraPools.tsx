@@ -47,7 +47,7 @@ const priorityLabels = {
   low: "Низкий",
 } as const;
 const familyLabels: Record<string, string> = {
-  cable_routing: "Прокладка кабеля",
+  cable_routing: "Трассировка кабеля",
   equipment_installation: "Монтаж оборудования",
   commissioning: "Пусконаладка",
   remote_viewing_configuration: "Удалённый просмотр",
