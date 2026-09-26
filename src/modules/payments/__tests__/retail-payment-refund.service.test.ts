@@ -94,7 +94,7 @@ function emptyClaim(outcome: PaymentRefundClaim["outcome"]): PaymentRefundClaim 
 function dependencies(claimResult: PaymentRefundClaim = claim) {
   const repository: RetailPaymentRepository = {
     claim: vi.fn(), completeCheckout: vi.fn(), recordFailure: vi.fn(), confirmMaib: vi.fn(),
-    getMaibReconciliationContext: vi.fn(), retryMaibActivation: vi.fn(), getReturnState: vi.fn(), persistPaidConfirmationEmail: vi.fn(),
+    getMaibReconciliationContext: vi.fn(), claimMaibReconciliationBatch: vi.fn(), recordMaibCheckoutState: vi.fn(), recordMaibReconciliationRetry: vi.fn(), retryMaibActivation: vi.fn(), getReturnState: vi.fn(), persistPaidConfirmationEmail: vi.fn(),
     listOrderPaymentStates: vi.fn().mockResolvedValue([]), getOrderPaymentStateByNumber: vi.fn().mockResolvedValue(null), listRecentPaymentStates: vi.fn().mockResolvedValue([]),
     getControlledPaymentOrder: vi.fn().mockResolvedValue(null),
     claimRefund: vi.fn().mockResolvedValue(claimResult),
@@ -105,7 +105,7 @@ function dependencies(claimResult: PaymentRefundClaim = claim) {
     reconcileRefund: vi.fn().mockResolvedValue({ outcome: "REFUNDED", refundId, providerRefundId: null, status: "refunded", providerStatus: null, amount: null, currency: null, remainingRefundable: "0.00", confirmedAt: refundEvidence.executedAt, reused: false }),
   };
   const provider: PaymentProvider = {
-    provider: "maib", createCheckout: vi.fn(), getCheckoutEvidence: vi.fn(),
+    provider: "maib", createCheckout: vi.fn(), getCheckoutEvidence: vi.fn(), getCheckoutState: vi.fn(),
     createRefund: vi.fn().mockResolvedValue({ refundId: providerRefundId, providerStatus: "Created", authLatencyMs: 5, refundLatencyMs: 10, httpCalls: 2 }),
     getRefundEvidence: vi.fn().mockResolvedValue(refundEvidence),
     getPaymentRefundState: vi.fn().mockResolvedValue(paymentEvidence),

@@ -48,6 +48,12 @@ describe("MAIB callback route", () => {
     expect(mocks.parse).not.toHaveBeenCalled();
     expect(mocks.confirm).not.toHaveBeenCalled();
   });
+
+  it("continues processing an in-flight callback while public initiation is disabled", async () => {
+    vi.stubEnv("RETAIL_CHECKOUT_ENABLED", "false");
+    expect((await POST(request())).status).toBe(200);
+    expect(mocks.confirm).toHaveBeenCalledWith(evidence, "public");
+  });
 });
 
 function request() {

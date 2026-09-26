@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import {
   createMaibReviewSession,
+  isMaibReviewAccessEnabled,
   isMaibReviewAccessCodeValid,
   MAIB_REVIEW_COOKIE,
   MAIB_REVIEW_COOKIE_EXPIRES_AT,
@@ -13,6 +14,7 @@ import { maibReviewConfigurationSummary } from "@/src/modules/payments/server";
 
 export async function authorizeMaibReviewAction(formData: FormData) {
   const locale = formData.get("locale") === "ro" ? "ro" : "ru";
+  if (!isMaibReviewAccessEnabled()) redirect(`/maib-review?lang=${locale}&error=unavailable`);
   const configuration = maibReviewConfigurationSummary();
   if (!configuration.ready || !configuration.sandbox || configuration.production
     || configuration.apiOrigin !== "https://sandbox.maibmerchants.md") {

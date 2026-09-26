@@ -89,16 +89,16 @@ describe("RetailPaymentService", () => {
     const result = await new RetailPaymentService(repository, provider).confirmMaibCallback(evidence);
     expect(result.outcome).toBe("PAID");
     expect(repository.confirmMaib).toHaveBeenCalledWith({ evidence, source: "callback", checkoutChannel: "public" });
-    expect(provider.getCheckoutEvidence).not.toHaveBeenCalled();
+    expect(provider.getCheckoutState).not.toHaveBeenCalled();
   });
 
   it("reconciles a missing callback with one bounded checkout lookup", async () => {
     const { repository, provider } = dependencies();
     vi.mocked(repository.getMaibReconciliationContext).mockResolvedValue({ attemptId: claim.attemptId!, checkoutId: evidence.checkoutId, paymentId: null, status: "pending", amount: "99.50", currency: "MDL" });
-    vi.mocked(provider.getCheckoutEvidence).mockResolvedValue(evidence);
+    vi.mocked(provider.getCheckoutState).mockResolvedValue({ kind: "payment", evidence });
     const result = await new RetailPaymentService(repository, provider).reconcileMaibPayment(claim.attemptId!);
     expect(result.outcome).toBe("PAID");
-    expect(provider.getCheckoutEvidence).toHaveBeenCalledTimes(1);
+    expect(provider.getCheckoutState).toHaveBeenCalledTimes(1);
     expect(repository.confirmMaib).toHaveBeenCalledWith({ evidence, source: "reconciliation", checkoutChannel: "public" });
   });
 
@@ -108,7 +108,43 @@ describe("RetailPaymentService", () => {
     const result = await new RetailPaymentService(repository, provider).reconcileMaibPayment(claim.attemptId!);
     expect(result.outcome).toBe("PAID");
     expect(repository.retryMaibActivation).toHaveBeenCalledWith(claim.attemptId);
-    expect(provider.getCheckoutEvidence).not.toHaveBeenCalled();
+    expect(provider.getCheckoutState).not.toHaveBeenCalled();
+  });
+
+  it("keeps an active abandoned-flow checkout pending without activating the order", async () => {
+    const { repository, provider } = dependencies();
+    vi.mocked(repository.getMaibReconciliationContext).mockResolvedValue({ attemptId: claim.attemptId!, checkoutId: evidence.checkoutId, paymentId: null, status: "pending", amount: "99.50", currency: "MDL" });
+    vi.mocked(provider.getCheckoutState).mockResolvedValue({
+      kind: "pending", checkoutId: evidence.checkoutId, orderReference: claim.attemptId!, amount: "99.50", currency: "MDL",
+      checkoutStatus: "Initialized", providerEventAt: "2026-09-16T12:00:00.000Z",
+    });
+    vi.mocked(repository.recordMaibCheckoutState).mockResolvedValue({ outcome: "PENDING", attemptId: claim.attemptId, retailOrderId: null, paymentStatus: "pending", activationRepeated: null, installationRequirementId: null });
+    const result = await new RetailPaymentService(repository, provider).reconcileMaibPayment(claim.attemptId!);
+    expect(result.outcome).toBe("PENDING");
+    expect(repository.confirmMaib).not.toHaveBeenCalled();
+    expect(repository.retryMaibActivation).not.toHaveBeenCalled();
+  });
+
+  it("terminalizes only an explicit provider Expired checkout", async () => {
+    const { repository, provider } = dependencies();
+    vi.mocked(repository.getMaibReconciliationContext).mockResolvedValue({ attemptId: claim.attemptId!, checkoutId: evidence.checkoutId, paymentId: null, status: "pending", amount: "99.50", currency: "MDL" });
+    const state = { kind: "terminal" as const, checkoutId: evidence.checkoutId, orderReference: claim.attemptId!, amount: "99.50", currency: "MDL", checkoutStatus: "Expired" as const, providerEventAt: "2026-09-16T12:30:00.000Z" };
+    vi.mocked(provider.getCheckoutState).mockResolvedValue(state);
+    vi.mocked(repository.recordMaibCheckoutState).mockResolvedValue({ outcome: "EXPIRED", attemptId: claim.attemptId, retailOrderId: null, paymentStatus: "expired", activationRepeated: null, installationRequirementId: null });
+    const result = await new RetailPaymentService(repository, provider).reconcileMaibPayment(claim.attemptId!);
+    expect(result.outcome).toBe("EXPIRED");
+    expect(repository.recordMaibCheckoutState).toHaveBeenCalledWith({ attemptId: claim.attemptId, leaseToken: null, state });
+  });
+
+  it("runs a bounded claimed batch and records provider failures for backoff", async () => {
+    const { repository, provider } = dependencies();
+    vi.mocked(repository.claimMaibReconciliationBatch).mockResolvedValue([claim.attemptId!]);
+    vi.mocked(repository.getMaibReconciliationContext).mockResolvedValue({ attemptId: claim.attemptId!, checkoutId: evidence.checkoutId, paymentId: null, status: "pending", amount: "99.50", currency: "MDL" });
+    vi.mocked(provider.getCheckoutState).mockRejectedValue(new PaymentProviderError("lookup", "HTTP_503", true, 503));
+    const result = await new RetailPaymentService(repository, provider).reconcileDueMaibPayments(3);
+    expect(result).toEqual({ claimed: 1, paid: 0, pending: 0, terminal: 0, retried: 1 });
+    expect(repository.claimMaibReconciliationBatch).toHaveBeenCalledWith(3, expect.stringMatching(/^[0-9a-f-]{36}$/));
+    expect(repository.recordMaibReconciliationRetry).toHaveBeenCalledWith(expect.objectContaining({ attemptId: claim.attemptId, errorCode: "LOOKUP:HTTP_503" }));
   });
 });
 
@@ -119,6 +155,9 @@ function dependencies(claimResult: PaymentClaim = claim) {
     recordFailure: vi.fn().mockResolvedValue(true),
     confirmMaib: vi.fn().mockResolvedValue({ outcome: "PAID", attemptId: claim.attemptId, retailOrderId: "44444444-4444-4444-8444-444444444444", paymentStatus: "paid", activationRepeated: false, installationRequirementId: null }),
     getMaibReconciliationContext: vi.fn().mockResolvedValue(null),
+    claimMaibReconciliationBatch: vi.fn().mockResolvedValue([]),
+    recordMaibCheckoutState: vi.fn(),
+    recordMaibReconciliationRetry: vi.fn().mockResolvedValue(true),
     retryMaibActivation: vi.fn().mockResolvedValue({ outcome: "PAID", attemptId: claim.attemptId, retailOrderId: "44444444-4444-4444-8444-444444444444", paymentStatus: "paid", activationRepeated: true, installationRequirementId: null }),
     getReturnState: vi.fn().mockResolvedValue(null),
     persistPaidConfirmationEmail: vi.fn().mockResolvedValue("QUEUED"),
@@ -137,6 +176,7 @@ function dependencies(claimResult: PaymentClaim = claim) {
     provider: "maib",
     createCheckout: vi.fn().mockResolvedValue({ checkoutId: "33333333-3333-4333-8333-333333333333", checkoutUrl: "https://sandbox.maibmerchants.md/checkout/333", providerStatus: "WaitingForInit", authLatencyMs: 10, checkoutLatencyMs: 20, httpCalls: 2 }),
     getCheckoutEvidence: vi.fn(),
+    getCheckoutState: vi.fn(),
     createRefund: vi.fn(),
     getRefundEvidence: vi.fn(),
     getPaymentRefundState: vi.fn(),

@@ -16,7 +16,7 @@ export function isMaibReviewAccessCodeValid(
 ) {
   const expected = environment.MAIB_REVIEW_ACCESS_SECRET?.trim() ?? "";
   const supplied = candidate.trim();
-  if (!isReviewAccessEnabled(environment) || expected.length < ACCESS_CODE_MINIMUM_LENGTH || supplied.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
+  if (!isMaibReviewAccessEnabled(environment) || expected.length < ACCESS_CODE_MINIMUM_LENGTH || supplied.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
   return safeEqual(digest(supplied), digest(expected));
 }
 
@@ -35,18 +35,18 @@ export function validateMaibReviewSession(
 ) {
   const match = value?.match(SESSION);
   const secret = environment.MAIB_REVIEW_ACCESS_SECRET?.trim() ?? "";
-  if (!match || !isReviewAccessEnabled(environment) || secret.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
+  if (!match || !isMaibReviewAccessEnabled(environment) || secret.length < ACCESS_CODE_MINIMUM_LENGTH) return false;
   const payload = `v2.${match[1]}`;
   return safeEqual(Buffer.from(match[2], "base64url"), Buffer.from(sign(payload, secret), "base64url"));
 }
 
 function reviewSecret(environment: Readonly<Record<string, string | undefined>>) {
   const secret = environment.MAIB_REVIEW_ACCESS_SECRET?.trim() ?? "";
-  if (!isReviewAccessEnabled(environment) || secret.length < ACCESS_CODE_MINIMUM_LENGTH) throw new Error("MAIB review access is not configured.");
+  if (!isMaibReviewAccessEnabled(environment) || secret.length < ACCESS_CODE_MINIMUM_LENGTH) throw new Error("MAIB review access is not configured.");
   return secret;
 }
 
-function isReviewAccessEnabled(environment: Readonly<Record<string, string | undefined>>) {
+export function isMaibReviewAccessEnabled(environment: Readonly<Record<string, string | undefined>> = process.env) {
   return environment.MAIB_REVIEW_ACCESS_ENABLED?.trim().toLowerCase() !== "false";
 }
 

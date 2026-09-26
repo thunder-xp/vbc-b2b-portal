@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
-import type { EffectivePaymentState, PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentRefundClaim, PaymentRefundClaimOutcome, PaymentRefundResult, PaymentRefundStatus, PaymentReturnState, RetailOrderPaymentState } from "../../types";
+import type { EffectivePaymentState, PaymentAttemptStatus, PaymentClaim, PaymentClaimOutcome, PaymentConfirmationOutcome, PaymentConfirmationResult, PaymentReconciliationOutcome, PaymentReconciliationResult, PaymentRefundClaim, PaymentRefundClaimOutcome, PaymentRefundResult, PaymentRefundStatus, PaymentReturnState, RetailOrderPaymentState } from "../../types";
 import type { MaibReconciliationContext } from "../retail-payment.repository";
 import type { RetailPaymentRepository } from "../retail-payment.repository";
 
@@ -71,6 +71,41 @@ export class SupabaseRetailPaymentRepository implements RetailPaymentRepository 
 
   async getMaibReconciliationContext(attemptId: string) {
     return parseReconciliationContext(await this.rpc("get_maib_retail_payment_reconciliation_context_v1", { p_attempt_id: attemptId }));
+  }
+
+  async claimMaibReconciliationBatch(limit: number, leaseToken: string) {
+    const value = await this.rpc("claim_maib_retail_payment_reconciliation_batch_v1", {
+      p_limit: limit,
+      p_lease_token: leaseToken,
+    });
+    if (!Array.isArray(value)) throw new RetailPaymentRepositoryError("invalid_response");
+    return value.map((row) => {
+      const attemptId = row && typeof row === "object" ? (row as Record<string, unknown>).attempt_id : null;
+      if (!isUuid(attemptId)) throw new RetailPaymentRepositoryError("invalid_response");
+      return attemptId;
+    });
+  }
+
+  async recordMaibCheckoutState(input: Parameters<RetailPaymentRepository["recordMaibCheckoutState"]>[0]) {
+    return parseReconciliationResult(await this.rpc("record_maib_retail_payment_reconciliation_v1", {
+      p_attempt_id: input.attemptId,
+      p_lease_token: input.leaseToken,
+      p_provider_checkout_id: input.state.checkoutId,
+      p_order_reference: input.state.orderReference,
+      p_amount: input.state.amount,
+      p_currency: input.state.currency,
+      p_provider_status: input.state.checkoutStatus,
+      p_provider_event_at: input.state.providerEventAt,
+      p_outcome: input.state.kind === "pending" ? "PENDING" : input.state.checkoutStatus.toUpperCase(),
+    }));
+  }
+
+  async recordMaibReconciliationRetry(input: Parameters<RetailPaymentRepository["recordMaibReconciliationRetry"]>[0]) {
+    return await this.rpc("record_maib_retail_payment_reconciliation_retry_v1", {
+      p_attempt_id: input.attemptId,
+      p_lease_token: input.leaseToken,
+      p_error_code: input.errorCode,
+    }) === true;
   }
 
   async retryMaibActivation(attemptId: string) {
@@ -227,6 +262,9 @@ const CONFIRMATION_OUTCOMES = new Set<PaymentConfirmationOutcome>([
   "PAID", "DUPLICATE", "PAID_PENDING_ACTIVATION", "NON_PAID", "UNKNOWN_CHECKOUT", "PAYMENT_MISMATCH",
   "ORDER_MISMATCH", "AMOUNT_MISMATCH", "CURRENCY_MISMATCH", "INVALID_EVIDENCE",
 ]);
+const RECONCILIATION_OUTCOMES = new Set<PaymentReconciliationOutcome>([
+  ...CONFIRMATION_OUTCOMES, "PENDING", "EXPIRED", "CANCELLED", "FAILED",
+]);
 const ATTEMPT_STATUSES = new Set<PaymentAttemptStatus>(["created", "pending", "paid_pending_activation", "paid", "failed", "cancelled", "expired"]);
 
 function parseConfirmation(value: unknown): PaymentConfirmationResult {
@@ -240,6 +278,20 @@ function parseConfirmation(value: unknown): PaymentConfirmationResult {
     paymentStatus: typeof row.paymentStatus === "string" && ATTEMPT_STATUSES.has(row.paymentStatus as PaymentAttemptStatus) ? row.paymentStatus as PaymentAttemptStatus : null,
     activationRepeated: typeof row.activationRepeated === "boolean" ? row.activationRepeated : null,
     installationRequirementId: isUuid(row.installationRequirementId) ? row.installationRequirementId : null,
+  };
+}
+
+function parseReconciliationResult(value: unknown): PaymentReconciliationResult {
+  if (!value || typeof value !== "object") throw new RetailPaymentRepositoryError("invalid_response");
+  const row = value as Record<string, unknown>;
+  if (typeof row.outcome !== "string" || !RECONCILIATION_OUTCOMES.has(row.outcome as PaymentReconciliationOutcome)) throw new RetailPaymentRepositoryError("invalid_response");
+  return {
+    outcome: row.outcome as PaymentReconciliationOutcome,
+    attemptId: isUuid(row.attemptId) ? row.attemptId : null,
+    retailOrderId: isUuid(row.retailOrderId) ? row.retailOrderId : null,
+    paymentStatus: typeof row.paymentStatus === "string" && ATTEMPT_STATUSES.has(row.paymentStatus as PaymentAttemptStatus) ? row.paymentStatus as PaymentAttemptStatus : null,
+    activationRepeated: null,
+    installationRequirementId: null,
   };
 }
 
@@ -268,7 +320,7 @@ function parseReturnState(value: unknown): PaymentReturnState | null {
     confirmedAt: nullableDate(row.confirmedAt), items };
 }
 
-const PAYMENT_STATE_COLUMNS = "retail_order_id,order_number,payment_attempt_id,provider,attempt_status,payment_state,amount,currency,provider_status,provider_checkout_id,provider_payment_id,provider_rrn,failure_code,payment_created_at,payment_confirmed_at,refund_id,refund_status,refund_provider_status,provider_refund_id,refund_failure_code,refund_requested_at,refund_confirmed_at,remaining_refundable";
+const PAYMENT_STATE_COLUMNS = "retail_order_id,order_number,payment_attempt_id,provider,attempt_status,payment_state,amount,currency,provider_status,provider_checkout_id,provider_payment_id,provider_rrn,failure_code,payment_created_at,payment_confirmed_at,refund_id,refund_status,refund_provider_status,provider_refund_id,refund_failure_code,refund_requested_at,refund_confirmed_at,remaining_refundable,reconciliation_last_at,reconciliation_next_at,reconciliation_last_outcome,reconciliation_error_code,last_provider_outcome,last_payment_event_type";
 const PAYMENT_STATES = new Set<EffectivePaymentState>(["UNPAID", "PAYMENT_PENDING", "PAID", "REFUND_PENDING", "REFUNDED", "FAILED", "CANCELLED"]);
 
 function parsePaymentState(value: unknown): RetailOrderPaymentState {
@@ -307,6 +359,12 @@ function parsePaymentState(value: unknown): RetailOrderPaymentState {
     remainingRefundable: row.remaining_refundable === null || row.remaining_refundable === undefined
       ? null
       : nonNegativeMoney(row.remaining_refundable),
+    reconciliationLastAt: nullableDate(row.reconciliation_last_at),
+    reconciliationNextAt: nullableDate(row.reconciliation_next_at),
+    reconciliationLastOutcome: nullableString(row.reconciliation_last_outcome),
+    reconciliationErrorCode: nullableString(row.reconciliation_error_code),
+    lastProviderOutcome: nullableString(row.last_provider_outcome),
+    lastPaymentEventType: nullableString(row.last_payment_event_type),
   };
 }
 

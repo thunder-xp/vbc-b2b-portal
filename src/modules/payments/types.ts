@@ -27,6 +27,12 @@ export type RetailOrderPaymentState = Readonly<{
   refundRequestedAt: string | null;
   refundConfirmedAt: string | null;
   remainingRefundable: string | null;
+  reconciliationLastAt: string | null;
+  reconciliationNextAt: string | null;
+  reconciliationLastOutcome: string | null;
+  reconciliationErrorCode: string | null;
+  lastProviderOutcome: string | null;
+  lastPaymentEventType: string | null;
 }>;
 
 export type PaymentInitiationOutcome =
@@ -104,6 +110,18 @@ export type MaibPaymentEvidence = Readonly<{
   rrn: string | null;
 }>;
 
+export type MaibCheckoutState =
+  | Readonly<{ kind: "payment"; evidence: MaibPaymentEvidence }>
+  | Readonly<{
+      kind: "pending" | "terminal";
+      checkoutId: string;
+      orderReference: string;
+      amount: string;
+      currency: string;
+      checkoutStatus: "WaitingForInit" | "Initialized" | "PaymentMethodSelected" | "Expired" | "Abandoned" | "Cancelled" | "Failed";
+      providerEventAt: string;
+    }>;
+
 export type PaymentConfirmationOutcome =
   | "PAID"
   | "DUPLICATE"
@@ -123,6 +141,20 @@ export type PaymentConfirmationResult = Readonly<{
   paymentStatus: PaymentAttemptStatus | null;
   activationRepeated: boolean | null;
   installationRequirementId: string | null;
+}>;
+
+export type PaymentReconciliationOutcome = PaymentConfirmationOutcome | "PENDING" | "EXPIRED" | "CANCELLED" | "FAILED";
+
+export type PaymentReconciliationResult = Omit<PaymentConfirmationResult, "outcome"> & Readonly<{
+  outcome: PaymentReconciliationOutcome;
+}>;
+
+export type PaymentReconciliationBatchResult = Readonly<{
+  claimed: number;
+  paid: number;
+  pending: number;
+  terminal: number;
+  retried: number;
 }>;
 
 export type PaymentReturnState = Readonly<{

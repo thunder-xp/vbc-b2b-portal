@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createMaibReviewSession,
   isMaibReviewAccessCodeValid,
+  isMaibReviewAccessEnabled,
   MAIB_REVIEW_COOKIE_EXPIRES_AT,
   validateMaibReviewSession,
 } from "../maib-review-session";
@@ -40,6 +41,7 @@ describe("MAIB review access", () => {
     expect(validateMaibReviewSession(session, {})).toBe(false);
     expect(validateMaibReviewSession(session, { ...environment, MAIB_REVIEW_ACCESS_ENABLED: "false" })).toBe(false);
     expect(isMaibReviewAccessCodeValid(secret, { ...environment, MAIB_REVIEW_ACCESS_ENABLED: "false" })).toBe(false);
+    expect(isMaibReviewAccessEnabled({ ...environment, MAIB_REVIEW_ACCESS_ENABLED: "false" })).toBe(false);
   });
 
   it("keeps normal public gating unchanged and identifies review access centrally", () => {

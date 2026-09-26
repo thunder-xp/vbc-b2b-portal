@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import type { PaymentProvider } from "../payment-provider";
 import { PaymentProviderError } from "../payment-provider";
 import type {
+  MaibCheckoutState,
   MaibPaymentEvidence,
   PaymentCheckoutInput,
   PaymentCheckoutResult,
@@ -114,6 +115,12 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
   }
 
   async getCheckoutEvidence(checkoutId: string): Promise<MaibPaymentEvidence> {
+    const state = await this.getCheckoutState(checkoutId);
+    if (state.kind !== "payment") throw new PaymentProviderError("lookup", "CHECKOUT_NOT_COMPLETED", false);
+    return state.evidence;
+  }
+
+  async getCheckoutState(checkoutId: string): Promise<MaibCheckoutState> {
     if (!CHECKOUT_ID.test(checkoutId)) throw new PaymentProviderError("lookup", "INVALID_CHECKOUT_ID", false);
     const accessToken = await this.getAccessToken();
     const response = await this.request(`/v2/checkouts/${checkoutId.toLowerCase()}`, {
@@ -127,26 +134,51 @@ export class MaibCheckoutV2Adapter implements PaymentProvider {
     const payment = objectValue(checkout.payment);
     const resultCheckoutId = stringValue(checkout.id);
     const checkoutStatus = stringValue(checkout.status);
-    const paymentId = stringValue(payment.paymentId);
-    const orderReference = stringValue(order.id) ?? stringValue(payment.orderId);
+    const orderReference = stringValue(order.id);
     const checkoutAmount = moneyValue(checkout.amount);
     const checkoutCurrency = stringValue(checkout.currency);
+    const createdAt = isoDateValue(checkout.createdAt);
+    const expiresAt = isoDateValue(checkout.expiresAt);
+    if (!resultCheckoutId || resultCheckoutId.toLowerCase() !== checkoutId.toLowerCase()
+      || !checkoutStatus || !CHECKOUT_STATUSES.has(checkoutStatus)
+      || !orderReference || !CHECKOUT_ID.test(orderReference)
+      || !checkoutAmount || !checkoutCurrency || !createdAt || !expiresAt) {
+      throw new PaymentProviderError("lookup", "INVALID_LOOKUP_RESPONSE", true, response.status);
+    }
+
+    if (checkoutStatus !== "Completed") {
+      const terminal = TERMINAL_CHECKOUT_STATUSES.has(checkoutStatus);
+      const providerEventAt = terminal
+        ? isoDateValue(checkout.cancelledAt) ?? isoDateValue(checkout.failedAt) ?? expiresAt
+        : createdAt;
+      return {
+        kind: terminal ? "terminal" : "pending",
+        checkoutId: resultCheckoutId.toLowerCase(),
+        orderReference: orderReference.toLowerCase(),
+        amount: checkoutAmount,
+        currency: checkoutCurrency,
+        checkoutStatus: checkoutStatus as Exclude<MaibCheckoutState, { kind: "payment" }>["checkoutStatus"],
+        providerEventAt,
+      };
+    }
+
+    const paymentId = stringValue(payment.paymentId);
+    const paymentOrderReference = stringValue(payment.orderId) ?? orderReference;
     const paymentAmount = moneyValue(payment.amount);
     const paymentCurrency = stringValue(payment.currency);
     const paymentStatus = stringValue(payment.status);
     const providerEventAt = stringValue(payment.executedAt);
     const rrn = nullableSafeString(payment.referenceNumber, 100);
-    if (!resultCheckoutId || resultCheckoutId.toLowerCase() !== checkoutId.toLowerCase()
-      || !paymentId || !CHECKOUT_ID.test(paymentId) || !orderReference || !CHECKOUT_ID.test(orderReference)
-      || !checkoutAmount || !checkoutCurrency || !paymentAmount || !paymentCurrency || !paymentStatus
+    if (!paymentId || !CHECKOUT_ID.test(paymentId) || !paymentOrderReference || !CHECKOUT_ID.test(paymentOrderReference)
+      || !paymentAmount || !paymentCurrency || !paymentStatus
       || !providerEventAt || Number.isNaN(Date.parse(providerEventAt))
-      || (paymentStatus === "Executed" && checkoutStatus !== "Completed")) {
+      || paymentStatus !== "Executed") {
       throw new PaymentProviderError("lookup", "INVALID_LOOKUP_RESPONSE", true, response.status);
     }
-    return {
-      checkoutId: resultCheckoutId.toLowerCase(), paymentId: paymentId.toLowerCase(), orderReference: orderReference.toLowerCase(),
+    return { kind: "payment", evidence: {
+      checkoutId: resultCheckoutId.toLowerCase(), paymentId: paymentId.toLowerCase(), orderReference: paymentOrderReference.toLowerCase(),
       checkoutAmount, checkoutCurrency, paymentAmount, paymentCurrency, paymentStatus, providerEventAt, rrn,
-    };
+    } };
   }
 
   async createRefund(input: PaymentRefundProviderInput): Promise<PaymentRefundProviderResult> {
@@ -357,6 +389,8 @@ function nullableSafeString(value: unknown, maxLength: number) {
 type ProviderStage = "auth" | "checkout" | "lookup" | "refund" | "refund_lookup" | "payment_lookup";
 const REFUND_STATUSES = new Set(["Created", "Requested", "Accepted", "Rejected", "Manual"]);
 const PAYMENT_REFUND_STATUSES = new Set(["Executed", "PartiallyRefunded", "Refunded", "Failed"]);
+const CHECKOUT_STATUSES = new Set(["WaitingForInit", "Initialized", "PaymentMethodSelected", "Completed", "Expired", "Abandoned", "Cancelled", "Failed"]);
+const TERMINAL_CHECKOUT_STATUSES = new Set(["Expired", "Abandoned", "Cancelled", "Failed"]);
 function isPositiveMoney(value: string) { return /^\d+(?:\.\d{1,2})?$/.test(value) && Number(value) > 0; }
 function nonNegativeMoneyValue(value: unknown) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || Math.abs(Math.round(value * 100) - value * 100) > 1e-7) return null;
@@ -364,6 +398,9 @@ function nonNegativeMoneyValue(value: unknown) {
 }
 function nullableIsoDate(value: unknown) {
   if (value === null || value === undefined || value === "") return null;
+  return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
+}
+function isoDateValue(value: unknown) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? value : null;
 }
 

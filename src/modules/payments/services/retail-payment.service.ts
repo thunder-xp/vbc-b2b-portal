@@ -1,9 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import type { PaymentProvider } from "../providers/payment-provider";
 import { PaymentProviderError } from "../providers/payment-provider";
 import type { RetailPaymentRepository } from "../repositories/retail-payment.repository";
-import type { MaibPaymentEvidence, PaymentConfirmationResult, PaymentInitiationResult, PaymentRefundClaim, PaymentRefundResult, PaymentReturnState } from "../types";
+import type { MaibPaymentEvidence, PaymentConfirmationResult, PaymentInitiationResult, PaymentReconciliationBatchResult, PaymentReconciliationResult, PaymentRefundClaim, PaymentRefundResult, PaymentReturnState } from "../types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOKEN_HASH = /^[0-9a-f]{64}$/;
@@ -61,14 +61,49 @@ export class RetailPaymentService {
     return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "callback", checkoutChannel }));
   }
 
-  async reconcileMaibPayment(paymentAttemptId: string): Promise<PaymentConfirmationResult> {
+  async reconcileMaibPayment(paymentAttemptId: string, leaseToken: string | null = null): Promise<PaymentReconciliationResult> {
     if (!UUID.test(paymentAttemptId)) return confirmation("INVALID_EVIDENCE");
     const context = await this.repository.getMaibReconciliationContext(paymentAttemptId);
     if (!context) return confirmation("INVALID_EVIDENCE");
     if (context.status === "paid") return this.withPaidConfirmation({ ...confirmation("DUPLICATE"), attemptId: context.attemptId, paymentStatus: "paid", activationRepeated: true });
-    if (context.status === "paid_pending_activation") return this.withPaidConfirmation(await this.repository.retryMaibActivation(context.attemptId));
-    const evidence = await this.provider.getCheckoutEvidence(context.checkoutId);
-    return this.withPaidConfirmation(await this.repository.confirmMaib({ evidence, source: "reconciliation", checkoutChannel: "public" }));
+    if (context.status === "paid_pending_activation") {
+      const result = await this.withPaidConfirmation(await this.repository.retryMaibActivation(context.attemptId));
+      if (leaseToken && result.outcome === "PAID_PENDING_ACTIVATION") {
+        await this.repository.recordMaibReconciliationRetry({ attemptId: context.attemptId, leaseToken, errorCode: "ACTIVATION_PENDING" });
+      }
+      return result;
+    }
+    const checkout = await this.provider.getCheckoutState(context.checkoutId);
+    if (checkout.kind === "payment") {
+      const result = await this.withPaidConfirmation(await this.repository.confirmMaib({ evidence: checkout.evidence, source: "reconciliation", checkoutChannel: "public" }));
+      if (leaseToken && result.outcome !== "PAID" && result.outcome !== "DUPLICATE") {
+        await this.repository.recordMaibReconciliationRetry({ attemptId: context.attemptId, leaseToken, errorCode: `EVIDENCE_${result.outcome}` });
+      }
+      return result;
+    }
+    return this.repository.recordMaibCheckoutState({ attemptId: context.attemptId, leaseToken, state: checkout });
+  }
+
+  async reconcileDueMaibPayments(limit = 3): Promise<PaymentReconciliationBatchResult> {
+    const leaseToken = randomUUID();
+    const attemptIds = await this.repository.claimMaibReconciliationBatch(Math.min(Math.max(Math.trunc(limit), 1), 5), leaseToken);
+    const result = { claimed: attemptIds.length, paid: 0, pending: 0, terminal: 0, retried: 0 };
+    for (const attemptId of attemptIds) {
+      try {
+        const reconciliation = await this.reconcileMaibPayment(attemptId, leaseToken);
+        if (reconciliation.outcome === "PAID" || reconciliation.outcome === "DUPLICATE") result.paid += 1;
+        else if (reconciliation.outcome === "PENDING") result.pending += 1;
+        else if (reconciliation.outcome === "EXPIRED" || reconciliation.outcome === "CANCELLED" || reconciliation.outcome === "FAILED") result.terminal += 1;
+        else result.retried += 1;
+      } catch (error) {
+        const safeCode = error instanceof PaymentProviderError
+          ? `${error.stage.toUpperCase()}:${error.safeCode}`
+          : "UNEXPECTED_RECONCILIATION_ERROR";
+        await this.repository.recordMaibReconciliationRetry({ attemptId, leaseToken, errorCode: normalizeFailureCode(safeCode) });
+        result.retried += 1;
+      }
+    }
+    return result;
   }
 
   async getReturnState(paymentAttemptId: string, returnAccessToken: string): Promise<PaymentReturnState | null> {

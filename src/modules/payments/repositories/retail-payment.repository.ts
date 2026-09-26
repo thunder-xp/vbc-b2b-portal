@@ -1,11 +1,13 @@
 import type {
   MaibPaymentEvidence,
+  MaibCheckoutState,
   PaymentClaim,
   PaymentConfirmationResult,
   PaymentProviderName,
   PaymentRefundClaim,
   PaymentRefundEvidence,
   PaymentRefundResult,
+  PaymentReconciliationResult,
   PaymentProviderRefundState,
   PaymentReturnState,
   RetailOrderPaymentState,
@@ -33,6 +35,9 @@ export interface RetailPaymentRepository {
   recordFailure(input: Readonly<{ attemptId: string; idempotencyKey: string; failureCode: string; terminal: boolean }>): Promise<boolean>;
   confirmMaib(input: Readonly<{ evidence: MaibPaymentEvidence; source: "callback" | "reconciliation"; checkoutChannel: "public" | "maib_review" }>): Promise<PaymentConfirmationResult>;
   getMaibReconciliationContext(attemptId: string): Promise<MaibReconciliationContext | null>;
+  claimMaibReconciliationBatch(limit: number, leaseToken: string): Promise<string[]>;
+  recordMaibCheckoutState(input: Readonly<{ attemptId: string; leaseToken: string | null; state: Exclude<MaibCheckoutState, { kind: "payment" }> }>): Promise<PaymentReconciliationResult>;
+  recordMaibReconciliationRetry(input: Readonly<{ attemptId: string; leaseToken: string; errorCode: string }>): Promise<boolean>;
   retryMaibActivation(attemptId: string): Promise<PaymentConfirmationResult>;
   getReturnState(paymentAttemptId: string, returnAccessTokenHash: string): Promise<PaymentReturnState | null>;
   persistPaidConfirmationEmail(paymentAttemptId: string): Promise<"QUEUED" | "NOT_PAID" | "EMAIL_UNAVAILABLE">;

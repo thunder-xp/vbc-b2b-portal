@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
+import { isMaibReviewAccessEnabled } from "@/src/modules/public-retail/maib-review-session";
 import { hasMaibReviewSession } from "@/src/modules/public-retail/retail-checkout-server";
 
 import { authorizeMaibReviewAction } from "./actions";
@@ -11,6 +12,7 @@ export const metadata: Metadata = { title: "MAIB Review | Novotech", robots: { i
 export const dynamic = "force-dynamic";
 
 export default async function MaibReviewPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  if (!isMaibReviewAccessEnabled()) notFound();
   const query = await searchParams;
   const locale = query.lang === "ro" ? "ro" : "ru";
   if (await hasMaibReviewSession()) redirect(`/catalog?lang=${locale}`);

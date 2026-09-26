@@ -51,4 +51,8 @@ export async function verifyMaibConnectivity() {
   return createMaibCheckoutV2Adapter().verifyConnectivity();
 }
 
+export async function reconcileDueMaibPayments(limit = 3) {
+  return createRetailPaymentService().reconcileDueMaibPayments(limit);
+}
+
 export { maibConfigurationSummary };

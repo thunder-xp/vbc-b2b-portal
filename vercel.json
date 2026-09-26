@@ -58,6 +58,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/retail-payment-reconciliation",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/onboarding-directory",
       "schedule": "15 0 * * *"
     },

@@ -56,6 +56,7 @@ describe("MAIB Checkout API v2 adapter", () => {
       .mockResolvedValueOnce(json({ ok: true, result: { accessToken: "access-token", expiresIn: 300, tokenType: "Bearer" } }))
       .mockResolvedValueOnce(json({ ok: true, result: {
         id: "22222222-2222-4222-8222-222222222222", status: "Completed", amount: 1250.5, currency: "MDL",
+        createdAt: "2026-09-16T11:30:00.000Z", expiresAt: "2026-09-16T12:30:00.000Z",
         order: { id: checkoutInput.paymentAttemptId },
         payment: { paymentId: "33333333-3333-4333-8333-333333333333", amount: 1250.5, currency: "MDL", status: "Executed", executedAt: "2026-09-16T12:00:00.000Z", referenceNumber: "SAFE-RRN" },
       } }));
@@ -68,6 +69,26 @@ describe("MAIB Checkout API v2 adapter", () => {
       paymentAmount: "1250.50", paymentCurrency: "MDL", paymentStatus: "Executed",
       providerEventAt: "2026-09-16T12:00:00.000Z", rrn: "SAFE-RRN",
     });
+  });
+
+  it.each([
+    ["Initialized", "pending"],
+    ["Expired", "terminal"],
+    ["Abandoned", "terminal"],
+    ["Cancelled", "terminal"],
+    ["Failed", "terminal"],
+  ] as const)("maps checkout status %s without requiring a payment object", async (checkoutStatus, kind) => {
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json({ ok: true, result: { accessToken: "access-token", expiresIn: 300, tokenType: "Bearer" } }))
+      .mockResolvedValueOnce(json({ ok: true, result: {
+        id: "22222222-2222-4222-8222-222222222222", status: checkoutStatus, amount: 1250.5, currency: "MDL",
+        createdAt: "2026-09-16T11:30:00.000Z", expiresAt: "2026-09-16T12:30:00.000Z",
+        failedAt: checkoutStatus === "Failed" ? "2026-09-16T12:10:00.000Z" : null,
+        cancelledAt: checkoutStatus === "Cancelled" ? "2026-09-16T12:10:00.000Z" : null,
+        order: { id: checkoutInput.paymentAttemptId }, payment: null,
+      } }));
+    await expect(createMaibCheckoutV2Adapter(environment, fetcher).getCheckoutState("22222222-2222-4222-8222-222222222222"))
+      .resolves.toMatchObject({ kind, checkoutStatus, orderReference: checkoutInput.paymentAttemptId, amount: "1250.50", currency: "MDL" });
   });
 
   it("treats an ambiguous checkout response as non-retryable by the caller", async () => {

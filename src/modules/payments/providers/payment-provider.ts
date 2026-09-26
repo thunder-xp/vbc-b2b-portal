@@ -1,5 +1,6 @@
 import type {
   MaibPaymentEvidence,
+  MaibCheckoutState,
   PaymentCheckoutInput,
   PaymentCheckoutResult,
   PaymentProviderName,
@@ -13,6 +14,7 @@ export interface PaymentProvider {
   readonly provider: PaymentProviderName;
   createCheckout(input: PaymentCheckoutInput): Promise<PaymentCheckoutResult>;
   getCheckoutEvidence(checkoutId: string): Promise<MaibPaymentEvidence>;
+  getCheckoutState(checkoutId: string): Promise<MaibCheckoutState>;
   createRefund(input: PaymentRefundProviderInput): Promise<PaymentRefundProviderResult>;
   getRefundEvidence(refundId: string): Promise<PaymentRefundEvidence>;
   getPaymentRefundState(paymentId: string): Promise<PaymentProviderRefundState>;

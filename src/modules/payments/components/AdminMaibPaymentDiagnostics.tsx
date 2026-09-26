@@ -65,7 +65,7 @@ export function AdminMaibPaymentDiagnostics({
           <label className="text-sm font-semibold" htmlFor="controlled-maib-order">Controlled production order</label>
           <input className="mt-1 min-h-11 w-full rounded-md border border-zinc-300 px-3 font-mono text-sm" id="controlled-maib-order" name="orderNumber" pattern="R-[0-9]{4}-[0-9]{6}" placeholder="R-2026-000000" required />
           <input name="idempotencyKey" type="hidden" value={controlledIdempotencyKey} />
-          <p className="mt-1 text-xs text-zinc-500">Finance-only, one governed public order, production MAIB, public checkout remains disabled.</p>
+          <p className="mt-1 text-xs text-zinc-500">Finance-only governed acceptance order. Production MAIB credentials remain server-side.</p>
         </div>
         <button className="min-h-11 self-end rounded-md bg-zinc-950 px-4 text-sm font-semibold text-white disabled:opacity-50" disabled={controlledPending}>
           {controlledPending ? "Creating checkout…" : "Create controlled MAIB checkout"}
@@ -78,18 +78,19 @@ export function AdminMaibPaymentDiagnostics({
         </p>
       ) : null}
       <div className="overflow-x-auto">
-        <table className="min-w-[980px] w-full text-left text-sm">
-          <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500"><tr><th className="p-2">Order</th><th className="p-2">Amount</th><th className="p-2">State</th><th className="p-2">Refund</th><th className="p-2">Remaining</th><th className="p-2">Payment ref</th><th className="p-2">Refund ref</th><th className="p-2">Timestamp / failure</th></tr></thead>
+        <table className="min-w-[1500px] w-full text-left text-sm">
+          <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500"><tr><th className="p-2">Order / attempt</th><th className="p-2">Amount</th><th className="p-2">State</th><th className="p-2">Provider</th><th className="p-2">Payment ID / RRN</th><th className="p-2">Confirmed</th><th className="p-2">Reconciliation</th><th className="p-2">Refund</th><th className="p-2">Safe incident signal</th></tr></thead>
           <tbody className="divide-y divide-zinc-100">
             {payments.map((payment) => <tr key={payment.paymentAttemptId ?? payment.retailOrderId}>
-              <td className="p-2 font-mono">{payment.orderNumber}</td>
+              <td className="p-2"><div className="font-mono">{payment.orderNumber}</div><div className="font-mono text-xs text-zinc-500">{payment.paymentAttemptId ?? "—"}</div></td>
               <td className="p-2 tabular-nums">{payment.amount} {payment.currency}</td>
-              <td className="p-2 font-semibold">{payment.paymentState}</td>
-              <td className="p-2">{payment.refundStatus ?? "—"}</td>
-              <td className="p-2 tabular-nums">{payment.remainingRefundable ?? "—"}</td>
-              <td className="p-2 font-mono text-xs">{payment.providerPaymentId ?? "—"}</td>
-              <td className="p-2 font-mono text-xs">{payment.providerRefundId ?? "—"}</td>
-              <td className="p-2 text-xs">{payment.refundConfirmedAt ?? payment.paymentConfirmedAt ?? payment.paymentCreatedAt ?? "—"}{payment.refundFailureCode ?? payment.failureCode ? ` · ${payment.refundFailureCode ?? payment.failureCode}` : ""}</td>
+              <td className="p-2"><div className="font-semibold">{payment.paymentState}</div><div className="text-xs text-zinc-500">{payment.attemptStatus ?? "—"}</div></td>
+              <td className="p-2"><div>{payment.provider ?? "—"}</div><div className="text-xs text-zinc-500">{payment.providerStatus ?? "—"}</div></td>
+              <td className="p-2 font-mono text-xs"><div>{payment.providerPaymentId ?? "—"}</div><div>{payment.providerRrn ?? "—"}</div></td>
+              <td className="p-2 text-xs">{payment.paymentConfirmedAt ?? "—"}</td>
+              <td className="p-2 text-xs"><div>{payment.reconciliationLastOutcome ?? "—"}{payment.reconciliationLastAt ? ` · ${payment.reconciliationLastAt}` : ""}</div><div className="text-zinc-500">next {payment.reconciliationNextAt ?? "—"}</div></td>
+              <td className="p-2 text-xs"><div>{payment.refundStatus ?? "—"} · {payment.remainingRefundable ?? "—"}</div><div className="font-mono text-zinc-500">{payment.providerRefundId ?? "—"}</div></td>
+              <td className="p-2 text-xs">{payment.refundFailureCode ?? payment.failureCode ?? payment.reconciliationErrorCode ?? payment.lastProviderOutcome ?? payment.lastPaymentEventType ?? "—"}</td>
             </tr>)}
           </tbody>
         </table>
