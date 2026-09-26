@@ -19,6 +19,7 @@
     "test:agent-cabinet-performance": "node scripts/agent-cabinet-performance-acceptance.mjs",
     "test:customer-agent-visual-polish": "node scripts/customer-agent-visual-polish-acceptance.mjs",
     "test:customer-object-workspace": "node scripts/final-customer-object-workspace-acceptance.mjs",
+    "verify:vercel-project": "node scripts/verify-vercel-project.mjs",
     "test": "vitest run"
   },
   "dependencies": {

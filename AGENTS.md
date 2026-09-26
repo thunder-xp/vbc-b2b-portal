@@ -57,3 +57,14 @@ Do not weaken reliability, security, auditability, reconciliation, or critical-p
 Release checklist:
 
 [ ] Cost impact reviewed; no unjustified increase in builds, invocations, CPU, memory, logs, or transfer.
+
+## Vercel Project Governance
+
+1. The only Vercel project for this B2B application is `vbc-b2b-portal` (`prj_VrGa1zrCDn9BS0nmAvfsTY1FySeA`).
+2. Production is served from `nsd.md` and `www.nsd.md` through that project.
+3. Feature branches and worktrees must deploy as Preview deployments inside the existing `vbc-b2b-portal` project.
+4. Creating or importing another Vercel project is prohibited without explicit project-owner approval.
+5. Do not run `vercel --prod` from a feature branch or worktree unless the canonical release procedure explicitly requires a production deployment.
+6. Before any Vercel CLI deployment from a new worktree, run `npm run verify:vercel-project` and confirm `.vercel/project.json` references the canonical project ID and name.
+7. If the worktree is not linked, run `vercel link --yes --project vbc-b2b-portal --scope thunderxp-s-projects`. Never accept an interactive prompt to create or import a project.
+8. Production promotion must use the canonical project and release workflow.
