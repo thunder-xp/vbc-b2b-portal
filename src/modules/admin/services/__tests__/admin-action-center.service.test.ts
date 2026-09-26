@@ -50,7 +50,7 @@ describe("AdminActionCenterService", () => {
       "CRITICAL", "ACTION_REQUIRED", "ACTION_REQUIRED", "ACTION_REQUIRED", "ACTION_REQUIRED", "WAITING",
     ]);
     expect(center.items).toEqual(expect.arrayContaining([
-      expect.objectContaining({ title: "Требует проверки: Цены", actionHref: "/admin/operations/issues/prices:run-1" }),
+      expect.objectContaining({ title: "Не завершена публикация цен", actionHref: "/admin/operations/issues/prices:run-1" }),
       expect.objectContaining({ title: "Новая заявка партнёра", actionHref: "/admin/onboarding/received-id" }),
       expect.objectContaining({ title: "Заявка партнёра готова к решению", actionHref: "/admin/onboarding/ready_for_approval-id" }),
       expect.objectContaining({ title: "Заявка коммерческого агента", actionHref: "/admin/agents/applications/agent-submitted" }),
@@ -58,6 +58,48 @@ describe("AdminActionCenterService", () => {
     ]));
     expect(center.actionableCount).toBe(5);
     expect(center.waitingCount).toBe(1);
+  });
+
+  it("aggregates multiple signals for one entity and deterministically selects the strongest state", async () => {
+    const signals = [
+      serviceItem("new-event", "case-1", "service_case_new", "2026-08-08T10:00:00.000Z"),
+      serviceItem("generic-event", "case-1", "service_case_unassigned", "2026-08-08T11:00:00.000Z"),
+      serviceItem("overdue-event", "case-1", "service_case_overdue", "2026-09-26T10:00:00.000Z"),
+    ];
+    const first = await new AdminActionCenterService(dependencies({
+      listServiceAttention: vi.fn(async () => signals),
+    })).getActionCenter(["admin.service.view"], NOW);
+    const reversed = await new AdminActionCenterService(dependencies({
+      listServiceAttention: vi.fn(async () => [...signals].reverse()),
+    })).getActionCenter(["admin.service.view"], NOW);
+
+    expect(first.items).toHaveLength(1);
+    expect(first.items[0]).toEqual(expect.objectContaining({
+      id: "service:request:case-1",
+      situationKey: "service:request:case-1",
+      signalCount: 3,
+      title: "Сервисная заявка просрочена",
+      explanation: "Срок обработки обращения истёк.",
+      createdAt: "2026-08-08T10:00:00.000Z",
+      actionHref: "/admin/service/case-1",
+    }));
+    expect(reversed.items).toEqual(first.items);
+    expect(first.actionableCount).toBe(1);
+  });
+
+  it("keeps different domain entities as separate situations", async () => {
+    const center = await new AdminActionCenterService(dependencies({
+      listServiceAttention: vi.fn(async () => [
+        serviceItem("event-1", "case-1", "service_case_new"),
+        serviceItem("event-2", "case-2", "service_case_new"),
+      ]),
+    })).getActionCenter(["admin.service.view"], NOW);
+
+    expect(center.items.map(({ situationKey }) => situationKey)).toEqual([
+      "service:request:case-1",
+      "service:request:case-2",
+    ]);
+    expect(center.actionableCount).toBe(2);
   });
 
   it("does not execute or expose unauthorized domain sources", async () => {
@@ -123,12 +165,17 @@ function operationalIssue(runId = "run-1"): AdminOperationalIssue {
   };
 }
 
-function serviceItem(id = "event-1"): ServiceAdminAttentionItem {
+function serviceItem(
+  id = "event-1",
+  caseId = "case-1",
+  eventCode = "decision_required",
+  createdAt = "2026-09-26T10:00:00.000Z",
+): ServiceAdminAttentionItem {
   return {
-    id, caseId: "case-1", caseNumber: "SRV-001", eventCode: "decision_required",
+    id, caseId, caseNumber: caseId === "case-1" ? "SRV-001" : "SRV-002", eventCode,
     title: "Сервисное обращение требует решения",
     message: "Проверьте результат диагностики и выберите следующий шаг.",
-    actionUrl: "/admin/service/case-1", createdAt: "2026-09-26T10:00:00.000Z",
+    actionUrl: "https://untrusted.example/service", createdAt,
   };
 }
 

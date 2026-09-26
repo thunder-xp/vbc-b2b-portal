@@ -20,7 +20,8 @@ describe("AdminActionCenterView", () => {
     render(<AdminActionCenterView center={{
       ...empty, actionableCount: 1,
       items: [{
-        id: "agent:one", domain: "agent", kind: "agent_application", level: "ACTION_REQUIRED",
+        id: "agent:application:one", situationKey: "agent:application:one", signalCount: 1,
+        domain: "agent", kind: "agent_application", level: "ACTION_REQUIRED",
         title: "Заявка коммерческого агента",
         explanation: "Получена заявка от «Анна Попеску». Нужно проверить данные и принять решение.",
         entityLabel: "Анна Попеску", createdAt: "2026-09-24T12:00:00.000Z",

@@ -26,7 +26,7 @@ export class ServiceCenterService {
     return serviceMutation(() => this.repository.performPartnerAction({ caseId: uuid(input.caseId), expectedVersion: Math.max(1,Math.trunc(input.expectedVersion)), action: input.action, message: trim(input.message,4000) }));
   }
   async dashboard(userId: string) { return this.repository.getDashboard(await this.companyId(userId)); }
-  async adminAttention() { return this.repository.getAdminAttention(10); }
+  async adminAttention(limit = 10) { return this.repository.getAdminAttention(limit); }
   async diagnostics() { return this.repository.getDiagnostics(); }
   async listAdmin(input: { query?: string | null; status?: string | null; page?: string | number | null }) { return this.repository.listAdmin({ query: trim(input.query, 100), status: validStatus(input.status), page: page(input.page) }); }
   async getAdmin(caseId: string) { return this.repository.get(uuid(caseId)); }

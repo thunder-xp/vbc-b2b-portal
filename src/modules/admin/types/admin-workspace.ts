@@ -17,6 +17,7 @@ export interface AdminNavigationItem {
 
 export interface AdminNavigationGroup {
   label: string;
+  tier: "primary" | "secondary";
   items: readonly AdminNavigationItem[];
 }
 

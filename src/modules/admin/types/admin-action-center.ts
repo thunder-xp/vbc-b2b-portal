@@ -18,6 +18,8 @@ export type AdminActionKind =
 
 export interface AdminActionItem {
   id: string;
+  situationKey: string;
+  signalCount: number;
   domain: AdminActionDomain;
   kind: AdminActionKind;
   level: AdminActionLevel;

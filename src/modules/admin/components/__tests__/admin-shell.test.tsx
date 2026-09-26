@@ -19,11 +19,23 @@ const context = {
   navigation: [
     {
       label: "Партнёры",
+      tier: "primary" as const,
       items: [
         {
           label: "Заявки на доступ",
           href: "/admin/partner-requests",
           permission: "admin.access_requests.view",
+        },
+      ],
+    },
+    {
+      label: "Диагностика",
+      tier: "secondary" as const,
+      items: [
+        {
+          label: "История заданий",
+          href: "/admin/integrations/jobs",
+          permission: "admin.integrations.view",
         },
       ],
     },
@@ -54,5 +66,18 @@ describe("AdminShell", () => {
     fireEvent.keyDown(document, { key: "Escape" });
 
     expect(screen.queryByTestId("admin-navigation-overlay")).not.toBeInTheDocument();
+  });
+
+  it("keeps specialized destinations in one progressive disclosure group", () => {
+    render(<AdminShell context={context}>Content</AdminShell>);
+
+    const disclosure = screen.getByText("Система и ещё").closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Система и ещё"));
+    expect(disclosure).toHaveAttribute("open");
+    expect(screen.getByRole("link", { name: "История заданий" })).toHaveAttribute(
+      "href",
+      "/admin/integrations/jobs",
+    );
   });
 });

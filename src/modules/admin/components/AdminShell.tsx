@@ -45,51 +45,72 @@ export function AdminShell({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [mobileOpen]);
 
-  const navigation = (
-    <nav aria-label="Административная навигация" className="space-y-2 px-3 py-4">
-      {context.navigation.map((group) => {
-        const activeGroup = group.items.some(
-          (item) =>
-            pathname === item.href ||
-            (item.href !== "/admin" && pathname.startsWith(`${item.href}/`)),
-        );
+  const primaryNavigation = context.navigation.filter(
+    (group) => group.tier === "primary",
+  );
+  const secondaryNavigation = context.navigation.filter(
+    (group) => group.tier === "secondary",
+  );
+  const secondaryActive = secondaryNavigation.some((group) =>
+    group.items.some((item) => isActivePath(pathname, item.href)),
+  );
 
-        return (
-          <details className="group" key={group.label} open={activeGroup}>
-            <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-md px-3 text-xs font-semibold uppercase text-zinc-500 hover:bg-zinc-100">
-              {group.label}
-              <ChevronDown
-                aria-hidden
-                className="h-4 w-4 transition-transform group-open:rotate-180"
+  const navigation = (
+    <nav aria-label="Административная навигация" className="space-y-5 px-3 py-4">
+      {primaryNavigation.map((group) => (
+        <section key={group.label}>
+          <h2
+            className="px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+          >
+            {group.label}
+          </h2>
+          <div className="mt-1 space-y-1">
+            {group.items.map((item) => (
+              <NavigationLink
+                active={activeItem?.href === item.href}
+                href={item.href}
+                key={item.href}
+                label={item.label}
+                onSelect={() => setMobileOpen(false)}
               />
-            </summary>
-            <div className="mt-1 space-y-1">
-              {group.items.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  (item.href !== "/admin" &&
-                    pathname.startsWith(`${item.href}/`));
-                return (
-                  <Link
-                    aria-current={active ? "page" : undefined}
-                    className={`flex min-h-10 items-center rounded-md px-3 text-sm font-medium ${
-                      active
-                        ? "bg-emerald-50 text-emerald-800"
-                        : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950"
-                    }`}
-                    href={item.href}
-                    key={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    prefetch={false}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </div>
-          </details>
-        );
-      })}
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {secondaryNavigation.length ? (
+        <details className="group border-t border-zinc-200 pt-3" open={secondaryActive}>
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between rounded-md px-3 text-sm font-semibold text-zinc-700 hover:bg-zinc-100">
+            Система и ещё
+            <ChevronDown
+              aria-hidden
+              className="h-4 w-4 transition-transform group-open:rotate-180"
+            />
+          </summary>
+          <div className="mt-3 space-y-5">
+            {secondaryNavigation.map((group) => (
+              <section key={group.label}>
+                <h2
+                  className="px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  {group.label}
+                </h2>
+                <div className="mt-1 space-y-1">
+                  {group.items.map((item) => (
+                    <NavigationLink
+                      active={activeItem?.href === item.href}
+                      href={item.href}
+                      key={item.href}
+                      label={item.label}
+                      onSelect={() => setMobileOpen(false)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </details>
+      ) : null}
     </nav>
   );
 
@@ -177,4 +198,37 @@ export function AdminShell({
       </div>
     </div>
   );
+}
+
+function NavigationLink({
+  active,
+  href,
+  label,
+  onSelect,
+}: {
+  active: boolean;
+  href: string;
+  label: string;
+  onSelect: () => void;
+}) {
+  return (
+    <Link
+      aria-current={active ? "page" : undefined}
+      className={`flex min-h-10 items-center rounded-md px-3 text-sm font-medium ${
+        active
+          ? "bg-emerald-50 text-emerald-800"
+          : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950"
+      }`}
+      href={href}
+      onClick={onSelect}
+      prefetch={false}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function isActivePath(pathname: string, href: string): boolean {
+  return pathname === href ||
+    (href !== "/admin" && pathname.startsWith(`${href}/`));
 }

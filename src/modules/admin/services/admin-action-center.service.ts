@@ -25,6 +25,7 @@ import { createAdminOperationsService } from "./admin-operations.service";
 
 const MAX_ITEMS = 24;
 const MAX_ITEMS_PER_SOURCE = 8;
+const MAX_SERVICE_SIGNALS = 25;
 
 export interface AdminActionCenterDependencies {
   listOperationalIssues(now: Date): Promise<readonly AdminOperationalIssue[]>;
@@ -40,7 +41,11 @@ type SourceDefinition = {
   domain: AdminActionDomain;
   label: string;
   permission: string;
-  load: () => Promise<readonly AdminActionItem[]>;
+  load: () => Promise<readonly AdminActionSignal[]>;
+};
+
+type AdminActionSignal = AdminActionItem & {
+  signalPrecedence: number;
 };
 
 export class AdminActionCenterService {
@@ -59,7 +64,9 @@ export class AdminActionCenterService {
     results.forEach((result, index) => {
       const source = sources[index]!;
       if (result.status === "fulfilled") {
-        projected.push(...result.value.slice(0, MAX_ITEMS_PER_SOURCE));
+        projected.push(
+          ...aggregateSituations(result.value).slice(0, MAX_ITEMS_PER_SOURCE),
+        );
         return;
       }
       warnings.push({ source: source.domain, label: source.label });
@@ -71,15 +78,16 @@ export class AdminActionCenterService {
       });
     });
 
-    projected.sort(compareActionItems);
-    const items = projected.slice(0, MAX_ITEMS);
+    const uniqueSituations = aggregateSituations(projected);
+    uniqueSituations.sort(compareActionItems);
+    const items = uniqueSituations.slice(0, MAX_ITEMS);
     return {
       items,
       actionableCount: items.filter(({ level }) =>
         level === "CRITICAL" || level === "ACTION_REQUIRED"
       ).length,
       waitingCount: items.filter(({ level }) => level === "WAITING").length,
-      hasMore: projected.length > MAX_ITEMS,
+      hasMore: uniqueSituations.length > MAX_ITEMS,
       generatedAt: now.toISOString(),
       sourceWarnings: warnings,
     };
@@ -112,7 +120,10 @@ export class AdminActionCenterService {
             this.dependencies.listOnboardingQueue("ready_for_approval", perStatus),
           ]);
           return [...received.rows, ...ready.rows].map((row) => ({
-            id: `onboarding:${row.id}`,
+            id: `onboarding:request:${row.id}:${row.onboarding_status}`,
+            situationKey: `onboarding:request:${row.id}`,
+            signalCount: 1,
+            signalPrecedence: row.onboarding_status === "ready_for_approval" ? 200 : 100,
             domain: "onboarding" as const,
             kind: "partner_review" as const,
             level: "ACTION_REQUIRED" as const,
@@ -144,14 +155,17 @@ export class AdminActionCenterService {
 function operationalIssueItem(
   issue: AdminOperationalIssue,
   now: Date,
-): AdminActionItem {
+): AdminActionSignal {
   const label = operationalDomainLabel(issue.domain);
   return {
-    id: `integration:${issue.id}`,
+    id: `integration:issue:${issue.id}`,
+    situationKey: `integration:issue:${issue.id}`,
+    signalCount: 1,
+    signalPrecedence: 100,
     domain: "integration",
     kind: "operational_issue",
     level: "CRITICAL",
-    title: `Требует проверки: ${label}`,
+    title: operationalIssueTitle(issue, label),
     explanation: bounded(
       issue.safeMessage,
       "Операция не завершилась. Проверьте диагностические данные и безопасный вариант восстановления.",
@@ -172,18 +186,22 @@ function operationalIssueItem(
 function serviceAttentionItem(
   item: ServiceAdminAttentionItem,
   now: Date,
-): AdminActionItem {
+): AdminActionSignal {
+  const presentation = serviceSignalPresentation(item.eventCode);
   return {
-    id: `service:${item.id}`,
+    id: `service:request:${item.caseId}:${item.id}`,
+    situationKey: `service:request:${item.caseId}`,
+    signalCount: 1,
+    signalPrecedence: presentation.precedence,
     domain: "service",
     kind: "service_attention",
     level: "ACTION_REQUIRED",
-    title: bounded(item.title, "Сервисное обращение требует внимания"),
-    explanation: bounded(item.message, "Проверьте обращение и определите следующий шаг."),
+    title: presentation.title ?? bounded(item.title, "Сервисное обращение требует внимания"),
+    explanation: presentation.explanation ?? bounded(item.message, "Проверьте обращение и определите следующий шаг."),
     entityLabel: `Обращение ${bounded(item.caseNumber)}`,
     createdAt: validDate(item.createdAt, now),
     actionLabel: "Открыть обращение",
-    actionHref: safeAdminHref(item.actionUrl, `/admin/service/${item.caseId}`),
+    actionHref: `/admin/service/${item.caseId}`,
     permission: "admin.service.view",
   };
 }
@@ -191,11 +209,14 @@ function serviceAttentionItem(
 function agentApplicationItem(
   application: CommercialAgentApplication,
   now: Date,
-): AdminActionItem {
+): AdminActionSignal {
   const name = bounded(application.displayName, "Новый кандидат");
   const waiting = application.status === "NEEDS_CLARIFICATION";
   return {
-    id: `agent:${application.id}`,
+    id: `agent:application:${application.id}:${application.status}`,
+    situationKey: `agent:application:${application.id}`,
+    signalCount: 1,
+    signalPrecedence: waiting ? 100 : 200,
     domain: "agent",
     kind: "agent_application",
     level: waiting ? "WAITING" : "ACTION_REQUIRED",
@@ -225,6 +246,65 @@ function operationalDomainLabel(domain: string): string {
   }[domain] ?? "Операционная система";
 }
 
+function operationalIssueTitle(
+  issue: AdminOperationalIssue,
+  label: string,
+): string {
+  return {
+    catalog: "Не завершена загрузка каталога",
+    prices: "Не завершена публикация цен",
+    stock: "Не обновлены остатки",
+    arrivals: "Не обновлены ожидаемые поступления",
+    rates: "Не обновлены коммерческие курсы",
+    orders: "Обмен заказами требует проверки",
+    campaigns: "Публикация коммерческой кампании не завершена",
+  }[issue.domain] ?? `Операция «${label}» не завершена`;
+}
+
+function serviceSignalPresentation(eventCode: string): {
+  precedence: number;
+  title: string | null;
+  explanation: string | null;
+} {
+  return {
+    service_case_overdue: {
+      precedence: 600,
+      title: "Сервисная заявка просрочена",
+      explanation: "Срок обработки обращения истёк.",
+    },
+    service_replacement_approval_required: {
+      precedence: 500,
+      title: "Требуется решение по замене",
+      explanation: "По результатам диагностики нужно принять решение о замене.",
+    },
+    service_document_missing: {
+      precedence: 400,
+      title: "Не хватает сервисного документа",
+      explanation: "Для завершения обращения нужен обязательный документ.",
+    },
+    decision_required: {
+      precedence: 350,
+      title: null,
+      explanation: null,
+    },
+    service_partner_responded: {
+      precedence: 300,
+      title: "Партнёр ответил по заявке",
+      explanation: "Получен новый ответ партнёра по обращению.",
+    },
+    service_case_unassigned: {
+      precedence: 200,
+      title: "Сервисная заявка не назначена",
+      explanation: "Обращению нужно назначить ответственного.",
+    },
+    service_case_new: {
+      precedence: 100,
+      title: "Новая сервисная заявка",
+      explanation: "Обращение ещё не принято в работу.",
+    },
+  }[eventCode] ?? { precedence: 250, title: null, explanation: null };
+}
+
 function bounded(value: string | null | undefined, fallback = "Объект не указан"): string {
   const normalized = value?.trim().slice(0, 240);
   return normalized || fallback;
@@ -248,7 +328,61 @@ const LEVEL_ORDER: Record<AdminActionLevel, number> = {
 function compareActionItems(left: AdminActionItem, right: AdminActionItem): number {
   const level = LEVEL_ORDER[left.level] - LEVEL_ORDER[right.level];
   if (level !== 0) return level;
-  return Date.parse(left.createdAt) - Date.parse(right.createdAt);
+  const age = Date.parse(left.createdAt) - Date.parse(right.createdAt);
+  if (age !== 0) return age;
+  return left.situationKey.localeCompare(right.situationKey);
+}
+
+function aggregateSituations(
+  signals: readonly (AdminActionItem | AdminActionSignal)[],
+): AdminActionItem[] {
+  const groups = new Map<string, (AdminActionItem | AdminActionSignal)[]>();
+  for (const signal of signals) {
+    const group = groups.get(signal.situationKey);
+    if (group) group.push(signal);
+    else groups.set(signal.situationKey, [signal]);
+  }
+
+  return [...groups.entries()].map(([situationKey, group]) => {
+    const ranked = [...group].sort(compareSignals);
+    const winner = ranked[0]!;
+    const createdAt = group.reduce(
+      (earliest, signal) =>
+        Date.parse(signal.createdAt) < Date.parse(earliest)
+          ? signal.createdAt
+          : earliest,
+      winner.createdAt,
+    );
+    return {
+      id: situationKey,
+      situationKey,
+      signalCount: group.reduce((count, signal) => count + signal.signalCount, 0),
+      domain: winner.domain,
+      kind: winner.kind,
+      level: winner.level,
+      title: winner.title,
+      explanation: winner.explanation,
+      entityLabel: winner.entityLabel,
+      createdAt,
+      actionLabel: winner.actionLabel,
+      actionHref: winner.actionHref,
+      permission: winner.permission,
+    };
+  });
+}
+
+function compareSignals(
+  left: AdminActionItem | AdminActionSignal,
+  right: AdminActionItem | AdminActionSignal,
+): number {
+  const level = LEVEL_ORDER[left.level] - LEVEL_ORDER[right.level];
+  if (level !== 0) return level;
+  const precedence = (right as AdminActionSignal).signalPrecedence -
+    (left as AdminActionSignal).signalPrecedence;
+  if (Number.isFinite(precedence) && precedence !== 0) return precedence;
+  const recency = Date.parse(right.createdAt) - Date.parse(left.createdAt);
+  if (recency !== 0) return recency;
+  return left.id.localeCompare(right.id);
 }
 
 function defaultDependencies(): AdminActionCenterDependencies {
@@ -258,7 +392,7 @@ function defaultDependencies(): AdminActionCenterDependencies {
   const agents = createCommercialAgentApplicationService();
   return {
     listOperationalIssues: (now) => operations.listOperationalIssues(now),
-    listServiceAttention: () => serviceCenter.adminAttention(),
+    listServiceAttention: () => serviceCenter.adminAttention(MAX_SERVICE_SIGNALS),
     listOnboardingQueue: (status, limit) => onboarding.listQueue({
       page: 1,
       pageSize: limit,

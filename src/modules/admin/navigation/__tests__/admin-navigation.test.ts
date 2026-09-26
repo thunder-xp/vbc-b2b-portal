@@ -67,6 +67,43 @@ describe("admin navigation", () => {
     );
   });
 
+  it("keeps the initial navigation focused on ten daily manager destinations", () => {
+    const primary = ADMIN_NAVIGATION.filter((group) => group.tier === "primary");
+    expect(primary.map((group) => group.label)).toEqual([
+      "Обзор", "Партнёры", "Продажи", "Операции", "Финансы",
+    ]);
+    expect(primary.flatMap((group) => group.items)).toHaveLength(10);
+    expect(primary.flatMap((group) => group.items.map((item) => item.href))).toEqual([
+      "/admin",
+      "/admin/companies",
+      "/admin/users",
+      "/admin/agents",
+      "/admin/orders",
+      "/admin/estimates",
+      "/admin/commercial/opportunities",
+      "/admin/service",
+      "/admin/retail/installation",
+      "/admin/finance",
+    ]);
+  });
+
+  it("keeps every specialized route reachable under secondary navigation", () => {
+    const secondaryHrefs = ADMIN_NAVIGATION
+      .filter((group) => group.tier === "secondary")
+      .flatMap((group) => group.items.map((item) => item.href));
+    expect(secondaryHrefs).toEqual(expect.arrayContaining([
+      "/admin/platform-health",
+      "/admin/catalog",
+      "/admin/integrations",
+      "/admin/integrations/service",
+      "/admin/planned-shipments",
+      "/admin/audit",
+      "/admin/security",
+      "/admin/settings",
+    ]));
+    expect(ADMIN_NAVIGATION.flatMap((group) => group.items)).toHaveLength(54);
+  });
+
   it("exposes the support queue and diagnostics only through support permissions", () => {
     expect(buildAdminNavigation(["support.view_all", "support.diagnostics.view"]).flatMap((group) => group.items).map((item) => item.href)).toEqual([
       "/admin/integrations/support",
