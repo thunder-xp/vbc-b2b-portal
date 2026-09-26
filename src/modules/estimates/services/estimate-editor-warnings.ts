@@ -1,7 +1,7 @@
 import type { EstimateCommercialCheckDto, EstimateLineDto } from "./estimate.service";
 
 export type EstimateEditorWarning = {
-  kind: "insufficient_stock" | "uncertain_stock" | "changed_price";
+  kind: "no_stock" | "negative_markup";
   count: number;
   lineIds: string[];
 };
@@ -12,29 +12,20 @@ export type EstimateEditorWarning = {
  */
 export function deriveEstimateEditorWarnings(
   lines: EstimateLineDto[],
-  commercialCheck: EstimateCommercialCheckDto | null,
+  _commercialCheck: EstimateCommercialCheckDto | null,
+  calculatedLines: ReadonlyArray<{ id: string; markupPercent: number | null }> = [],
 ): EstimateEditorWarning[] {
   const products = lines.filter((line) => line.lineType === "product");
-  const insufficient = products.filter((line) =>
+  const unavailable = products.filter((line) =>
     line.productUnavailable === true
-    || line.currentStockStatus === "out_of_stock"
-    || (line.currentAvailableQuantity !== null
-      && line.currentAvailableQuantity !== undefined
-      && line.currentAvailableQuantity < line.quantity),
+    || line.currentStockStatus === "out_of_stock",
   );
-  const insufficientIds = new Set(insufficient.map((line) => line.id));
-  const uncertain = products.filter((line) =>
-    !insufficientIds.has(line.id)
-    && (line.currentStockStatus === "expected"
-      || line.currentStockStatus === "unknown"
-      || line.currentStockStatus === null
-      || line.currentStockStatus === undefined),
+  const negativeMarkup = calculatedLines.filter(
+    (line) => line.markupPercent !== null && line.markupPercent < 0,
   );
-  const changed = commercialCheck?.lines.filter((line) => line.priceChanged) ?? [];
 
   return [
-    insufficient.length ? { kind: "insufficient_stock" as const, count: insufficient.length, lineIds: insufficient.map((line) => line.id) } : null,
-    uncertain.length ? { kind: "uncertain_stock" as const, count: uncertain.length, lineIds: uncertain.map((line) => line.id) } : null,
-    changed.length ? { kind: "changed_price" as const, count: changed.length, lineIds: changed.map((line) => line.lineId) } : null,
+    unavailable.length ? { kind: "no_stock" as const, count: unavailable.length, lineIds: unavailable.map((line) => line.id) } : null,
+    negativeMarkup.length ? { kind: "negative_markup" as const, count: negativeMarkup.length, lineIds: negativeMarkup.map((line) => line.id) } : null,
   ].filter((warning): warning is EstimateEditorWarning => warning !== null);
 }

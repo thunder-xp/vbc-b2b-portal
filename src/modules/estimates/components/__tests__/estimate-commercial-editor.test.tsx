@@ -73,7 +73,10 @@ describe("EstimateCommercialEditor", () => {
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(saveEstimateCommercialAction).toHaveBeenCalledWith(detail.id, expect.objectContaining({ sections: expect.arrayContaining([expect.objectContaining({ id: detail.sections[0].id, systemKey: "equipment", name: "Камеры объекта", sortOrder: 0, discountPercent: 0, showSubtotal: true })]) }));
   });
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+  });
   afterEach(() => {
     Reflect.deleteProperty(navigator, "share");
     Reflect.deleteProperty(navigator, "canShare");
@@ -155,7 +158,7 @@ describe("EstimateCommercialEditor", () => {
   it("keeps one proposal-preparation action above clean totals", () => {
     renderEditor();
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
-    const proposal = screen.getByRole("heading", { name: "Подготовьте КП" });
+    const proposal = screen.getByRole("button", { name: "Подготовить КП" });
     expect(summary.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     const sidebar = summary.closest("aside");
@@ -171,12 +174,32 @@ describe("EstimateCommercialEditor", () => {
   });
 
   it("renders thumbnails only for product lines before their description", () => {
-    const serviceLine = { ...detail.lines[0], id: "service-line", lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Installation" };
+    const serviceLine = { ...detail.lines[0], id: "service-line", sectionId: detail.sections[2].id, lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Монтаж видеокамеры" };
     render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], serviceLine], itemCount: 2 }} services={[]} workflow={workflow} />);
     expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
     const productDescription = screen.getByText("Camera");
     expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(productDescription) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByDisplayValue("Installation")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Монтаж оборудования")).toBeInTheDocument();
+    const worksSection = document.querySelector('[data-section-key="installation_works"]');
+    expect(worksSection).not.toBeNull();
+    expect(within(worksSection as HTMLElement).queryByText("Фото")).not.toBeInTheDocument();
+    expect(within(worksSection as HTMLElement).queryByText("Наличие")).not.toBeInTheDocument();
+    expect(within(worksSection as HTMLElement).queryByTestId("estimate-line-stock")).not.toBeInTheDocument();
+  });
+
+  it("autosaves ordinary edits without blocking section movement or the next add flow", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4, lines: [{ ...detail.lines[0], quantity: 2 }] }, message: "Saved", errorCode: null });
+    renderEditor();
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "2");
+    const addEquipment = screen.getByRole("button", { name: "Добавить оборудование" });
+    expect(addEquipment).toBeEnabled();
+    await user.click(addEquipment);
+    expect(screen.getByRole("combobox", { name: "Код, модель или название" })).toBeEnabled();
+    await waitFor(() => expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    await waitFor(() => expect(screen.getByText("✓ Сохранено")).toHaveAttribute("role", "status"));
   });
 
   it("keeps catalog-known product fields behind line details while quantity and customer price stay primary", async () => {
@@ -318,15 +341,30 @@ describe("EstimateCommercialEditor", () => {
     expect(productLink).toHaveAttribute("target", "_blank");
     const description = screen.getByText("Compact customer-facing product summary.");
     expect(description).toHaveClass("line-clamp-1");
-    await user.click(screen.getByRole("button", { name: "Подробнее" }));
+    const disclosure = screen.getByRole("button", { name: "Подробнее" });
+    expect(disclosure).not.toHaveTextContent("Подробнее");
+    await user.click(disclosure);
     expect(description).not.toHaveClass("line-clamp-1");
     expect(screen.getByRole("button", { name: "Скрыть описание" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText("Ваша цена:")).toBeInTheDocument();
-    expect(screen.queryByText(/Ваша цена Novotech/)).not.toBeInTheDocument();
-    expect(screen.getByText("$80.00")).toHaveClass("text-emerald-700");
+    expect(screen.queryByText(/Ваша цена|Моя цена/)).not.toBeInTheDocument();
     expect(screen.getByText("Наценка: 25%")).toBeInTheDocument();
     expect(screen.getByTestId("estimate-line-stock")).toHaveClass("text-rose-950");
     expect(screen.getByTestId("estimate-line-stock")).not.toHaveTextContent("уточняется");
+    expect(screen.getByRole("spinbutton", { name: "Кол-во" })).toHaveAttribute("step", "1");
+  });
+
+  it("shows uncertain stock as zero and marks negative markup in the row and summary", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], pricingInputValue: 70, sellingUnitPrice: 70, currentStockStatus: "unknown", currentAvailableQuantity: null }] }}
+      services={[]}
+      workflow={workflow}
+    />);
+    expect(screen.getByTestId("estimate-line-stock")).toHaveTextContent("Наличие уточняется: 0");
+    const markup = screen.getByText(/Наценка: -12,5%/);
+    expect(markup).toHaveClass("text-red-700");
+    expect(screen.getByTestId("estimate-summary-warnings")).toHaveTextContent("Наценка ниже 0: 1");
+    expect(screen.getByTestId("estimate-summary-warnings")).not.toHaveTextContent("Нет в наличии");
   });
 
   it("keeps one canonical Preview control and surfaces actual stock warnings in the summary", () => {
@@ -337,7 +375,7 @@ describe("EstimateCommercialEditor", () => {
       workflow={workflow}
     />);
     expect(screen.getAllByRole("link", { name: "Предпросмотр КП" })).toHaveLength(1);
-    expect(screen.getByTestId("estimate-summary-warnings")).toHaveTextContent("Недостаточный остаток: 1");
+    expect(screen.getByTestId("estimate-summary-warnings")).toHaveTextContent("Нет в наличии: 1");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
     expect(screen.getByText("✓ Сохранено")).toHaveAttribute("role", "status");
   });
@@ -349,7 +387,7 @@ describe("EstimateCommercialEditor", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "Способ расчёта цены" }), "markup");
     const markup = screen.getByRole("spinbutton", { name: "Наценка %" });
     expect(markup).toHaveValue(25);
-    expect(await screen.findByText(/Продажа:/)).toHaveTextContent(/100,00/);
+    expect(screen.queryByText(/Продажа:/)).not.toBeInTheDocument();
     expect(screen.getByText("● Не сохранено")).toHaveAttribute("role", "status");
   });
 

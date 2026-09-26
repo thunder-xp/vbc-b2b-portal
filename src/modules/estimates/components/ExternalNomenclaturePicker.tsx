@@ -13,12 +13,13 @@ import { getEstimatesCopy, usePartnerLocale, type PartnerLocale } from "../../pa
 const inputClass = "min-h-11 min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200 disabled:bg-zinc-100";
 const units: EstimateUnit[] = ["pcs", "meter", "set", "service"];
 
-export function ExternalNomenclaturePicker({ estimate, disabled, itemType, onResult, targetSectionId }: {
+export function ExternalNomenclaturePicker({ estimate, disabled, itemType, onResult, targetSectionId, beforeInsert }: {
   estimate: EstimateDetailDto;
   disabled: boolean;
   itemType: ExternalNomenclatureItemType;
   onResult: (next: EstimateDetailDto, message: string) => void;
   targetSectionId: string;
+  beforeInsert?: () => Promise<EstimateDetailDto | null>;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -68,8 +69,10 @@ export function ExternalNomenclaturePicker({ estimate, disabled, itemType, onRes
   const submit = (form: HTMLFormElement, forceCreateNew: boolean) => {
     const data = new FormData(form);
     startTransition(async () => {
-      const result = await addEstimateExternalLineAction(estimate.id, {
-        expectedRevision: estimate.revision,
+      const currentEstimate = beforeInsert ? await beforeInsert() : estimate;
+      if (!currentEstimate) return;
+      const result = await addEstimateExternalLineAction(currentEstimate.id, {
+        expectedRevision: currentEstimate.revision,
         targetSectionId,
         existingExternalItemId: forceCreateNew ? null : selected?.id ?? null,
         manufacturer: isService ? null : manufacturer,
@@ -115,7 +118,7 @@ export function ExternalNomenclaturePicker({ estimate, disabled, itemType, onRes
     <div className="grid gap-2 md:grid-cols-[minmax(10rem,1fr)_9rem_7rem_8rem]">
       <input aria-label={copy.externalCategory} className={inputClass} defaultValue={selected?.category ?? ""} disabled={disabled || Boolean(selected)} maxLength={160} name="category" placeholder={copy.optionalCategory} />
       <select aria-label={copy.unitOfMeasure} className={inputClass} defaultValue={selected?.unit ?? (isService ? "service" : "pcs")} disabled={disabled || Boolean(selected)} name="unit">{units.map((unit) => <option key={unit} value={unit}>{unitLabel(unit, locale)}</option>)}</select>
-      <input aria-label={copy.quantity} className={inputClass} defaultValue="1" disabled={disabled} min="0.001" name="quantity" required step="0.001" type="number" />
+      <input aria-label={copy.quantity} className={inputClass} defaultValue="1" disabled={disabled} min="1" name="quantity" required step="1" type="number" />
       <input aria-label={copy.price} className={inputClass} disabled={disabled} min="0" name="price" placeholder={copy.price} required step="0.01" type="number" />
     </div>
     <textarea aria-label={copy.externalDescription} className={`${inputClass} min-h-20 w-full py-2`} defaultValue={selected?.specification ?? ""} disabled={disabled || Boolean(selected)} maxLength={2000} name="specification" placeholder={copy.optionalDescription} />
