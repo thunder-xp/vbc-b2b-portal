@@ -45,6 +45,10 @@ import {
   resolveCurrencyRate,
 } from "../services/commercial-calculation";
 import { deriveEstimateDraftReadiness } from "../services/draft-readiness";
+import {
+  deriveEstimateEditorWarnings,
+  type EstimateEditorWarning,
+} from "../services/estimate-editor-warnings";
 import type {
   EstimateCommercialCheckDto,
   EstimateCommercialOptionsDto,
@@ -60,6 +64,7 @@ import {
 import type {
   EstimateChargeType,
   EstimateCurrencyChangePolicy,
+  EstimatePricingMode,
   EstimateSectionSystemKey,
   EstimateUnit,
   EstimateVatMode,
@@ -140,6 +145,7 @@ export function EstimateCommercialEditor({
   const [estimate, setEstimate] = useState(initialEstimate);
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialEstimate));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [currencyChoice, setCurrencyChoice] = useState<string | null>(null);
   const [currencyChangePolicy, setCurrencyChangePolicy] =
@@ -240,6 +246,10 @@ export function EstimateCommercialEditor({
       } : null,
     });
   }, [dirty, draft.currencyCode, draft.lines, estimate.lifecycleStatus, estimate.revision, isDraft, latestProposal, preview, workflow.permissions.canManage]);
+  const summaryWarnings = useMemo(
+    () => deriveEstimateEditorWarnings(draft.lines, commercialCheck),
+    [commercialCheck, draft.lines],
+  );
 
   useEffect(() => {
     if (!dirty) return;
@@ -661,6 +671,7 @@ export function EstimateCommercialEditor({
     : !dirty && saveState === "saved"
       ? copy.saved
       : copy.save;
+  const showSaveAction = dirty || saveState === "saving" || saveState === "error";
 
   return (
     <div
@@ -728,7 +739,6 @@ export function EstimateCommercialEditor({
             </dl>
           </div>
           <div className="hidden flex-wrap items-center gap-2 xl:flex">
-            <Link className={buttonClass} href={proposalPreviewHref} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
             <div className="relative" ref={desktopActionsRef}>
               <button aria-expanded={desktopActionsOpen} aria-haspopup="menu" className={buttonClass} data-testid="estimate-desktop-actions-trigger" onClick={() => setDesktopActionsOpen((current) => !current)} ref={desktopActionsTriggerRef} type="button">
                 <MoreHorizontal className="size-4" />
@@ -738,7 +748,7 @@ export function EstimateCommercialEditor({
                 {secondaryActions()}
               </div> : null}
             </div>
-            <button
+            {showSaveAction ? <button
               aria-keyshortcuts="Control+S Meta+S"
               aria-label={copy.save}
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45"
@@ -748,7 +758,7 @@ export function EstimateCommercialEditor({
             >
               <Save className="size-4" />
               {saveLabel}
-            </button>
+            </button> : null}
           </div>
         </div>
         {isDraft && insertionSection && targetSectionId ? <div className="mt-2 min-w-0 space-y-2" data-testid="estimate-composition-lane">
@@ -1051,7 +1061,17 @@ export function EstimateCommercialEditor({
                                       <span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType, copy)}</span>
                                       {line.sku ? <span className="text-[10px] text-zinc-500">SKU {line.sku}</span> : null}
                                     </div>
-                                    {line.description && line.description !== productName ? <p className="mt-1 line-clamp-3 text-xs leading-4 text-zinc-600" title={line.description}>{line.description}</p> : null}
+                                    {line.description && line.description !== productName ? <div className="mt-1 flex min-w-0 items-start gap-2">
+                                      <p className={`${expandedDescriptions.has(line.id) ? "whitespace-normal" : "line-clamp-1"} min-w-0 flex-1 text-xs leading-4 text-zinc-600`} title={line.description}>{line.description}</p>
+                                      <button
+                                        aria-expanded={expandedDescriptions.has(line.id)}
+                                        className="shrink-0 text-xs font-semibold text-emerald-700 underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                        onClick={() => setExpandedDescriptions((current) => toggleSet(current, line.id))}
+                                        type="button"
+                                      >
+                                        {expandedDescriptions.has(line.id) ? copy.hideDetails : copy.showDetails}
+                                      </button>
+                                    </div> : null}
                                   </div>
                                 ) : (
                                   <Field
@@ -1087,6 +1107,7 @@ export function EstimateCommercialEditor({
                                     labelClassName="xl:sr-only"
                                   >
                                     <NumberInput
+                                      ariaLabel={copy.quantity}
                                       disabled={controlsDisabled}
                                       inputId={`estimate-line-${line.id}-quantity`}
                                       onValue={(value) =>
@@ -1112,6 +1133,7 @@ export function EstimateCommercialEditor({
                                     labelClassName="xl:sr-only"
                                   >
                                     <NumberInput
+                                      ariaLabel={line.pricingMode === "direct" ? copy.customerSellingPrice : line.pricingMode === "markup" ? copy.markup : copy.margin}
                                       disabled={controlsDisabled}
                                       inputId={`estimate-line-${line.id}-price`}
                                       nullable
@@ -1128,8 +1150,10 @@ export function EstimateCommercialEditor({
                                     />
                                     {line.lineType === "product" &&
                                     line.sourcePrice ? (
-                                      <span aria-hidden="true" className="mt-1 block text-[11px] font-normal text-zinc-500">
-                                        {copy.partnerNovotechPrice}: <strong className="font-semibold text-emerald-700">{line.sourcePrice}</strong>
+                                      <span className="mt-1 block text-[11px] font-normal leading-4 text-zinc-500">
+                                        <span>{copy.partnerNovotechPrice}: <strong className="font-semibold text-emerald-700">{line.sourcePrice}</strong></span>
+                                        {calculated?.markupPercent !== null && calculated?.markupPercent !== undefined ? <span className="block">{copy.markupValue.replace("{value}", formatPercent(calculated.markupPercent, locale))}</span> : null}
+                                        {line.pricingMode === "markup" && calculated?.sellingUnitPrice !== null && calculated?.sellingUnitPrice !== undefined ? <span className="block">{copy.calculatedSellingPrice.replace("{value}", money(calculated.sellingUnitPrice, draft.currencyCode, locale))}</span> : null}
                                       </span>
                                     ) : null}
                                   </Field>
@@ -1181,6 +1205,29 @@ export function EstimateCommercialEditor({
                                           }
                                           value={line.description}
                                         />
+                                      </Field> : null}
+                                      {line.lineType === "product" && line.convertedCostUnitPrice && line.convertedCostUnitPrice > 0 ? <Field label={copy.pricingMethod}>
+                                        <select
+                                          className={`${inputClass} w-full`}
+                                          disabled={controlsDisabled}
+                                          onChange={(event) => {
+                                            const pricingMode = event.target.value as EstimatePricingMode;
+                                            updateLine(draft, setDraft, setDirty, line.id, {
+                                              pricingMode,
+                                              pricingInputValue: pricingMode === "markup"
+                                                ? calculated?.markupPercent ?? null
+                                                : pricingMode === "margin"
+                                                  ? calculated?.marginPercent ?? null
+                                                  : calculated?.sellingUnitPrice ?? null,
+                                            });
+                                            closeLineMenu();
+                                          }}
+                                          value={line.pricingMode}
+                                        >
+                                          <option value="direct">{copy.directPricing}</option>
+                                          <option value="markup">{copy.markupPricing}</option>
+                                          {line.pricingMode === "margin" ? <option value="margin">{copy.margin}</option> : null}
+                                        </select>
                                       </Field> : null}
                                       <Field label={copy.unit}>
                                         <select
@@ -1267,6 +1314,7 @@ export function EstimateCommercialEditor({
             locale={locale}
             preview={preview.value}
             sections={presentationSections}
+            warnings={summaryWarnings}
             vatMode={draft.vatMode}
             vatRatePercent={draft.vatRatePercent}
           />
@@ -1288,9 +1336,11 @@ export function EstimateCommercialEditor({
       >
         <div
           className={`mx-auto grid max-w-lg gap-2 ${
-            mobileShareDocumentId
+            mobileShareDocumentId && showSaveAction
               ? "grid-cols-[repeat(3,minmax(0,1fr))_3rem]"
-              : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]"
+              : mobileShareDocumentId || showSaveAction
+                ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]"
+                : "grid-cols-[minmax(0,1fr)_3rem]"
           }`}
         >
           <button
@@ -1306,7 +1356,7 @@ export function EstimateCommercialEditor({
             <Plus className="size-4" />
             {copy.add}
           </button>
-          <button
+          {showSaveAction ? <button
             aria-keyshortcuts="Control+S Meta+S"
             aria-label={copy.mobileSave}
             className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold text-white disabled:bg-zinc-200 disabled:text-zinc-600"
@@ -1316,7 +1366,7 @@ export function EstimateCommercialEditor({
           >
             <Save className="size-4 shrink-0" />
             <span className="truncate">{saveLabel}</span>
-          </button>
+          </button> : null}
           {mobileShareDocumentId ? (
             <EstimatePdfShareAction
               className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-emerald-700 bg-white px-2 text-xs font-semibold text-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45"
@@ -1667,6 +1717,7 @@ function Summary({
   locale,
   preview,
   sections,
+  warnings,
   vatMode,
   vatRatePercent,
 }: {
@@ -1675,6 +1726,7 @@ function Summary({
   locale: PartnerLocale;
   preview: ReturnType<typeof calculateEstimateCommercials> | null;
   sections: PresentationSection[];
+  warnings: EstimateEditorWarning[];
   vatMode: EstimateVatMode;
   vatRatePercent: number;
 }) {
@@ -1730,6 +1782,14 @@ function Summary({
           </p>
         )}
       </div>
+      {warnings.length ? <div className="mt-4 border-t border-amber-200 pt-3" data-testid="estimate-summary-warnings">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">{copy.quoteWarnings}</p>
+        <ul className="mt-2 space-y-1.5">
+          {warnings.map((warning) => <li className="text-xs text-amber-900" key={warning.kind}>
+            ⚠ {warningLabel(warning, copy)}
+          </li>)}
+        </ul>
+      </div> : null}
     </section>
   );
 }
@@ -1837,12 +1897,14 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 function NumberInput({
+  ariaLabel,
   value,
   onValue,
   disabled,
   nullable = false,
   inputId,
 }: {
+  ariaLabel?: string;
   value: number | null;
   onValue: (value: number | null) => void;
   disabled?: boolean;
@@ -1870,6 +1932,7 @@ function NumberInput({
   };
   return (
     <input
+      aria-label={ariaLabel}
       className={`${inputClass} w-full`}
       disabled={disabled}
       id={inputId}
@@ -2020,6 +2083,17 @@ function canonicalTargetSectionId(
 }
 function money(value: number, currency: string, locale: PartnerLocale) {
   return formatPartnerMoney(value, currency, locale);
+}
+function formatPercent(value: number, locale: PartnerLocale) {
+  return `${new Intl.NumberFormat(locale === "ro" ? "ro-RO" : "ru-RU", { maximumFractionDigits: 2 }).format(value)}%`;
+}
+function warningLabel(warning: EstimateEditorWarning, copy: EstimatesCopy) {
+  const template = warning.kind === "insufficient_stock"
+    ? copy.insufficientStockWarning
+    : warning.kind === "uncertain_stock"
+      ? copy.uncertainStockWarning
+      : copy.changedPriceWarning;
+  return template.replace("{count}", String(warning.count));
 }
 function formatNullableMoney(value: number | null, currency: string, locale: PartnerLocale, copy: EstimatesCopy) {
   return value === null ? copy.pricePending : money(value, currency, locale);
