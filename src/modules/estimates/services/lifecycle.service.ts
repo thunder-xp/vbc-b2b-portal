@@ -310,7 +310,7 @@ export class EstimateLifecycleService {
     return {
       estimateId: source.estimate.id,
       versionId: source.version.id,
-      estimateRevision: source.version.estimateRevision,
+      estimateRevision: source.estimate.revision,
       estimateNumber: source.version.estimateNumber,
       customerName: textValue(source.version.snapshot.estimate.customer_name) ?? source.estimate.customerName,
       projectName: textValue(source.version.snapshot.estimate.project_name) ?? source.estimate.projectName,
@@ -333,7 +333,7 @@ export class EstimateLifecycleService {
     const lines = versionProductLines(source.version);
     if (!lines.length) throw new InvalidStateError("В принятом КП нет товарных позиций для заказа.");
     const result = await this.cartService.mergeEstimateProducts(userId, {
-      estimateId: source.estimate.id, versionId: source.version.id, expectedRevision: source.version.estimateRevision,
+      estimateId: source.estimate.id, versionId: source.version.id, expectedRevision: source.estimate.revision,
       requestKey: normalizeUuid(requestKey), lines,
     });
     console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, versionId: source.version.id, ...result });
@@ -355,7 +355,7 @@ export class EstimateLifecycleService {
     if (estimate.lifecycleStatus !== "accepted" || estimate.acceptedVersionId !== version.id || version.status !== "accepted") {
       throw new InvalidStateError("Для заказа доступна только текущая принятая версия КП.");
     }
-    if (estimate.revision !== revision || version.estimateRevision !== revision) {
+    if (estimate.revision !== revision) {
       throw new InvalidStateError("КП изменилось. Обновите страницу и проверьте состав заказа ещё раз.");
     }
     return { estimate, version };

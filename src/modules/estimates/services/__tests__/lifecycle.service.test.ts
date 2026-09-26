@@ -128,18 +128,18 @@ describe("EstimateLifecycleService", () => {
 
   it("passes only product lines to the cart conversion service", async () => {
     const dependencies = makeDependencies();
-    vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, lifecycleStatus: "accepted", acceptedVersionId: "version-1" });
+    vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, lifecycleStatus: "accepted", acceptedVersionId: "version-1", revision: 5 });
     vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue({ ...dependencies.version, status: "accepted" });
-    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222");
+    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 5, "22222222-2222-2222-2222-222222222222");
     expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledWith("user-1", expect.objectContaining({
-      estimateId: "estimate-1", versionId: "version-1",
+      estimateId: "estimate-1", versionId: "version-1", expectedRevision: 5,
       lines: [expect.objectContaining({ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 })],
     }));
   });
 
   it("builds the accepted-version conversion review server-side with explicit exclusions and differences", async () => {
     const dependencies = makeDependencies();
-    const acceptedEstimate = { ...dependencies.estimate, lifecycleStatus: "accepted" as const, acceptedVersionId: "version-1" };
+    const acceptedEstimate = { ...dependencies.estimate, lifecycleStatus: "accepted" as const, acceptedVersionId: "version-1", revision: 5 };
     const acceptedVersion = {
       ...dependencies.version,
       status: "accepted" as const,
@@ -156,10 +156,10 @@ describe("EstimateLifecycleService", () => {
     vi.mocked(dependencies.estimates.findById).mockResolvedValue(acceptedEstimate);
     vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue(acceptedVersion);
 
-    const preview = await dependencies.service.getOrderConversionPreview("user-1", "estimate-1", "version-1", 3);
+    const preview = await dependencies.service.getOrderConversionPreview("user-1", "estimate-1", "version-1", 5);
 
     expect(preview).toMatchObject({
-      estimateNumber: "KP-2026-000001", customerName: "Customer", projectName: "Site",
+      estimateNumber: "KP-2026-000001", customerName: "Customer", projectName: "Site", estimateRevision: 5,
       orderableLineCount: 1, orderableUnitCount: 2, excludedLineCount: 3,
       serviceLineCount: 1, externalLineCount: 1, invalidLineCount: 1,
       changedPriceCount: 1, stockIssueCount: 0,

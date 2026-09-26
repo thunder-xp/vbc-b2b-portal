@@ -100,7 +100,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     setConversionOpen(true);
     setConversionPreview(null);
     startTransition(async () => {
-      const result = await getEstimateOrderConversionPreviewAction(initialWorkflow.estimateId, proposal.id, proposal.estimateRevision);
+      const result = await getEstimateOrderConversionPreviewAction(initialWorkflow.estimateId, proposal.id, revision);
       if (!result.success) {
         setConversionOpen(false);
         return setMessage(result.message || copy.operationFailed);

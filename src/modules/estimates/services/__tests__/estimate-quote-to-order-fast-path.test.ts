@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(join(
   process.cwd(),
-  "supabase/migrations/20260926140000_partner_quote_to_order_fast_path.sql",
+  "supabase/migrations/20260926142000_fix_partner_quote_to_order_revision_guard.sql",
 ), "utf8");
 const revokeSql = readFileSync(join(
   process.cwd(),
@@ -18,7 +18,7 @@ describe("accepted Estimate quote-to-order database boundary", () => {
     expect(sql).toContain("target_estimate.accepted_version_id is distinct from target_version.id");
     expect(sql).toContain("target_version.status <> 'accepted'");
     expect(sql).toContain("target_estimate.revision <> expected_estimate_revision");
-    expect(sql).toContain("target_version.estimate_revision <> expected_estimate_revision");
+    expect(sql).not.toContain("target_version.estimate_revision <> expected_estimate_revision");
     expect(sql).toContain("pg_advisory_xact_lock");
     expect(sql).toContain("order by conversion.created_at, conversion.id");
     expect(sql).not.toContain("estimate_cart_conversions_one_per_version_idx");
