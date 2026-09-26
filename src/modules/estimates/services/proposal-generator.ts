@@ -2,7 +2,7 @@ import type { EstimateSectionSystemKey, EstimateUnit } from "../types";
 
 export const GENERATOR_SECTIONS = [
   { key: "equipment", label: "Оборудование" },
-  { key: "installation_materials", label: "Монтажные материалы" },
+  { key: "installation_materials", label: "Материалы" },
   { key: "installation_works", label: "Монтажные работы" },
   { key: "commissioning_works", label: "Пусконаладочные работы" },
 ] as const satisfies ReadonlyArray<{ key: EstimateSectionSystemKey; label: string }>;

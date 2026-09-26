@@ -79,7 +79,7 @@ describe("proposal PDF renderer", () => {
     const line = base.sections[0].lines[0];
     const proposal = { ...base, schemaVersion: "2026-08-12-v4" as const, sections: [
       { name: "Оборудование", subtotal: 100, lines: [{ ...line, position: 7 }] },
-      { name: "Монтажные материалы", subtotal: 100, lines: [{ ...line, position: 8, description: "Кабель" }] },
+      { name: "Материалы", subtotal: 100, lines: [{ ...line, position: 8, description: "Кабель" }] },
     ] };
     const tables: Array<{ body: Array<Array<{ text?: string }>> }> = [];
     const visit = (value: unknown): void => {

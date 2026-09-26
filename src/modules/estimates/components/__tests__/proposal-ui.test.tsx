@@ -62,7 +62,7 @@ describe("proposal UI", () => {
     const line = value.sections[0].lines[0];
     const sections = [
       { name: "Оборудование", subtotal: 100, lines: [{ ...line, position: 7 }] },
-      { name: "Монтажные материалы", subtotal: 100, lines: [{ ...line, position: 8, description: "Кабель" }] },
+      { name: "Материалы", subtotal: 100, lines: [{ ...line, position: 8, description: "Кабель" }] },
     ];
     const { unmount } = render(<ProposalDocument proposal={{ ...value, schemaVersion: "2026-08-12-v4", sections }} />);
     expect(screen.getAllByRole("table").map((table) => within(table).getAllByRole("row")[1].children[0]?.textContent)).toEqual(["1", "1"]);

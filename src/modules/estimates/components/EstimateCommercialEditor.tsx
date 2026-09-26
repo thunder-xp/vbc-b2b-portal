@@ -25,7 +25,6 @@ import { availabilityToneForStatus } from "../../catalog/components/ProductAvail
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import {
   getEstimatesCopy,
-  getCatalogCopy,
   formatPartnerDate,
   formatPartnerDateTime,
   formatPartnerMoney,
@@ -45,6 +44,7 @@ import { canonicalEstimateWorkName } from "../estimate-work-labels";
 import {
   calculateEstimateCommercials,
   EstimateCalculationError,
+  profitCostBasisForLineType,
   resolveCurrencyRate,
 } from "../services/commercial-calculation";
 import { deriveEstimateDraftReadiness } from "../services/draft-readiness";
@@ -81,7 +81,7 @@ import {
 } from "./EstimateLinePicker";
 import { EstimateWorkflowPanel } from "./EstimateWorkflowPanel";
 import { EstimateQuickAdd } from "./EstimateQuickAdd";
-import { estimateStockLabel } from "./estimate-stock-label";
+import { estimateStockQuantity } from "./estimate-stock-label";
 import {
   canonicalEstimatePdfFileName,
   ESTIMATE_PDF_READY_EVENT,
@@ -143,7 +143,6 @@ export function EstimateCommercialEditor({
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
-  const catalogCopy = getCatalogCopy(locale);
   const router = useRouter();
   const [estimate, setEstimate] = useState(initialEstimate);
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialEstimate));
@@ -196,6 +195,7 @@ export function EstimateCommercialEditor({
           lines: draft.lines.map((line) => ({
             id: line.id,
             sectionId: line.sectionId,
+            profitCostBasis: profitCostBasisForLineType(line.lineType),
             quantity: line.quantity,
             pricingMode: line.pricingMode,
             pricingInputValue: line.pricingInputValue,
@@ -964,16 +964,6 @@ export function EstimateCommercialEditor({
             </select>
             </Field>
           </div>
-          {commercialOptions.rateFreshness ? (
-            <div className="text-xs text-zinc-500">
-              <p>{commercialOptions.rateFreshness.label}</p>
-              {commercialOptions.rateFreshness.staleNotice ? (
-                <p className="mt-1 text-amber-800">
-                  {copy.staleRateWarning}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </details>
 
@@ -1172,7 +1162,7 @@ export function EstimateCommercialEditor({
                                     </div>
                                   </Field>
                                 )}
-                                {!isWorksSection ? <p className={`col-span-3 flex items-center gap-2 rounded px-2 py-1 text-xs xl:col-span-1 xl:min-h-11 ${stockTone.container} ${stockTone.text}`} data-testid="estimate-line-stock">{line.lineType === "product" ? <><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${stockTone.indicator}`} /><span>{line.productUnavailable ? (locale === "ro" ? "Produs indisponibil" : "Товар недоступен") : estimateStockLabel({ stockStatus: line.currentStockStatus, availableQuantity: line.currentAvailableQuantity }, catalogCopy)}</span></> : "—"}</p> : null}
+                                {!isWorksSection ? <p className={`col-span-3 flex items-center gap-2 rounded px-2 py-1 text-xs xl:col-span-1 xl:min-h-11 ${stockTone.container} ${stockTone.text}`} data-testid="estimate-line-stock">{line.lineType === "product" ? <><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${stockTone.indicator}`} /><span>{estimateStockQuantity({ stockStatus: line.productUnavailable ? "out_of_stock" : line.currentStockStatus, availableQuantity: line.currentAvailableQuantity })}</span></> : "—"}</p> : null}
                                 <div className={`${isWorksSection ? "col-span-2" : "col-span-3"} grid grid-cols-3 gap-2 xl:contents`}>
                                   <Field
                                     label={copy.quantity}
@@ -1377,13 +1367,13 @@ export function EstimateCommercialEditor({
           ) : null}
         </main>
         <aside className="min-w-0 border-y border-zinc-200 bg-white p-4 xl:sticky xl:top-56 xl:border-l">
-          <p className="mb-2 text-xs text-zinc-500">{copy.positions}: {draft.lines.length}</p>
           <Summary
             copy={copy}
             currency={draft.currencyCode}
             locale={locale}
             preview={preview.value}
             sections={presentationSections}
+            showProfit={!retailOnly}
             warnings={summaryWarnings}
             vatMode={draft.vatMode}
             vatRatePercent={draft.vatRatePercent}
@@ -1787,6 +1777,7 @@ function Summary({
   locale,
   preview,
   sections,
+  showProfit,
   warnings,
   vatMode,
   vatRatePercent,
@@ -1796,6 +1787,7 @@ function Summary({
   locale: PartnerLocale;
   preview: ReturnType<typeof calculateEstimateCommercials> | null;
   sections: PresentationSection[];
+  showProfit: boolean;
   warnings: EstimateEditorWarning[];
   vatMode: EstimateVatMode;
   vatRatePercent: number;
@@ -1851,6 +1843,15 @@ function Summary({
             {copy.incompletePricing}
           </p>
         )}
+        {showProfit ? <div className="mt-4 border-t border-zinc-200 pt-3" data-testid="estimate-summary-profit">
+          <p className="text-xs font-medium text-zinc-500">{copy.myProfit}</p>
+          <p className={`mt-1 text-lg font-semibold ${preview?.grossProfit !== null && preview?.grossProfit !== undefined && preview.grossProfit < 0 ? "text-red-700" : "text-emerald-800"}`}>
+            {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency, locale)}
+          </p>
+          {preview?.profitIncompleteLineCount ? <p className="mt-1 text-xs text-amber-800">
+            {copy.profitIncomplete.replace("{count}", String(preview.profitIncompleteLineCount))}
+          </p> : null}
+        </div> : null}
       </div>
       {warnings.length ? <div className="mt-4 border-t border-amber-200 pt-3" data-testid="estimate-summary-warnings">
         <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">{copy.quoteWarnings}</p>

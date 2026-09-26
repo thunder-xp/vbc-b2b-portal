@@ -7,6 +7,7 @@ describe("estimate work labels", () => {
   it("normalizes legacy persisted work names to the approved canonical wording", () => {
     expect(canonicalEstimateWorkName("Монтаж видеокамеры")).toBe("Монтаж оборудования");
     expect(canonicalEstimateWorkName("Прокладка кабеля")).toBe("Трассировка кабеля");
+    expect(canonicalEstimateWorkName("Настройка оборудования")).toBe("Программирование сценария");
   });
 
   it("renders the approved work names in RU and RO", () => {
@@ -14,5 +15,7 @@ describe("estimate work labels", () => {
     expect(estimateWorkNameForLocale("Трассировка кабеля", "ru")).toBe("Трассировка кабеля");
     expect(estimateWorkNameForLocale("Монтаж оборудования", "ro")).toBe("Montajul echipamentului");
     expect(estimateWorkNameForLocale("Трассировка кабеля", "ro")).toBe("Trasarea cablului");
+    expect(estimateWorkNameForLocale("Настройка оборудования", "ru")).toBe("Программирование сценария");
+    expect(estimateWorkNameForLocale("Программирование сценария", "ro")).toBe("Programarea scenariului");
   });
 });
