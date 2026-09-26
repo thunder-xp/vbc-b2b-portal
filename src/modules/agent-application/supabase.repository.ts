@@ -53,12 +53,15 @@ export class SupabaseCommercialAgentApplicationRepository implements CommercialA
     return mapApplication(data);
   }
 
-  async listForAdmin() {
-    const { data, error } = await createAdminClient()
+  async listForAdmin(input: Parameters<CommercialAgentApplicationRepository["listForAdmin"]>[0] = {}) {
+    const limit = Math.min(Math.max(Math.trunc(input.limit ?? 200), 1), 200);
+    let query = createAdminClient()
       .from("commercial_agent_applications")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(limit);
+    if (input.statuses?.length) query = query.in("status", [...input.statuses]);
+    const { data, error } = await query;
     if (error) throw repositoryError("list applications", error.code);
     return (data ?? []).map(mapApplication);
   }

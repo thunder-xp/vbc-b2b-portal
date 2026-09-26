@@ -10,6 +10,11 @@ export {
   createAdminDashboardService,
 } from "./admin-dashboard.service";
 export {
+  AdminActionCenterService,
+  createAdminActionCenterService,
+  type AdminActionCenterDependencies,
+} from "./admin-action-center.service";
+export {
   requireAdminPagePermission,
   requireAnyAdminPagePermission,
 } from "./admin-page-guard";

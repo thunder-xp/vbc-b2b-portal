@@ -1,18 +1,7 @@
-import {
-  AlertTriangle,
-  Building2,
-  CheckCircle2,
-  Clock3,
-  Database,
-  RefreshCw,
-  Users,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Database, RefreshCw } from "lucide-react";
 import Link from "next/link";
 
-import type {
-  AdminDashboard,
-  AdminHealthStatus,
-} from "../types";
+import type { AdminDashboard, AdminHealthStatus } from "../types";
 
 const STATUS = {
   HEALTHY: { label: "Актуально", className: "text-emerald-700", icon: CheckCircle2 },
@@ -22,183 +11,149 @@ const STATUS = {
   STALE: { label: "Устарело", className: "text-amber-700", icon: Clock3 },
   NEVER_SYNCED: { label: "Ещё не синхронизировано", className: "text-zinc-600", icon: Database },
   SUCCESS_EMPTY: { label: "Нет данных в 1С", className: "text-emerald-700", icon: CheckCircle2 },
-} satisfies Record<
-  AdminHealthStatus,
-  { label: string; className: string; icon: typeof CheckCircle2 }
->;
+} satisfies Record<AdminHealthStatus, { label: string; className: string; icon: typeof CheckCircle2 }>;
 
 export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard }) {
   return (
     <div className="space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase text-emerald-700">
-          Операционный обзор
-        </p>
-        <h1 className="mt-2 text-2xl font-semibold">Рабочий стол</h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Локальное состояние платформы, очереди и свежесть коммерческих данных.
-        </p>
-      </header>
+      <section aria-labelledby="admin-operational-summary-title">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Сводка</p>
+          <h2 className="mt-1 text-xl font-semibold" id="admin-operational-summary-title">
+            Операционная картина
+          </h2>
+          <p className="mt-1 text-sm text-zinc-600">Краткие показатели после очереди текущих задач.</p>
+        </div>
 
-      {dashboard.criticalCount > 0 ? (
-        <section className="flex items-start gap-3 border border-red-200 bg-red-50 p-4 text-red-900">
-          <AlertTriangle aria-hidden className="mt-0.5 h-5 w-5 shrink-0" />
-          <div className="flex-1">
-            <p className="font-semibold">Требуется внимание: {dashboard.criticalCount}</p>
-            <p className="mt-1 text-sm">
-              Проверьте ошибки синхронизации и неподтверждённые результаты операций.
-            </p>
-            <Link
-              className="mt-3 inline-flex min-h-11 items-center font-semibold underline-offset-4 hover:underline"
-              href="/admin/operations/issues"
-              prefetch={false}
-            >
-              Посмотреть проблемы →
-            </Link>
-          </div>
-        </section>
-      ) : null}
-
-      <section>
-        <h2 className="text-base font-semibold">Коммерческие данные</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {dashboard.freshness.map((item) => {
-            const status = STATUS[item.status];
-            const Icon = status.icon;
-            return (
-              <Link
-                aria-label={`${item.label}: ${status.label}. Открыть подробности`}
-                className="group block border border-zinc-200 bg-white p-4 transition-colors hover:border-emerald-500 hover:bg-emerald-50/30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                href={item.href}
-                key={item.key}
-                prefetch={false}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold">{item.label}</p>
-                  <Icon aria-hidden className={`h-5 w-5 ${status.className}`} />
-                </div>
-                <p className={`mt-3 text-sm font-medium ${status.className}`}>
-                  {status.label}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {(item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)
-                    ? new Intl.DateTimeFormat("ru-RU", {
-                        dateStyle: "short",
-                        timeStyle: "short",
-                      }).format(new Date((item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)!))
-                    : "Синхронизация не зафиксирована"}
-                </p>
-                <span className="mt-3 inline-flex text-sm font-semibold text-emerald-700 group-hover:text-emerald-800">
-                  {item.status === "HEALTHY" || item.status === "SUCCESS_EMPTY" || item.status === "RUNNING"
-                    ? "Открыть историю →"
-                    : "Подробнее →"}
-                </span>
-              </Link>
-            );
-          })}
+        <div className="mt-4 grid gap-px overflow-hidden border border-zinc-200 bg-zinc-200 md:grid-cols-3">
+          <SummaryBlock
+            items={[
+              ["Активные компании", dashboard.partnerAccess.activeCompanies],
+              ["Активные пользователи", dashboard.partnerAccess.activePartnerUsers],
+              ["Ожидают приглашения", dashboard.partnerAccess.pendingInvitations],
+              ["Без владельца", dashboard.partnerAccess.companiesWithoutOwner],
+            ]}
+            link="/admin/companies"
+            title="Доступ партнёров"
+          />
+          <SummaryBlock
+            items={[
+              ["Заявки на доступ", dashboard.queues.pendingAccessRequests],
+              ["Переносы дат", dashboard.queues.pendingDateChanges],
+              ["Спецификации", dashboard.queues.specificationsAwaitingReview],
+              ["Ошибки заказов", dashboard.queues.failedOrderExports],
+            ]}
+            link="/admin/date-change-requests"
+            title="Операционные очереди"
+          />
+          <SummaryBlock
+            items={[
+              ["Компании", dashboard.finance.eligibleCompanies],
+              ["Актуальные снимки", dashboard.finance.successfulSnapshots],
+              ["Устаревшие", dashboard.finance.staleSnapshots],
+              ["Ошибки", dashboard.finance.failedSyncs],
+            ]}
+            title="Финансы"
+          />
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <SummaryCard
-          icon={Building2}
-          items={[
-            ["Активные компании", dashboard.partnerAccess.activeCompanies],
-            ["Активные пользователи", dashboard.partnerAccess.activePartnerUsers],
-            ["Ожидают приглашения", dashboard.partnerAccess.pendingInvitations],
-            ["Приостановлены", dashboard.partnerAccess.suspendedMemberships],
-            ["Без владельца", dashboard.partnerAccess.companiesWithoutOwner],
-            ["Без связи с 1С", dashboard.partnerAccess.companiesMissingMapping],
-          ]}
-          link="/admin/companies"
-          title="Доступ партнёров"
-        />
-        <SummaryCard
-          icon={Users}
-          items={[
-            ["Заявки на доступ", dashboard.queues.pendingAccessRequests],
-            ["Переносы дат", dashboard.queues.pendingDateChanges],
-            ["Спецификации", dashboard.queues.specificationsAwaitingReview],
-            ["Ошибки заказов", dashboard.queues.failedOrderExports],
-          ]}
-          link="/admin/date-change-requests"
-          title="Операционная очередь"
-        />
-        <SummaryCard
-          icon={Database}
-          items={[
-            ["Компании", dashboard.finance.eligibleCompanies],
-            ["Актуальные снимки", dashboard.finance.successfulSnapshots],
-            ["Устаревшие", dashboard.finance.staleSnapshots],
-            ["Ошибки", dashboard.finance.failedSyncs],
-            ["Нет сопоставления", dashboard.finance.missingMappings],
-          ]}
-          title="Финансы"
-        />
-      </section>
+      <details className="border border-zinc-200 bg-white">
+        <summary className="cursor-pointer px-4 py-4 font-semibold marker:text-zinc-400 sm:px-5">
+          Состояние данных и последние события
+        </summary>
+        <div className="border-t border-zinc-200">
+          <section className="px-4 py-5 sm:px-5">
+            <h3 className="text-sm font-semibold">Коммерческие данные</h3>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              {dashboard.freshness.map((item) => {
+                const status = STATUS[item.status];
+                const Icon = status.icon;
+                return (
+                  <Link
+                    aria-label={`${item.label}: ${status.label}. Открыть подробности`}
+                    className="group border border-zinc-200 p-3 hover:border-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                    href={item.href}
+                    key={item.key}
+                    prefetch={false}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <Icon aria-hidden className={`h-4 w-4 ${status.className}`} />
+                    </div>
+                    <p className={`mt-2 text-xs font-medium ${status.className}`}>{status.label}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {formatDate(item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)}
+                    </p>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
 
-      <section className="border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 px-5 py-4">
-          <h2 className="font-semibold">Последние события</h2>
-          <p className="mt-1 text-xs text-zinc-500">Не более 20 безопасных событий.</p>
+          <section className="border-t border-zinc-200">
+            <div className="px-4 py-4 sm:px-5">
+              <h3 className="text-sm font-semibold">Последние события</h3>
+              <p className="mt-1 text-xs text-zinc-500">Не более 20 безопасных событий.</p>
+            </div>
+            {dashboard.recentEvents.length ? (
+              <ul className="divide-y divide-zinc-100 border-t border-zinc-100">
+                {dashboard.recentEvents.map((event, index) => (
+                  <li
+                    className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm sm:px-5"
+                    key={`${event.domain}-${event.occurredAt}-${index}`}
+                  >
+                    <span>
+                      <span className="font-medium">{event.eventType}</span>
+                      {event.subject ? ` · ${event.subject}` : ""}
+                    </span>
+                    <time className="text-zinc-500" dateTime={event.occurredAt}>
+                      {formatDate(event.occurredAt)}
+                    </time>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+                Событий пока нет.
+              </p>
+            )}
+          </section>
         </div>
-        {dashboard.recentEvents.length ? (
-          <ul className="divide-y divide-zinc-100">
-            {dashboard.recentEvents.map((event, index) => (
-              <li className="flex flex-wrap justify-between gap-2 px-5 py-3 text-sm" key={`${event.domain}-${event.occurredAt}-${index}`}>
-                <span>
-                  <span className="font-medium">{event.eventType}</span>
-                  {event.subject ? ` · ${event.subject}` : ""}
-                </span>
-                <time className="text-zinc-500" dateTime={event.occurredAt}>
-                  {new Intl.DateTimeFormat("ru-RU", {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  }).format(new Date(event.occurredAt))}
-                </time>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="px-5 py-10 text-center text-sm text-zinc-500">
-            Событий пока нет.
-          </p>
-        )}
-      </section>
+      </details>
     </div>
   );
 }
 
-function SummaryCard({
-  icon: Icon,
-  items,
-  link,
-  title,
-}: {
-  icon: typeof Building2;
+function SummaryBlock({ items, link, title }: {
   items: ReadonlyArray<readonly [string, number]>;
   link?: string;
   title: string;
 }) {
   return (
-    <article className="border border-zinc-200 bg-white p-5">
-      <div className="flex items-center gap-3">
-        <Icon aria-hidden className="h-5 w-5 text-emerald-700" />
-        <h2 className="font-semibold">{title}</h2>
+    <article className="bg-white p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-semibold">{title}</h3>
+        {link ? (
+          <Link className="text-sm font-semibold text-emerald-700 hover:text-emerald-800" href={link} prefetch={false}>
+            Открыть
+          </Link>
+        ) : null}
       </div>
       <dl className="mt-4 space-y-2">
         {items.map(([label, value]) => (
           <div className="flex items-center justify-between gap-4 text-sm" key={label}>
             <dt className="text-zinc-600">{label}</dt>
-            <dd className="font-semibold">{value}</dd>
+            <dd className="font-semibold tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
-      {link ? (
-        <Link className="mt-4 inline-flex text-sm font-semibold text-emerald-700 hover:text-emerald-800" href={link} prefetch={false}>
-          Открыть
-        </Link>
-      ) : null}
     </article>
   );
+}
+
+function formatDate(value: string | null): string {
+  return value
+    ? new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeStyle: "short" }).format(new Date(value))
+    : "Синхронизация не зафиксирована";
 }

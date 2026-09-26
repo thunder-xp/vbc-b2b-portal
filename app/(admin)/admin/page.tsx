@@ -1,16 +1,22 @@
 import {
+  AdminActionCenterView,
   AdminDashboardView,
+  createAdminActionCenterService,
   createAdminDashboardService,
   requireAdminPermission,
 } from "@/src/modules/admin";
-import { AdminServiceAttention, getAdminServiceAttentionAction } from "@/src/modules/service-center";
 
 export default async function AdminDashboardPage() {
-  await requireAdminPermission("admin.dashboard.view");
-  const [dashboard, serviceResult] = await Promise.all([
+  const context = await requireAdminPermission("admin.dashboard.view");
+  const [dashboard, actionCenter] = await Promise.all([
     createAdminDashboardService().getDashboard(),
-    getAdminServiceAttentionAction(),
+    createAdminActionCenterService().getActionCenter(context.permissions),
   ]);
 
-  return <div className="space-y-6"><AdminDashboardView dashboard={dashboard} /><AdminServiceAttention items={serviceResult.success ? serviceResult.data : []} /></div>;
+  return (
+    <div className="space-y-8">
+      <AdminActionCenterView center={actionCenter} />
+      <AdminDashboardView dashboard={dashboard} />
+    </div>
+  );
 }

@@ -50,8 +50,8 @@ export class CommercialAgentApplicationService {
     return this.repository.withdraw(applicantUserId);
   }
 
-  listForAdmin() {
-    return this.repository.listForAdmin();
+  listForAdmin(input?: Parameters<CommercialAgentApplicationRepository["listForAdmin"]>[0]) {
+    return this.repository.listForAdmin(input);
   }
 
   countReviewQueue() {

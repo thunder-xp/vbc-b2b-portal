@@ -14,6 +14,14 @@ export type {
   AdminQueueSummary,
   AdminRecentEvent,
 } from "./admin-dashboard";
+export type {
+  AdminActionCenter,
+  AdminActionDomain,
+  AdminActionItem,
+  AdminActionKind,
+  AdminActionLevel,
+  AdminActionSourceWarning,
+} from "./admin-action-center";
 export {
   ADMIN_COMPANY_FILTERS,
   type AdminCompanyFilter,
