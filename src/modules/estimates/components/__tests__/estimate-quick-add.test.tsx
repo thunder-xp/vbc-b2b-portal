@@ -45,12 +45,25 @@ describe("continuous estimate Quick Add", () => {
     await user.keyboard("{ArrowDown}{Enter}");
     const quantity = screen.getByRole("spinbutton", { name: "Добавить количество" });
     await waitFor(() => expect(quantity).toHaveFocus());
+    expect(quantity).toHaveAttribute("step", "1");
     expect(addEstimateProductsAction).not.toHaveBeenCalled();
     await user.clear(quantity); await user.type(quantity, "3{Enter}");
     await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
     expect(addEstimateProductsAction).toHaveBeenCalledWith("estimate-1", 3, [{ productId: "p2", quantity: 3 }], expect.objectContaining({ targetSectionId: "section-1", mergeExisting: true, requestKey: expect.any(String) }));
     await waitFor(() => expect(search).toHaveFocus());
     expect(search).toHaveValue("");
+  });
+  it("flushes a dirty draft before insertion and uses the returned revision", async () => {
+    const beforeInsert = vi.fn().mockResolvedValue({ ...estimate, revision: 4 });
+    const { user } = setup({ beforeInsert });
+    await user.type(screen.getByRole("combobox"), "cam");
+    await screen.findByRole("option", { name: /Camera/ });
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(screen.getByRole("spinbutton")).toHaveFocus());
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(addEstimateProductsAction).toHaveBeenCalled());
+    expect(beforeInsert).toHaveBeenCalledOnce();
+    expect(addEstimateProductsAction).toHaveBeenCalledWith("estimate-1", 4, expect.any(Array), expect.any(Object));
   });
   it("restores focus after enabled DOM commit even when animation frames run before the transition commits", async () => {
     const { user } = setup();
