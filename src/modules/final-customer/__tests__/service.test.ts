@@ -10,6 +10,7 @@ function repository(): FinalCustomerRepository {
     getCommandCenter: vi.fn(async () => ({ displayName: null, latestOrder: null, recentPurchases: [], equipmentCount: 0, documentCount: 0, latestRequest: null, serviceNeedsInfoCount: 0, activeServiceRequestCount: 0, attentionItems: [] })),
     openAttention: vi.fn(async () => "/account/orders/11111111-1111-4111-8111-111111111111"),
     findOrder: vi.fn(async () => null), listConfirmedPurchases: vi.fn(async () => []), findPurchase: vi.fn(async () => null),
+    getEquipmentPassportContext: vi.fn(async () => null),
     listCurrentProducts: vi.fn(async () => []), listProductDocuments: vi.fn(async () => []),
     getCustomerObjectWorkspace: vi.fn(async () => ({ objects: [], unlinkedPurchaseCount: 0, unlinkedPurchases: [], purchaseLinks: [] })),
     findCustomerObject: vi.fn(async () => null), getCustomerObjectDetail: vi.fn(async () => null),
@@ -64,6 +65,44 @@ describe("Final Customer account service", () => {
     expect(repo.listProductDocuments).toHaveBeenCalledOnce();
     expect(repo.listProductDocuments).toHaveBeenCalledWith(["source-product"]);
     expect(result[0]?.documentCount).toBe(2);
+  });
+
+  it("builds an owned equipment passport without inferring installation or warranty", async () => {
+    const repo = repository();
+    const lineId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(repo.findPurchase).mockResolvedValue({
+      id: lineId, lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null,
+      quantity: 2, unitCode: "piece", unitPrice: 100, lineTotal: 200, currency: "MDL", orderId: "22222222-2222-4222-8222-222222222222", orderNumber: "R-1", purchasedAt: "2026-09-15T00:00:00Z", currentProduct: null,
+    });
+    vi.mocked(repo.getEquipmentPassportContext).mockResolvedValue({ object: null, installation: null, serviceHistory: [] });
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    const passport = await new FinalCustomerAccountService(repo).equipmentDetail(account, lineId);
+
+    expect(passport).toMatchObject({ object: null, installation: null, warranty: { state: "UNKNOWN" }, quantity: 2 });
+    expect(repo.getEquipmentPassportContext).toHaveBeenCalledWith("account", "identity", "user", lineId, 5);
+  });
+
+  it("requires customer-confirmed completion before calling equipment installed", async () => {
+    const repo = repository();
+    const lineId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(repo.findPurchase).mockResolvedValue({ id: lineId, lineNumber: 1, publicProductId: "public-product", sku: "100077", name: "Camera", slug: "camera", imageUrl: null, quantity: 1, unitCode: "piece", unitPrice: 100, lineTotal: 100, currency: "MDL", orderId: "22222222-2222-4222-8222-222222222222", orderNumber: "R-1", purchasedAt: "now", currentProduct: null });
+    vi.mocked(repo.getEquipmentPassportContext).mockResolvedValue({ object: { id: "33333333-3333-4333-8333-333333333333", name: "Home", status: "ACTIVE" }, installation: { projectId: "44444444-4444-4444-8444-444444444444", projectStatus: "INSTALLED", completedAt: "now" }, serviceHistory: [] });
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+
+    const partnerReported = await new FinalCustomerAccountService(repo).equipmentDetail(account, lineId);
+    expect(partnerReported?.installation?.evidence).toBe("PARTNER_REPORTED");
+
+    vi.mocked(repo.getEquipmentPassportContext).mockResolvedValue({ object: null, installation: { projectId: "44444444-4444-4444-8444-444444444444", projectStatus: "CUSTOMER_CONFIRMED", completedAt: "now" }, serviceHistory: [] });
+    const confirmed = await new FinalCustomerAccountService(repo).equipmentDetail(account, lineId);
+    expect(confirmed?.installation?.evidence).toBe("CONFIRMED_INSTALLED");
+  });
+
+  it("does not read passport context for a cross-customer equipment line", async () => {
+    const repo = repository();
+    const account = { id: "account", authUserId: "user", customerIdentityId: "identity", status: "ACTIVE", identityResolutionStatus: "MATCHED", displayName: null, email: null, createdAt: "now", lastLoginAt: "now" } as const;
+    await expect(new FinalCustomerAccountService(repo).equipmentDetail(account, "11111111-1111-4111-8111-111111111111")).resolves.toBeNull();
+    expect(repo.getEquipmentPassportContext).not.toHaveBeenCalled();
   });
 
   it("groups documents by owned order and product without per-line reads", async () => {

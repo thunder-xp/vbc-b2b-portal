@@ -1,5 +1,5 @@
 import type {
-  CustomerObjectDetail, CustomerObjectSummary, CustomerObjectType, CustomerObjectWorkspace,
+  CustomerEquipmentPassportContext, CustomerObjectDetail, CustomerObjectSummary, CustomerObjectType, CustomerObjectWorkspace,
   CustomerServiceNotification, CustomerServiceRequest, CustomerServiceRequestDetail, CustomerServiceRequestStatus, CustomerServiceRequestType,
   FinalCustomerAccount, FinalCustomerCurrentProduct, FinalCustomerOrderDetail,
   FinalCustomerOrderSummary, FinalCustomerProductDocument, FinalCustomerPurchase,
@@ -14,6 +14,7 @@ export interface FinalCustomerRepository {
   findOrder(customerIdentityId: string | null, orderId: string): Promise<FinalCustomerOrderDetail | null>;
   listConfirmedPurchases(customerIdentityId: string | null, limit: number, offset?: number): Promise<FinalCustomerPurchase[]>;
   findPurchase(customerIdentityId: string | null, lineId: string): Promise<FinalCustomerPurchase | null>;
+  getEquipmentPassportContext(accountId: string, customerIdentityId: string, actorUserId: string, lineId: string, serviceLimit: number): Promise<CustomerEquipmentPassportContext | null>;
   listCurrentProducts(publicProductIds: string[]): Promise<FinalCustomerCurrentProduct[]>;
   listProductDocuments(sourceProductIds: string[]): Promise<FinalCustomerProductDocument[]>;
   getCustomerObjectWorkspace(accountId: string, customerIdentityId: string, actorUserId: string, includeArchived?: boolean): Promise<CustomerObjectWorkspace>;

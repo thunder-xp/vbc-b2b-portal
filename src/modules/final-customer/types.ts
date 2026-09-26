@@ -74,6 +74,38 @@ export type FinalCustomerPurchase = FinalCustomerOrderLine & Readonly<{
   documentCount?: number;
 }>;
 
+export type CustomerEquipmentPassportContext = Readonly<{
+  object: Readonly<{
+    id: string;
+    name: string;
+    status: "ACTIVE" | "ARCHIVED";
+  }> | null;
+  installation: Readonly<{
+    projectId: string;
+    projectStatus: string;
+    completedAt: string | null;
+  }> | null;
+  serviceHistory: ReadonlyArray<{
+    id: string;
+    number: string;
+    subject: string;
+    status: CustomerServiceRequestStatus;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+}>;
+
+export type CustomerEquipmentPassport = FinalCustomerPurchase & Readonly<{
+  currentProduct: FinalCustomerCurrentProduct | null;
+  documents: ReadonlyArray<FinalCustomerProductDocument>;
+  object: CustomerEquipmentPassportContext["object"];
+  installation: (CustomerEquipmentPassportContext["installation"] & Readonly<{
+    evidence: "CONFIRMED_INSTALLED" | "PARTNER_REPORTED" | "IN_PROGRESS" | "INACTIVE";
+  }>) | null;
+  serviceHistory: CustomerEquipmentPassportContext["serviceHistory"];
+  warranty: Readonly<{ state: "UNKNOWN" }>;
+}>;
+
 export const CUSTOMER_OBJECT_TYPES = ["HOME", "APARTMENT", "OFFICE", "SHOP", "WAREHOUSE", "OTHER"] as const;
 export type CustomerObjectType = typeof CUSTOMER_OBJECT_TYPES[number];
 

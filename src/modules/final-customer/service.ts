@@ -106,12 +106,18 @@ export class FinalCustomerAccountService {
   }
 
   async equipmentDetail(account: FinalCustomerAccount, lineId: string) {
-    if (account.status !== "ACTIVE" || !UUID.test(lineId)) return null;
+    if (account.status !== "ACTIVE" || !account.customerIdentityId || !UUID.test(lineId)) return null;
     const purchase = await this.repository.findPurchase(account.customerIdentityId, lineId);
     if (!purchase || purchase.unitCode === "service") return null;
-    const current = (await this.repository.listCurrentProducts([purchase.publicProductId]))[0] ?? null;
+    const [currentProducts, context] = await Promise.all([
+      this.repository.listCurrentProducts([purchase.publicProductId]),
+      this.repository.getEquipmentPassportContext(account.id, account.customerIdentityId, account.authUserId, lineId, 5),
+    ]);
+    if (!context) return null;
+    const current = currentProducts[0] ?? null;
     const documents = current ? await this.repository.listProductDocuments([current.sourceProductId]) : [];
-    return { ...purchase, currentProduct: current, documents };
+    const installation = context.installation ? { ...context.installation, evidence: installationEvidence(context.installation.projectStatus, context.installation.completedAt) } : null;
+    return { ...purchase, currentProduct: current, documents, object: context.object, installation, serviceHistory: context.serviceHistory, warranty: { state: "UNKNOWN" as const } };
   }
 
   async documents(account: FinalCustomerAccount) {
@@ -347,6 +353,13 @@ function buildCustomerObjectWorkspaceDetail(detail: import("./types").CustomerOb
     productGroups: [...groups.values()].sort((left, right) => right.productCount - left.productCount || left.label.localeCompare(right.label, locale)),
     documentCount: documents.size,
   };
+}
+
+function installationEvidence(status: string, completedAt: string | null): "CONFIRMED_INSTALLED" | "PARTNER_REPORTED" | "IN_PROGRESS" | "INACTIVE" {
+  if (["CUSTOMER_CONFIRMED", "CLOSED"].includes(status) && completedAt) return "CONFIRMED_INSTALLED";
+  if (status === "INSTALLED") return "PARTNER_REPORTED";
+  if (["DRAFT", "PARTNER_PENDING", "PARTNER_ACCEPTED", "CONTACTED", "SCHEDULED"].includes(status)) return "IN_PROGRESS";
+  return "INACTIVE";
 }
 
 function customerSystemKey(categoryId: string | undefined): keyof typeof CUSTOMER_SYSTEM_LABELS.ru {

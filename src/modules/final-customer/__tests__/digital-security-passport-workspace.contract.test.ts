@@ -10,7 +10,8 @@ describe("Final Customer object workspace V2 contract", () => {
     expect(service).toContain("CUSTOMER_SYSTEM_CATEGORY_IDS");
     expect(service).toContain('CCTV: "4ece32e5-bccd-42a3-8a55-038e53b40353"');
     expect(service).toContain("buildCustomerObjectWorkspaceDetail");
-    expect(service).not.toMatch(/installed|commissioned|warranty/i);
+    const grouping = service.slice(service.indexOf("function buildCustomerObjectWorkspaceDetail"), service.indexOf("function installationEvidence"));
+    expect(grouping).not.toMatch(/installed|commissioned|warranty/i);
   });
 
   it("renders factual workspace sections and product-level service continuity", () => {

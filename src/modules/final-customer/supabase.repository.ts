@@ -4,7 +4,7 @@ import { createAdminClient } from "@/src/lib/supabase/admin";
 
 import type { FinalCustomerRepository } from "./repository";
 import type {
-  CustomerObjectDetail, CustomerObjectSummary, CustomerObjectWorkspace, CustomerServiceAttachment, CustomerServiceMessage, CustomerServiceNotification, CustomerServiceRequest, CustomerServiceRequestDetail, CustomerServiceRequestStatus, CustomerServiceTimelineEvent, FinalCustomerAccount,
+  CustomerEquipmentPassportContext, CustomerObjectDetail, CustomerObjectSummary, CustomerObjectWorkspace, CustomerServiceAttachment, CustomerServiceMessage, CustomerServiceNotification, CustomerServiceRequest, CustomerServiceRequestDetail, CustomerServiceRequestStatus, CustomerServiceTimelineEvent, FinalCustomerAccount,
   FinalCustomerCurrentProduct, FinalCustomerOrderDetail, FinalCustomerOrderLine,
   FinalCustomerOrderSummary, FinalCustomerProductDocument, FinalCustomerPurchase,
 } from "./types";
@@ -170,6 +170,18 @@ export class SupabaseFinalCustomerRepository implements FinalCustomerRepository 
     if (!orderValue) return null;
     const order = orderValue as { id: string; public_number: string; paid_at: string | null; created_at: string };
     return { ...mapOrderLine(line), orderId: order.id, orderNumber: order.public_number, purchasedAt: order.paid_at ?? order.created_at, currentProduct: null };
+  }
+
+  async getEquipmentPassportContext(accountId: string, customerIdentityId: string, actorUserId: string, lineId: string, serviceLimit: number) {
+    const { data, error } = await createAdminClient().rpc("get_customer_equipment_passport_v1", {
+      p_customer_account_id: accountId,
+      p_customer_identity_id: customerIdentityId,
+      p_actor_user_id: actorUserId,
+      p_retail_order_line_id: lineId,
+      p_service_limit: Math.min(Math.max(serviceLimit, 1), 10),
+    });
+    if (error) throw repositoryError("read equipment passport", error.code);
+    return data ? mapEquipmentPassportContext(data as Row) : null;
   }
 
   async listCurrentProducts(publicProductIds: string[]) {
@@ -551,6 +563,24 @@ function mapCustomerObjectDetail(row: Row): CustomerObjectDetail | null {
     }] : []) : [],
     unlinkedPurchaseCount: Number(row.unlinkedPurchaseCount ?? 0),
     unlinkedPurchases: Array.isArray(row.unlinkedPurchases) ? row.unlinkedPurchases.flatMap((item) => item && typeof item === "object" ? [{ orderId: String((item as Row).orderId), orderNumber: String((item as Row).orderNumber), purchasedAt: String((item as Row).purchasedAt), productCount: Number((item as Row).productCount) }] : []) : [],
+  };
+}
+
+function mapEquipmentPassportContext(row: Row): CustomerEquipmentPassportContext {
+  const object = row.object && typeof row.object === "object" ? row.object as Row : null;
+  const installation = row.installation && typeof row.installation === "object" ? row.installation as Row : null;
+  return {
+    object: object ? { id: String(object.id), name: String(object.name), status: object.status as "ACTIVE" | "ARCHIVED" } : null,
+    installation: installation ? {
+      projectId: String(installation.projectId),
+      projectStatus: String(installation.projectStatus),
+      completedAt: textOrNull(installation.completedAt),
+    } : null,
+    serviceHistory: Array.isArray(row.serviceHistory) ? row.serviceHistory.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const value = item as Row;
+      return [{ id: String(value.id), number: String(value.number), subject: String(value.subject), status: value.status as CustomerServiceRequestStatus, createdAt: String(value.createdAt), updatedAt: String(value.updatedAt) }];
+    }) : [],
   };
 }
 

@@ -11,7 +11,7 @@ import { CabinetFeedback, cabinetField, cabinetPrimaryAction, cabinetSurface } f
 
 const initial = { error: null, createdId: null };
 
-export function CustomerServiceRequestForm({ locale, customerObjectId = "", orderId = "", orderLineId = "" }: { locale: CustomerLocale; customerObjectId?: string; orderId?: string; orderLineId?: string }) {
+export function CustomerServiceRequestForm({ locale, customerObjectId = "", orderId = "", orderLineId = "", defaultSubject = "" }: { locale: CustomerLocale; customerObjectId?: string; orderId?: string; orderLineId?: string; defaultSubject?: string }) {
   const [state, action, pending] = useActionState(createCustomerServiceRequestAction, initial);
   const router = useRouter();
   const ro = locale === "ro";
@@ -19,7 +19,7 @@ export function CustomerServiceRequestForm({ locale, customerObjectId = "", orde
   return <form action={action} className={`space-y-4 p-4 sm:p-5 ${cabinetSurface}`}>
     <input name="customerObjectId" type="hidden" value={customerObjectId} /><input name="orderId" type="hidden" value={orderId} /><input name="orderLineId" type="hidden" value={orderLineId} />
     <label className="block text-sm font-medium text-zinc-800">{ro ? "Tipul solicitării" : "Тип обращения"}<select className={`${cabinetField} mt-1.5`} name="type">{CUSTOMER_SERVICE_REQUEST_TYPES.map((type) => <option key={type} value={type}>{serviceTypeLabel(type, locale)}</option>)}</select></label>
-    <label className="block text-sm font-medium text-zinc-800">{ro ? "Subiect" : "Тема"}<input className={`${cabinetField} mt-1.5`} maxLength={160} minLength={3} name="subject" required /></label>
+    <label className="block text-sm font-medium text-zinc-800">{ro ? "Subiect" : "Тема"}<input className={`${cabinetField} mt-1.5`} defaultValue={defaultSubject} maxLength={160} minLength={3} name="subject" required /></label>
     <label className="block text-sm font-medium text-zinc-800">{ro ? "Descriere" : "Описание"}<textarea className={`${cabinetField} mt-1.5 min-h-28 py-3`} maxLength={2000} minLength={10} name="description" required /></label>
     <label className="block text-sm font-medium text-zinc-800">{ro ? "Contact preferat" : "Предпочтительный способ связи"}<select className={`${cabinetField} mt-1.5`} name="preferredContact"><option value="PHONE">{ro ? "Telefon" : "Телефон"}</option><option value="EMAIL">Email</option></select></label>
     <ServiceAttachmentPicker locale={locale} />
