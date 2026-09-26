@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AdminDashboard, AdminOperationalIssue } from "../../types";
@@ -59,7 +59,22 @@ describe("Admin operational drilldown", () => {
     expect(screen.getByRole("link", { name: /Остатки: Устарело/ })).toHaveAttribute("href", "/admin/operations/issues/stock:stale");
     expect(screen.getByRole("link", { name: /Поступления: Ещё не синхронизировано/ })).toBeInTheDocument();
     expect(screen.getByText("Нет данных в 1С")).toHaveClass("text-emerald-700");
-    expect(screen.getByText("Состояние данных и последние события")).toBeInTheDocument();
+  });
+
+  it("keeps commercial health visible outside the collapsed recent-events disclosure", () => {
+    render(<AdminDashboardView dashboard={dashboard} />);
+    const catalog = screen.getByRole("link", { name: /Каталог: Актуально/ });
+    const disclosure = screen.getByText("Последние события").closest("details");
+
+    expect(screen.getByRole("heading", { name: "Коммерческие данные" })).toBeInTheDocument();
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(disclosure).not.toContainElement(catalog);
+    expect(catalog).toBeVisible();
+
+    fireEvent.click(screen.getByText("Последние события"));
+    expect(disclosure).toHaveAttribute("open");
+    expect(screen.getByText("Событий пока нет.")).toBeInTheDocument();
+    expect(catalog).toBeVisible();
   });
 
   it("lists exactly the supplied active issues", () => {

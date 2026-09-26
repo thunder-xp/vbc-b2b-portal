@@ -58,67 +58,66 @@ export function AdminDashboardView({ dashboard }: { dashboard: AdminDashboard })
         </div>
       </section>
 
+      <section aria-labelledby="admin-commercial-data-title">
+        <h2 className="text-xl font-semibold" id="admin-commercial-data-title">
+          Коммерческие данные
+        </h2>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          {dashboard.freshness.map((item) => {
+            const status = STATUS[item.status];
+            const Icon = status.icon;
+            return (
+              <Link
+                aria-label={`${item.label}: ${status.label}. Открыть подробности`}
+                className="group border border-zinc-200 bg-white p-3 hover:border-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
+                href={item.href}
+                key={item.key}
+                prefetch={false}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold">{item.label}</p>
+                  <Icon aria-hidden className={`h-4 w-4 ${status.className}`} />
+                </div>
+                <p className={`mt-2 text-xs font-medium ${status.className}`}>{status.label}</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {formatDate(item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
       <details className="border border-zinc-200 bg-white">
         <summary className="cursor-pointer px-4 py-4 font-semibold marker:text-zinc-400 sm:px-5">
-          Состояние данных и последние события
+          Последние события
         </summary>
         <div className="border-t border-zinc-200">
-          <section className="px-4 py-5 sm:px-5">
-            <h3 className="text-sm font-semibold">Коммерческие данные</h3>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-              {dashboard.freshness.map((item) => {
-                const status = STATUS[item.status];
-                const Icon = status.icon;
-                return (
-                  <Link
-                    aria-label={`${item.label}: ${status.label}. Открыть подробности`}
-                    className="group border border-zinc-200 p-3 hover:border-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700"
-                    href={item.href}
-                    key={item.key}
-                    prefetch={false}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold">{item.label}</p>
-                      <Icon aria-hidden className={`h-4 w-4 ${status.className}`} />
-                    </div>
-                    <p className={`mt-2 text-xs font-medium ${status.className}`}>{status.label}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {formatDate(item.status === "FAILED" ? item.lastAttemptAt : item.lastSuccessAt)}
-                    </p>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="border-t border-zinc-200">
-            <div className="px-4 py-4 sm:px-5">
-              <h3 className="text-sm font-semibold">Последние события</h3>
-              <p className="mt-1 text-xs text-zinc-500">Не более 20 безопасных событий.</p>
-            </div>
-            {dashboard.recentEvents.length ? (
-              <ul className="divide-y divide-zinc-100 border-t border-zinc-100">
-                {dashboard.recentEvents.map((event, index) => (
-                  <li
-                    className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm sm:px-5"
-                    key={`${event.domain}-${event.occurredAt}-${index}`}
-                  >
-                    <span>
-                      <span className="font-medium">{event.eventType}</span>
-                      {event.subject ? ` · ${event.subject}` : ""}
-                    </span>
-                    <time className="text-zinc-500" dateTime={event.occurredAt}>
-                      {formatDate(event.occurredAt)}
-                    </time>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
-                Событий пока нет.
-              </p>
-            )}
-          </section>
+          <p className="px-4 py-3 text-xs text-zinc-500 sm:px-5">
+            Не более 20 безопасных событий.
+          </p>
+          {dashboard.recentEvents.length ? (
+            <ul className="divide-y divide-zinc-100 border-t border-zinc-100">
+              {dashboard.recentEvents.map((event, index) => (
+                <li
+                  className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm sm:px-5"
+                  key={`${event.domain}-${event.occurredAt}-${index}`}
+                >
+                  <span>
+                    <span className="font-medium">{event.eventType}</span>
+                    {event.subject ? ` · ${event.subject}` : ""}
+                  </span>
+                  <time className="text-zinc-500" dateTime={event.occurredAt}>
+                    {formatDate(event.occurredAt)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="border-t border-zinc-100 px-5 py-8 text-center text-sm text-zinc-500">
+              Событий пока нет.
+            </p>
+          )}
         </div>
       </details>
     </div>

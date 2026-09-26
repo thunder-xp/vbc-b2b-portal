@@ -2,7 +2,6 @@
 
 import {
   ChevronDown,
-  LogOut,
   Menu,
   ShieldCheck,
   X,
@@ -11,11 +10,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { signOutAction } from "@/src/modules/auth/actions/auth.actions";
-
 import { findAdminNavigationItem } from "../navigation";
 import type { AdminActionCenter, AdminWorkspaceContext } from "../types";
 import { AdminNotificationCenter } from "./AdminNotificationCenter";
+import { AdminUserMenu } from "./AdminUserMenu";
 
 const ENVIRONMENT_LABELS = {
   production: "Production",
@@ -155,21 +153,6 @@ export function AdminShell({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">{navigation}</div>
-        <div className="border-t border-zinc-200 p-4">
-          <p className="truncate text-sm font-semibold">{context.displayName}</p>
-          <p className="mt-1 truncate text-xs text-zinc-500">
-            {context.roleCodes.join(", ")}
-          </p>
-          <form action={signOutAction} className="mt-3">
-            <button
-              className="flex h-10 w-full items-center gap-2 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-              type="submit"
-            >
-              <LogOut aria-hidden className="h-4 w-4" />
-              Выйти
-            </button>
-          </form>
-        </div>
       </aside>
 
       <div className="lg:pl-72">
@@ -192,6 +175,7 @@ export function AdminShell({
             </p>
           </div>
           <AdminNotificationCenter center={notificationCenter} />
+          <AdminUserMenu context={context} />
           <span className="rounded border border-zinc-300 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-600">
             {ENVIRONMENT_LABELS[context.environment]}
           </span>
