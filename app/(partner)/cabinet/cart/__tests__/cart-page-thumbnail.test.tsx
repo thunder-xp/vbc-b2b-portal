@@ -18,6 +18,8 @@ describe("cart product rows", () => {
     render(await CartPage());
     const thumbnail = screen.getByTestId("product-line-thumbnail");
     const product = screen.getByRole("link", { name: "Camera" });
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(document.querySelector("[data-page-header]")).not.toHaveClass("border-b");
     expect(thumbnail.compareDocumentPosition(product) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByText("$20.00")).toHaveLength(2);
     expect(thumbnail.parentElement).toHaveClass("grid-cols-[3.5rem_minmax(0,1fr)]");

@@ -143,24 +143,23 @@ export function CartItemActions({
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-end gap-1.5">
+    <div className="col-span-full flex min-w-0 flex-wrap items-center justify-end gap-2 md:col-span-1 md:justify-start">
+      <div className="flex shrink-0 items-center gap-1">
         <button
           aria-label={copy.decreaseQuantity}
-          className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex size-10 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={locked || pending || draft <= 1}
           onClick={() => void persist(draftRef.current - 1)}
           type="button"
         >
           <Minus aria-hidden="true" className="size-4" />
         </button>
-        <label className="text-xs text-zinc-600">
-          {copy.quantity}
+        <div>
           <input
             aria-describedby={`${itemId}-quantity-status`}
             aria-invalid={!Number.isInteger(draft) || draft < 1 || draft > 9999}
             aria-label={copy.productQuantity}
-            className="mt-1 block h-11 w-20 rounded-md border border-zinc-300 px-2 text-center text-sm"
+            className="block h-10 w-16 rounded-md border border-zinc-300 px-2 text-center text-sm"
             disabled={locked || pending}
             max={9999}
             min={1}
@@ -175,10 +174,10 @@ export function CartItemActions({
             type="number"
             value={Number.isNaN(draft) ? "" : draft}
           />
-        </label>
+        </div>
         <button
           aria-label={copy.increaseQuantity}
-          className="inline-flex size-11 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex size-10 items-center justify-center rounded-md border border-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
           disabled={locked || pending || draft >= 9999}
           onClick={() => void persist(draftRef.current + 1)}
           type="button"
@@ -187,21 +186,22 @@ export function CartItemActions({
         </button>
       </div>
       <button
-        className="inline-flex min-h-11 items-center gap-2 text-xs font-semibold text-rose-700 disabled:opacity-50"
+        aria-label={copy.remove}
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 disabled:opacity-50"
         disabled={locked || pending}
         onClick={() => void remove()}
+        title={copy.remove}
         type="button"
       >
         <Trash2 aria-hidden="true" className="size-4" />
-        {copy.remove}
       </button>
-      <p
+      {message ? <p
         aria-live="polite"
-        className="min-h-4 text-xs text-zinc-500"
+        className="basis-full text-right text-xs text-zinc-500 md:text-left"
         id={`${itemId}-quantity-status`}
       >
         {message}
-      </p>
+      </p> : <p aria-live="polite" className="sr-only" id={`${itemId}-quantity-status`} />}
     </div>
   );
 }

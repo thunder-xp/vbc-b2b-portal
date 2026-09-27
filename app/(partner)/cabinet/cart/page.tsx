@@ -7,6 +7,7 @@ import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartChe
 import { CartLineValue, CartPricingPanel } from "@/src/modules/orders/components/CartPricingPanel";
 import { maibConfigurationSummary } from "@/src/modules/payments/server";
 import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
+import { PageHeader } from "@/src/modules/platform-ui";
 import type { CartLineDto } from "@/src/modules/orders/services";
 import { getOrdersCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -48,14 +49,7 @@ export default async function CartPage() {
   const cart = result.data;
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase text-emerald-700">
-          {copy.checkoutEyebrow}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-950">
-          {copy.cart}
-        </h1>
-      </header>
+      <PageHeader compact eyebrow={copy.checkoutEyebrow} title={copy.cart} />
 
       {cart.lines.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center">
@@ -105,7 +99,7 @@ export default async function CartPage() {
                     <ul className="divide-y divide-zinc-200">
                       {lines.map((line) => (
                         <li
-                          className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_8rem_11.25rem] md:items-center"
+                          className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_7rem_auto] md:items-center md:gap-3 md:p-4"
                           key={line.id}
                         >
                           <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[4rem_minmax(0,1fr)]">
@@ -131,7 +125,7 @@ export default async function CartPage() {
                                   ? copy.yourPrice
                                   : copy.retailPrice}
                                 :{" "}
-                                <strong className="whitespace-nowrap"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerUnitPrice : line.retailUnitPrice} online={line.onlineUnitPrice} /></strong>
+                                <strong className="whitespace-nowrap text-rose-700"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerUnitPrice : line.retailUnitPrice} online={line.onlineUnitPrice} /></strong>
                               </p>
                               <p className="mt-1 text-xs text-zinc-600">
                                 {line.availableStock === null
@@ -158,7 +152,7 @@ export default async function CartPage() {
                                 ? copy.amount
                                 : copy.retailAmount}
                             </span>
-                            <p className="mt-1 font-semibold"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerLineTotal : line.retailLineTotal} online={line.onlineLineTotal} /></p>
+                            <p className="mt-1 font-semibold text-rose-700"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerLineTotal : line.retailLineTotal} online={line.onlineLineTotal} /></p>
                           </div>
                           <CartItemActions
                             itemId={line.id}

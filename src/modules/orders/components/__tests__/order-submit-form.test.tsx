@@ -37,7 +37,7 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
     await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    const date = screen.getByLabelText("Дата резервации");
+    const date = screen.getByLabelText("Дата отгрузки");
     await user.type(date, "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
     expect(await screen.findByText(/договор компании/)).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
     await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    const date = screen.getByLabelText("Дата резервации");
+    const date = screen.getByLabelText("Дата отгрузки");
     await user.type(date, "2099-01-10");
     view.rerender(<OrderSubmitForm checkoutOptions={governedCashlessOptions} submissionKey="55555555-5555-4555-8555-555555555555" />);
     expect(date).toHaveValue("2099-01-10");
@@ -66,7 +66,7 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
     await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Проверяем заказ…" })).toBeDisabled());
     expect(screen.getByText(/Корзина сохранена, проверка выполняется автоматически/)).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
     await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/cabinet/orders/order-1?submitted=1"));
@@ -103,7 +103,7 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
     await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
     await user.click(screen.getByRole("button", { name: "Отправить заказ" }));
 
     view.rerender(<div>Корзина пуста</div>);
@@ -127,7 +127,7 @@ describe("OrderSubmitForm", () => {
     await user.click(screen.getByRole("radio", { name: /Безналичный/ }));
     await user.type(screen.getByLabelText("Дата оплаты", { exact: true }), "2099-01-09");
     await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
 
     const button = screen.getByRole("button", { name: "Отправить заказ" });
     await user.click(button);
@@ -141,7 +141,7 @@ describe("OrderSubmitForm", () => {
 
   it("removes redundant happy-path checkout helper copy", () => {
     render(<OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />);
-    expect(screen.queryByText("До этой даты оборудование резервируется под заказ.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Укажите дату, к которой планируется отгрузка заказа.")).not.toBeInTheDocument();
     expect(screen.queryByText("Укажите дату оплаты.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Заказ будет передан в 1С Novotech/)).not.toBeInTheDocument();
   });
