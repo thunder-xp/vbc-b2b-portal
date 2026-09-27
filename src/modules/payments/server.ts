@@ -2,10 +2,16 @@ import "server-only";
 
 import { createMaibCheckoutV2Adapter, maibConfigurationSummary } from "./providers/maib/maib-checkout-v2.adapter";
 import { SupabaseRetailPaymentRepository } from "./repositories/supabase/retail-payment.supabase-repository";
+import { SupabaseB2bPaymentRepository } from "./repositories/supabase/b2b-payment.supabase-repository";
+import { B2bPaymentService } from "./services/b2b-payment.service";
 import { RetailPaymentService } from "./services/retail-payment.service";
 
 export function createRetailPaymentService() {
   return new RetailPaymentService(new SupabaseRetailPaymentRepository(), createMaibCheckoutV2Adapter());
+}
+
+export function createB2bPaymentService() {
+  return new B2bPaymentService(new SupabaseB2bPaymentRepository(), createMaibCheckoutV2Adapter());
 }
 
 export function createMaibReviewPaymentService(environment: Readonly<Record<string, string | undefined>> = process.env) {
@@ -33,6 +39,13 @@ export function maibReviewProviderEnvironment(environment: Readonly<Record<strin
 
 export async function getRetailPaymentReturnState(paymentAttemptId: string, returnAccessToken: string) {
   return createRetailPaymentService().getReturnState(paymentAttemptId, returnAccessToken);
+}
+
+export async function getPaymentReturnState(paymentAttemptId: string, returnAccessToken: string) {
+  const retail = await getRetailPaymentReturnState(paymentAttemptId, returnAccessToken);
+  if (retail) return { ...retail, paymentContext: "retail" as const };
+  const b2b = await createB2bPaymentService().getReturnState(paymentAttemptId, returnAccessToken);
+  return b2b ? { ...b2b, paymentContext: "b2b" as const } : null;
 }
 
 export async function getRetailOrderPaymentStates(retailOrderIds: string[]) {

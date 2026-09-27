@@ -35,12 +35,14 @@ export function OrderSubmitForm({
   intentVersion,
   submissionKey,
   checkoutOptions,
+  onlinePaymentEnabled = false,
   reconciliationLocked = false,
 }: {
   cartId?: string;
   intentVersion?: number;
   submissionKey: string;
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
+  onlinePaymentEnabled?: boolean;
   reconciliationLocked?: boolean;
 }) {
   const [state, setState] = useState(initial);
@@ -50,7 +52,7 @@ export function OrderSubmitForm({
   const options = checkoutOptions ?? defaultCheckoutOptions();
   const [deliveryDate, setDeliveryDate] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"cashless" | "cash" | "">("");
+  const [paymentMethod, setPaymentMethod] = useState<"cashless" | "cash" | "online" | "">("");
   const [fulfillmentMethod, setFulfillmentMethod] = useState<"pickup" | "delivery" | "">("");
   const [carrierId, setCarrierId] = useState("");
   const [phase, setPhase] = useState<CheckoutPhase>("idle");
@@ -90,7 +92,11 @@ export function OrderSubmitForm({
               route: "/cabinet/cart",
               sourceSurface: "checkout",
             });
-            router.replace(result.data.redirectTo);
+            if (result.data.redirectTo.startsWith("https://")) {
+              window.location.assign(result.data.redirectTo);
+            } else {
+              router.replace(result.data.redirectTo);
+            }
             return;
           }
 
@@ -126,11 +132,21 @@ export function OrderSubmitForm({
     actionPending ||
     hasPendingMutations ||
     phase === "cart_update_pending";
-  const selectedPaymentOption = options.paymentMethods.find(
+  const paymentOptions = [
+    ...options.paymentMethods,
+    {
+      value: "online" as const,
+      enabled: onlinePaymentEnabled
+        && options.paymentMethods.some((option) => option.value === "cashless" && option.enabled),
+      contractLabel: null,
+      unavailableReason: "contract_unavailable" as const,
+    },
+  ];
+  const selectedPaymentOption = paymentOptions.find(
     (option) => option.value === paymentMethod,
   );
   const checkoutUnavailable = !selectedPaymentOption?.enabled;
-  const paymentMethodsUnavailable = !options.paymentMethods.some(
+  const paymentMethodsUnavailable = !paymentOptions.some(
     (option) => option.enabled,
   );
   const deliveryUnavailable = options.carriers.length === 0;
@@ -182,12 +198,14 @@ export function OrderSubmitForm({
       >
         <fieldset>
           <legend className="sr-only">{copy.paymentMethod}</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {options.paymentMethods.map((option) => (
+        <div className="grid gap-2 sm:grid-cols-3">
+          {paymentOptions.map((option) => (
             <label
               className={`flex min-h-11 items-center justify-center rounded-md border px-2 text-center text-sm font-medium ${
                 option.enabled
-                  ? "cursor-pointer border-zinc-300 has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
+                  ? option.value === "online"
+                    ? "cursor-pointer border-blue-300 bg-blue-50/40 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50"
+                    : "cursor-pointer border-zinc-300 has-[:checked]:border-emerald-700 has-[:checked]:bg-emerald-50"
                   : "cursor-not-allowed border-zinc-200 bg-zinc-50 text-zinc-400"
               }`}
               key={option.value}
@@ -198,11 +216,23 @@ export function OrderSubmitForm({
                 className="sr-only"
                 disabled={!option.enabled}
                 name="paymentMethod"
-                onChange={() => setPaymentMethod(option.value)}
+                onChange={() => {
+                  setPaymentMethod(option.value);
+                  if (option.value === "online") setPaymentDate(chisinauBusinessDate());
+                }}
                 type="radio"
                 value={option.value}
               />
-              {option.value === "cashless" ? copy.cashless : copy.cash}
+              <span>
+                <span className="block">{option.value === "cashless"
+                  ? copy.cashless
+                  : option.value === "cash" ? copy.cash : "Онлайн-оплата"}</span>
+                {option.value === "online" ? (
+                  <span className="mt-1 block text-xs font-normal leading-4 text-zinc-600">
+                    Мгновенное подтверждение заказа<br />Безопасная оплата через MAIB
+                  </span>
+                ) : null}
+              </span>
               {!option.enabled ? (
                 <span className="sr-only">. {unavailableReason(option.value, copy)}</span>
               ) : null}
@@ -238,6 +268,7 @@ export function OrderSubmitForm({
           min={chisinauBusinessDate()}
           name="paymentDate"
           onChange={(event) => setPaymentDate(event.target.value)}
+          readOnly={paymentMethod === "online"}
           required
           type="date"
           value={paymentDate}
@@ -347,11 +378,13 @@ export function OrderSubmitForm({
         ) : null}
       </CheckoutStep>
       <button
-        className="mt-3 h-11 w-full rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+        className={`mt-3 h-11 w-full rounded-md px-4 text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${paymentMethod === "online" ? "bg-blue-700 hover:bg-blue-800 focus-visible:ring-blue-500" : "bg-emerald-700 hover:bg-emerald-800 focus-visible:ring-emerald-500"}`}
         disabled={busy || retryBlocked || checkoutUnavailable || !checkoutReady}
         type="submit"
       >
-        {submitLabel(
+        {paymentMethod === "online" && !busy && !reconciliationPending
+          ? "Оплатить онлайн"
+          : submitLabel(
           phase,
           actionPending,
           hasPendingMutations,
@@ -469,9 +502,10 @@ function defaultCheckoutOptions(): PartnerCheckoutOptionsDto {
 }
 
 function unavailableReason(
-  method: "cashless" | "cash",
+  method: "cashless" | "cash" | "online",
   copy: ReturnType<typeof getOrdersCopy>,
 ): string {
+  if (method === "online") return "Онлайн-оплата сейчас недоступна.";
   return method === "cashless" ? copy.cashlessUnavailable : copy.cashUnavailable;
 }
 

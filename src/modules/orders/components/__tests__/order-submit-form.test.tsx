@@ -228,4 +228,32 @@ describe("OrderSubmitForm", () => {
     expect(formatRussianBusinessDate("2026-07-30"))
       .toBe("30 июля 2026 г.");
   });
+
+  it("offers governed online payment with the MAIB CTA and same-day payment date", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<OrderSubmitForm
+      checkoutOptions={governedCashlessOptions}
+      onlinePaymentEnabled
+      submissionKey="55555555-5555-4555-8555-555555555555"
+    />);
+    const online = screen.getByRole("radio", { name: /Онлайн-оплата/ });
+    expect(online).toBeEnabled();
+    expect(online.closest("label")).toHaveTextContent("Мгновенное подтверждение заказа");
+    expect(online.closest("label")).toHaveTextContent("Безопасная оплата через MAIB");
+    await user.click(online);
+    expect(container.querySelector('input[name="paymentMethod"][value="online"]')).toBeChecked();
+    expect(screen.getByLabelText("Дата оплаты", { exact: true })).toHaveValue(chisinauBusinessDate());
+    expect(screen.getByLabelText("Дата оплаты", { exact: true })).toHaveAttribute("readonly");
+    expect(screen.getByRole("button", { name: "Оплатить онлайн" })).toBeDisabled();
+  });
+
+  it("shows online payment but blocks it when MAIB or the cashless contract is unavailable", () => {
+    render(<OrderSubmitForm
+      checkoutOptions={governedCashlessOptions}
+      onlinePaymentEnabled={false}
+      submissionKey="55555555-5555-4555-8555-555555555555"
+    />);
+    expect(screen.getByRole("radio", { name: /Онлайн-оплата/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Безналичный/ })).toBeEnabled();
+  });
 });

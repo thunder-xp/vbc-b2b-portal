@@ -1,9 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 
 import type { PaymentProvider } from "../providers/payment-provider";
 import { PaymentProviderError } from "../providers/payment-provider";
 import type { RetailPaymentRepository } from "../repositories/retail-payment.repository";
 import type { MaibPaymentEvidence, PaymentConfirmationResult, PaymentInitiationResult, PaymentRefundClaim, PaymentRefundResult, PaymentReturnState } from "../types";
+import { initiatePaymentCheckout } from "./payment-checkout.service";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TOKEN_HASH = /^[0-9a-f]{64}$/;
@@ -16,45 +17,21 @@ export class RetailPaymentService {
 
   async initiate(input: Readonly<{ accessTokenHash: string; checkoutChannel: "public" | "maib_review"; idempotencyKey: string }>): Promise<PaymentInitiationResult> {
     if (!TOKEN_HASH.test(input.accessTokenHash) || !UUID.test(input.idempotencyKey)) return result("NOT_ELIGIBLE");
-    const returnAccessToken = randomBytes(32).toString("hex");
-    const returnAccessTokenHash = createHash("sha256").update(returnAccessToken).digest("hex");
-    let claim;
-    try { claim = await this.repository.claim({ ...input, provider: this.provider.provider, returnAccessTokenHash }); }
-    catch { return result("PERSISTENCE_FAILED"); }
-
-    if (claim.outcome === "REUSE_PENDING") return { outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: claim.checkoutUrl, reused: true, returnAccessToken };
-    if (claim.outcome !== "CLAIMED") return result(claim.outcome);
-    if (!claim.attemptId || !claim.amount || claim.currency !== "MDL" || !claim.orderNumber || !claim.orderCreatedAt || !claim.locale) return result("PERSISTENCE_FAILED", claim.attemptId);
-
-    try {
-      const checkout = await this.provider.createCheckout({
-        paymentAttemptId: claim.attemptId,
-        orderNumber: claim.orderNumber,
-        orderCreatedAt: claim.orderCreatedAt,
-        amount: claim.amount,
-        currency: "MDL",
-        locale: claim.locale,
-      });
-      const persisted = await this.repository.completeCheckout({
-        attemptId: claim.attemptId,
+    return initiatePaymentCheckout(this.provider, {
+      claim: (returnAccessTokenHash) => this.repository.claim({
+        ...input,
+        provider: this.provider.provider,
+        returnAccessTokenHash,
+      }),
+      complete: (checkout) => this.repository.completeCheckout({
+        ...checkout,
         idempotencyKey: input.idempotencyKey,
-        checkoutId: checkout.checkoutId,
-        checkoutUrl: checkout.checkoutUrl,
-        providerStatus: checkout.providerStatus,
-      });
-      if (!persisted) return result("PERSISTENCE_FAILED", claim.attemptId);
-      return { outcome: "SUCCESS", paymentAttemptId: claim.attemptId, checkoutUrl: checkout.checkoutUrl, reused: false, returnAccessToken };
-    } catch (error) {
-      if (!(error instanceof PaymentProviderError)) return this.recordFailure(claim.attemptId, input.idempotencyKey, "UNEXPECTED_PROVIDER_ERROR", false, "MAIB_CHECKOUT_FAILED");
-      if (error.stage === "configuration") return this.recordFailure(claim.attemptId, input.idempotencyKey, error.safeCode, true, "CONFIGURATION_ERROR");
-      return this.recordFailure(
-        claim.attemptId,
-        input.idempotencyKey,
-        `${error.stage.toUpperCase()}:${error.safeCode}`,
-        !error.ambiguous,
-        error.stage === "auth" ? "MAIB_AUTH_FAILED" : "MAIB_CHECKOUT_FAILED",
-      );
-    }
+      }),
+      fail: (failure) => this.repository.recordFailure({
+        ...failure,
+        idempotencyKey: input.idempotencyKey,
+      }),
+    });
   }
 
   async confirmMaibCallback(evidence: MaibPaymentEvidence, checkoutChannel: "public" | "maib_review" = "public"): Promise<PaymentConfirmationResult> {
@@ -167,13 +144,6 @@ export class RetailPaymentService {
       catch { return refundResult("PERSISTENCE_FAILED", context, { reused }); }
       return refundResult("PENDING", context, { reused });
     }
-  }
-
-  private async recordFailure(attemptId: string, idempotencyKey: string, failureCode: string, terminal: boolean, outcome: "CONFIGURATION_ERROR" | "MAIB_AUTH_FAILED" | "MAIB_CHECKOUT_FAILED") {
-    try {
-      const persisted = await this.repository.recordFailure({ attemptId, idempotencyKey, failureCode: normalizeFailureCode(failureCode), terminal });
-      return persisted ? result(outcome, attemptId) : result("PERSISTENCE_FAILED", attemptId);
-    } catch { return result("PERSISTENCE_FAILED", attemptId); }
   }
 
   private async withPaidConfirmation(result: PaymentConfirmationResult): Promise<PaymentConfirmationResult> {

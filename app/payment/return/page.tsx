@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 
 import { paymentReturnCookieName } from "@/src/modules/payments/payment-return-access";
-import { getRetailPaymentReturnState } from "@/src/modules/payments/server";
+import { getPaymentReturnState } from "@/src/modules/payments/server";
 import { PublicRetailShell } from "@/src/modules/public-retail/components/PublicRetailShell";
 import { formatRetailPrice, publicRetailLocale } from "@/src/modules/public-retail/presentation";
 
@@ -17,7 +17,7 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
   const paymentAttemptId = typeof query.paymentAttemptId === "string" ? query.paymentAttemptId : "";
   const cookieName = paymentReturnCookieName(paymentAttemptId);
   const returnToken = cookieName ? (await cookies()).get(cookieName)?.value ?? "" : "";
-  const state = paymentAttemptId && returnToken ? await getRetailPaymentReturnState(paymentAttemptId, returnToken).catch(() => null) : null;
+  const state = paymentAttemptId && returnToken ? await getPaymentReturnState(paymentAttemptId, returnToken).catch(() => null) : null;
   const locale = state?.locale ?? publicRetailLocale(query.lang);
   const status = state?.status ?? "PROCESSING";
   const copy = paymentCopy(status, locale);
@@ -32,7 +32,7 @@ export default async function PaymentReturnPage({ searchParams }: { searchParams
         {state.confirmedAt ? <Detail label={locale === "ro" ? "Data plății" : "Дата оплаты"} value={new Intl.DateTimeFormat(locale === "ro" ? "ro-MD" : "ru-MD", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Chisinau" }).format(new Date(state.confirmedAt))} /> : null}
       </dl> : null}
       {state?.items.length ? <section className="mt-5"><h2 className="font-semibold">{locale === "ro" ? "Conținutul comenzii" : "Состав заказа"}</h2><ul className="mt-3 divide-y divide-zinc-100 border-y border-zinc-100">{state.items.map((item) => <li className="flex justify-between gap-4 py-3 text-sm" key={`${item.sku}:${item.name}`}><span><span className="block text-xs text-zinc-500">{item.sku}</span>{item.name}</span><strong className="shrink-0 tabular-nums">× {item.quantity}</strong></li>)}</ul></section> : null}
-      <Link className="mt-6 inline-flex min-h-11 items-center justify-center border border-zinc-900 px-4 text-sm font-semibold" href={`/catalog?lang=${locale}`}>{locale === "ro" ? "Înapoi la catalog" : "Вернуться в каталог"}</Link>
+      <Link className="mt-6 inline-flex min-h-11 items-center justify-center border border-zinc-900 px-4 text-sm font-semibold" href={state?.paymentContext === "b2b" ? "/cabinet/orders" : `/catalog?lang=${locale}`}>{state?.paymentContext === "b2b" ? (locale === "ro" ? "La comenzile mele" : "К моим заказам") : (locale === "ro" ? "Înapoi la catalog" : "Вернуться в каталог")}</Link>
     </section>
   </main></PublicRetailShell>;
 }

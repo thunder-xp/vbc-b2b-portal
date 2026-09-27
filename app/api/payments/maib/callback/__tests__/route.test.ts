@@ -4,11 +4,17 @@ const mocks = vi.hoisted(() => ({
   authenticate: vi.fn(),
   parse: vi.fn(),
   confirm: vi.fn(),
+  confirmB2b: vi.fn(),
 }));
 
 vi.mock("@/src/modules/payments/providers/maib/maib-callback-auth", () => ({ authenticateMaibCallback: mocks.authenticate }));
 vi.mock("@/src/modules/payments/providers/maib/maib-callback", () => ({ parseMaibCallback: mocks.parse }));
-vi.mock("@/src/modules/payments/server", () => ({ createRetailPaymentService: () => ({ confirmMaibCallback: mocks.confirm }) }));
+vi.mock("@/src/modules/payments/server", () => ({
+  createRetailPaymentService: () => ({ confirmMaibCallback: mocks.confirm }),
+  createB2bPaymentService: () => ({ confirmMaibCallback: mocks.confirmB2b }),
+  createMaibReviewPaymentService: () => ({ confirmMaibCallback: mocks.confirm }),
+  maibReviewProviderEnvironment: () => ({}),
+}));
 
 import { POST } from "../route";
 
@@ -24,6 +30,7 @@ describe("MAIB callback route", () => {
     mocks.authenticate.mockReturnValue({ valid: true, timestampMs: Date.now() });
     mocks.parse.mockReturnValue(evidence);
     mocks.confirm.mockResolvedValue({ outcome: "PAID" });
+    mocks.confirmB2b.mockResolvedValue({ outcome: "UNKNOWN_CHECKOUT" });
   });
 
   it.each(["PAID", "DUPLICATE", "NON_PAID"])("acknowledges %s with an empty HTTP 200", async (outcome) => {
@@ -36,6 +43,13 @@ describe("MAIB callback route", () => {
   it("returns retryable non-200 while verified payment awaits local activation", async () => {
     mocks.confirm.mockResolvedValue({ outcome: "PAID_PENDING_ACTIVATION" });
     expect((await POST(request())).status).toBe(503);
+  });
+
+  it("dispatches an unknown public Retail checkout to the isolated B2B binding", async () => {
+    mocks.confirm.mockResolvedValue({ outcome: "UNKNOWN_CHECKOUT" });
+    mocks.confirmB2b.mockResolvedValue({ outcome: "PAID" });
+    expect((await POST(request())).status).toBe(200);
+    expect(mocks.confirmB2b).toHaveBeenCalledWith(evidence);
   });
 
   it("rejects stale or invalid authentication before parsing JSON", async () => {

@@ -17,7 +17,7 @@ describe("retail payment public integration boundary", () => {
     expect(callback).toContain("authenticateMaibCallback");
     expect(callback).toContain("confirmMaibCallback");
     expect(callback).toContain("new Response(null");
-    expect(returnPage).toContain("getRetailPaymentReturnState");
+    expect(returnPage).toContain("getPaymentReturnState");
     expect(returnPage).not.toContain("query.result");
     expect(returnPage).toContain("query.paymentAttemptId");
     expect(returnPage).toContain("paymentReturnCookieName");

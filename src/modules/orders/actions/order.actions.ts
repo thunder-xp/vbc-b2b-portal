@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh, revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { type ActionResult, failureFromError, invalidInput, success } from "../../access-control/actions/action-result";
 import { createUserProfileService, getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import { ForbiddenError } from "../../access-control/services";
@@ -13,6 +14,9 @@ import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "../reposi
 import { partnerOrderRedirectTo } from "../order-navigation";
 import { createPartnerOrderHistoryService, createPartnerOrderService } from "./service-factory";
 import { orderSubmissionFailure } from "./order-action-error";
+import { paymentReturnCookieMaxAgeSeconds, paymentReturnCookieName } from "../../payments/payment-return-access";
+import { createB2bPaymentService, maibConfigurationSummary } from "../../payments/server";
+import type { PaymentInitiationOutcome } from "../../payments";
 
 export async function submitCartOrderAction(
   _state: ActionResult<PartnerOrderSubmissionReceipt | null>,
@@ -22,7 +26,8 @@ export async function submitCartOrderAction(
   const expectedIntentVersion = Number(text(formData, "expectedIntentVersion"));
   const submissionKey = text(formData, "submissionKey");
   const requestedDeliveryDate = text(formData, "requestedDeliveryDate");
-  const paymentMethod = text(formData, "paymentMethod") as CheckoutPaymentMethod;
+  const requestedPaymentMethod = text(formData, "paymentMethod");
+  const paymentMethod = (requestedPaymentMethod === "online" ? "cashless" : requestedPaymentMethod) as CheckoutPaymentMethod;
   const paymentDate = text(formData, "paymentDate");
   const fulfillmentMethod = text(formData, "fulfillmentMethod") as CheckoutFulfillmentMethod;
   const carrierId = text(formData, "carrierId") || null;
@@ -32,11 +37,15 @@ export async function submitCartOrderAction(
     || expectedIntentVersion < 1
     || !submissionKey
     || !requestedDeliveryDate
-    || !["cashless", "cash"].includes(paymentMethod)
+    || !["cashless", "cash", "online"].includes(requestedPaymentMethod)
     || !["pickup", "delivery"].includes(fulfillmentMethod)
     || (fulfillmentMethod === "delivery" && !carrierId)
   ) {
     return invalidInput("Проверьте корзину и дату отгрузки.");
+  }
+  if (requestedPaymentMethod === "online"
+    && (paymentDate !== chisinauBusinessDate() || !maibConfigurationSummary().ready)) {
+    return invalidInput("Онлайн-оплата доступна только для полной оплаты сегодня.");
   }
   try {
     const [userId, notificationLocale] = await Promise.all([
@@ -58,11 +67,43 @@ export async function submitCartOrderAction(
       },
     );
     revalidatePath("/cabinet", "layout"); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet/orders");
+    let redirectTo = partnerOrderRedirectTo(order.id);
+    let paymentInitiationOutcome: PaymentInitiationOutcome | null = null;
+    if (requestedPaymentMethod === "online") {
+      try {
+        const payment = await createB2bPaymentService().initiate({
+          partnerOrderId: order.id,
+          idempotencyKey: submissionKey,
+          locale: notificationLocale,
+        });
+        paymentInitiationOutcome = payment.outcome;
+        const cookieName = payment.paymentAttemptId
+          ? paymentReturnCookieName(payment.paymentAttemptId)
+          : null;
+        if (payment.outcome === "SUCCESS" && payment.checkoutUrl
+          && payment.returnAccessToken && cookieName) {
+          (await cookies()).set(cookieName, payment.returnAccessToken, {
+            httpOnly: true,
+            maxAge: paymentReturnCookieMaxAgeSeconds,
+            path: "/payment/return",
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production",
+          });
+          redirectTo = payment.checkoutUrl;
+        } else {
+          redirectTo = `${partnerOrderRedirectTo(order.id)}&payment=${payment.outcome.toLowerCase()}`;
+        }
+      } catch {
+        paymentInitiationOutcome = "CONFIGURATION_ERROR";
+        redirectTo = `${partnerOrderRedirectTo(order.id)}&payment=configuration_error`;
+      }
+    }
     return success(`Заказ ${order.external1cNumber ?? ""} создан в 1С.`, {
       id: order.id,
       external1cNumber: order.external1cNumber,
-      redirectTo: partnerOrderRedirectTo(order.id),
+      redirectTo,
       status: order.status,
+      paymentInitiationOutcome,
     });
   } catch (error) {
     const failure = orderSubmissionFailure(error) ?? failureFromError(error);
@@ -76,7 +117,7 @@ export async function submitCartOrderAction(
 export type PartnerOrderSubmissionReceipt = Pick<
   PartnerOrder,
   "id" | "external1cNumber" | "status"
-> & { redirectTo: string };
+> & { redirectTo: string; paymentInitiationOutcome?: PaymentInitiationOutcome | null };
 
 export async function listPartnerOrdersAction(): Promise<ActionResult<PartnerOrderSummaryDto[]>> {
   try { return success("Orders loaded.", await createPartnerOrderService().listOwnCompanyOrders(await getAuthenticatedUserId())); }
@@ -208,3 +249,14 @@ export async function reconcilePartnerOrderAction(orderId: string): Promise<Acti
 }
 
 function text(formData: FormData, key: string): string { const value = formData.get(key); return typeof value === "string" ? value.trim() : ""; }
+
+function chisinauBusinessDate(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Europe/Chisinau",
+    year: "numeric",
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}

@@ -42,6 +42,7 @@ export type CartDetailDto = {
     attemptCount: number;
   } | null;
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
+  onlinePaymentPreflightEligible?: boolean;
 };
 
 export type CartEstimateSourceDto = {
@@ -155,6 +156,7 @@ export class DefaultCartService implements CartService {
       submitting: false,
       reconciliationLock: null,
       checkoutOptions: null,
+      onlinePaymentPreflightEligible: false,
     };
     const [items, reconciliation] = await Promise.all([
       this.repository.listItems(cart.id),
@@ -175,6 +177,9 @@ export class DefaultCartService implements CartService {
       const product = liveProduct ?? retainedProductCard(item.productId, item.retainedProduct);
       return product ? [toLine(item.id, item.quantity, product, viewsById.get(item.productId), Boolean(liveProduct))] : [];
     });
+    const checkoutOptions = checkoutConfiguration
+      ? toPartnerCheckoutOptions(checkoutConfiguration)
+      : null;
     return {
       id: cart.id,
       intentVersion: cart.intentVersion,
@@ -209,9 +214,15 @@ export class DefaultCartService implements CartService {
             attemptCount: reconciliation.attemptCount,
           }
         : null,
-      checkoutOptions: checkoutConfiguration
-        ? toPartnerCheckoutOptions(checkoutConfiguration)
-        : null,
+      checkoutOptions,
+      onlinePaymentPreflightEligible: visibility?.canViewPartnerTotals !== false
+        && items.length > 0
+        && checkoutOptions?.paymentMethods.some((method) => method.value === "cashless" && method.enabled) === true
+        && items.every((item) => {
+          const price = viewsById.get(item.productId)?.partnerPrice;
+          return price !== null && price !== undefined
+            && price.amount > 0 && price.currencyCode?.toUpperCase() === "MDL";
+        }),
     };
   }
 

@@ -1,4 +1,4 @@
-import { createMaibReviewPaymentService, createRetailPaymentService, maibReviewProviderEnvironment } from "@/src/modules/payments/server";
+import { createB2bPaymentService, createMaibReviewPaymentService, createRetailPaymentService, maibReviewProviderEnvironment } from "@/src/modules/payments/server";
 import { authenticateMaibCallback } from "@/src/modules/payments/providers/maib/maib-callback-auth";
 import { parseMaibCallback } from "@/src/modules/payments/providers/maib/maib-callback";
 
@@ -43,7 +43,10 @@ export async function POST(request: Request) {
     const paymentService = checkoutChannel === "maib_review"
       ? createMaibReviewPaymentService()
       : createRetailPaymentService();
-    const result = await paymentService.confirmMaibCallback(evidence, checkoutChannel);
+    let result = await paymentService.confirmMaibCallback(evidence, checkoutChannel);
+    if (checkoutChannel === "public" && result.outcome === "UNKNOWN_CHECKOUT") {
+      result = await createB2bPaymentService().confirmMaibCallback(evidence);
+    }
     if (result.outcome === "PAID" || result.outcome === "DUPLICATE" || result.outcome === "NON_PAID") return empty(200);
     if (result.outcome === "PAID_PENDING_ACTIVATION") return empty(503);
     return empty(result.outcome === "UNKNOWN_CHECKOUT" ? 404 : 422);

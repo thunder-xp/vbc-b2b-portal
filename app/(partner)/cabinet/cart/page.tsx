@@ -5,6 +5,7 @@ import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
 import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
+import { maibConfigurationSummary } from "@/src/modules/payments/server";
 import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
 import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
@@ -216,6 +217,8 @@ export default async function CartPage() {
                 intentVersion={cart.intentVersion!}
                 submissionKey={crypto.randomUUID()}
                 checkoutOptions={cart.checkoutOptions}
+                onlinePaymentEnabled={maibConfigurationSummary().ready
+                  && cart.onlinePaymentPreflightEligible === true}
                 reconciliationLocked={cart.reconciliationLock !== null}
               />
             </aside>
