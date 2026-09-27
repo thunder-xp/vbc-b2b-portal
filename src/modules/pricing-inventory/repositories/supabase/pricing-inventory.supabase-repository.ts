@@ -149,6 +149,27 @@ export class SupabasePricingInventoryRepository
     return rows.map((row) => mapCommercialRateRow(row, publishers.get(row.published_by ?? "")));
   }
 
+  async getCommercialRateSyncState(): Promise<import("../../types").CommercialRateSyncState> {
+    const { data, error } = await (await createClient()).rpc("get_commercial_rate_sync_status");
+    if (error || !data || typeof data !== "object") throw new PricingInventoryRepositoryUnexpectedError();
+    const row = data as Record<string, unknown>;
+    const freshnessStatus = row.freshnessStatus;
+    if (!["FRESH", "STALE", "FAILED", "NEVER_SYNCED"].includes(String(freshnessStatus))) {
+      throw new PricingInventoryRepositoryUnexpectedError();
+    }
+    return {
+      freshnessStatus: freshnessStatus as import("../../types").CommercialRateSyncState["freshnessStatus"],
+      lastAttemptAt: optionalText(row.last_attempt_at),
+      lastSuccessAt: optionalText(row.last_success_at),
+      lastSourceCheckedAt: optionalText(row.last_source_checked_at),
+      lastPublishedAt: optionalText(row.last_published_at),
+      lastResult: ["PUBLISHED", "NO_OP", "FAILED", "RUNNING"].includes(String(row.last_result))
+        ? row.last_result as import("../../types").CommercialRateSyncState["lastResult"] : null,
+      lastErrorCode: optionalText(row.last_error_code),
+      consecutiveFailures: Number(row.consecutive_failures ?? 0),
+    };
+  }
+
   async canManageCommercialRates(): Promise<boolean> {
     const { data, error } = await (await createClient()).rpc("can_manage_commercial_rates");
     if (error) throw new PricingInventoryRepositoryUnexpectedError();
@@ -498,10 +519,12 @@ function uniqueProductIds(rows: Array<{ product_id: string }>): string[] {
   return [...new Set(rows.map((row) => row.product_id).filter(Boolean))];
 }
 
-const COMMERCIAL_RATE_COLUMNS = "id,purpose,rate,effective_at,published_at,published_by,source_type,source_note,evidence_comment,previous_rate_id,is_active";
+const COMMERCIAL_RATE_COLUMNS = "id,source_code,source_ref,purpose,rate,effective_at,published_at,published_by,source_type,source_note,evidence_comment,previous_rate_id,is_active,source_currency_ref,source_symbolic_code,source_raw_rate,source_multiplicity,source_data_version,source_checked_at";
 
 type CommercialRateRow = {
   id: string;
+  source_code: string;
+  source_ref: string | null;
   purpose: string;
   rate: number | string;
   effective_at: string;
@@ -512,6 +535,12 @@ type CommercialRateRow = {
   evidence_comment: string | null;
   previous_rate_id: string | null;
   is_active: boolean;
+  source_currency_ref: string | null;
+  source_symbolic_code: string | null;
+  source_raw_rate: number | string | null;
+  source_multiplicity: number | string | null;
+  source_data_version: string | null;
+  source_checked_at: string | null;
 };
 
 type CommercialRateVerificationRow = {
@@ -546,7 +575,9 @@ function mapCommercialRateRow(
     throw new PricingInventoryRepositoryUnexpectedError();
   }
   const rate = Number(row.rate);
-  if (!Number.isFinite(rate) || rate <= 0 || row.source_type !== "manual_from_1c" || !row.published_by) {
+  if (!Number.isFinite(rate) || rate <= 0
+    || !["manual_from_1c", "one_c_automatic"].includes(row.source_type)
+    || (row.source_type === "manual_from_1c" && !row.published_by)) {
     throw new PricingInventoryRepositoryUnexpectedError();
   }
   return {
@@ -558,10 +589,21 @@ function mapCommercialRateRow(
     publishedBy: row.published_by,
     publisherName: publisher?.fullName ?? null,
     publisherEmail: publisher?.email ?? null,
-    sourceType: "manual_from_1c",
+    sourceType: row.source_type as CommercialRate["sourceType"],
     sourceNote: row.source_note,
     evidenceComment: row.evidence_comment,
     previousRateId: row.previous_rate_id,
     isActive: row.is_active,
+    sourceCurrencyRef: row.source_currency_ref ?? row.source_ref,
+    sourceCode: row.source_code?.split(":")[0] ?? null,
+    sourceSymbolicCode: row.source_symbolic_code,
+    sourceRawRate: row.source_raw_rate === null ? null : Number(row.source_raw_rate),
+    sourceMultiplicity: row.source_multiplicity === null ? null : Number(row.source_multiplicity),
+    sourceDataVersion: row.source_data_version,
+    sourceCheckedAt: row.source_checked_at,
   };
+}
+
+function optionalText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
 }

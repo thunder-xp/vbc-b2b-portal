@@ -884,6 +884,25 @@ describe("DefaultPartnerOrderService", () => {
       dependencies.service.getReconciliationState("user-1", "order-1"),
     ).rejects.toThrow("Order was not found.");
   });
+
+  it("requires the partner to review a cart repriced by a targeted rate refresh", async () => {
+    const dependencies = makeDependencies();
+    dependencies.commercialRateCheckoutGuard.ensureFresh.mockResolvedValue({
+      retailRateId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      checkedAt: new Date().toISOString(),
+      refreshed: true,
+    });
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+    expect(dependencies.pricingService.getAuthoritativeOrderPricing).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before export when authoritative rate freshness cannot be proven", async () => {
+    const dependencies = makeDependencies();
+    dependencies.commercialRateCheckoutGuard.ensureFresh.mockRejectedValue(Object.assign(new Error("unavailable"), { correlationId: "rate-correlation" }));
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_REFRESH_FAILED", correlationId: "rate-correlation" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
 });
 
 function makeDependencies(options: {
@@ -934,8 +953,9 @@ function makeDependencies(options: {
   };
   const orderProvider = { exportSalesOrder: vi.fn().mockResolvedValue(exportResult()), findExportedSalesOrders: vi.fn() };
   const priceRefreshService = { refresh: vi.fn().mockResolvedValue({ verifiedAt: new Date().toISOString(), productCount: 1, providerRequestCount: 1, deduplicated: false, durationMs: 25 }) };
-  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options, priceRefreshService, checkoutConfigurationRepository as never);
-  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, checkoutConfigurationRepository, permissionService, company };
+  const commercialRateCheckoutGuard = { ensureFresh: vi.fn().mockResolvedValue({ retailRateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", checkedAt: new Date().toISOString(), refreshed: false }) };
+  const service = new DefaultPartnerOrderService(cartRepository as never, orderRepository as never, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never, partnerProvider as never, orderProvider as never, options, priceRefreshService, checkoutConfigurationRepository as never, commercialRateCheckoutGuard);
+  return { service, cartRepository, orderRepository, catalogService, pricingService, partnerProvider, orderProvider, priceRefreshService, checkoutConfigurationRepository, commercialRateCheckoutGuard, permissionService, company };
 }
 
 function checkoutConfiguration() {
@@ -974,6 +994,7 @@ function input() {
     cartId: "44444444-4444-4444-8444-444444444444",
     expectedIntentVersion: 7,
     submissionKey: SUBMISSION_KEY,
+    expectedCommercialRateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     requestedDeliveryDate: "2099-01-10",
     paymentMethod: "cashless" as const,
     paymentDate: "2099-01-09",

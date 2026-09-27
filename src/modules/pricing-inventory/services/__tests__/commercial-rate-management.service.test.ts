@@ -65,6 +65,22 @@ describe("CommercialRateManagementService", () => {
     expect(view.rates[0]?.verificationStatus).toBe("DIFFERS_FROM_1C");
   });
 
+  it("reserves MATCHES_1C for an active automatic 1C publication", async () => {
+    const manualMatch = verificationRow({ observed1cRate: 17.5876 });
+    const manualRepository = createRepository([
+      rate("partner-manual", "partner_price_usd_to_mdl", 17.5876, true),
+    ], [manualMatch]);
+    const automaticRepository = createRepository([
+      rate("partner-auto", "partner_price_usd_to_mdl", 17.5876, true, null, "one_c_automatic"),
+    ]);
+
+    const manual = await new CommercialRateManagementService(manualRepository, profiles(UserType.Admin)).getAdminView("admin-1");
+    const automatic = await new CommercialRateManagementService(automaticRepository, profiles(UserType.Admin)).getAdminView("admin-1");
+
+    expect(manual.rates[0]?.verificationStatus).toBe("VERIFIED_NO_CHANGE_REQUIRED");
+    expect(automatic.rates[0]?.verificationStatus).toBe("MATCHES_1C");
+  });
+
   it("keeps verify-only and publish-observed commands separate", async () => {
     const repository = createRepository();
     const service = new CommercialRateManagementService(repository, profiles(UserType.Admin));
@@ -138,8 +154,8 @@ function input(overrides: Partial<PublishCommercialRateInput> = {}): PublishComm
   return { purpose: "partner_price_usd_to_mdl", rate: "17.7712", effectiveDate: "2026-07-18", sourceNote: "Курс скопирован из 1С", evidenceComment: null, ...overrides };
 }
 
-function rate(id: string, purpose: CommercialRate["purpose"], value: number, isActive: boolean, previousRateId: string | null = null): CommercialRate {
-  return { id, purpose, rate: value, effectiveAt: "2026-07-18T00:00:00Z", publishedAt: "2026-07-18T09:00:00Z", publishedBy: "server-user", publisherName: "Manager", publisherEmail: null, sourceType: "manual_from_1c", sourceNote: "1C", evidenceComment: null, previousRateId, isActive };
+function rate(id: string, purpose: CommercialRate["purpose"], value: number, isActive: boolean, previousRateId: string | null = null, sourceType: CommercialRate["sourceType"] = "manual_from_1c"): CommercialRate {
+  return { id, purpose, rate: value, effectiveAt: "2026-07-18T00:00:00Z", publishedAt: "2026-07-18T09:00:00Z", publishedBy: sourceType === "one_c_automatic" ? null : "server-user", publisherName: sourceType === "one_c_automatic" ? null : "Manager", publisherEmail: null, sourceType, sourceNote: "1C", evidenceComment: null, previousRateId, isActive };
 }
 
 function createRepository(history: CommercialRate[] = [], verifications: CommercialRateVerification[] = []) {
@@ -148,6 +164,7 @@ function createRepository(history: CommercialRate[] = [], verifications: Commerc
     canManageCommercialRates: vi.fn(async () => true),
     listCommercialRateHistory: vi.fn(async () => history),
     listCommercialRateVerifications: vi.fn(async () => verifications),
+    getCommercialRateSyncState: vi.fn(async () => ({ freshnessStatus: "FRESH" as const, lastAttemptAt: "2026-09-27T10:00:00Z", lastSuccessAt: "2026-09-27T10:00:00Z", lastSourceCheckedAt: "2026-09-27T10:00:00Z", lastPublishedAt: "2026-09-27T10:00:00Z", lastResult: "NO_OP" as const, lastErrorCode: null, consecutiveFailures: 0 })),
     publishManualCommercialRate: vi.fn(async (value: PublishCommercialRateInput) => rate("new-rate", value.purpose, Number(value.rate), true)),
     saveManualCommercialRateVerification: vi.fn(async () => ({ verification, verificationOutcome: "saved" as const })),
     publishVerifiedCommercialRate: vi.fn(async () => ({ verification, verificationOutcome: "saved" as const, publicationOutcome: "published" as const })),

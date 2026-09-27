@@ -25,7 +25,7 @@ vi.mock("@/src/modules/integration/services", () => ({
 vi.mock("@/src/modules/orders/actions/service-factory", () => ({
   createPartnerOrderHistoryAutomationService: () => ({ refreshActiveOrders: mocks.refreshActive, refreshCompanyHistories: mocks.refreshHistories }),
 }));
-vi.mock("@/src/lib/env", () => ({ getOneCEnv: () => ({}) }));
+vi.mock("@/src/lib/env", () => ({ getOneCEnv: () => ({}), getOneCCommercialRatesEnv: () => ({}) }));
 
 import { GET as currencyCron } from "../commercial-rate/route";
 import { GET as stockCron } from "../stock-sync-start/route";
@@ -40,7 +40,7 @@ describe("commercial freshness cron routes", () => {
     mocks.acquire.mockResolvedValue("acquired");
     mocks.release.mockResolvedValue(undefined);
     mocks.stockStart.mockResolvedValue({ started: true, state: { activeSyncId: "sync-1" } });
-    mocks.exchangeSync.mockResolvedValue({ sourceDocumentDate: "2026-07-15T00:00:00Z" });
+    mocks.exchangeSync.mockResolvedValue({ outcome: "no_op", publishedCount: 0, checkedAt: "2026-09-27T10:00:00Z", rates: [] });
     mocks.refreshActive.mockResolvedValue({ received: 0 });
     mocks.refreshHistories.mockResolvedValue({ companies: 0, completed: 0, skipped: 0, failed: 0 });
   });

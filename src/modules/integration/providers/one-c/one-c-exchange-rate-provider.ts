@@ -1,92 +1,127 @@
-import { IntegrationValidationError } from "../../errors";
-import { getOneCODataErrorResponseBody, OneCODataClient } from "./one-c-odata-client";
+import Decimal from "decimal.js";
 
-export const ONE_C_BCRU_CODE = "113";
-export const ONE_C_BCRU_REF = "d5303dea-f2f5-11ec-4f83-7239d3b7bd5c";
-export const ONE_C_USD_REF = "00b49bb3-63d6-11e8-80d2-000c29a58b59";
-export const ONE_C_BCRU_MARKUP_PERCENT = -1.03;
-export const ONE_C_EXCHANGE_RATE_DOCUMENT = "Document_ПриходнаяНакладная" as const;
+import type { OneCCommercialRatesEnv } from "@/src/lib/env";
+import { IntegrationTimeoutError, IntegrationValidationError } from "../../errors";
 
-const DOCUMENT_FIELDS = ["Date", "Number", "Posted", "DeletionMark", "ВалютаДокумента_Key", "Курс", "Кратность"].join(",");
+export const ONE_C_COMMERCIAL_RATE_SOURCE = "РегистрСведений.КурсыВалют" as const;
+export const ONE_C_BCRU_CODE = "113" as const;
+export const ONE_C_RETAIL_CODE = "999" as const;
+export const ONE_C_BCRU_REF = "d5303dea-f2f5-11ec-4f83-7239d3b7bd5c" as const;
+export const ONE_C_RETAIL_REF = "94f0e33e-45d7-11ea-8111-000c29cf9dd4" as const;
 
-export type OneCExchangeRateDocumentSource = typeof ONE_C_EXCHANGE_RATE_DOCUMENT;
-export type OneCExchangeRateCandidate = { source: OneCExchangeRateDocumentSource; documentDate: string; mdlPerUsdRate: number };
-export interface ExchangeRateProvider { fetchLatestUsdRate(): Promise<OneCExchangeRateCandidate | null>; }
+export type CommercialRatePurpose = "partner_price_usd_to_mdl" | "retail_price_usd_to_mdl";
+export type CommercialRateSourceDTO = {
+  purpose: CommercialRatePurpose;
+  currencyReference: string;
+  code: "113" | "999";
+  symbolicCode: string;
+  rate: string;
+  multiplicity: string;
+  normalizedRate: string;
+  effectiveAt: string;
+  dataVersion: string;
+};
+export type OneCCommercialRateSnapshot = { generatedAt: string; rates: [CommercialRateSourceDTO, CommercialRateSourceDTO] };
+export interface ExchangeRateProvider { fetchCommercialRates(): Promise<OneCCommercialRateSnapshot>; }
 
 export class OneCExchangeRateSourceError extends Error {
-  constructor(readonly source: OneCExchangeRateDocumentSource, cause: unknown) {
-    super(`1C exchange-rate source failed: ${source}.`, { cause });
+  constructor(readonly category: "AUTH" | "TIMEOUT" | "HTTP" | "INVALID_RESPONSE", cause?: unknown) {
+    super(`1C commercial-rate source failed: ${category}.`, { cause });
     this.name = "OneCExchangeRateSourceError";
   }
 }
 
 export class OneCExchangeRateProvider implements ExchangeRateProvider {
-  private readonly client: OneCODataClient;
-
   constructor(
-    config: { baseUrl: string | null; username: string | null; password: string | null; requestTimeoutMs: number },
+    private readonly config: OneCCommercialRatesEnv,
     private readonly now: () => Date = () => new Date(),
-  ) {
-    this.client = new OneCODataClient(config);
-  }
+    private readonly fetcher: typeof fetch = fetch,
+  ) {}
 
-  async fetchLatestUsdRate(): Promise<OneCExchangeRateCandidate | null> {
-    return this.fetchLatestFromSource(ONE_C_EXCHANGE_RATE_DOCUMENT, this.now().getTime());
-  }
-
-  private async fetchLatestFromSource(source: OneCExchangeRateDocumentSource, currentTime: number): Promise<OneCExchangeRateCandidate | null> {
+  async fetchCommercialRates(): Promise<OneCCommercialRateSnapshot> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.config.requestTimeoutMs);
     try {
-      const payload = await this.client.get(source, {
-        $select: DOCUMENT_FIELDS,
-        $orderby: "Date desc",
-        $top: "100",
-      }, { requestKind: "exchange_rate_document_query" });
-      if (!isRecord(payload) || !Array.isArray(payload.value)) throw new IntegrationValidationError("1C exchange-rate document response is invalid.");
-      const selected = payload.value
-        .map((value) => mapCandidate(source, value, currentTime))
-        .filter((candidate): candidate is RankedExchangeRateCandidate => candidate !== null)
-        .sort((left, right) => right.documentTimestamp - left.documentTimestamp)[0];
-      if (!selected) return null;
-      const { documentTimestamp: _documentTimestamp, ...candidate } = selected;
-      return candidate;
+      const response = await this.fetcher(this.config.endpointUrl, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Basic ${Buffer.from(`${this.config.username}:${this.config.password}`, "utf8").toString("base64")}`,
+        },
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new OneCExchangeRateSourceError(response.status === 401 || response.status === 403 ? "AUTH" : "HTTP");
+      }
+      return parseCommercialRatePayload(await response.json(), this.now());
     } catch (error) {
-      throw new OneCExchangeRateSourceError(source, error);
+      if (error instanceof OneCExchangeRateSourceError) throw error;
+      if (error instanceof IntegrationValidationError) throw new OneCExchangeRateSourceError("INVALID_RESPONSE", error);
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new OneCExchangeRateSourceError("TIMEOUT", new IntegrationTimeoutError("1C commercial-rate request timed out."));
+      }
+      throw new OneCExchangeRateSourceError("HTTP", error);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 }
 
-export function getOneCExchangeRateFailureDetails(error: unknown): { source: string | null; responseBody: string | null } {
-  let current: unknown = error;
-  let source: string | null = null;
-  const visited = new Set<unknown>();
-
-  while (current && typeof current === "object" && !visited.has(current)) {
-    visited.add(current);
-    if (!source && current instanceof OneCExchangeRateSourceError) source = current.source;
-    current = "cause" in current ? current.cause : null;
+export function parseCommercialRatePayload(payload: unknown, now = new Date()): OneCCommercialRateSnapshot {
+  if (!isRecord(payload) || typeof payload.generatedAt !== "string" || !Array.isArray(payload.rates)) {
+    throw new IntegrationValidationError("1C commercial-rate response is invalid.");
   }
-
-  return { source, responseBody: getOneCODataErrorResponseBody(error) };
-}
-
-type RankedExchangeRateCandidate = OneCExchangeRateCandidate & { documentTimestamp: number };
-
-function mapCandidate(source: OneCExchangeRateDocumentSource, value: unknown, currentTime: number): RankedExchangeRateCandidate | null {
-  if (!isRecord(value) || value.Posted !== true || value.DeletionMark !== false || value["ВалютаДокумента_Key"] !== ONE_C_USD_REF) {
-    return null;
+  const generatedAt = validTimestamp(payload.generatedAt, now, "generatedAt");
+  const rates = payload.rates.map((value) => parseRate(value, now));
+  if (rates.length !== 2 || new Set(rates.map((rate) => rate.code)).size !== 2
+    || !rates.some((rate) => rate.code === ONE_C_BCRU_CODE)
+    || !rates.some((rate) => rate.code === ONE_C_RETAIL_CODE)) {
+    throw new IntegrationValidationError("1C must return exact commercial-rate codes 113 and 999.");
   }
-  const rate = positiveNumber(value["Курс"]);
-  const multiplicity = positiveNumber(value["Кратность"]);
-  if (typeof value.Date !== "string") return null;
-  const documentTimestamp = new Date(value.Date).getTime();
-  if (rate === null || multiplicity === null || !Number.isFinite(documentTimestamp) || documentTimestamp > currentTime) return null;
-  return { source, documentDate: value.Date, documentTimestamp, mdlPerUsdRate: rate / multiplicity };
+  rates.sort((left, right) => left.code.localeCompare(right.code));
+  return { generatedAt, rates: rates as [CommercialRateSourceDTO, CommercialRateSourceDTO] };
 }
 
-function positiveNumber(value: unknown): number | null {
-  const parsed = typeof value === "number" || typeof value === "string"
-    ? Number(value)
-    : Number.NaN;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+function parseRate(value: unknown, now: Date): CommercialRateSourceDTO {
+  if (!isRecord(value)) throw new IntegrationValidationError("1C commercial-rate item is invalid.");
+  const code = value.code === ONE_C_BCRU_CODE || value.code === ONE_C_RETAIL_CODE ? value.code : null;
+  if (!code) throw new IntegrationValidationError("Unsupported 1C commercial-rate code.");
+  const expected = code === ONE_C_BCRU_CODE
+    ? { purpose: "partner_price_usd_to_mdl" as const, reference: ONE_C_BCRU_REF, symbol: "BCRU" }
+    : { purpose: "retail_price_usd_to_mdl" as const, reference: ONE_C_RETAIL_REF, symbol: "BCR" };
+  const currencyReference = text(value.currencyRef ?? value.currencyReference);
+  const symbolicCode = text(value.symbolicCode);
+  const rate = decimalText(value.rate);
+  const multiplicity = decimalText(value.multiplicity);
+  const normalizedRate = decimalText(value.normalizedRate);
+  const dataVersion = text(value.dataVersion);
+  if (currencyReference.toLowerCase() !== expected.reference || symbolicCode.toUpperCase() !== expected.symbol
+    || !dataVersion || dataVersion.length > 256
+    || !new Decimal(rate).div(multiplicity).toDecimalPlaces(8).equals(new Decimal(normalizedRate))) {
+    throw new IntegrationValidationError(`1C commercial-rate evidence for ${code} is inconsistent.`);
+  }
+  return {
+    purpose: expected.purpose, currencyReference, code, symbolicCode, rate, multiplicity, normalizedRate,
+    effectiveAt: validTimestamp(value.effectiveAt, now, "effectiveAt"), dataVersion,
+  };
 }
+
+function decimalText(value: unknown): string {
+  const raw = typeof value === "string" || typeof value === "number" ? String(value) : "";
+  try {
+    const parsed = new Decimal(raw);
+    if (!parsed.isFinite() || parsed.lte(0) || parsed.decimalPlaces() > 8) throw new Error();
+    return parsed.toFixed(parsed.decimalPlaces());
+  } catch { throw new IntegrationValidationError("1C commercial-rate numeric value is invalid."); }
+}
+function validTimestamp(value: unknown, now: Date, field: string): string {
+  if (typeof value !== "string") throw new IntegrationValidationError(`1C ${field} is invalid.`);
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp) || timestamp > now.getTime() + 5 * 60_000) {
+    throw new IntegrationValidationError(`1C ${field} is invalid.`);
+  }
+  return value;
+}
+function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }

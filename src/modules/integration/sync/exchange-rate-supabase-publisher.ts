@@ -1,46 +1,51 @@
 import { createAdminClient } from "@/src/lib/supabase/admin";
 
-import { ONE_C_USD_REF, type OneCExchangeRateDocumentSource } from "../providers/one-c";
-import type { ExchangeRatePublisher, PublishedExchangeRate } from "./exchange-rate-sync";
+import type { OneCCommercialRateSnapshot } from "../providers/one-c";
+import type { CommercialRateSyncResult, ExchangeRatePublisher } from "./exchange-rate-sync";
 
 export class SupabaseExchangeRatePublisher implements ExchangeRatePublisher {
-  async publish(input: Omit<PublishedExchangeRate, "id" | "publishedAt">): Promise<PublishedExchangeRate> {
-    const { data, error } = await createAdminClient().rpc("publish_commercial_exchange_rate", {
-      p_source_code: input.sourceCode,
-      p_source_ref: input.sourceRef,
-      p_base_currency_ref: ONE_C_USD_REF,
-      p_source_document_type: input.sourceDocumentType,
-      p_source_document_date: input.sourceDocumentDate,
-      p_source_mdl_per_usd_rate: input.usdMdlRate,
-      p_markup_percent: input.markupPercent,
-      p_bcru_mdl_per_usd_rate: input.bcruMdlPerUsdRate,
+  async start(correlationId: string, attemptedAt: string): Promise<void> {
+    const { error } = await createAdminClient().rpc("start_automatic_commercial_rate_sync", {
+      p_correlation_id: correlationId,
+      p_attempted_at: attemptedAt,
     });
-    if (error || !isPublishedRow(data)) throw new Error("Exchange-rate publication failed.");
-    return {
-      id: data.id,
-      sourceCode: "113",
-      sourceRef: data.source_ref,
-      sourceDocumentType: data.source_document_type as OneCExchangeRateDocumentSource,
-      sourceDocumentDate: data.source_document_date,
-      usdMdlRate: Number(data.source_mdl_per_usd_rate),
-      bcruMdlPerUsdRate: Number(data.rate),
-      markupPercent: Number(data.markup_percent),
-      publishedAt: data.published_at,
-    };
+    if (error) throw new Error("Commercial-rate sync state could not be started.");
+  }
+
+  async publish(snapshot: OneCCommercialRateSnapshot, correlationId: string): Promise<CommercialRateSyncResult> {
+    const { data, error } = await createAdminClient().rpc("publish_automatic_commercial_rates", {
+      p_rates: snapshot.rates.map((rate) => ({
+        purpose: rate.purpose,
+        currency_ref: rate.currencyReference,
+        code: rate.code,
+        symbolic_code: rate.symbolicCode,
+        raw_rate: rate.rate,
+        multiplicity: rate.multiplicity,
+        normalized_rate: rate.normalizedRate,
+        effective_at: rate.effectiveAt,
+        data_version: rate.dataVersion,
+      })),
+      p_checked_at: snapshot.generatedAt,
+      p_correlation_id: correlationId,
+    });
+    if (error || !isSyncResult(data)) throw new Error("Automatic commercial-rate publication failed.");
+    return data;
+  }
+
+  async fail(correlationId: string, errorCode: string, failedAt: string): Promise<void> {
+    const { error } = await createAdminClient().rpc("fail_automatic_commercial_rate_sync", {
+      p_correlation_id: correlationId,
+      p_error_code: errorCode,
+      p_failed_at: failedAt,
+    });
+    if (error) throw new Error("Commercial-rate failure state could not be recorded.");
   }
 }
 
-type PublishedRow = {
-  id: string;
-  source_ref: string;
-  source_document_type: string;
-  source_document_date: string;
-  source_mdl_per_usd_rate: number | string;
-  rate: number | string;
-  markup_percent: number | string;
-  published_at: string;
-};
-
-function isPublishedRow(value: unknown): value is PublishedRow {
-  return typeof value === "object" && value !== null && "id" in value && typeof value.id === "string";
+function isSyncResult(value: unknown): value is CommercialRateSyncResult {
+  return typeof value === "object" && value !== null
+    && "outcome" in value && (value.outcome === "published" || value.outcome === "no_op")
+    && "publishedCount" in value && Number.isInteger(value.publishedCount)
+    && "checkedAt" in value && typeof value.checkedAt === "string"
+    && "rates" in value && Array.isArray(value.rates);
 }

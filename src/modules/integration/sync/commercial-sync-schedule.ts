@@ -1,9 +1,9 @@
 export const COMMERCIAL_SYNC_SCHEDULES = {
   rates: {
     path: "/api/cron/commercial-rate",
-    cron: "15 22 * * *",
-    chisinauSummer: "01:15",
-    chisinauWinter: "00:15",
+    cron: "*/5 * * * *",
+    chisinauSummer: "every 5 minutes",
+    chisinauWinter: "every 5 minutes",
   },
   prices: {
     path: "/api/cron/price-sync-start",
@@ -26,7 +26,7 @@ export const COMMERCIAL_SYNC_SCHEDULES = {
 } as const;
 
 export const COMMERCIAL_FRESHNESS_STALE_AFTER_HOURS = {
-  rates: 26,
+  rates: 0.1667,
   prices: 26,
   stock: 5,
   arrivals: 26,

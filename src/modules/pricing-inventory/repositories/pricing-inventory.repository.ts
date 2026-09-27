@@ -78,6 +78,7 @@ export interface PricingInventoryRepository {
   getActiveCommercialRateSnapshot?(): Promise<CommercialRateSnapshot>;
   getAuthoritativeCommercialRateSnapshot?(): Promise<CommercialRateSnapshot>;
   listCommercialRateHistory?(limit: number): Promise<CommercialRate[]>;
+  getCommercialRateSyncState?(): Promise<import("../types").CommercialRateSyncState>;
   canManageCommercialRates?(): Promise<boolean>;
   publishManualCommercialRate?(input: PublishCommercialRateInput): Promise<CommercialRate>;
   listCommercialRateVerifications?(limit: number): Promise<CommercialRateVerification[]>;

@@ -1,45 +1,33 @@
-import { IntegrationValidationError } from "../errors";
-import {
-  ONE_C_BCRU_CODE,
-  ONE_C_BCRU_MARKUP_PERCENT,
-  ONE_C_BCRU_REF,
-  ONE_C_USD_REF,
-  type ExchangeRateProvider,
-  type OneCExchangeRateDocumentSource,
-} from "../providers/one-c";
+import type { ExchangeRateProvider, OneCCommercialRateSnapshot } from "../providers/one-c";
 
-export type PublishedExchangeRate = {
-  id: string;
-  sourceCode: "113";
-  sourceRef: string;
-  sourceDocumentType: OneCExchangeRateDocumentSource;
-  sourceDocumentDate: string;
-  usdMdlRate: number;
-  bcruMdlPerUsdRate: number;
-  markupPercent: number;
-  publishedAt: string;
+export type CommercialRateSyncResult = {
+  outcome: "published" | "no_op";
+  publishedCount: number;
+  checkedAt: string;
+  rates: Array<{ id: string; purpose: string; rate: number; source_data_version: string }>;
 };
 
 export interface ExchangeRatePublisher {
-  publish(input: Omit<PublishedExchangeRate, "id" | "publishedAt">): Promise<PublishedExchangeRate>;
+  start(correlationId: string, attemptedAt: string): Promise<void>;
+  publish(snapshot: OneCCommercialRateSnapshot, correlationId: string): Promise<CommercialRateSyncResult>;
+  fail(correlationId: string, errorCode: string, failedAt: string): Promise<void>;
 }
 
 export class ExchangeRateSyncService {
   constructor(private readonly provider: ExchangeRateProvider, private readonly publisher: ExchangeRatePublisher) {}
 
-  async sync(): Promise<PublishedExchangeRate> {
-    const candidate = await this.provider.fetchLatestUsdRate();
-    if (!candidate) throw new IntegrationValidationError("No valid current USD document rate was found in 1C.");
-    const bcruMdlPerUsdRate = candidate.mdlPerUsdRate * (1 + ONE_C_BCRU_MARKUP_PERCENT / 100);
-    if (!Number.isFinite(bcruMdlPerUsdRate) || bcruMdlPerUsdRate <= 0) throw new IntegrationValidationError("Calculated BCRU rate is invalid.");
-    return this.publisher.publish({
-      sourceCode: ONE_C_BCRU_CODE,
-      sourceRef: ONE_C_BCRU_REF,
-      sourceDocumentType: candidate.source,
-      sourceDocumentDate: candidate.documentDate,
-      usdMdlRate: candidate.mdlPerUsdRate,
-      bcruMdlPerUsdRate,
-      markupPercent: ONE_C_BCRU_MARKUP_PERCENT,
-    });
+  async sync(correlationId = crypto.randomUUID()): Promise<CommercialRateSyncResult> {
+    const attemptedAt = new Date().toISOString();
+    await this.publisher.start(correlationId, attemptedAt);
+    try {
+      const snapshot = await this.provider.fetchCommercialRates();
+      return await this.publisher.publish(snapshot, correlationId);
+    } catch (error) {
+      const errorCode = error instanceof Error && "category" in error && typeof error.category === "string"
+        ? `ONE_C_${error.category}`
+        : "COMMERCIAL_RATE_SYNC_FAILED";
+      try { await this.publisher.fail(correlationId, errorCode, new Date().toISOString()); } catch { /* preserve source failure */ }
+      throw error;
+    }
   }
 }

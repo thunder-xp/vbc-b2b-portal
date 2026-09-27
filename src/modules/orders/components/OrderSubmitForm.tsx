@@ -35,6 +35,7 @@ export function OrderSubmitForm({
   intentVersion,
   submissionKey,
   checkoutOptions,
+  commercialRateId,
   onlinePaymentEnabled = false,
   reconciliationLocked = false,
 }: {
@@ -42,6 +43,7 @@ export function OrderSubmitForm({
   intentVersion?: number;
   submissionKey: string;
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
+  commercialRateId?: string | null;
   onlinePaymentEnabled?: boolean;
   reconciliationLocked?: boolean;
 }) {
@@ -104,6 +106,7 @@ export function OrderSubmitForm({
           if (result.errorCode === "ORDER_CART_VERSION_CONFLICT") {
             router.refresh();
           }
+          if (result.errorCode === "ORDER_PRICE_CHANGED") router.refresh();
           if (isReconciliationPendingFailure(result.errorCode)) {
             router.refresh();
           }
@@ -188,6 +191,7 @@ export function OrderSubmitForm({
         type="hidden"
         value={currentSubmissionKey}
       />
+      <input name="expectedCommercialRateId" type="hidden" value={commercialRateId ?? ""} />
       <CheckoutStep
         copy={copy}
         label={copy.paymentMethod}

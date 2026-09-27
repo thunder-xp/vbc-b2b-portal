@@ -25,6 +25,7 @@ export async function submitCartOrderAction(
   const cartId = text(formData, "cartId");
   const expectedIntentVersion = Number(text(formData, "expectedIntentVersion"));
   const submissionKey = text(formData, "submissionKey");
+  const expectedCommercialRateId = text(formData, "expectedCommercialRateId") || null;
   const requestedDeliveryDate = text(formData, "requestedDeliveryDate");
   const requestedPaymentMethod = text(formData, "paymentMethod");
   const paymentMethod = (requestedPaymentMethod === "online" ? "cashless" : requestedPaymentMethod) as CheckoutPaymentMethod;
@@ -58,6 +59,7 @@ export async function submitCartOrderAction(
         cartId,
         expectedIntentVersion,
         submissionKey,
+        expectedCommercialRateId,
         requestedDeliveryDate,
         paymentMethod,
         paymentDate,

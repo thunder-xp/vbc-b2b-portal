@@ -6,21 +6,24 @@ const panel = readFileSync(resolve(process.cwd(), "src/modules/pricing-inventory
 const action = readFileSync(resolve(process.cwd(), "src/modules/pricing-inventory/actions/commercial-rate.actions.ts"), "utf8");
 const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260901175950_commercial_rate_manual_verification.sql"), "utf8");
 
-describe("commercial-rate manual verification", () => {
-  it("uses truthful copy and renders every verification state", () => {
-    expect(panel).toContain("Коммерческие курсы проверяются вручную по данным 1С");
-    expect(panel).not.toContain("Свежесть");
+describe("automatic commercial-rate administration", () => {
+  it("identifies 1C as the automatic source and exposes durable freshness", () => {
+    expect(panel).toContain("Источник: 1С — автоматически");
+    expect(panel).toContain("каждые 5 минут");
+    expect(panel).toContain("Последняя проверка источника");
+    expect(panel).toContain("Последняя публикация");
     for (const label of ["Не проверено", "Соответствует 1С", "Не соответствует 1С", "Проверено вручную, изменений не требуется"]) expect(panel).toContain(label);
   });
 
-  it("shows a prominent live comparison and one governed control action", () => {
-    for (const label of ["Портал", "Наблюдаемый курс 1С", "Разница", "Проверка 1С", "Проверил", "Статус"]) expect(panel).toContain(label);
+  it("keeps the single manual control behind an emergency-only disclosure", () => {
+    for (const label of ["Курс 1С", "Портал", "Код", "Источник", "Дата курса", "Состояние", "Аварийная ручная публикация"]) expect(panel).toContain(label);
     expect(panel).toContain("Применить значение 1С");
     expect(panel).toContain("Перепроверить данные");
     expect(panel).not.toContain("Проверить и сохранить контроль");
     expect(panel).not.toContain("Опубликовать значение из 1С");
     expect(panel.match(/type="submit"/g)).toHaveLength(1);
     expect(panel).toContain('name="intent" type="hidden" value="publish"');
+    expect(panel).toContain('rate.sourceType === "one_c_automatic" ? "1С — автоматически"');
   });
 
   it("keeps verification and publication histories separate", () => {

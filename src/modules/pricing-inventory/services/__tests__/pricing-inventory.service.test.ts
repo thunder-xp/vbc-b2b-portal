@@ -202,6 +202,29 @@ describe("DefaultPricingInventoryService", () => {
     expect(repository.lastPriceInputs).toHaveLength(2);
   });
 
+  it("prices NSUU-002724 / SKU 800147 at 2,140 MDL with the authoritative RTL 999 rate", async () => {
+    const service = new DefaultPricingInventoryService(
+      new FakePricingInventoryRepository([
+        makePrice(null, 118.8, goldPriceType, "USD"),
+      ], [], [], 17.5876, 18.0105),
+      new FakeCompanyAccessService(),
+      new FakePermissionService(),
+    );
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerCheckoutPriceMdl).toMatchObject({
+      amount: 2140,
+      conversionEvidence: {
+        sourceAmount: 118.8,
+        appliedRate: 18.0105,
+        ratePurpose: "retail_price_usd_to_mdl",
+        resultingAmount: 2140,
+      },
+    });
+    expect(result.partnerCheckoutPriceMdl?.amount).not.toBe(2110);
+  });
+
   it("rounds the partner conversion while preserving the governed RETAIL amount", async () => {
     const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
       makePrice(null, 1, goldPriceType, "USD"),

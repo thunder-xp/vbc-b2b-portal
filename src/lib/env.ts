@@ -29,6 +29,13 @@ export type OneCEnv = {
   useLegacyMinimalOrderPayload?: boolean;
 };
 
+export type OneCCommercialRatesEnv = {
+  endpointUrl: string;
+  username: string;
+  password: string;
+  requestTimeoutMs: number;
+};
+
 export type SupabaseEnvStatus = {
   configured: boolean;
   missing: RequiredSupabaseEnvName[];
@@ -118,6 +125,24 @@ export function getOneCEnv(): OneCEnv {
     useMockPartners: explicitPartnersMock,
     useLegacyMinimalOrderPayload:
       process.env.ONEC_USE_LEGACY_MINIMAL_ORDER_PAYLOAD === "true",
+  };
+}
+
+export function getOneCCommercialRatesEnv(): OneCCommercialRatesEnv {
+  const endpointUrl = process.env.ONEC_COMMERCIAL_RATES_URL?.trim();
+  const username = process.env.ONEC_COMMERCIAL_RATES_USERNAME?.trim();
+  const password = process.env.ONEC_COMMERCIAL_RATES_PASSWORD;
+  if (!endpointUrl || !username || !password) {
+    throw new Error("Missing protected 1C commercial-rate provider configuration.");
+  }
+  let parsed: URL;
+  try { parsed = new URL(endpointUrl); } catch { throw new Error("Invalid 1C commercial-rate endpoint URL."); }
+  if (parsed.protocol !== "https:" && process.env.NODE_ENV === "production") {
+    throw new Error("The production 1C commercial-rate endpoint must use HTTPS.");
+  }
+  return {
+    endpointUrl: parsed.toString(), username, password,
+    requestTimeoutMs: readPositiveIntegerEnv("ONEC_COMMERCIAL_RATES_TIMEOUT_MS", 5000),
   };
 }
 

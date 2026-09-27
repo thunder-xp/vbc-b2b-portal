@@ -1,113 +1,45 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import {
-  OneCExchangeRateProvider,
-  ONE_C_EXCHANGE_RATE_DOCUMENT,
-  ONE_C_USD_REF,
-} from "../one-c-exchange-rate-provider";
+import { OneCExchangeRateProvider, parseCommercialRatePayload } from "../one-c-exchange-rate-provider";
+
+const now = new Date("2026-09-27T10:00:00.000Z");
+const payload = {
+  generatedAt: "2026-09-27T09:59:00.000Z",
+  rates: [
+    { currencyRef: "d5303dea-f2f5-11ec-4f83-7239d3b7bd5c", code: "113", symbolicCode: "BCRU", rate: "17.5876", multiplicity: "1", normalizedRate: "17.5876", effectiveAt: "2026-09-26T00:00:00+03:00", dataVersion: "113:20260926:175876" },
+    { currencyRef: "94f0e33e-45d7-11ea-8111-000c29cf9dd4", code: "999", symbolicCode: "BCR", rate: "18.0105", multiplicity: "1", normalizedRate: "18.0105", effectiveAt: "2026-09-26T00:00:00+03:00", dataVersion: "999:20260926:180105" },
+  ],
+};
 
 describe("OneCExchangeRateProvider", () => {
-  afterEach(() => vi.unstubAllGlobals());
-
-  it("queries only receipt documents using the confirmed unfiltered contract", async () => {
-    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>(async () => response([]));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await provider().fetchLatestUsdRate();
-
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [input] = fetchMock.mock.calls[0];
-    const url = new URL(String(input));
-    expect(decodeURIComponent(url.pathname)).toContain(ONE_C_EXCHANGE_RATE_DOCUMENT);
-    expect(url.searchParams.has("$filter")).toBe(false);
-    expect(url.searchParams.get("$orderby")).toBe("Date desc");
-    expect(url.searchParams.get("$top")).toBe("100");
-    expect(url.searchParams.get("$select")).toBe(
-      "Date,Number,Posted,DeletionMark,ВалютаДокумента_Key,Курс,Кратность",
-    );
+  it("maps exact authoritative 113 and 999 identities without inference", () => {
+    expect(parseCommercialRatePayload(payload, now).rates).toEqual([
+      expect.objectContaining({ code: "113", purpose: "partner_price_usd_to_mdl", normalizedRate: "17.5876" }),
+      expect.objectContaining({ code: "999", purpose: "retail_price_usd_to_mdl", normalizedRate: "18.0105" }),
+    ]);
   });
 
-  it("selects the newest valid non-future receipt row", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => response([
-      row({ Date: "2026-07-31T10:00:00", Number: "FUTURE", Курс: 17.4215 }),
-      row({ Date: "2018-07-17T10:00:00", Number: "OLDER", Курс: 16.8 }),
-      row({ Date: "2026-06-26T10:00:00", Number: "NSUU-000405", Курс: 17.7462 }),
-    ])));
+  it("normalizes multiplicity and rejects future or malformed evidence", () => {
+    const normalized = parseCommercialRatePayload({ ...payload, rates: [
+      { ...payload.rates[0], rate: "175.876", multiplicity: "10", normalizedRate: "17.5876" },
+      payload.rates[1],
+    ] }, now);
+    expect(normalized.rates[0].normalizedRate).toBe("17.5876");
+    expect(() => parseCommercialRatePayload({ ...payload, rates: [
+      { ...payload.rates[0], effectiveAt: "2026-09-28T00:00:00Z" }, payload.rates[1],
+    ] }, now)).toThrow(/effectiveAt/);
+    expect(() => parseCommercialRatePayload({ ...payload, rates: [payload.rates[0]] }, now)).toThrow(/113 and 999/);
+  });
 
-    await expect(provider().fetchLatestUsdRate()).resolves.toEqual({
-      source: "Document_ПриходнаяНакладная",
-      documentDate: "2026-06-26T10:00:00",
-      mdlPerUsdRate: 17.7462,
+  it("uses authenticated GET and never exposes credentials in errors", async () => {
+    let requestInit: RequestInit | undefined;
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestInit = init;
+      return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } });
     });
-  });
-
-  it.each([
-    ["unposted", { Posted: false }],
-    ["deleted", { DeletionMark: true }],
-    ["non-USD", { ВалютаДокумента_Key: "11111111-1111-4111-8111-111111111111" }],
-    ["zero rate", { Курс: 0 }],
-    ["zero multiplicity", { Кратность: 0 }],
-  ])("ignores %s rows", async (_name, overrides) => {
-    vi.stubGlobal("fetch", vi.fn(async () => response([row(overrides)])));
-
-    await expect(provider().fetchLatestUsdRate()).resolves.toBeNull();
-  });
-
-  it("accepts an empty receipt-document result", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => response([])));
-
-    await expect(provider().fetchLatestUsdRate()).resolves.toBeNull();
-  });
-
-  it("normalizes Курс by Кратность", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => response([
-      row({ Курс: 35.4924, Кратность: 2 }),
-    ])));
-
-    await expect(provider().fetchLatestUsdRate()).resolves.toMatchObject({
-      mdlPerUsdRate: 17.7462,
-    });
-  });
-
-  it("accepts the live numeric-string multiplicity", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => response([
-      row({ Курс: 17.7462, Кратность: "1" }),
-    ])));
-
-    await expect(provider().fetchLatestUsdRate()).resolves.toMatchObject({
-      mdlPerUsdRate: 17.7462,
-    });
+    const provider = new OneCExchangeRateProvider({ endpointUrl: "https://onec.example/novotech/hs/b2b/commercial-rates", username: "b2b_rates_reader", password: "secret", requestTimeoutMs: 1000 }, () => now, fetcher as typeof fetch);
+    await expect(provider.fetchCommercialRates()).resolves.toMatchObject({ generatedAt: payload.generatedAt });
+    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("commercial-rates"), expect.objectContaining({ method: "GET", cache: "no-store" }));
+    expect((requestInit?.headers as Record<string, string>).Authorization).toMatch(/^Basic /);
   });
 });
-
-function provider() {
-  return new OneCExchangeRateProvider(
-    {
-      baseUrl: "https://erp.example/odata",
-      username: "user",
-      password: "secret",
-      requestTimeoutMs: 1000,
-    },
-    () => new Date("2026-07-13T12:00:00Z"),
-  );
-}
-
-function row(overrides: Record<string, unknown> = {}) {
-  return {
-    Date: "2026-06-26T10:00:00",
-    Number: "NSUU-000405",
-    Posted: true,
-    DeletionMark: false,
-    ВалютаДокумента_Key: ONE_C_USD_REF,
-    Курс: 17.7462,
-    Кратность: 1,
-    ...overrides,
-  };
-}
-
-function response(value: unknown[]) {
-  return Promise.resolve(new Response(JSON.stringify({ value }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  }));
-}

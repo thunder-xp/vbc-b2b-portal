@@ -217,6 +217,7 @@ export default async function CartPage() {
                 intentVersion={cart.intentVersion!}
                 submissionKey={crypto.randomUUID()}
                 checkoutOptions={cart.checkoutOptions}
+                commercialRateId={cart.commercialRateId}
                 onlinePaymentEnabled={maibConfigurationSummary().ready
                   && cart.onlinePaymentPreflightEligible === true}
                 reconciliationLocked={cart.reconciliationLock !== null}

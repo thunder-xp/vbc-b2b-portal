@@ -7,6 +7,7 @@ import type { PricingInventoryRepository } from "../repositories";
 import {
   COMMERCIAL_RATE_PURPOSES,
   type CommercialRate,
+  type CommercialRateSyncState,
   type CommercialRateVerification,
   type CommercialRateVerificationResult,
   type CommercialRateVerificationStatus,
@@ -29,6 +30,7 @@ export type CommercialRateAdminDto = {
   rates: CommercialRateAdminRowDto[];
   history: CommercialRate[];
   verificationHistory: CommercialRateVerification[];
+  syncState: CommercialRateSyncState;
 };
 
 export class CommercialRateValidationError extends Error {
@@ -46,14 +48,16 @@ export class CommercialRateManagementService {
 
   async getAdminView(actorUserId: string): Promise<CommercialRateAdminDto> {
     await this.ensureManager(actorUserId);
-    if (!this.repository.listCommercialRateHistory || !this.repository.listCommercialRateVerifications) throw new ForbiddenError();
-    const [history, verificationHistory] = await Promise.all([
+    if (!this.repository.listCommercialRateHistory || !this.repository.listCommercialRateVerifications || !this.repository.getCommercialRateSyncState) throw new ForbiddenError();
+    const [history, verificationHistory, syncState] = await Promise.all([
       this.repository.listCommercialRateHistory(HISTORY_LIMIT),
       this.repository.listCommercialRateVerifications(HISTORY_LIMIT),
+      this.repository.getCommercialRateSyncState(),
     ]);
     return {
       history,
       verificationHistory,
+      syncState,
       rates: COMMERCIAL_RATE_PURPOSES.map((purpose) => this.toAdminRow(purpose, history, verificationHistory)),
     };
   }
@@ -90,10 +94,12 @@ export class CommercialRateManagementService {
     const purposeHistory = history.filter((rate) => rate.purpose === purpose);
     const current = purposeHistory.find((rate) => rate.isActive) ?? null;
     const latestVerification = verifications.find((verification) => verification.purpose === purpose) ?? null;
-    const verificationStatus: CommercialRateVerificationStatus = !latestVerification || !current
+    const verificationStatus: CommercialRateVerificationStatus = current?.sourceType === "one_c_automatic"
+      ? "MATCHES_1C"
+      : !latestVerification || !current
       ? "NOT_VERIFIED"
       : new Decimal(latestVerification.observed1cRate).equals(current.rate)
-        ? "MATCHES_1C"
+        ? "VERIFIED_NO_CHANGE_REQUIRED"
         : "DIFFERS_FROM_1C";
     return {
       purpose,

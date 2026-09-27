@@ -5,6 +5,7 @@ export {
   type CommercialRate,
   type CommercialRatePurpose,
   type CommercialRateSnapshot,
+  type CommercialRateSyncState,
   type CommercialRateVerification,
   type CommercialRateVerificationResult,
   type CommercialRateVerificationStatus,

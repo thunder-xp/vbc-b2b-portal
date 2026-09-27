@@ -87,6 +87,10 @@ Partner approval lookup uses server-only HTTP Basic authentication:
 ONEC_BASE_URL=https://erp-api.nsd.md/novotech/odata/standard.odata
 ONEC_AUTH_MODE=basic
 ONEC_USERNAME=your-odata-user
+ONEC_COMMERCIAL_RATES_URL=https://erp-api.nsd.md/novotech/hs/b2b/commercial-rates
+ONEC_COMMERCIAL_RATES_USERNAME=b2b_rates_reader
+ONEC_COMMERCIAL_RATES_PASSWORD=protected-runtime-secret
+ONEC_COMMERCIAL_RATES_TIMEOUT_MS=5000
 ONEC_PASSWORD=your-odata-password
 ONEC_TIMEOUT_MS=10000
 ONEC_USE_MOCK_PARTNERS=false

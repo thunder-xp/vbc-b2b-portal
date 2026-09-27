@@ -11,14 +11,32 @@ export type CommercialRate = {
   rate: number;
   effectiveAt: string;
   publishedAt: string;
-  publishedBy: string;
+  publishedBy: string | null;
   publisherName: string | null;
   publisherEmail: string | null;
-  sourceType: "manual_from_1c";
+  sourceType: "manual_from_1c" | "one_c_automatic";
   sourceNote: string;
   evidenceComment: string | null;
   previousRateId: string | null;
   isActive: boolean;
+  sourceCurrencyRef?: string | null;
+  sourceCode?: string | null;
+  sourceSymbolicCode?: string | null;
+  sourceRawRate?: number | null;
+  sourceMultiplicity?: number | null;
+  sourceDataVersion?: string | null;
+  sourceCheckedAt?: string | null;
+};
+
+export type CommercialRateSyncState = {
+  freshnessStatus: "FRESH" | "STALE" | "FAILED" | "NEVER_SYNCED";
+  lastAttemptAt: string | null;
+  lastSuccessAt: string | null;
+  lastSourceCheckedAt: string | null;
+  lastPublishedAt: string | null;
+  lastResult: "PUBLISHED" | "NO_OP" | "FAILED" | "RUNNING" | null;
+  lastErrorCode: string | null;
+  consecutiveFailures: number;
 };
 
 export type CommercialRateSnapshot = {

@@ -71,6 +71,7 @@ export interface PartnerOrderService {
     cartId: string;
     expectedIntentVersion: number;
     submissionKey: string;
+    expectedCommercialRateId?: string | null;
     requestedDeliveryDate: string;
     paymentMethod?: CheckoutPaymentMethod;
     paymentDate?: string;
@@ -87,6 +88,10 @@ export interface PartnerOrderService {
 export type PartnerOrderServiceOptions = {
   useLegacyMinimalOrderPayload?: boolean;
 };
+
+export interface CommercialRateCheckoutGuardPort {
+  ensureFresh(): Promise<{ retailRateId: string; checkedAt: string; refreshed: boolean }>;
+}
 
 const ORDERS_PERMISSION = "orders.manage";
 const ZERO_CHARACTERISTIC_REF = "00000000-0000-0000-0000-000000000000";
@@ -111,12 +116,14 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     private readonly options: PartnerOrderServiceOptions = {},
     private readonly priceRefreshService?: OrderPriceRefreshService,
     private readonly checkoutConfigurationRepository?: CheckoutConfigurationRepository,
+    private readonly commercialRateCheckoutGuard?: CommercialRateCheckoutGuardPort,
   ) {}
 
   async submit(userId: string, input: {
     cartId: string;
     expectedIntentVersion: number;
     submissionKey: string;
+    expectedCommercialRateId?: string | null;
     requestedDeliveryDate: string;
     paymentMethod?: CheckoutPaymentMethod;
     paymentDate?: string;
@@ -278,6 +285,36 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const checkoutSettlementCurrencyRef = resolvedCheckout.contract.settlementCurrencyRef
       .trim()
       .toLowerCase();
+    if (resolvedCheckout.contract.publishedPriceCurrencyCode?.toUpperCase() === "USD") {
+      if (!this.commercialRateCheckoutGuard) {
+        failOrderSubmission("commercial_rate_freshness", new RecoverableOrderSubmissionError(
+          "Коммерческий курс обновляется. Повторите оформление через несколько секунд.",
+          "ORDER_PRICE_REFRESH_FAILED",
+        ), { companyId: company.id, submissionKey, purpose: "retail_price_usd_to_mdl" });
+      }
+      let rateEvidence: Awaited<ReturnType<CommercialRateCheckoutGuardPort["ensureFresh"]>>;
+      try {
+        rateEvidence = await this.commercialRateCheckoutGuard.ensureFresh();
+      } catch (error) {
+        const correlationId = error && typeof error === "object" && "correlationId" in error
+          && typeof error.correlationId === "string" ? error.correlationId : crypto.randomUUID();
+        failOrderSubmission("commercial_rate_freshness", new RecoverableOrderSubmissionError(
+          "Коммерческий курс обновляется. Повторите оформление через несколько секунд.",
+          "ORDER_PRICE_REFRESH_FAILED",
+          correlationId,
+        ), { companyId: company.id, submissionKey, purpose: "retail_price_usd_to_mdl", correlationId });
+      }
+      if (!input.expectedCommercialRateId || input.expectedCommercialRateId !== rateEvidence.retailRateId) {
+        failOrderSubmission("commercial_rate_reprice", new RecoverableOrderSubmissionError(
+          "Коммерческий курс изменился. Проверьте обновлённую сумму заказа.",
+          "ORDER_PRICE_CHANGED",
+        ), {
+          companyId: company.id, submissionKey, purpose: "retail_price_usd_to_mdl",
+          expectedRateId: input.expectedCommercialRateId ?? null, activeRateId: rateEvidence.retailRateId,
+          sourceCheckedAt: rateEvidence.checkedAt, targetedRefresh: rateEvidence.refreshed,
+        });
+      }
+    }
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId) {
       console.warn({

@@ -24,7 +24,7 @@ export {
   type PublicRetailProjectionPublisher,
 } from "./catalog-synchronization-orchestrator";
 export { SupabaseCatalogSynchronizationRunRepository } from "./catalog-synchronization-run.repository";
-export { ExchangeRateSyncService, type ExchangeRatePublisher, type PublishedExchangeRate } from "./exchange-rate-sync";
+export { ExchangeRateSyncService, type CommercialRateSyncResult, type ExchangeRatePublisher } from "./exchange-rate-sync";
 export { SupabaseExchangeRatePublisher } from "./exchange-rate-supabase-publisher";
 export type { PriceSyncReport, PriceSyncReportStatus } from "./price-sync-engine";
 export { DefaultPriceSyncEngine } from "./price-sync-engine";

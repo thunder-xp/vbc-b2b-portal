@@ -45,6 +45,7 @@ export type CartDetailDto = {
   } | null;
   checkoutOptions?: PartnerCheckoutOptionsDto | null;
   onlinePaymentPreflightEligible?: boolean;
+  commercialRateId?: string | null;
 };
 
 export type CartEstimateSourceDto = {
@@ -159,6 +160,7 @@ export class DefaultCartService implements CartService {
       reconciliationLock: null,
       checkoutOptions: null,
       onlinePaymentPreflightEligible: false,
+      commercialRateId: null,
     };
     const [items, reconciliation] = await Promise.all([
       this.repository.listItems(cart.id),
@@ -225,6 +227,7 @@ export class DefaultCartService implements CartService {
           return price !== null && price !== undefined
             && price.amount > 0 && price.currencyCode?.toUpperCase() === "MDL";
         }),
+      commercialRateId: currentRetailRateId(views),
     };
   }
 
@@ -493,6 +496,14 @@ function toLine(
     availabilityGroup: catalogVisible ? resolveAvailabilityGroup(view) : "confirmation",
     catalogVisible,
   };
+}
+
+function currentRetailRateId(views: ProductCommercialViewDto[]): string | null {
+  const ids = new Set(views.flatMap((view) => {
+    const evidence = view.partnerCheckoutPriceMdl?.conversionEvidence;
+    return evidence?.sourceCurrencyCode === "USD" && evidence.rateId ? [evidence.rateId] : [];
+  }));
+  return ids.size === 1 ? [...ids][0] : null;
 }
 
 function retainedProductCard(

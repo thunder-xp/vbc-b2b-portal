@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { failureFromError, success, type ActionResult } from "../../access-control/actions/action-result";
 import { requireAdminPermission } from "../../admin/services";
-import { getOneCEnv } from "../../../lib/env";
+import { getOneCCommercialRatesEnv, getOneCEnv } from "../../../lib/env";
 import {
   createChunkedPriceSyncService,
   createChunkedStockSyncService,
@@ -34,7 +34,7 @@ export async function syncAllCommercialDataAction(): Promise<ActionResult<Commer
     };
 
     try {
-      await createExchangeRateSyncService(getOneCEnv()).sync();
+      await createExchangeRateSyncService(getOneCCommercialRatesEnv()).sync();
       result.rates = "completed";
     } catch (error) {
       console.error({

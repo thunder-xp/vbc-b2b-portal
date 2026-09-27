@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 
 import { authorizeCronRequest } from "@/src/lib/cron-auth";
-import { getOneCEnv } from "@/src/lib/env";
+import { getOneCCommercialRatesEnv } from "@/src/lib/env";
 import { createExchangeRateSyncService } from "@/src/modules/integration/services";
 import { acquireSyncRunLock, releaseSyncRunLock } from "@/src/modules/integration/sync";
 
@@ -18,8 +18,8 @@ export async function GET(request: Request) {
   after(async () => {
     const startedAt = Date.now();
     try {
-      const result = await createExchangeRateSyncService(getOneCEnv()).sync();
-      console.info({ event: "sync_completed", domain: "commercial_rate", runId, updated: 1, durationMs: Date.now() - startedAt, sourceDocumentDate: result.sourceDocumentDate, cacheInvalidationScope: "none_dynamic_read_model", deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
+      const result = await createExchangeRateSyncService(getOneCCommercialRatesEnv()).sync(runId);
+      console.info({ event: "sync_completed", domain: "commercial_rate", runId, outcome: result.outcome, updated: result.publishedCount, durationMs: Date.now() - startedAt, sourceCheckedAt: result.checkedAt, cacheInvalidationScope: "none_dynamic_read_model", deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
     } catch (error) {
       console.error({ event: "sync_failed", domain: "commercial_rate", runId, durationMs: Date.now() - startedAt, errorType: error instanceof Error ? error.name : typeof error, deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || "local" });
     } finally { await releaseSyncRunLock("commercial_rate", runId); }

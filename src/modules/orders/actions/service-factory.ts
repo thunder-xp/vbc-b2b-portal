@@ -2,7 +2,8 @@ import { createCompanyAccessService, createPermissionService } from "../../acces
 import { SupabaseCatalogRepository } from "../../catalog/repositories/supabase";
 import { DefaultCatalogService } from "../../catalog/services";
 import { OneCProvider } from "../../integration/providers/one-c";
-import { getOneCEnv } from "../../../lib/env";
+import { getOneCCommercialRatesEnv, getOneCEnv } from "../../../lib/env";
+import { CommercialRateCheckoutGuard, createExchangeRateSyncService } from "../../integration/services";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import { SupabaseCartRepository, SupabaseCheckoutConfigurationRepository, SupabaseGlobalOrderHistoryAnalyticsRepository, SupabaseGlobalOrderHistoryRepository, SupabaseOrderDateChangeRequestRepository, SupabaseOrderHistoryBootstrapRepository, SupabaseOrderHistoryIntegrityRepository, SupabaseOrderPriceRefreshRepository, SupabaseOrderReconciliationRepository, SupabasePartnerOrderHistoryRepository, SupabasePartnerOrderRepository } from "../repositories/supabase";
@@ -57,6 +58,7 @@ function createPartnerOrderServiceWithRepository(
       new SupabaseOrderPriceRefreshRepository(),
     ),
     new SupabaseCheckoutConfigurationRepository(),
+    new CommercialRateCheckoutGuard(createExchangeRateSyncService(getOneCCommercialRatesEnv())),
   );
 }
 

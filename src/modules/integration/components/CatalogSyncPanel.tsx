@@ -71,8 +71,8 @@ export function CatalogSyncPanel() {
       <ActionButton pending={ratePending} onClick={runRates}>Проверить курс сейчас</ActionButton>
       {rateResult ? <Report rows={[
         ["Проверен", rateResult.checkedAt],
-        ["Документ 1С", rateResult.rate.sourceDocumentDate],
-        ["Опубликован", rateResult.rate.publishedAt],
+        ["Результат", rateResult.rate.outcome],
+        ["Изменено ставок", String(rateResult.rate.publishedCount)],
       ]} /> : null}
     </SyncSection>
     <SyncSection title="Структура каталога и товары" description="Синхронизирует структуру категорий и товары из группы SECURITYPARK DISTRIBUTION.">

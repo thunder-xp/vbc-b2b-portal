@@ -195,7 +195,7 @@ describe("cart checkout mutation barrier", () => {
     );
 
     expect(screen.getByRole("button", { name: "Удалить" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Проверяем заказ…" })).toBeDisabled();
   });
 });
 
