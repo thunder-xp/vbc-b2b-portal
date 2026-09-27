@@ -2,7 +2,7 @@ import { ArrowRight, Layers3, Star } from "lucide-react";
 import Link from "next/link";
 
 import { listPurchasingListsAction } from "@/src/modules/purchasing-lists/actions";
-import { NumberedPagination } from "@/src/modules/platform-ui";
+import { NumberedPagination, PageHeader } from "@/src/modules/platform-ui";
 import { formatPartnerDate, getSavedKitCopy, procurementCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
@@ -26,11 +26,7 @@ export default async function PurchasingListsPage({ searchParams }: { searchPara
   const Icon = favoritesView ? Star : Layers3;
 
   return <div className="mx-auto max-w-7xl space-y-5">
-    <header className={favoritesView ? "pb-5" : "border-b border-zinc-200 pb-5"}>
-      <p className="text-xs font-semibold uppercase text-emerald-700">{copy.selection}</p>
-      <h1 className="mt-1 text-2xl font-semibold">{favoritesView ? copy.favorites : kitCopy.title}</h1>
-      {favoritesView ? <p className="mt-1 text-sm text-zinc-500">{copy.favoritesHint}</p> : null}
-    </header>
+    <PageHeader compact={favoritesView} description={favoritesView ? copy.favoritesHint : undefined} eyebrow={copy.selection} title={favoritesView ? copy.favorites : kitCopy.title} />
 
     {!favoritesView ? <form className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_180px_auto]">
       <input className="h-10 rounded-md border border-zinc-300 px-3 text-sm" defaultValue={query.search ?? ""} name="search" placeholder={copy.searchNameDescription} />

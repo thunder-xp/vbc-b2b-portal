@@ -70,7 +70,7 @@ describe("cart checkout mutation barrier", () => {
       target: { value: "2099-01-09" },
     });
     fireEvent.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    fireEvent.change(screen.getByLabelText("Дата резервации"), {
+    fireEvent.change(screen.getByLabelText("Дата отгрузки"), {
       target: { value: "2099-01-10" },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
@@ -111,7 +111,7 @@ describe("cart checkout mutation barrier", () => {
       target: { value: "2099-01-09" },
     });
     fireEvent.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    fireEvent.change(screen.getByLabelText("Дата резервации"), {
+    fireEvent.change(screen.getByLabelText("Дата отгрузки"), {
       target: { value: "2099-01-10" },
     });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
@@ -144,7 +144,7 @@ describe("cart checkout mutation barrier", () => {
       target: { value: "2099-01-09" },
     });
     fireEvent.click(screen.getByRole("radio", { name: "Самовывоз" }));
-    const date = screen.getByLabelText("Дата резервации");
+    const date = screen.getByLabelText("Дата отгрузки");
     fireEvent.change(date, { target: { value: "2099-01-10" } });
     fireEvent.submit(screen.getByRole("form", { name: "Проверка заказа" }));
     fireEvent.change(date, { target: { value: "" } });
@@ -180,6 +180,36 @@ describe("cart checkout mutation barrier", () => {
     expect(await screen.findByText(
       "Корзина временно заблокирована: проверяем результат предыдущей отправки заказа в 1С.",
     )).toBeInTheDocument();
+  });
+
+  it("keeps delete icon-only and the quantity control compact and labelled", () => {
+    const { container } = render(
+      <CartCheckoutCoordinator>
+        <CartItemActions itemId="item-1" quantity={2} />
+      </CartCheckoutCoordinator>,
+    );
+
+    const remove = screen.getByRole("button", { name: "Удалить" });
+    expect(remove).toHaveAttribute("title", "Удалить");
+    expect(remove.querySelector("svg")).toBeInTheDocument();
+    expect(remove).toHaveTextContent("");
+    expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(2);
+    expect(screen.queryByText("Количество", { selector: "label" })).not.toBeInTheDocument();
+    expect(container.querySelector("input")).toHaveClass("w-16", "h-10");
+  });
+
+  it("shows the localized MAIB label without commercial rate terminology", () => {
+    render(
+      <CartCheckoutCoordinator managedPaymentSelection>
+        <TestOnlineChoice />
+        <OrderSubmitForm submissionKey="55555555-5555-4555-8555-555555555555" />
+      </CartCheckoutCoordinator>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose online payment" }));
+    expect(screen.getByText("Онлайн-оплата через MAIB")).toBeInTheDocument();
+    expect(screen.queryByText(/BCRU|BCR 999|rate 113/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Дата отгрузки")).toBeInTheDocument();
   });
 
   it("disables cart mutation and submission controls while reconciliation is active", () => {
@@ -224,4 +254,9 @@ function renderFlow() {
 function TestPaymentChoices() {
   const { setPaymentMethod } = useCartCheckoutCoordinator();
   return <label><input type="radio" name="testPaymentMethod" onChange={() => setPaymentMethod("cashless")} />Безналичный</label>;
+}
+
+function TestOnlineChoice() {
+  const { setPaymentMethod } = useCartCheckoutCoordinator();
+  return <button onClick={() => setPaymentMethod("online")} type="button">Choose online payment</button>;
 }

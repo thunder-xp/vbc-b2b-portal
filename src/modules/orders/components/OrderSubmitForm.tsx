@@ -220,7 +220,7 @@ export function OrderSubmitForm({
           </fieldset>
         )}
         {managedPaymentSelection ? <p className="text-sm text-zinc-700">
-          {selectedPaymentMethod === "online" ? "Online payment via MAIB ? rate 113 / BCRU"
+          {selectedPaymentMethod === "online" ? copy.onlinePaymentViaMaib
             : selectedPaymentMethod === "cashless" ? copy.cashless
               : selectedPaymentMethod === "cash" ? copy.cash
                 : "Choose a payment option in the order summary first."}
@@ -368,7 +368,7 @@ export function OrderSubmitForm({
         type="submit"
       >
         {selectedPaymentMethod === "online" && !busy && !reconciliationPending
-          ? "Оплатить онлайн"
+          ? copy.onlinePaymentSubmit
           : submitLabel(
           phase,
           actionPending,

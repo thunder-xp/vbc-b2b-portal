@@ -31,8 +31,8 @@ export function CartPricingPanel(props: CartPricingPanelProps) {
   const cashlessEnabled = props.checkoutOptions?.paymentMethods.some((option) => option.value === "cashless" && option.enabled) === true;
   const cashEnabled = props.checkoutOptions?.paymentMethods.some((option) => option.value === "cash" && option.enabled) === true;
   const labels = props.locale === "ro"
-    ? { payNow: "PLĂTEȘTE ACUM", payLater: "Plătește mai târziu", save: "Plătiți acum și economisiți la curs: ", unavailable: "Ratele comerciale necesare nu sunt disponibile.", rate: "Mod online · BCRU 113", selected: "Selectat", default: "Mod standard · BCR 999" }
-    : { payNow: "ОПЛАТИТЬ СЕЙЧАС", payLater: "Оплатить позже", save: "Оплатите сейчас и сэкономьте на курсовой разнице: ", unavailable: "Не удалось подтвердить необходимые курсы.", rate: "Онлайн-режим · BCRU 113", selected: "Выбрано", default: "Стандартный режим · BCR 999" };
+    ? { payNow: "PLĂTEȘTE ACUM", payLater: "Plătește mai târziu", save: "Plătiți acum și economisiți la curs: ", unavailable: "Ratele comerciale necesare nu sunt disponibile.", selected: "Selectat" }
+    : { payNow: "ОПЛАТИТЬ СЕЙЧАС", payLater: "Оплатить позже", save: "Оплатите сейчас и сэкономьте на курсовой разнице: ", unavailable: "Не удалось подтвердить необходимые курсы.", selected: "Выбрано" };
 
   useEffect(() => {
     if (!paymentMethod) return;
@@ -50,9 +50,8 @@ export function CartPricingPanel(props: CartPricingPanelProps) {
           <dt className="text-zinc-600">{props.copy.unitCount}</dt><dd className="text-right font-semibold">{props.totalUnitCount}</dd>
         </dl>
         <p className="mt-3 border-t border-zinc-200 pt-3 text-sm text-zinc-600">{props.copy.total}</p>
-        <p aria-live="polite" className="mt-1 text-xl font-semibold">{onlineSelected ? (props.total113 ?? props.copy.pricePending) : (props.total999 ?? props.copy.pricePending)}</p>
-        <p className="mt-1 text-xs text-zinc-500">{onlineSelected ? labels.rate : labels.default}</p>
-        {!onlineSelected && props.savings ? <p className="mt-3 rounded-md bg-emerald-50 p-2 text-sm font-medium text-emerald-800">{labels.save}{props.savings}</p> : null}
+        <p aria-live="polite" className="mt-1 text-xl font-semibold text-rose-700">{onlineSelected ? (props.total113 ?? props.copy.pricePending) : (props.total999 ?? props.copy.pricePending)}</p>
+        {!onlineSelected && props.savings ? <p className="mt-3 rounded-md bg-emerald-50 p-2 text-sm font-medium text-emerald-800">{labels.save}<strong className="text-rose-700">{props.savings}</strong></p> : null}
         {!props.onlinePaymentEnabled ? <p className="mt-3 text-xs text-amber-800">{labels.unavailable}</p> : null}
       </section>
 

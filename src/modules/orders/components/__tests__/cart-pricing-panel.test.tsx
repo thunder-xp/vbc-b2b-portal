@@ -36,15 +36,19 @@ describe("cart online pricing selection", () => {
     </CartCheckoutCoordinator>);
 
     expect(screen.getByText("1 000 MDL")).toBeInTheDocument();
+    expect(screen.getByText("1 000 MDL")).toHaveClass("text-rose-700");
     expect(screen.getByText("500 MDL")).toBeInTheDocument();
     expect(screen.getByText(/100 MDL/)).toBeInTheDocument();
+    expect(screen.queryByText(/BCRU|BCR 999|rate 113/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Безналичный/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create estimate" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /ОПЛАТИТЬ СЕЙЧАС/ }));
 
     expect(screen.getByText("900 MDL")).toBeInTheDocument();
+    expect(screen.getByText("900 MDL")).toHaveClass("text-rose-700");
     expect(screen.getByText("450 MDL")).toBeInTheDocument();
+    expect(screen.queryByText(/BCRU|BCR 999|rate 113/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Безналичный/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Create estimate" })).not.toBeInTheDocument();
     expect(screen.getByRole("form", { name: "checkout details" })).toBeInTheDocument();

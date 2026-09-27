@@ -9,10 +9,10 @@ vi.mock("@/src/modules/partner-locale/server", () => ({ getPartnerLocale: async 
 describe("Favorites heading presentation", () => {
   beforeEach(() => listAction.mockResolvedValue({ success: true, data: { records: [], page: 1, totalPages: 1 } }));
 
-  it("removes only the Favorites heading border while retaining spacing and empty state", async () => {
+  it("uses the shared compact page header for Favorites and retains the empty state", async () => {
     const { container } = render(await PurchasingListsPage({ searchParams: Promise.resolve({ filter: "favorites" }) }));
     expect(screen.getByRole("heading", { level: 1, name: "Избранное" })).toBeInTheDocument();
-    expect(container.querySelector("header")).toHaveClass("pb-5");
+    expect(container.querySelector("header")).toHaveAttribute("data-page-header");
     expect(container.querySelector("header")).not.toHaveClass("border-b");
     expect(container.querySelector(".border-dashed")).toHaveClass("rounded-lg", "px-4", "py-8");
     expect(container.querySelector("hr")).toBeNull();

@@ -49,7 +49,7 @@ describe("guided Cart checkout", () => {
     expect(step(4)).toHaveAttribute("data-state", "inactive");
     expect(screen.getByLabelText("Дата оплаты")).toBeDisabled();
     expect(screen.getByRole("radio", { name: "Самовывоз" })).toBeDisabled();
-    expect(screen.getByLabelText("Дата резервации")).toBeDisabled();
+    expect(screen.getByLabelText("Дата отгрузки")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeDisabled();
 
     await user.click(screen.getByRole("radio", { name: "Безналичный" }));
@@ -67,7 +67,7 @@ describe("guided Cart checkout", () => {
     expect(step(3)).toHaveAttribute("data-state", "complete");
     expect(step(4)).toHaveAttribute("data-state", "active");
 
-    await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+    await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
     expect(step(4)).toHaveAttribute("data-state", "complete");
     expect(screen.getByRole("button", { name: "Отправить заказ" })).toBeEnabled();
     expect(container.querySelectorAll("[data-checkout-step]")).toHaveLength(4);
@@ -79,7 +79,7 @@ describe("guided Cart checkout", () => {
     await completePickupFlow(user);
 
     const paymentDate = screen.getByLabelText("Дата оплаты");
-    const reservationDate = screen.getByLabelText("Дата резервации");
+    const reservationDate = screen.getByLabelText("Дата отгрузки");
     await user.clear(paymentDate);
     expect(step(2)).toHaveAttribute("data-state", "active");
     expect(step(3)).toHaveAttribute("data-state", "inactive");
@@ -159,7 +159,7 @@ describe("guided Cart checkout", () => {
     expect(screen.getByRole("region", { name: /Pasul 1: Forma de plată, activ/ })).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("region", { name: /Pasul 2: Data plății, indisponibil/ })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /Pasul 3: Metoda de livrare, indisponibil/ })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Pasul 4: Data rezervării, indisponibil/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /Pasul 4: Data expedierii, indisponibil/ })).toBeInTheDocument();
   });
 });
 
@@ -175,7 +175,7 @@ async function completePickupFlow(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("radio", { name: "Безналичный" }));
   await user.type(screen.getByLabelText("Дата оплаты"), "2099-01-09");
   await user.click(screen.getByRole("radio", { name: "Самовывоз" }));
-  await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+  await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
 }
 
 async function completeDeliveryFlow(user: ReturnType<typeof userEvent.setup>) {
@@ -183,5 +183,5 @@ async function completeDeliveryFlow(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Дата оплаты"), "2099-01-09");
   await user.click(screen.getByRole("radio", { name: "Доставка" }));
   await user.selectOptions(screen.getByLabelText("Перевозчик"), options.carriers[0].id);
-  await user.type(screen.getByLabelText("Дата резервации"), "2099-01-10");
+  await user.type(screen.getByLabelText("Дата отгрузки"), "2099-01-10");
 }

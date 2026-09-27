@@ -172,15 +172,17 @@ export const getOrdersCopy = definePartnerCopy(
     cashUnavailable: "Нет активного договора для наличной оплаты.",
     deliveryUnavailable: "Нет доступного перевозчика. Выберите самовывоз.",
     checkoutUnavailable: "Для отправки заказа нет доступного способа оплаты.",
-    shipmentDateHint: "До этой даты оборудование резервируется под заказ.",
+    shipmentDateHint: "Укажите дату, к которой планируется отгрузка заказа.",
     saveToFavorites: "В избранное",
     saveToTemplate: "В шаблон",
     checkoutReviewHint:
       "Проверьте состав, количество и итоговую сумму перед отправкой.",
-    requestedDeliveryDate: "Дата резервации",
+    requestedDeliveryDate: "Дата отгрузки",
+    onlinePaymentViaMaib: "Онлайн-оплата через MAIB",
+    onlinePaymentSubmit: "Оплатить онлайн",
     selected: "Выбрано",
     reservationHint:
-      "До этой даты оборудование планируется удерживать под ваш заказ. Менеджер Novotech свяжется с вами для подтверждения отгрузки.",
+      "Указанная дата используется для планирования отгрузки. Менеджер Novotech свяжется с вами для подтверждения срока.",
     oneCSubmissionHint:
       "Заказ будет передан в 1С Novotech. После обработки статус появится в разделе «Заказы».",
     sendOrder: "Отправить заказ",
@@ -450,15 +452,17 @@ export const getOrdersCopy = definePartnerCopy(
     cashUnavailable: "Nu există un contract activ pentru plata în numerar.",
     deliveryUnavailable: "Nu există un transportator disponibil. Selectați ridicarea.",
     checkoutUnavailable: "Nu există o metodă de plată disponibilă pentru trimiterea comenzii.",
-    shipmentDateHint: "Până la această dată echipamentul este rezervat pentru comandă.",
+    shipmentDateHint: "Indicați data planificată pentru expedierea comenzii.",
     saveToFavorites: "În favorite",
     saveToTemplate: "Ca șablon",
     checkoutReviewHint:
       "Verificați conținutul, cantitatea și totalul înainte de trimitere.",
-    requestedDeliveryDate: "Data rezervării",
+    requestedDeliveryDate: "Data expedierii",
+    onlinePaymentViaMaib: "Plată online prin MAIB",
+    onlinePaymentSubmit: "Plătește online",
     selected: "Selectat",
     reservationHint:
-      "Echipamentul este planificat să fie rezervat pentru comanda dvs. până la această dată. Managerul Novotech vă va contacta pentru confirmarea livrării.",
+      "Data indicată este utilizată pentru planificarea expedierii. Managerul Novotech vă va contacta pentru confirmarea termenului.",
     oneCSubmissionHint:
       "Comanda va fi transmisă în 1C Novotech. După procesare, statutul va apărea în secțiunea «Comenzi».",
     sendOrder: "Trimite comanda",
