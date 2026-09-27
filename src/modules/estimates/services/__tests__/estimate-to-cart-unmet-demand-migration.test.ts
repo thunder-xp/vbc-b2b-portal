@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260914163104_estimate_to_cart_unmet_demand.sql"), "utf8");
 const cartService = readFileSync(join(process.cwd(), "src/modules/orders/services/cart.service.ts"), "utf8");
+const cartRepository = readFileSync(join(process.cwd(), "src/modules/orders/repositories/supabase/order.supabase-repository.ts"), "utf8");
 const workflow = readFileSync(join(process.cwd(), "src/modules/estimates/components/EstimateWorkflowPanel.tsx"), "utf8");
 
 describe("Estimate-to-cart unmet demand migration", () => {
@@ -50,9 +51,15 @@ describe("Estimate-to-cart unmet demand migration", () => {
     expect(sql).toContain("'unmet_assortment_demand_captured'");
   });
 
-  it("exposes conversion only through the accepted Estimate guided state", () => {
-    expect(workflow).toContain('guided.primaryAction === "continue_order"');
-    expect(workflow).not.toContain('data-testid="estimate-transfer-to-cart"');
+  it("exposes a permanent governed cart action independently of proposal state", () => {
+    expect(workflow).toContain('data-testid="estimate-transfer-to-cart"');
+    expect(workflow).toContain("initialWorkflow.permissions.canConvert");
+    expect(workflow).not.toContain('guided.primaryAction === "continue_order"');
+  });
+
+  it("reuses the canonical all-state transfer instead of the accepted-version wrapper", () => {
+    expect(cartRepository).toContain('.rpc("transfer_estimate_to_cart_v2"');
+    expect(cartRepository).not.toContain('.rpc("transfer_accepted_estimate_to_cart_v3"');
   });
 
   it("retains product identity when an Estimate-owned cart line leaves the active catalog", () => {

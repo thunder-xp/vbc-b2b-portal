@@ -31,6 +31,7 @@ const TEMPLATE_PERMISSION = "proposal_templates.manage";
 const CONVERT_PERMISSION = "estimates.convert_to_cart";
 const SEND_PERMISSION = "proposal.send";
 const ORDERS_PERMISSION = "orders.manage";
+type LiveEstimateAggregate = NonNullable<Awaited<ReturnType<EstimateRepository["findAggregateById"]>>>;
 
 export class EstimateLifecycleService {
   constructor(
@@ -266,20 +267,20 @@ export class EstimateLifecycleService {
     });
   }
 
-  async getOrderConversionPreview(userId: string, estimateId: string, versionId: string, expectedRevision: number): Promise<EstimateOrderConversionPreviewDto> {
-    const source = await this.acceptedConversionSource(userId, estimateId, versionId, expectedRevision);
-    const productLines = versionProductLines(source.version);
+  async getOrderConversionPreview(userId: string, estimateId: string, expectedRevision: number): Promise<EstimateOrderConversionPreviewDto> {
+    const source = await this.liveConversionSource(userId, estimateId, expectedRevision);
+    const productLines = aggregateProductLines(source);
     const resolvedProducts = await this.cartService.previewEstimateProducts(userId, productLines);
     const resolvedByLineId = new Map(resolvedProducts.map((line) => [line.lineId, line]));
-    const lines = source.version.snapshot.items.map((item, index): EstimateOrderConversionLineDto => {
-      const lineId = textValue(item.id) ?? `snapshot-line-${index + 1}`;
-      const lineType = textValue(item.line_type);
-      const quantity = numberValue(item.quantity) ?? 0;
-      const unit = textValue(item.unit) ?? "pcs";
-      const snapshotName = textValue(item.product_name_snapshot) ?? textValue(item.description) ?? `#${index + 1}`;
+    const lines = source.items.map((item, index): EstimateOrderConversionLineDto => {
+      const lineId = item.id || `estimate-line-${index + 1}`;
+      const lineType = item.lineType;
+      const quantity = item.quantity;
+      const unit = item.unit;
+      const snapshotName = item.productNameSnapshot ?? item.description ?? `#${index + 1}`;
       if (lineType === "product") {
         const resolved = resolvedByLineId.get(lineId);
-        if (!resolved) return excludedLine(lineId, "PRODUCT_INVALID", snapshotName, quantity, unit, item);
+        if (!resolved) return excludedLiveLine(item, "PRODUCT_INVALID", snapshotName);
         return {
           lineId,
           classification: resolved.classification,
@@ -304,17 +305,17 @@ export class EstimateLifecycleService {
           : lineType === "custom"
             ? "CUSTOM_LINE" as const
             : "PRODUCT_INVALID" as const;
-      return excludedLine(lineId, classification, snapshotName, quantity, unit, item);
+      return excludedLiveLine(item, classification, snapshotName);
     });
     const orderable = lines.filter((line) => line.classification === "ORDERABLE");
     return {
       estimateId: source.estimate.id,
-      versionId: source.version.id,
+      versionId: null,
       estimateRevision: source.estimate.revision,
-      estimateNumber: source.version.estimateNumber,
-      customerName: textValue(source.version.snapshot.estimate.customer_name) ?? source.estimate.customerName,
-      projectName: textValue(source.version.snapshot.estimate.project_name) ?? source.estimate.projectName,
-      currencyCode: source.version.currencyCode,
+      estimateNumber: source.estimate.estimateNumber,
+      customerName: source.estimate.customerName,
+      projectName: source.estimate.projectName,
+      currencyCode: source.estimate.currencyCode,
       orderableLineCount: orderable.length,
       orderableUnitCount: orderable.reduce((sum, line) => sum + line.quantity, 0),
       excludedLineCount: lines.length - orderable.length,
@@ -328,37 +329,30 @@ export class EstimateLifecycleService {
     };
   }
 
-  async addEquipmentToCart(userId: string, estimateId: string, versionId: string, expectedRevision: number, requestKey: string): Promise<EstimateCartConversionSummary> {
-    const source = await this.acceptedConversionSource(userId, estimateId, versionId, expectedRevision);
-    const lines = versionProductLines(source.version);
-    if (!lines.length) throw new InvalidStateError("В принятом КП нет товарных позиций для заказа.");
+  async addEquipmentToCart(userId: string, estimateId: string, expectedRevision: number, requestKey: string): Promise<EstimateCartConversionSummary> {
+    const source = await this.liveConversionSource(userId, estimateId, expectedRevision);
+    const lines = aggregateProductLines(source);
+    if (!lines.length) throw new InvalidStateError("В смете нет товарных позиций для добавления в корзину.");
     const result = await this.cartService.mergeEstimateProducts(userId, {
-      estimateId: source.estimate.id, versionId: source.version.id, expectedRevision: source.estimate.revision,
+      estimateId: source.estimate.id,
       requestKey: normalizeUuid(requestKey), lines,
     });
-    console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, versionId: source.version.id, ...result });
+    console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, estimateRevision: source.estimate.revision, ...result });
     return result;
   }
 
-  private async acceptedConversionSource(userId: string, estimateId: string, versionId: string, expectedRevision: number) {
+  private async liveConversionSource(userId: string, estimateId: string, expectedRevision: number) {
     const companyId = await this.resolveCompany(userId, CONVERT_PERMISSION);
     const normalizedEstimateId = normalizeId(estimateId);
-    const normalizedVersionId = normalizeId(versionId);
     const revision = normalizeRevision(expectedRevision);
-    const [estimate, version] = await Promise.all([
-      this.estimateRepository.findById(normalizedEstimateId),
-      this.lifecycleRepository.findVersion(normalizedVersionId),
-    ]);
-    if (!estimate || estimate.companyId !== companyId || !version || version.companyId !== companyId || version.estimateId !== estimate.id) {
+    const aggregate = await this.estimateRepository.findAggregateById(normalizedEstimateId);
+    if (!aggregate || aggregate.estimate.companyId !== companyId) {
       throw new NotFoundError("Смета не найдена.");
     }
-    if (estimate.lifecycleStatus !== "accepted" || estimate.acceptedVersionId !== version.id || version.status !== "accepted") {
-      throw new InvalidStateError("Для заказа доступна только текущая принятая версия КП.");
-    }
-    if (estimate.revision !== revision) {
+    if (aggregate.estimate.revision !== revision) {
       throw new InvalidStateError("КП изменилось. Обновите страницу и проверьте состав заказа ещё раз.");
     }
-    return { estimate, version };
+    return aggregate;
   }
 
   private async readiness(userId: string, estimateId: string) {
@@ -488,23 +482,42 @@ function versionProductLines(version: EstimateVersion): Array<{
     : []);
 }
 
-function excludedLine(
-  lineId: string,
+function aggregateProductLines(aggregate: LiveEstimateAggregate): Array<{
+  lineId: string;
+  productId: string;
+  quantity: number;
+  snapshotPartnerPrice: number | null;
+  snapshotCurrencyCode: string | null;
+  skuSnapshot: string | null;
+  productNameSnapshot: string | null;
+}> {
+  return aggregate.items.flatMap((item) => item.lineType === "product" && item.productId
+    ? [{
+      lineId: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      snapshotPartnerPrice: item.sourceUnitPrice,
+      snapshotCurrencyCode: item.sourceCurrencyCode,
+      skuSnapshot: item.skuSnapshot,
+      productNameSnapshot: item.productNameSnapshot,
+    }]
+    : []);
+}
+
+function excludedLiveLine(
+  item: LiveEstimateAggregate["items"][number],
   classification: EstimateOrderConversionLineDto["classification"],
   name: string,
-  quantity: number,
-  unit: string,
-  item: Record<string, unknown>,
 ): EstimateOrderConversionLineDto {
   return {
-    lineId,
+    lineId: item.id,
     classification,
-    sku: textValue(item.sku_snapshot),
+    sku: item.skuSnapshot,
     name,
-    quantity,
-    unit,
-    estimateUnitPrice: nullableNumber(item.source_unit_price),
-    estimateCurrencyCode: textValue(item.source_currency_code),
+    quantity: item.quantity,
+    unit: item.unit,
+    estimateUnitPrice: item.sourceUnitPrice,
+    estimateCurrencyCode: item.sourceCurrencyCode,
     currentUnitPrice: null,
     currentCurrencyCode: null,
     priceChanged: false,
@@ -516,11 +529,6 @@ function excludedLine(
 
 function textValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function numberValue(value: unknown): number | null {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
 }
 
 function nullableNumber(value: unknown): number | null { const number = Number(value); return value === null || value === undefined || !Number.isFinite(number) ? null : number; }

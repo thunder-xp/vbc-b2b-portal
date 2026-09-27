@@ -117,8 +117,6 @@ export interface CartService {
   previewEstimateProducts(userId: string, lines: EstimateToCartSourceLine[]): Promise<EstimateToCartPreviewLine[]>;
   mergeEstimateProducts(userId: string, input: {
     estimateId: string;
-    versionId: string;
-    expectedRevision: number;
     requestKey: string;
     lines: EstimateToCartSourceLine[];
   }): Promise<EstimateToCartResult>;
@@ -356,15 +354,13 @@ export class DefaultCartService implements CartService {
 
   async mergeEstimateProducts(userId: string, input: {
     estimateId: string;
-    versionId: string;
-    expectedRevision: number;
     requestKey: string;
     lines: EstimateToCartSourceLine[];
   }): Promise<EstimateToCartResult> {
     const companyId = await this.resolveCompanyId(userId);
     const resolved = await this.resolveEstimateProducts(userId, input.lines);
     return this.repository.mergeEstimateProducts({
-      companyId, estimateId: input.estimateId, versionId: input.versionId, expectedRevision: input.expectedRevision,
+      companyId, estimateId: input.estimateId,
       requestKey: input.requestKey,
       items: resolved.map((line) => ({
         lineId: line.lineId,

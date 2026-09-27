@@ -222,7 +222,7 @@ export type EstimateOrderConversionLineDto = {
 
 export type EstimateOrderConversionPreviewDto = {
   estimateId: string;
-  versionId: string;
+  versionId: null;
   estimateRevision: number;
   estimateNumber: string;
   customerName: string | null;

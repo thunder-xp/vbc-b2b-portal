@@ -126,41 +126,53 @@ describe("EstimateLifecycleService", () => {
     expect(dependencies.lifecycle.createFromCart).toHaveBeenCalledWith(expect.objectContaining({ name }));
   });
 
-  it("passes only product lines to the cart conversion service", async () => {
+  it.each([
+    ["draft", "draft"],
+    ["ready", "sent"],
+    ["ready", "accepted"],
+    ["ready", "rejected"],
+    ["ready", "expired"],
+    ["ready", "converted_to_order"],
+    ["archived", "archived"],
+  ] as const)("passes only live product lines to cart from %s/%s", async (status, lifecycleStatus) => {
     const dependencies = makeDependencies();
-    vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, lifecycleStatus: "accepted", acceptedVersionId: "version-1", revision: 5 });
-    vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue({ ...dependencies.version, status: "accepted" });
-    await dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 5, "22222222-2222-2222-2222-222222222222");
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({
+      ...dependencies.aggregate,
+      estimate: { ...dependencies.estimate, status, lifecycleStatus } as typeof dependencies.estimate,
+    });
+
+    await dependencies.service.addEquipmentToCart(
+      "user-1",
+      "estimate-1",
+      3,
+      "22222222-2222-2222-2222-222222222222",
+    );
+
     expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledWith("user-1", expect.objectContaining({
-      estimateId: "estimate-1", versionId: "version-1", expectedRevision: 5,
+      estimateId: "estimate-1",
       lines: [expect.objectContaining({ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 })],
     }));
   });
 
-  it("builds the accepted-version conversion review server-side with explicit exclusions and differences", async () => {
+  it("builds live conversion review server-side with explicit exclusions and current commercial truth", async () => {
     const dependencies = makeDependencies();
-    const acceptedEstimate = { ...dependencies.estimate, lifecycleStatus: "accepted" as const, acceptedVersionId: "version-1", revision: 5 };
-    const acceptedVersion = {
-      ...dependencies.version,
-      status: "accepted" as const,
-      snapshot: {
-        ...dependencies.version.snapshot,
-        estimate: { customer_name: "Customer", project_name: "Site" },
-        items: [
-          ...dependencies.version.snapshot.items,
-          { id: "item-2", line_type: "external", description: "Special bracket", quantity: 1, unit: "pcs" },
-          { id: "item-3", line_type: "custom", description: "Note", quantity: 1, unit: "pcs" },
-        ],
-      },
-    };
-    vi.mocked(dependencies.estimates.findById).mockResolvedValue(acceptedEstimate);
-    vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue(acceptedVersion);
+    const product = dependencies.aggregate.items[0]!;
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({
+      ...dependencies.aggregate,
+      estimate: { ...dependencies.estimate, revision: 5 },
+      items: [
+        product,
+        { ...product, id: "item-1", lineType: "service", productId: null, description: "Installation", quantity: 1 },
+        { ...product, id: "item-2", lineType: "external", productId: null, description: "Special bracket", quantity: 1 },
+        { ...product, id: "item-3", lineType: "custom", productId: null, description: "Note", quantity: 1 },
+      ],
+    });
 
-    const preview = await dependencies.service.getOrderConversionPreview("user-1", "estimate-1", "version-1", 5);
+    const preview = await dependencies.service.getOrderConversionPreview("user-1", "estimate-1", 5);
 
     expect(preview).toMatchObject({
       estimateNumber: "KP-2026-000001", customerName: "Customer", projectName: "Site", estimateRevision: 5,
-      orderableLineCount: 1, orderableUnitCount: 2, excludedLineCount: 3,
+      versionId: null, orderableLineCount: 1, orderableUnitCount: 2, excludedLineCount: 3,
       serviceLineCount: 1, externalLineCount: 1, invalidLineCount: 1,
       changedPriceCount: 1, stockIssueCount: 0,
     });
@@ -170,37 +182,19 @@ describe("EstimateLifecycleService", () => {
     expect(dependencies.cart.previewEstimateProducts).toHaveBeenCalledOnce();
   });
 
-  it("rejects a stale accepted-version revision before any commercial lookup or cart mutation", async () => {
+  it("rejects a stale live revision before any commercial lookup or cart mutation", async () => {
     const dependencies = makeDependencies();
-    vi.mocked(dependencies.estimates.findById).mockResolvedValue({ ...dependencies.estimate, lifecycleStatus: "accepted", acceptedVersionId: "version-1" });
-    vi.mocked(dependencies.lifecycle.findVersion).mockResolvedValue({ ...dependencies.version, status: "accepted" });
 
-    await expect(dependencies.service.getOrderConversionPreview("user-1", "estimate-1", "version-1", 2))
+    await expect(dependencies.service.getOrderConversionPreview("user-1", "estimate-1", 2))
       .rejects.toBeInstanceOf(InvalidStateError);
     expect(dependencies.cart.previewEstimateProducts).not.toHaveBeenCalled();
     expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["draft", "draft"],
-    ["sent", "sent"],
-    ["rejected", "rejected"],
-    ["sent", "expired"],
-    ["accepted", "converted_to_order"],
-    ["archived", "accepted"],
-  ] as const)("rejects a non-eligible %s/%s estimate before cart mutation", async (status, lifecycleStatus) => {
+  it("blocks a deleted or otherwise unreadable Estimate before cart mutation", async () => {
     const dependencies = makeDependencies();
-    const estimate = { ...dependencies.estimate, status, lifecycleStatus, acceptedVersionId: lifecycleStatus === "accepted" ? "version-1" : null };
-    vi.mocked(dependencies.estimates.findById).mockResolvedValue(estimate);
-    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222"))
-      .rejects.toBeInstanceOf(InvalidStateError);
-    expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
-  });
-
-  it("blocks a soft-deleted or otherwise unreadable estimate before cart mutation", async () => {
-    const dependencies = makeDependencies();
-    vi.mocked(dependencies.estimates.findById).mockResolvedValue(null);
-    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222"))
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue(null);
+    await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", 3, "22222222-2222-2222-2222-222222222222"))
       .rejects.toBeInstanceOf(NotFoundError);
     expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
   });

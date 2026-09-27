@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { generateEstimateVersionPdfAction } from "../../actions/proposal.actions";
-import { addEstimateEquipmentToCartAction, createDraftFromEstimateVersionAction, createEstimateVersionAction, getEstimateOrderConversionPreviewAction } from "../../actions/lifecycle.actions";
+import { addEstimateEquipmentToCartAction, createDraftFromEstimateVersionAction, createEstimateVersionAction } from "../../actions/lifecycle.actions";
 import type { EstimateDraftReadinessDto } from "../../types";
 import { EstimateWorkflowPanel } from "../EstimateWorkflowPanel";
 import { ESTIMATE_DIRTY_STATE_EVENT } from "../estimate-client-events";
@@ -15,7 +15,6 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("../../actions/lifecycle.actions", () => ({
   addEstimateEquipmentToCartAction: vi.fn(),
-  getEstimateOrderConversionPreviewAction: vi.fn(),
   createDraftFromEstimateVersionAction: vi.fn(),
   createEstimateVersionAction: vi.fn(),
   duplicateEstimateAction: vi.fn(),
@@ -128,69 +127,73 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(screen.queryByRole("button", { name: "Создать новую версию" })).not.toBeInTheDocument();
   });
 
-  it("reviews eligible equipment before converting an accepted version", async () => {
-    const { default: userEvent } = await import("@testing-library/user-event");
-    const user = userEvent.setup();
-    vi.mocked(addEstimateEquipmentToCartAction).mockResolvedValue({ success: true, message: "Added", errorCode: null, data: {
-      cartId: "cart-1", totalLines: 4, catalogLines: 3, fullyAvailable: 1,
-      partiallyAvailable: 1, unavailable: 1, stockUnknown: 0, externalLines: 1,
-      changedPrice: 0, demandCaptured: 2, correlationId: "33333333-3333-3333-3333-333333333333", repeated: false,
-    } });
-    vi.mocked(getEstimateOrderConversionPreviewAction).mockResolvedValue({ success: true, message: "Checked", errorCode: null, data: {
-      estimateId: "estimate-1", versionId: "version-1", estimateRevision: 3, estimateNumber: "KP-2026-1",
-      customerName: "Customer", projectName: "Site", currencyCode: "USD", orderableLineCount: 2,
-      orderableUnitCount: 5, excludedLineCount: 2, serviceLineCount: 1, externalLineCount: 1,
-      unavailableLineCount: 0, invalidLineCount: 0, changedPriceCount: 1, stockIssueCount: 1,
-      lines: [
-        { lineId: "line-1", classification: "ORDERABLE", sku: "SKU-1", name: "Camera", quantity: 2, unit: "pcs", estimateUnitPrice: 10, estimateCurrencyCode: "USD", currentUnitPrice: 12, currentCurrencyCode: "USD", priceChanged: true, stockStatus: "PARTIAL_STOCK", availableQuantity: 1, expectedArrivalDate: null },
-        { lineId: "line-2", classification: "ORDERABLE", sku: "SKU-2", name: "Recorder", quantity: 3, unit: "pcs", estimateUnitPrice: 20, estimateCurrencyCode: "USD", currentUnitPrice: 20, currentCurrencyCode: "USD", priceChanged: false, stockStatus: "FULLY_AVAILABLE", availableQuantity: 8, expectedArrivalDate: null },
-        { lineId: "line-3", classification: "NON_ORDERABLE_WORK", sku: null, name: "Монтаж", quantity: 1, unit: "service", estimateUnitPrice: null, estimateCurrencyCode: null, currentUnitPrice: null, currentCurrencyCode: null, priceChanged: false, stockStatus: null, availableQuantity: null, expectedArrivalDate: null },
-        { lineId: "line-4", classification: "EXTERNAL_NOMENCLATURE", sku: null, name: "Внешняя позиция", quantity: 1, unit: "pcs", estimateUnitPrice: null, estimateCurrencyCode: null, currentUnitPrice: null, currentCurrencyCode: null, priceChanged: false, stockStatus: null, availableQuantity: null, expectedArrivalDate: null },
-      ],
-    } });
+  it.each([
+    ["draft", "draft", "draft", "draft"],
+    ["sent", "sent", "ready", "awaiting_customer"],
+    ["accepted", "accepted", "ready", "accepted_ready_to_order"],
+    ["rejected", "rejected", "ready", "rejected"],
+    ["expired", "expired", "ready", "expired"],
+    ["converted_to_order", "converted_to_order", "ready", "converted_to_order"],
+    ["archived", "draft", "archived", "draft"],
+  ] as const)("keeps the cart CTA visible for %s Estimates", (_label, lifecycleStatus, estimateStatus, guidedState) => {
     render(<EstimateWorkflowPanel initialWorkflow={{
-      estimateId: "estimate-1",
-      estimateStatus: "ready",
-      acceptedVersionId: "version-1",
-      emailDeliveryAvailable: false,
-      draftReadiness: inactiveDraftReadiness,
-      guidedState: { state: "accepted_ready_to_order", primaryAction: "continue_order", secondaryActions: ["preview", "pdf", "duplicate", "save_template"], resumeCartId: null }, permissions: fullPermissions,
-      readiness: { ready: true, checks: [] },
-      versions: [{
-        id: "version-1", versionNumber: 1, label: "KP-2026-1 / версия 1", status: "accepted",
-        estimateRevision: 3,
-        statusLabel: "Принято", total: "1 000,00 USD", currencyCode: "USD", note: null,
-        createdAt: "2026-07-29T08:00:00Z", createdByName: "Менеджер", sentAt: null,
-        acceptedAt: "2026-07-29T09:00:00Z", rejectedAt: null, pdfDocumentId: "pdf-1",
-        pdfStatus: "ready", deliveries: [],
-      }],
+      estimateId: "estimate-1", estimateStatus, lifecycleStatus, acceptedVersionId: null,
+      emailDeliveryAvailable: false, draftReadiness: inactiveDraftReadiness,
+      guidedState: { state: guidedState, primaryAction: null, secondaryActions: [], resumeCartId: null },
+      permissions: fullPermissions, readiness: { ready: true, checks: [] }, versions: [],
     }} revision={3} />);
 
-    const transferAction = screen.getByRole("button", { name: "Создать заказ" });
-    expect(transferAction).toHaveClass("bg-emerald-700");
-    await user.click(transferAction);
-    expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
-    expect(await screen.findByText("2 товарных позиций · 5 единиц")).toBeInTheDocument();
-    expect(screen.getByText("Не попадут в заказ")).toBeInTheDocument();
-    expect(screen.getByText(/Цена в КП:/)).toHaveTextContent("текущая цена:");
-    expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Продолжить к заказу" }));
-    await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledOnce());
-    expect(screen.getByText("КП добавлено в корзину")).toBeInTheDocument();
-    expect(screen.getByText(/4 позиций · 1 доступны · 1 доступны частично · 1 отсутствуют/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Перейти в корзину" })).toHaveAttribute("href", "/cabinet/cart");
-    await user.click(screen.getByRole("button", { name: "Создать заказ" }));
-    await screen.findByText("2 товарных позиций · 5 единиц");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Продолжить к заказу" }));
-    await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
-    const [first, second] = vi.mocked(addEstimateEquipmentToCartAction).mock.calls;
-    expect(first?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);
-    expect(second?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);
-    expect(first?.[2]).toBe(3);
-    expect(first?.[3]).toMatch(/^[0-9a-f-]{36}$/);
-    expect(second?.[3]).not.toBe(first?.[3]);
+    const action = screen.getByRole("button", { name: /в корзину/i });
+    expect(action).toBeEnabled();
+    expect(action).toHaveAttribute("data-testid", "estimate-transfer-to-cart");
+    expect(action.querySelector("svg")).not.toBeNull();
   });
 
+  it("converts a saved Draft in one click and reuses one idempotency key", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    vi.mocked(addEstimateEquipmentToCartAction)
+      .mockResolvedValueOnce({ success: true, message: "Added", errorCode: null, data: {
+        cartId: "cart-1", totalLines: 5, catalogLines: 5, fullyAvailable: 4,
+        partiallyAvailable: 0, unavailable: 1, stockUnknown: 0, externalLines: 0,
+        changedPrice: 2, demandCaptured: 1, correlationId: "33333333-3333-3333-3333-333333333333", repeated: false,
+      } })
+      .mockResolvedValueOnce({ success: true, message: "Repeated", errorCode: null, data: {
+        cartId: "cart-1", totalLines: 5, catalogLines: 5, fullyAvailable: 4,
+        partiallyAvailable: 0, unavailable: 1, stockUnknown: 0, externalLines: 0,
+        changedPrice: 2, demandCaptured: 1, correlationId: "33333333-3333-3333-3333-333333333333", repeated: true,
+      } });
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
+      emailDeliveryAvailable: false, draftReadiness: inactiveDraftReadiness,
+      guidedState: { state: "draft", primaryAction: null, secondaryActions: [], resumeCartId: null },
+      permissions: fullPermissions, readiness: { ready: true, checks: [] }, versions: [],
+    }} revision={3} />);
+
+    const action = screen.getByRole("button", { name: /в корзину/i });
+    await user.click(action);
+    await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("5 позиций добавлено в корзину")).toBeInTheDocument();
+    expect(screen.getByText(/5 позиций · 4 доступны · 0 доступны частично · 1 отсутствуют/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Перейти в корзину" })).toHaveAttribute("href", "/cabinet/cart");
+
+    await user.click(action);
+    await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
+    const [first, second] = vi.mocked(addEstimateEquipmentToCartAction).mock.calls;
+    expect(first?.slice(0, 2)).toEqual(["estimate-1", 3]);
+    expect(first?.[2]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second?.[2]).toBe(first?.[2]);
+  });
+
+  it("does not expose conversion when the server denies the capability", () => {
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null,
+      emailDeliveryAvailable: false, draftReadiness: inactiveDraftReadiness,
+      guidedState: { state: "draft", primaryAction: null, secondaryActions: [], resumeCartId: null },
+      permissions: { ...fullPermissions, canConvert: false }, readiness: { ready: true, checks: [] }, versions: [],
+    }} revision={3} />);
+    expect(screen.queryByRole("button", { name: /в корзину/i })).not.toBeInTheDocument();
+  });
   it("acknowledges generation immediately and exposes the ready artifact without an RSC refresh", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();

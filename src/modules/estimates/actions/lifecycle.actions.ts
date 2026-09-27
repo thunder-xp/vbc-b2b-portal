@@ -111,17 +111,17 @@ export async function createEstimateFromCartAction(name: string, requestKey: str
   } catch (error) { return failureFromError(error); }
 }
 
-export async function getEstimateOrderConversionPreviewAction(estimateId: string, versionId: string, expectedRevision: number): Promise<ActionResult<EstimateOrderConversionPreviewDto>> {
+export async function getEstimateOrderConversionPreviewAction(estimateId: string, expectedRevision: number): Promise<ActionResult<EstimateOrderConversionPreviewDto>> {
   try {
     return success("Проверка заказа выполнена.", await createEstimateLifecycleService().getOrderConversionPreview(
-      await getAuthenticatedUserId(), estimateId, versionId, expectedRevision,
+      await getAuthenticatedUserId(), estimateId, expectedRevision,
     ));
   } catch (error) { return failureFromError(error); }
 }
 
-export async function addEstimateEquipmentToCartAction(estimateId: string, versionId: string, expectedRevision: number, requestKey: string): Promise<ActionResult<EstimateCartConversionSummary>> {
+export async function addEstimateEquipmentToCartAction(estimateId: string, expectedRevision: number, requestKey: string): Promise<ActionResult<EstimateCartConversionSummary>> {
   try {
-    const result = await createEstimateLifecycleService().addEquipmentToCart(await getAuthenticatedUserId(), estimateId, versionId, expectedRevision, requestKey);
+    const result = await createEstimateLifecycleService().addEquipmentToCart(await getAuthenticatedUserId(), estimateId, expectedRevision, requestKey);
     revalidatePath("/cabinet/cart");
     return success("Оборудование добавлено в корзину по текущим ценам.", result);
   } catch (error) { return failureFromError(error); }

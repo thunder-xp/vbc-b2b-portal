@@ -54,8 +54,6 @@ export interface CartRepository {
   mergeEstimateProducts(input: {
     companyId: string;
     estimateId: string;
-    versionId: string;
-    expectedRevision: number;
     requestKey: string;
     items: Array<{
       lineId: string;

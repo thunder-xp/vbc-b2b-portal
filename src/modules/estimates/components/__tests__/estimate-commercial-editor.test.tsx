@@ -173,9 +173,13 @@ describe("EstimateCommercialEditor", () => {
     expect(within(sidebar!).getByRole("link", { name: "Предпросмотр КП" })).toBeInTheDocument();
     const previewAction = within(sidebar!).getByRole("link", { name: "Предпросмотр КП" });
     const prepareAction = within(sidebar!).getByRole("button", { name: "Подготовить КП" });
+    const cartAction = within(sidebar!).getByRole("button", { name: "В корзину" });
     expect(previewAction.compareDocumentPosition(prepareAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(sidebar!).queryByRole("button", { name: "Создать заказ" })).not.toBeInTheDocument();
+    expect(prepareAction.compareDocumentPosition(cartAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(cartAction).toHaveAttribute("data-testid", "estimate-transfer-to-cart");
+    expect(cartAction.querySelector("svg")).not.toBeNull();
     expect(prepareAction).toBeEnabled();
+    expect(cartAction).toBeEnabled();
   });
 
   it("removes partner-facing rate-age copy and normalizes the materials label", () => {
