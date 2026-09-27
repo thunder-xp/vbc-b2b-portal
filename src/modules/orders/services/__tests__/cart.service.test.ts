@@ -40,6 +40,11 @@ describe("DefaultCartService", () => {
     expect(cart.lines[0]?.partnerLineTotal).toContain("350,00");
     expect(cart.total).toContain("350,00");
     expect(cart.lines[0]?.partnerUnitPrice).toContain("175");
+    expect(cart.lines[0]?.onlineLineTotal).toContain("330,00");
+    expect(cart.onlineTotal).toContain("330,00");
+    expect(cart.onlineSavings).toContain("20");
+    expect(cart.pricingMode).toBe("rate_999_default");
+    expect(cart.paymentIntent).toBe("pay_later");
     expect(cart.positionCount).toBe(1);
     expect(cart.totalUnitCount).toBe(2);
     expect(dependencies.repository.findReconciliationLock).not.toHaveBeenCalled();
@@ -273,6 +278,23 @@ function makeDependencies() {
   } = { getProductCommercialViews: vi.fn().mockResolvedValue([{
     productId: "product-1",
     partnerPrice: { amount: 10, currencyCode: "USD", formattedAmount: "$10.00" },
+    partnerPriceMdl: {
+      amount: 165,
+      currencyCode: "MDL",
+      formattedAmount: "165 MDL",
+      conversionEvidence: {
+        sourceAmount: 10,
+        sourceCurrencyCode: "USD",
+        appliedRate: 16.5,
+        rateId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        ratePurpose: "partner_price_usd_to_mdl",
+        rateSourceType: "one_c_automatic",
+        rateEffectiveAt: "2026-09-20T00:00:00.000Z",
+        ratePublishedAt: "2026-09-20T10:00:00.000Z",
+        resultingAmount: 165,
+        resultingCurrencyCode: "MDL",
+      },
+    },
     partnerCheckoutPriceMdl: {
       amount: 175,
       currencyCode: "MDL",
@@ -283,6 +305,7 @@ function makeDependencies() {
         appliedRate: 17.5,
         rateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
         ratePurpose: "retail_price_usd_to_mdl",
+        rateSourceType: "one_c_automatic",
         rateEffectiveAt: "2026-09-20T00:00:00.000Z",
         ratePublishedAt: "2026-09-20T10:00:00.000Z",
         resultingAmount: 175,

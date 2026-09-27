@@ -10,12 +10,16 @@ import {
 } from "react";
 
 type LineFlusher = () => Promise<boolean>;
+export type CartCheckoutPayment = "cashless" | "cash" | "online";
 
 type CartCheckoutCoordinatorValue = {
   hasPendingMutations: boolean;
   flushPendingMutations: () => Promise<void>;
   registerLineFlusher: (itemId: string, flusher: LineFlusher) => () => void;
   trackMutation: (mutation: Promise<boolean>) => Promise<boolean>;
+  paymentMethod: CartCheckoutPayment | null;
+  setPaymentMethod: (method: CartCheckoutPayment) => void;
+  managedPaymentSelection: boolean;
 };
 
 const defaultValue: CartCheckoutCoordinatorValue = {
@@ -23,6 +27,9 @@ const defaultValue: CartCheckoutCoordinatorValue = {
   flushPendingMutations: async () => undefined,
   registerLineFlusher: () => () => undefined,
   trackMutation: (mutation) => mutation,
+  paymentMethod: null,
+  setPaymentMethod: () => undefined,
+  managedPaymentSelection: false,
 };
 
 const CartCheckoutCoordinatorContext =
@@ -30,12 +37,15 @@ const CartCheckoutCoordinatorContext =
 
 export function CartCheckoutCoordinator({
   children,
+  managedPaymentSelection = false,
 }: {
   children: React.ReactNode;
+  managedPaymentSelection?: boolean;
 }) {
   const flushers = useRef(new Map<string, LineFlusher>());
   const pending = useRef(new Set<Promise<boolean>>());
   const [pendingCount, setPendingCount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState<CartCheckoutPayment | null>(null);
 
   const registerLineFlusher = useCallback(
     (itemId: string, flusher: LineFlusher) => {
@@ -81,12 +91,17 @@ export function CartCheckoutCoordinator({
       flushPendingMutations,
       registerLineFlusher,
       trackMutation,
+      paymentMethod,
+      setPaymentMethod,
+      managedPaymentSelection,
     }),
     [
       flushPendingMutations,
       pendingCount,
       registerLineFlusher,
       trackMutation,
+      paymentMethod,
+      managedPaymentSelection,
     ],
   );
 

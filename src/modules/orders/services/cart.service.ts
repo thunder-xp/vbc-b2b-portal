@@ -18,6 +18,8 @@ export type CartLineDto = {
   quantity: number;
   partnerUnitPrice?: string | null;
   partnerLineTotal?: string | null;
+  onlineUnitPrice?: string | null;
+  onlineLineTotal?: string | null;
   retailUnitPrice: string | null;
   retailLineTotal: string | null;
   availableStock: number | null;
@@ -34,6 +36,10 @@ export type CartDetailDto = {
   totalUnitCount: number;
   lines: CartLineDto[];
   total?: string | null;
+  onlineTotal?: string | null;
+  onlineSavings?: string | null;
+  pricingMode: "rate_999_default" | "rate_113_online";
+  paymentIntent: "pay_later" | "pay_now";
   retailReferenceTotal: string | null;
   commercialMode: "full" | "retail_only" | "hidden";
   submitting: boolean;
@@ -155,6 +161,10 @@ export class DefaultCartService implements CartService {
       lines: [],
       ...(visibility?.canViewPartnerTotals !== false ? { total: null } : {}),
       retailReferenceTotal: null,
+      onlineTotal: null,
+      onlineSavings: null,
+      pricingMode: "rate_999_default",
+      paymentIntent: "pay_later",
       commercialMode: visibility?.mode ?? "full",
       submitting: false,
       reconciliationLock: null,
@@ -179,7 +189,7 @@ export class DefaultCartService implements CartService {
     const lines = items.flatMap((item) => {
       const liveProduct = productsById.get(item.productId);
       const product = liveProduct ?? retainedProductCard(item.productId, item.retainedProduct);
-      return product ? [toLine(item.id, item.quantity, product, viewsById.get(item.productId), Boolean(liveProduct))] : [];
+      return product ? [toLine(item.id, item.quantity, product, viewsById.get(item.productId), Boolean(liveProduct), visibility?.canViewPartnerTotals !== false)] : [];
     });
     const checkoutOptions = checkoutConfiguration
       ? toPartnerCheckoutOptions(checkoutConfiguration)
@@ -208,6 +218,16 @@ export class DefaultCartService implements CartService {
         })),
         "retail",
       ),
+      onlineTotal: visibility?.canViewPartnerTotals !== false ? calculateTotal(items.map((item) => ({
+        quantity: item.quantity,
+        view: viewsById.get(item.productId),
+      })), "online") : null,
+      onlineSavings: visibility?.canViewPartnerTotals !== false ? calculateSavings(items.map((item) => ({
+        quantity: item.quantity,
+        view: viewsById.get(item.productId),
+      }))) : null,
+      pricingMode: "rate_999_default",
+      paymentIntent: "pay_later",
       commercialMode: visibility?.mode ?? "full",
       submitting: cart.status === "submitting",
       reconciliationLock: reconciliation
@@ -224,8 +244,19 @@ export class DefaultCartService implements CartService {
         && checkoutOptions?.paymentMethods.some((method) => method.value === "cashless" && method.enabled) === true
         && items.every((item) => {
           const price = checkoutPartnerPrice(viewsById.get(item.productId));
+          const onlinePrice = viewsById.get(item.productId)?.partnerPriceMdl;
+          const defaultEvidence = price?.conversionEvidence;
+          const onlineEvidence = onlinePrice?.conversionEvidence;
           return price !== null && price !== undefined
-            && price.amount > 0 && price.currencyCode?.toUpperCase() === "MDL";
+            && price.amount > 0 && price.currencyCode?.toUpperCase() === "MDL"
+            && (defaultEvidence?.sourceCurrencyCode !== "USD"
+              || (defaultEvidence.ratePurpose === "retail_price_usd_to_mdl"
+                && defaultEvidence.rateSourceType === "one_c_automatic"))
+            && onlinePrice !== null && onlinePrice !== undefined
+            && onlinePrice.amount > 0 && onlinePrice.currencyCode?.toUpperCase() === "MDL"
+            && (onlineEvidence?.sourceCurrencyCode !== "USD"
+              || (onlineEvidence.ratePurpose === "partner_price_usd_to_mdl"
+                && onlineEvidence.rateSourceType === "one_c_automatic"));
         }),
       commercialRateId: currentRetailRateId(views),
     };
@@ -479,6 +510,7 @@ function toLine(
   product: Awaited<ReturnType<CatalogService["getProductsByIds"]>>[number],
   view?: ProductCommercialViewDto,
   catalogVisible = true,
+  canViewPartnerTotals = true,
 ): CartLineDto {
   return {
     id, productId: product.id, slug: product.slug, productName: product.name, sku: product.sku, imageUrl: product.imageUrl, quantity,
@@ -488,6 +520,8 @@ function toLine(
           partnerLineTotal: formatLineTotal(checkoutPartnerPrice(view), quantity),
         }
       : {}),
+    onlineUnitPrice: canViewPartnerTotals ? view?.partnerPriceMdl?.formattedAmount ?? null : null,
+    onlineLineTotal: canViewPartnerTotals ? formatLineTotal(view?.partnerPriceMdl, quantity) : null,
     retailUnitPrice: view?.retailPrice?.formattedAmount ?? null,
     retailLineTotal: formatLineTotal(view?.retailPrice, quantity),
     availableStock: catalogVisible ? view?.stock?.exactAvailableQuantity ?? null : 0,
@@ -541,10 +575,12 @@ function formatLineTotal(
 
 function calculateTotal(
   lines: Array<{ quantity: number; view?: ProductCommercialViewDto }>,
-  kind: "partner" | "retail",
+  kind: "partner" | "retail" | "online",
 ): string | null {
   const prices = lines.map((line) =>
-    kind === "partner" ? checkoutPartnerPrice(line.view) : line.view?.retailPrice,
+    kind === "partner" ? checkoutPartnerPrice(line.view)
+      : kind === "online" ? line.view?.partnerPriceMdl
+        : line.view?.retailPrice,
   );
   if (!lines.length || prices.some((price) => !price?.currencyCode)) return null;
   const currencies = [...new Set(prices.map((price) => price?.currencyCode))];
@@ -556,6 +592,23 @@ function calculateTotal(
     ).toNumber(),
     currencies[0],
   );
+}
+
+function calculateSavings(
+  lines: Array<{ quantity: number; view?: ProductCommercialViewDto }>,
+): string | null {
+  const standardPrices = lines.map((line) => checkoutPartnerPrice(line.view));
+  const onlinePrices = lines.map((line) => line.view?.partnerPriceMdl);
+  if (!lines.length || standardPrices.some((price) => !price?.currencyCode)
+    || onlinePrices.some((price) => !price?.currencyCode)) return null;
+  const standard = lines.reduce((sum, line, index) =>
+    sum.plus(new Decimal(standardPrices[index]?.amount ?? 0).times(line.quantity)), new Decimal(0));
+  const online = lines.reduce((sum, line, index) =>
+    sum.plus(new Decimal(onlinePrices[index]?.amount ?? 0).times(line.quantity)), new Decimal(0));
+  if (standardPrices.some((price) => price?.currencyCode !== "MDL")
+    || onlinePrices.some((price) => price?.currencyCode !== "MDL")) return null;
+  const savings = standard.minus(online);
+  return savings.gt(0) ? formatMoney(savings.toNumber(), "MDL") : null;
 }
 
 function checkoutPartnerPrice(

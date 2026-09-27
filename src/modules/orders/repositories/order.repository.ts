@@ -17,7 +17,8 @@ export type OrderItemSnapshotInput = {
   sourceCurrencyCode: "USD" | "MDL";
   appliedExchangeRate: number | null;
   exchangeRateId: string | null;
-  exchangeRatePurpose: "retail_price_usd_to_mdl" | null;
+  exchangeRatePurpose: "retail_price_usd_to_mdl" | "partner_price_usd_to_mdl" | null;
+  exchangeRateSourceType: "one_c_automatic" | null;
   exchangeRateEffectiveAt: string | null;
   exchangeRatePublishedAt: string | null;
   availableStock: number | null;

@@ -10,6 +10,51 @@ import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, Recov
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
 
 describe("DefaultPartnerOrderService", () => {
+  it("uses partner BCRU pricing and snapshots online mode for immediate payment", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+    await dependencies.service.submit("user-1", { ...input(), pricingMode: "rate_113_online" });
+
+    const submittedLine = dependencies.orderRepository.beginSubmission.mock.calls[0]![0].items[0]!;
+    expect(submittedLine).toMatchObject({
+      partnerUnitPrice: 219,
+      exchangeRatePurpose: "partner_price_usd_to_mdl",
+      exchangeRateSourceType: "one_c_automatic",
+    });
+    expect(dependencies.orderRepository.beginSubmission.mock.calls[0]![0].payloadSnapshot).toMatchObject({
+      pricingMode: "rate_113_online",
+      paymentIntent: "pay_now",
+      rateSnapshot: [expect.objectContaining({
+        purpose: "partner_price_usd_to_mdl",
+        value: 17.5,
+        source: "one_c_automatic",
+      })],
+    });
+    expect(dependencies.orderRepository.beginSubmission.mock.calls[0]![0].requestFingerprint).not.toBe("");
+  });
+
+  it("rejects reusing an idempotency key with another pricing mode", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.findBySubmissionKey.mockResolvedValue(order({
+      status: PartnerOrderStatus.Submitted,
+      payloadSnapshot: { pricingMode: "rate_113_online" },
+    }));
+
+    await expect(dependencies.service.submit("user-1", input()))
+      .rejects.toMatchObject({ code: "ORDER_PAYLOAD_VALIDATION_FAILED" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when online USD pricing is not backed by an automatic BCRU rate", async () => {
+    const dependencies = makeDependencies();
+    const view = commercial("product-1", 10);
+    view.partnerPriceMdl.conversionEvidence.rateSourceType = "manual_from_1c" as "one_c_automatic";
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([view]);
+
+    await expect(dependencies.service.submit("user-1", { ...input(), pricingMode: "rate_113_online" }))
+      .rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -1013,6 +1058,24 @@ function commercial(productId: string, amount: number, sourceCurrencyCode: "USD"
   return {
     productId,
     partnerPrice: { amount, currencyCode: sourceCurrencyCode, formattedAmount: null, lastUpdatedAt: now },
+    partnerPriceMdl: {
+      amount: converted,
+      currencyCode: "MDL",
+      formattedAmount: null,
+      lastUpdatedAt: now,
+      conversionEvidence: {
+        sourceAmount: amount,
+        sourceCurrencyCode,
+        appliedRate: sourceCurrencyCode === "USD" ? 17.5 : null,
+        rateId: sourceCurrencyCode === "USD" ? "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" : null,
+        ratePurpose: sourceCurrencyCode === "USD" ? "partner_price_usd_to_mdl" as const : null,
+        rateSourceType: sourceCurrencyCode === "USD" ? "one_c_automatic" as const : null,
+        rateEffectiveAt: sourceCurrencyCode === "USD" ? "2026-09-20T00:00:00.000Z" : null,
+        ratePublishedAt: sourceCurrencyCode === "USD" ? "2026-09-20T10:00:00.000Z" : null,
+        resultingAmount: converted,
+        resultingCurrencyCode: "MDL" as const,
+      },
+    },
     partnerCheckoutPriceMdl: {
       amount: converted,
       currencyCode: "MDL",
@@ -1024,6 +1087,7 @@ function commercial(productId: string, amount: number, sourceCurrencyCode: "USD"
         appliedRate: sourceCurrencyCode === "USD" ? 17.5 : null,
         rateId: sourceCurrencyCode === "USD" ? "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" : null,
         ratePurpose: sourceCurrencyCode === "USD" ? "retail_price_usd_to_mdl" as const : null,
+        rateSourceType: sourceCurrencyCode === "USD" ? "one_c_automatic" as const : null,
         rateEffectiveAt: sourceCurrencyCode === "USD" ? "2026-09-20T00:00:00.000Z" : null,
         ratePublishedAt: sourceCurrencyCode === "USD" ? "2026-09-20T10:00:00.000Z" : null,
         resultingAmount: converted,
@@ -1038,6 +1102,7 @@ function withPriceUpdatedAt(view: ReturnType<typeof commercial>, lastUpdatedAt: 
     ...view,
     partnerPrice: { ...view.partnerPrice, lastUpdatedAt },
     partnerCheckoutPriceMdl: { ...view.partnerCheckoutPriceMdl, lastUpdatedAt },
+    partnerPriceMdl: { ...view.partnerPriceMdl, lastUpdatedAt },
   };
 }
 function order(overrides: Partial<PartnerOrder> = {}): PartnerOrder {

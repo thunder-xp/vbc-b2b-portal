@@ -77,6 +77,7 @@ export interface PartnerOrderService {
     paymentDate?: string;
     fulfillmentMethod?: CheckoutFulfillmentMethod;
     carrierId?: string | null;
+    pricingMode?: "rate_999_default" | "rate_113_online";
     notificationLocale?: "ru" | "ro";
   }): Promise<PartnerOrder>;
   listOwnCompanyOrders(userId: string): Promise<PartnerOrderSummaryDto[]>;
@@ -129,6 +130,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     paymentDate?: string;
     fulfillmentMethod?: CheckoutFulfillmentMethod;
     carrierId?: string | null;
+    pricingMode?: "rate_999_default" | "rate_113_online";
     notificationLocale?: "ru" | "ro";
   }): Promise<PartnerOrder> {
     const preflightStartedAt = Date.now();
@@ -137,11 +139,26 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const submissionKey = requireUuid(input.submissionKey, "Submission key");
     const deliveryDate = normalizeDeliveryDate(input.requestedDeliveryDate);
     const checkoutSelection = normalizeCheckoutSelection(input);
+    const pricingMode = input.pricingMode === "rate_113_online"
+      ? "rate_113_online" as const
+      : "rate_999_default" as const;
+    if (pricingMode === "rate_113_online" && checkoutSelection.paymentMethod !== "cashless") {
+      throw new RecoverableOrderSubmissionError("Online pricing requires cashless checkout.", "ORDER_PAYMENT_CONFIGURATION_INVALID");
+    }
     console.info(submissionEvent("partner_order_submission_started", "submission_started", {
       submissionKey, orderId: null, cartId: null, companyId: null,
     }));
     const existing = await this.orderRepository.findBySubmissionKey(submissionKey);
     if (existing) {
+      const existingPricingMode = existing.payloadSnapshot.pricingMode === "rate_113_online"
+        ? "rate_113_online"
+        : "rate_999_default";
+      if (existingPricingMode !== pricingMode) {
+        throw new RecoverableOrderSubmissionError(
+          "This checkout key was already used with another pricing mode.",
+          "ORDER_PAYLOAD_VALIDATION_FAILED",
+        );
+      }
       if (existing.status === PartnerOrderStatus.Submitted) return existing;
       logRejectedTransition(existing.cartId, null, submissionKey, existing, "existing_submission_attempt");
       if (existing.status === PartnerOrderStatus.Unknown || existing.external1cRef || existing.external1cNumber) {
@@ -576,7 +593,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       const identity = identitiesById.get(item.productId);
       const view = viewsById.get(item.productId);
       const sourcePrice = view?.partnerPrice;
-      const price = view?.partnerCheckoutPriceMdl;
+      const price = pricingMode === "rate_113_online"
+        ? view?.partnerPriceMdl
+        : view?.partnerCheckoutPriceMdl;
       const evidence = price?.conversionEvidence;
       const rawExternal1cId = identity?.external1cId;
       const trimmedExternal1cId = typeof rawExternal1cId === "string" ? rawExternal1cId.trim() : null;
@@ -648,7 +667,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         || evidence.sourceCurrencyCode !== sourcePrice.currencyCode
         || !money(evidence.sourceAmount).eq(sourcePrice.amount)
         || (evidence.sourceCurrencyCode === "USD" && (
-          evidence.ratePurpose !== "retail_price_usd_to_mdl"
+          evidence.ratePurpose !== (pricingMode === "rate_113_online"
+            ? "partner_price_usd_to_mdl"
+            : "retail_price_usd_to_mdl")
+          || evidence.rateSourceType !== "one_c_automatic"
           || !evidence.rateId || !Number.isFinite(evidence.appliedRate)
           || money(evidence.appliedRate ?? 0).lte(0)
           || !evidence.rateEffectiveAt || !evidence.ratePublishedAt
@@ -680,7 +702,12 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         appliedExchangeRate: evidence.appliedRate,
         exchangeRateId: evidence.rateId,
         exchangeRatePurpose: evidence.sourceCurrencyCode === "USD"
-          ? "retail_price_usd_to_mdl"
+          ? (pricingMode === "rate_113_online"
+            ? "partner_price_usd_to_mdl"
+            : "retail_price_usd_to_mdl")
+          : null,
+        exchangeRateSourceType: evidence.sourceCurrencyCode === "USD"
+          ? evidence.rateSourceType === "one_c_automatic" ? "one_c_automatic" : null
           : null,
         exchangeRateEffectiveAt: evidence.rateEffectiveAt,
         exchangeRatePublishedAt: evidence.ratePublishedAt,
@@ -733,6 +760,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       cartId: cart.id,
       expectedIntentVersion: serverIntentVersion,
       salesOrder,
+      pricingMode,
     });
     console.info(submissionEvent("partner_order_payload_built", "payload_built", {
       submissionKey, orderId: null, cartId: cart.id, companyId: company.id,
@@ -764,6 +792,17 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         requestFingerprint,
         payloadSnapshot: {
           ...toJsonRecord(salesOrder),
+          pricingMode,
+          paymentIntent: pricingMode === "rate_113_online" ? "pay_now" : "pay_later",
+          rateSnapshot: snapshots.map((item) => ({
+            productId: item.productId,
+            purpose: item.exchangeRatePurpose,
+            value: item.appliedExchangeRate,
+            source: item.exchangeRateSourceType,
+            rateId: item.exchangeRateId,
+            effectiveAt: item.exchangeRateEffectiveAt,
+            publishedAt: item.exchangeRatePublishedAt,
+          })),
           notificationLocale: input.notificationLocale === "ro" ? "ro" : "ru",
         },
         items: snapshots,
@@ -1135,6 +1174,7 @@ function checkoutRequestFingerprint(input: {
   cartId: string;
   expectedIntentVersion: number;
   salesOrder: SalesOrderDTO;
+  pricingMode: "rate_999_default" | "rate_113_online";
 }): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }

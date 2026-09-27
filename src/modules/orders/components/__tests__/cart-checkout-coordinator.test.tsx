@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CartCheckoutCoordinator } from "../CartCheckoutCoordinator";
+import { CartCheckoutCoordinator, useCartCheckoutCoordinator } from "../CartCheckoutCoordinator";
 import { CartItemActions } from "../CartItemActions";
 import { OrderSubmitForm } from "../OrderSubmitForm";
 
@@ -195,14 +195,15 @@ describe("cart checkout mutation barrier", () => {
     );
 
     expect(screen.getByRole("button", { name: "Удалить" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Проверяем заказ…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Проверяем заказ|Отправить заказ/ })).toBeDisabled();
   });
 });
 
 function renderFlow() {
   return render(
-    <CartCheckoutCoordinator>
+    <CartCheckoutCoordinator managedPaymentSelection>
       <CartItemActions itemId="item-1" quantity={2} />
+      <TestPaymentChoices />
       <OrderSubmitForm
         cartId={cartId}
         checkoutOptions={{
@@ -218,4 +219,9 @@ function renderFlow() {
       />
     </CartCheckoutCoordinator>,
   );
+}
+
+function TestPaymentChoices() {
+  const { setPaymentMethod } = useCartCheckoutCoordinator();
+  return <label><input type="radio" name="testPaymentMethod" onChange={() => setPaymentMethod("cashless")} />Безналичный</label>;
 }
