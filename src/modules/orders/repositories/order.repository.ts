@@ -13,6 +13,13 @@ export type OrderItemSnapshotInput = {
   partnerUnitPrice: number;
   currencyCode: string;
   lineTotal: number;
+  sourceUnitPrice: number;
+  sourceCurrencyCode: "USD" | "MDL";
+  appliedExchangeRate: number | null;
+  exchangeRateId: string | null;
+  exchangeRatePurpose: "retail_price_usd_to_mdl" | null;
+  exchangeRateEffectiveAt: string | null;
+  exchangeRatePublishedAt: string | null;
   availableStock: number | null;
   nearestArrivalDate: string | null;
   nearestArrivalQuantity: number | null;

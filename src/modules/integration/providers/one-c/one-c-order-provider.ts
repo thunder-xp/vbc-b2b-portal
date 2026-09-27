@@ -1,3 +1,5 @@
+import Decimal from "decimal.js";
+
 import type { GlobalOrderHistoryPageResult, OrderProvider, SalesOrderHistoryExistenceResult, SalesOrderHistoryPageResult } from "../../contracts";
 import type {
   GlobalOrderHistoryCounterpartyDTO,
@@ -1342,10 +1344,10 @@ async function readBackCreatedOrder(
   return value;
 }
 
-export function buildOneCCustomerOrderPayload(order: SalesOrderDTO) {
+export function buildOneCCustomerOrderPayload(order: SalesOrderDTO, now = new Date()) {
   const checkout = checkoutFields(order);
   return {
-    Date: new Date().toISOString(),
+    Date: toOneCChisinauLocalDateTime(now),
     Posted: false,
     Контрагент_Key: order.partnerCompanyReference.externalId,
     Договор_Key: order.contractReference.externalId,
@@ -1397,7 +1399,7 @@ export function buildLegacyMinimalOneCCustomerOrderPayload(
   const checkout = checkoutFields(order);
 
   return {
-    Date: toOneCDateTime(now),
+    Date: toOneCChisinauLocalDateTime(now),
     ДатаОтгрузки: requestedDeliveryDate,
     Контрагент_Key: order.partnerCompanyReference.externalId,
     Договор_Key: order.contractReference.externalId,
@@ -1451,7 +1453,7 @@ function checkoutFields(order: SalesOrderDTO) {
 
 function toOneCDateTime(value: Date | string): string {
   if (value instanceof Date) {
-    return value.toISOString().slice(0, 19);
+    return toOneCChisinauLocalDateTime(value);
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return `${value}T00:00:00`;
@@ -1464,7 +1466,35 @@ function toOneCDateTime(value: Date | string): string {
 }
 
 function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  return new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+}
+
+export function toOneCChisinauLocalDateTime(value: Date): string {
+  if (!Number.isFinite(value.getTime())) {
+    throw new IntegrationValidationError("1C customer order date is invalid.");
+  }
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Chisinau",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(value);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((entry) => entry.type === type)?.value;
+  const year = part("year");
+  const month = part("month");
+  const day = part("day");
+  const hour = part("hour");
+  const minute = part("minute");
+  const second = part("second");
+  if (!year || !month || !day || !hour || !minute || !second) {
+    throw new IntegrationValidationError("1C customer order date is invalid.");
+  }
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 }
 
 function isCreatedOrderResponse(value: unknown): value is { Ref_Key: string; Number: string; Date: string; Posted?: boolean } {
@@ -1623,7 +1653,8 @@ function normalizeOneCDate(value: string | undefined): string | null {
 }
 
 function moneyEquals(left: number, right: number): boolean {
-  return Number.isFinite(left) && Number.isFinite(right) && Math.abs(left - right) < 0.005;
+  return Number.isFinite(left) && Number.isFinite(right)
+    && new Decimal(left).minus(right).abs().lt("0.005");
 }
 
 function escapeODataLiteral(value: string): string {

@@ -180,6 +180,19 @@ describe("DefaultPricingInventoryService", () => {
     expect(result.partnerPrice).toMatchObject({ amount: 103.94, currencyCode: "USD", formattedAmount: "$103.94" });
     expect(result.msrpPriceUsd).toMatchObject({ amount: 177, currencyCode: "USD", formattedAmount: "$177.00" });
     expect(result.partnerPriceMdl).toMatchObject({ amount: 1803, formattedAmount: "1\u00a0803 MDL" });
+    expect(result.partnerCheckoutPriceMdl).toMatchObject({
+      amount: 1847,
+      currencyCode: "MDL",
+      conversionEvidence: {
+        sourceAmount: 103.94,
+        sourceCurrencyCode: "USD",
+        appliedRate: 17.7712,
+        rateId: "rate-retail_price_usd_to_mdl",
+        ratePurpose: "retail_price_usd_to_mdl",
+        resultingAmount: 1847,
+        resultingCurrencyCode: "MDL",
+      },
+    });
     expect(result.retailPrice).toMatchObject({ amount: 3200, formattedAmount: "3\u00a0200 MDL" });
     expect(result.commercialOpportunity).toMatchObject({ grossProfitMdl: 1397, formattedGrossProfitMdl: "1\u00a0397 MDL", formattedMarkup: "81.79%" });
     expect(result.commercialOpportunity?.reversePartnerUsd).toBeCloseTo(101.45628882686594, 12);
@@ -198,8 +211,30 @@ describe("DefaultPricingInventoryService", () => {
 
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
     expect(result.partnerPriceMdl).toMatchObject({ amount: 18, formattedAmount: "18 MDL" });
+    expect(result.partnerCheckoutPriceMdl).toMatchObject({ amount: 17, formattedAmount: "17 MDL" });
     expect(result.retailPrice).toMatchObject({ amount: 16.5, formattedAmount: "17 MDL" });
     expect(result.commercialOpportunity?.grossProfitMdl).toBe(-1.5);
+  });
+
+  it("keeps an authoritative MDL partner price unchanged at the checkout boundary", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([
+      makePrice(null, 123.45, goldPriceType, "MDL"),
+    ], [], [], 17.5, 18.25), new FakeCompanyAccessService(), new FakePermissionService());
+
+    const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
+
+    expect(result.partnerCheckoutPriceMdl).toMatchObject({
+      amount: 123.45,
+      currencyCode: "MDL",
+      conversionEvidence: {
+        sourceAmount: 123.45,
+        sourceCurrencyCode: "MDL",
+        appliedRate: null,
+        rateId: null,
+        ratePurpose: null,
+        resultingAmount: 123.45,
+      },
+    });
   });
 
   it("produces the confirmed 78.65 percent markup example without rounding reverse USD inputs", () => {
@@ -217,6 +252,7 @@ describe("DefaultPricingInventoryService", () => {
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
     expect(result.partnerPrice).not.toBeNull();
     expect(result.partnerPriceMdl).toBeNull();
+    expect(result.partnerCheckoutPriceMdl).not.toBeNull();
     expect(result.retailPrice).not.toBeNull();
     expect(result.commercialOpportunity).toBeNull();
   });
@@ -229,6 +265,7 @@ describe("DefaultPricingInventoryService", () => {
     ], [], [], 17.3504, null), new FakeCompanyAccessService(), new FakePermissionService());
     const [result] = await service.getProductCommercialViews("user-1", ["product-1"]);
     expect(result.partnerPriceMdl).not.toBeNull();
+    expect(result.partnerCheckoutPriceMdl).toBeNull();
     expect(result.msrpPriceUsd).not.toBeNull();
     expect(result.retailPrice).not.toBeNull();
     expect(result.commercialOpportunity).toBeNull();

@@ -18,6 +18,17 @@ export type ProductPriceViewDto = {
   amount: number;
   formattedAmount: string | null;
   lastUpdatedAt?: string;
+  conversionEvidence?: {
+    sourceAmount: number;
+    sourceCurrencyCode: "USD" | "MDL";
+    appliedRate: number | null;
+    rateId: string | null;
+    ratePurpose: "partner_price_usd_to_mdl" | "retail_price_usd_to_mdl" | null;
+    rateEffectiveAt: string | null;
+    ratePublishedAt: string | null;
+    resultingAmount: number;
+    resultingCurrencyCode: "MDL";
+  };
 };
 
 export type ProductStockAvailability =
@@ -59,6 +70,7 @@ export type ProductCommercialViewDto = {
   productId: string;
   partnerPrice: ProductPriceViewDto | null;
   partnerPriceMdl?: ProductPriceViewDto | null;
+  partnerCheckoutPriceMdl?: ProductPriceViewDto | null;
   msrpPriceUsd?: ProductPriceViewDto | null;
   retailPrice: ProductPriceViewDto | null;
   commercialOpportunity?: CommercialOpportunityViewDto | null;
@@ -314,12 +326,19 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
             commercialRates.partnerPriceUsdToMdl,
           )
         : null;
+      const partnerCheckoutPriceMdl = canViewPartnerPrice
+        ? createPartnerCheckoutPriceMdlView(
+            partnerPrice,
+            commercialRates.retailPriceUsdToMdl,
+          )
+        : null;
       const msrpPriceUsd = createMsrpPriceUsdView(msrpPrice);
       const retailPriceMdl = createRetailPriceMdlView(retailPrice);
       return {
         productId,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
         partnerPriceMdl,
+        partnerCheckoutPriceMdl,
         msrpPriceUsd,
         retailPrice: retailPriceMdl,
         commercialOpportunity: canViewPartnerPrice && derivedPriceDomainsFresh
@@ -527,12 +546,17 @@ export function projectProductCommercialSnapshot(
     retailPriceUsdToMdl: snapshotRate("retail_price_usd_to_mdl", snapshot.retailRate),
   };
   const partnerPriceMdl = createPartnerPriceMdlView(partnerPrice, commercialRates.partnerPriceUsdToMdl);
+  const partnerCheckoutPriceMdl = createPartnerCheckoutPriceMdlView(
+    partnerPrice,
+    commercialRates.retailPriceUsdToMdl,
+  );
   const retailPriceMdl = createRetailPriceMdlView(retailPrice);
 
   return {
     productId: snapshot.productId,
     partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
     partnerPriceMdl,
+    partnerCheckoutPriceMdl,
     msrpPriceUsd: createMsrpPriceUsdView(msrpPrice),
     retailPrice: retailPriceMdl,
     commercialOpportunity: canViewPartnerPrice
@@ -680,8 +704,44 @@ function createPartnerPriceMdlView(
   partnerPrice: ProductPrice | null,
   exchangeRate: CommercialRate | null,
 ): ProductPriceViewDto | null {
+  return createGovernedPartnerMdlView(partnerPrice, exchangeRate, "partner_price_usd_to_mdl");
+}
+
+function createPartnerCheckoutPriceMdlView(
+  partnerPrice: ProductPrice | null,
+  exchangeRate: CommercialRate | null,
+): ProductPriceViewDto | null {
+  return createGovernedPartnerMdlView(partnerPrice, exchangeRate, "retail_price_usd_to_mdl");
+}
+
+function createGovernedPartnerMdlView(
+  partnerPrice: ProductPrice | null,
+  exchangeRate: CommercialRate | null,
+  ratePurpose: "partner_price_usd_to_mdl" | "retail_price_usd_to_mdl",
+): ProductPriceViewDto | null {
   if (!partnerPrice || partnerPrice.currencyStatus !== "resolved") return null;
-  if (normalizeOneCCurrencyCode(partnerPrice.currency) !== "USD") return null;
+  const sourceCurrencyCode = normalizeOneCCurrencyCode(partnerPrice.currency);
+  if (sourceCurrencyCode === "MDL") {
+    if (!Number.isFinite(partnerPrice.priceAmount) || partnerPrice.priceAmount <= 0) return null;
+    return {
+      currencyCode: "MDL",
+      amount: partnerPrice.priceAmount,
+      formattedAmount: formatPrice(partnerPrice.priceAmount, "MDL"),
+      lastUpdatedAt: partnerPrice.updatedAt,
+      conversionEvidence: {
+        sourceAmount: partnerPrice.priceAmount,
+        sourceCurrencyCode: "MDL",
+        appliedRate: null,
+        rateId: null,
+        ratePurpose: null,
+        rateEffectiveAt: null,
+        ratePublishedAt: null,
+        resultingAmount: partnerPrice.priceAmount,
+        resultingCurrencyCode: "MDL",
+      },
+    };
+  }
+  if (sourceCurrencyCode !== "USD") return null;
 
   const amount = convertUsdToWholeMdl(partnerPrice.priceAmount, exchangeRate?.rate ?? null);
   if (amount === null) return null;
@@ -691,6 +751,19 @@ function createPartnerPriceMdlView(
     amount,
     formattedAmount: formatWholeMdl(amount),
     lastUpdatedAt: exchangeRate?.publishedAt,
+    conversionEvidence: {
+      sourceAmount: partnerPrice.priceAmount,
+      sourceCurrencyCode: "USD",
+      appliedRate: exchangeRate?.rate ?? null,
+      rateId: exchangeRate?.id ?? null,
+      ratePurpose: exchangeRate?.purpose === ratePurpose
+        ? ratePurpose
+        : null,
+      rateEffectiveAt: exchangeRate?.effectiveAt ?? null,
+      ratePublishedAt: exchangeRate?.publishedAt ?? null,
+      resultingAmount: amount,
+      resultingCurrencyCode: "MDL",
+    },
   };
 }
 

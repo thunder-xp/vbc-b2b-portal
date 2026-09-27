@@ -6,6 +6,7 @@ import { OneCProvider } from "../one-c-provider";
 import {
   buildLegacyMinimalOneCCustomerOrderPayload,
   buildOneCCustomerOrderPayload,
+  toOneCChisinauLocalDateTime,
 } from "../one-c-order-provider";
 
 const order: SalesOrderDTO = {
@@ -41,6 +42,39 @@ afterEach(() => {
 });
 
 describe("OneCCustomerOrderProvider", () => {
+  it.each([
+    ["summer", "2026-07-14T12:34:56.000Z", "2026-07-14T15:34:56"],
+    ["winter", "2026-01-14T12:34:56.000Z", "2026-01-14T14:34:56"],
+  ])("serializes %s registration time as Europe/Chisinau wall clock", (_season, instant, expected) => {
+    expect(toOneCChisinauLocalDateTime(new Date(instant))).toBe(expected);
+    expect(buildOneCCustomerOrderPayload(order, new Date(instant)).Date).toBe(expected);
+    expect(new Date(instant).toISOString()).toBe(instant);
+  });
+
+  it("preserves the governed MDL currency reference and MDL line totals", () => {
+    const mdlOrder: SalesOrderDTO = {
+      ...order,
+      currency: "MDL",
+      currencyReference: ref("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"),
+      documentTotal: 438,
+      items: [{
+        ...order.items[0]!,
+        price: { amount: 219, currency: "MDL" },
+        quantity: 2,
+        lineTotal: 438,
+      }],
+    };
+
+    const payload = buildOneCCustomerOrderPayload(mdlOrder, new Date("2026-07-14T12:34:56.000Z"));
+
+    expect(Object.values(payload)).toContain("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    expect(Object.values(payload)).toContain(438);
+    expect(Object.values(payload).some((value) => Array.isArray(value) && value.some((line) => {
+      const fields = Object.values(line as Record<string, unknown>);
+      return fields.includes(219) && fields.includes(2) && fields.includes(438);
+    }))).toBe(true);
+  });
+
   it("builds only the explicit unposted customer-order payload", () => {
     const payload = buildOneCCustomerOrderPayload(order);
     expect(Object.keys(payload).sort()).toEqual([
@@ -96,7 +130,7 @@ describe("OneCCustomerOrderProvider", () => {
     );
 
     expect(payload).toEqual({
-      Date: "2026-07-14T12:34:56",
+      Date: "2026-07-14T15:34:56",
       ДатаОтгрузки: "2099-01-10T00:00:00",
       Контрагент_Key: "11111111-1111-4111-8111-111111111111",
       Договор_Key: "22222222-2222-4222-8222-222222222222",

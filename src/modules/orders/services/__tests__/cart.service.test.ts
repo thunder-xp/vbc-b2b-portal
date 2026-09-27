@@ -37,8 +37,9 @@ describe("DefaultCartService", () => {
     expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
     expect(cart.lines[0]).toMatchObject({ quantity: 2, availableStock: 5, availabilityGroup: "available", imageUrl: "https://example.test/camera-thumb.jpg" });
-    expect(cart.lines[0]?.partnerLineTotal).toContain("20,00");
-    expect(cart.total).toContain("20,00");
+    expect(cart.lines[0]?.partnerLineTotal).toContain("350,00");
+    expect(cart.total).toContain("350,00");
+    expect(cart.lines[0]?.partnerUnitPrice).toContain("175");
     expect(cart.positionCount).toBe(1);
     expect(cart.totalUnitCount).toBe(2);
     expect(dependencies.repository.findReconciliationLock).not.toHaveBeenCalled();
@@ -153,7 +154,7 @@ describe("DefaultCartService", () => {
       quantity: 2,
       availableStock: 0,
       catalogVisible: false,
-      partnerUnitPrice: "$10.00",
+      partnerUnitPrice: "175 MDL",
     })]);
     expect(cart.positionCount).toBe(1);
     expect(cart.totalUnitCount).toBe(2);
@@ -269,7 +270,27 @@ function makeDependencies() {
   const pricingService: {
     getProductCommercialViews: ReturnType<typeof vi.fn>;
     getCommercialVisibility?: ReturnType<typeof vi.fn>;
-  } = { getProductCommercialViews: vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 10, currencyCode: "USD", formattedAmount: "$10.00" }, stock: { exactAvailableQuantity: 5, expectedArrival: null } }]) };
+  } = { getProductCommercialViews: vi.fn().mockResolvedValue([{
+    productId: "product-1",
+    partnerPrice: { amount: 10, currencyCode: "USD", formattedAmount: "$10.00" },
+    partnerCheckoutPriceMdl: {
+      amount: 175,
+      currencyCode: "MDL",
+      formattedAmount: "175 MDL",
+      conversionEvidence: {
+        sourceAmount: 10,
+        sourceCurrencyCode: "USD",
+        appliedRate: 17.5,
+        rateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        ratePurpose: "retail_price_usd_to_mdl",
+        rateEffectiveAt: "2026-09-20T00:00:00.000Z",
+        ratePublishedAt: "2026-09-20T10:00:00.000Z",
+        resultingAmount: 175,
+        resultingCurrencyCode: "MDL",
+      },
+    },
+    stock: { exactAvailableQuantity: 5, expectedArrival: null },
+  }]) };
   const service = new DefaultCartService(repository, companyAccessService as never, permissionService as never, catalogService as never, pricingService as never);
   return { service, repository, companyAccessService, permissionService, catalogService, pricingService };
 }

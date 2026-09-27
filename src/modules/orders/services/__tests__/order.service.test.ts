@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import Decimal from "decimal.js";
 
 import { IntegrationHttpError } from "../../../integration/errors";
 import { OrderRepositoryError, type PartnerOrderRepository } from "../../repositories";
@@ -35,11 +36,18 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledWith("user-1", ["product-1"]);
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
     const beginInput = dependencies.orderRepository.beginSubmission.mock.calls[0][0];
-    expect(beginInput.items[0]).toMatchObject({ partnerUnitPrice: 12.5, quantity: 2, lineTotal: 25 });
+    expect(beginInput.items[0]).toMatchObject({
+      partnerUnitPrice: 219,
+      quantity: 2,
+      lineTotal: 438,
+      sourceUnitPrice: 12.5,
+      sourceCurrencyCode: "USD",
+      appliedExchangeRate: 17.5,
+    });
     expect(dependencies.orderRepository.completeSubmission).toHaveBeenCalledWith({
       orderId: "order-1", external1cRef: "77777777-7777-4777-8777-777777777777",
       external1cNumber: "NSUU-TEST", external1cDate: "2026-07-13T20:17:30.000Z",
-      oneCOrderStatus: "unposted", documentTotal: 25, currencyCode: "USD", contractNumber: "NS-296/0302/20",
+      oneCOrderStatus: "unposted", documentTotal: 438, currencyCode: "MDL", contractNumber: "NS-296/0302/20",
       readBackResult: {},
     });
     expect(result.status).toBe(PartnerOrderStatus.Submitted);
@@ -194,13 +202,13 @@ describe("DefaultPartnerOrderService", () => {
 
     expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
-        items: [expect.objectContaining({ partnerUnitPrice: 13, lineTotal: 26 })],
+        items: [expect.objectContaining({ partnerUnitPrice: 228, lineTotal: 456 })],
       }),
     );
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        documentTotal: 26,
-        items: [expect.objectContaining({ price: { amount: 13, currency: "USD" } })],
+        documentTotal: 456,
+        items: [expect.objectContaining({ price: { amount: 228, currency: "MDL" } })],
       }),
     );
     expect(console.info).toHaveBeenCalledWith(expect.objectContaining({
@@ -261,7 +269,7 @@ describe("DefaultPartnerOrderService", () => {
     },
   );
 
-  it("preserves authoritative currency and configured price type in legacy-minimal mode", async () => {
+  it("converts authoritative USD prices to governed MDL in legacy-minimal mode", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
 
     await dependencies.service.submit("user-1", input());
@@ -270,23 +278,28 @@ describe("DefaultPartnerOrderService", () => {
       .not.toHaveBeenCalled();
     expect(dependencies.pricingService.getApprovedUsdMdlRate).not.toHaveBeenCalled();
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({
-      currency: "USD",
+      currency: "MDL",
+      currencyReference: expect.objectContaining({ externalId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }),
       priceTypeReference: expect.objectContaining({ externalId: "33333333-3333-4333-8333-333333333333" }),
-      documentTotal: 25,
+      documentTotal: 438,
       items: [expect.objectContaining({
-        price: { amount: 12.5, currency: "USD" },
+        price: { amount: 219, currency: "MDL" },
         quantity: 2,
-        lineTotal: 25,
+        lineTotal: 438,
       })],
     }));
     expect(dependencies.orderRepository.beginSubmission.mock.calls[0][0].items[0]).toMatchObject({
-      partnerUnitPrice: 12.5,
-      currencyCode: "USD",
-      lineTotal: 25,
+      partnerUnitPrice: 219,
+      currencyCode: "MDL",
+      lineTotal: 438,
+      sourceUnitPrice: 12.5,
+      sourceCurrencyCode: "USD",
+      appliedExchangeRate: 17.5,
+      exchangeRateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
     });
   });
 
-  it("preserves every current cart line in its authoritative currency", async () => {
+  it("converts every current USD cart line to one authoritative MDL total", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
     dependencies.cartRepository.listItems.mockResolvedValue([
       cartItem("product-1", 1), cartItem("product-2", 1),
@@ -313,14 +326,13 @@ describe("DefaultPartnerOrderService", () => {
       price: item.price.amount,
       total: item.lineTotal,
     }))).toEqual([
-      { quantity: 1, price: 102.08, total: 102.08 },
-      { quantity: 1, price: 198, total: 198 },
-      { quantity: 610, price: 0.26, total: 158.6 },
-      { quantity: 1, price: 504.9, total: 504.9 },
+      { quantity: 1, price: 1786, total: 1786 },
+      { quantity: 1, price: 3465, total: 3465 },
+      { quantity: 610, price: 5, total: 3050 },
+      { quantity: 1, price: 8836, total: 8836 },
     ]);
-    expect(exported.documentTotal).toBe(963.58);
-    expect(exported.items[2].price.amount * exported.items[2].quantity).toBe(158.6);
-    expect(exported.items[2].lineTotal).toBe(158.6);
+    expect(exported.documentTotal).toBe(17137);
+    expect(exported.items[2].lineTotal).toBe(3050);
   });
 
   it("rejects a missing line or header mismatch in the legacy preflight invariant", () => {
@@ -335,15 +347,38 @@ describe("DefaultPartnerOrderService", () => {
       .toThrow(RecoverableOrderSubmissionError);
   });
 
-  it("does not require an exchange rate for the authoritative order currency", async () => {
+  it("fails closed when a USD source price has no governed MDL projection", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
-    dependencies.pricingService.getAuthoritativeUsdMdlRateSnapshot.mockResolvedValue(null);
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
+      ...commercial("product-1", 12.5),
+      partnerCheckoutPriceMdl: null,
+    }]);
 
     await expect(dependencies.service.submit("user-1", input()))
-      .resolves.toMatchObject({ status: PartnerOrderStatus.Submitted });
+      .rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
 
-    expect(dependencies.orderRepository.beginSubmission).toHaveBeenCalledOnce();
-    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when conversion evidence does not match the source price", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+    const view = commercial("product-1", 12.5);
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
+      ...view,
+      partnerCheckoutPriceMdl: {
+        ...view.partnerCheckoutPriceMdl,
+        conversionEvidence: {
+          ...view.partnerCheckoutPriceMdl.conversionEvidence,
+          sourceAmount: 11.5,
+        },
+      },
+    }]);
+
+    await expect(dependencies.service.submit("user-1", input()))
+      .rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
   });
 
   it("blocks submission when a product has no valid 1C reference", async () => {
@@ -502,7 +537,7 @@ describe("DefaultPartnerOrderService", () => {
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
       expect.objectContaining({
         currencyReference: expect.objectContaining({
-          externalId: "44444444-4444-4444-8444-444444444444",
+          externalId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
         }),
       }),
     );
@@ -587,13 +622,9 @@ describe("DefaultPartnerOrderService", () => {
 
   it("fails closed when line prices do not use the governed published price currency", async () => {
     const dependencies = makeDependencies();
-    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([{
-      ...commercial("product-1", 12.5),
-      partnerPrice: {
-        ...commercial("product-1", 12.5).partnerPrice,
-        currencyCode: "MDL",
-      },
-    }]);
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([
+      commercial("product-1", 12.5, "MDL"),
+    ]);
 
     await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({
       code: "ORDER_PRICE_CHANGED",
@@ -687,7 +718,7 @@ describe("DefaultPartnerOrderService", () => {
             externalId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
           }),
           currencyReference: expect.objectContaining({
-            externalId: "44444444-4444-4444-8444-444444444444",
+            externalId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
           }),
         }),
       }),
@@ -878,7 +909,7 @@ function makeDependencies(options: {
   const companyAccessService = { getOwnMemberships: vi.fn().mockResolvedValue([{ companyId: "company-1", status: "active" }]), getActiveCompanyContext: vi.fn().mockResolvedValue({ company }) };
   const permissionService = { ensurePermission: vi.fn().mockResolvedValue({ isAllowed: true }) };
   const catalogService = { getProductOrderIdentities: vi.fn().mockResolvedValue([{ id: "product-1", external1cId: "66666666-6666-4666-8666-666666666666", sku: "SKU-1", name: "Camera" }]) };
-  const getProductCommercialViews = vi.fn().mockResolvedValue([{ productId: "product-1", partnerPrice: { amount: 12.5, currencyCode: "USD", formattedAmount: "$12.50", lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }]);
+  const getProductCommercialViews = vi.fn().mockResolvedValue([commercial("product-1", 12.5)]);
   const pricingService = {
     getProductCommercialViews,
     getAuthoritativeOrderPricing: vi.fn(async (userId: string, productIds: string[]) => ({
@@ -953,14 +984,45 @@ function input() {
 function ref(externalId: string) { return { providerCode: "one-c", externalId, externalType: "test" }; }
 function cartItem(productId: string, quantity: number) { return { id: `item-${productId}`, cartId: "cart-1", productId, quantity, createdAt: "2026-01-01", updatedAt: "2026-01-01" }; }
 function identity(id: string, sku: string, external1cId: string) { return { id, sku, external1cId, name: sku }; }
-function commercial(productId: string, amount: number) { return { productId, partnerPrice: { amount, currencyCode: "USD", formattedAmount: null, lastUpdatedAt: new Date().toISOString() }, stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: new Date().toISOString() } }; }
+function commercial(productId: string, amount: number, sourceCurrencyCode: "USD" | "MDL" = "USD") {
+  const converted = sourceCurrencyCode === "USD"
+    ? new Decimal(amount).times("17.5").toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber()
+    : amount;
+  const now = new Date().toISOString();
+  return {
+    productId,
+    partnerPrice: { amount, currencyCode: sourceCurrencyCode, formattedAmount: null, lastUpdatedAt: now },
+    partnerCheckoutPriceMdl: {
+      amount: converted,
+      currencyCode: "MDL",
+      formattedAmount: null,
+      lastUpdatedAt: now,
+      conversionEvidence: {
+        sourceAmount: amount,
+        sourceCurrencyCode,
+        appliedRate: sourceCurrencyCode === "USD" ? 17.5 : null,
+        rateId: sourceCurrencyCode === "USD" ? "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" : null,
+        ratePurpose: sourceCurrencyCode === "USD" ? "retail_price_usd_to_mdl" as const : null,
+        rateEffectiveAt: sourceCurrencyCode === "USD" ? "2026-09-20T00:00:00.000Z" : null,
+        ratePublishedAt: sourceCurrencyCode === "USD" ? "2026-09-20T10:00:00.000Z" : null,
+        resultingAmount: converted,
+        resultingCurrencyCode: "MDL" as const,
+      },
+    },
+    stock: { exactAvailableQuantity: 5, expectedArrival: null, lastUpdatedAt: now },
+  };
+}
 function withPriceUpdatedAt(view: ReturnType<typeof commercial>, lastUpdatedAt: string) {
-  return { ...view, partnerPrice: { ...view.partnerPrice, lastUpdatedAt } };
+  return {
+    ...view,
+    partnerPrice: { ...view.partnerPrice, lastUpdatedAt },
+    partnerCheckoutPriceMdl: { ...view.partnerCheckoutPriceMdl, lastUpdatedAt },
+  };
 }
 function order(overrides: Partial<PartnerOrder> = {}): PartnerOrder {
   return { id: "order-1", companyId: "company-1", submittedBy: "user-1", cartId: "cart-1", submissionKey: SUBMISSION_KEY, submissionAttemptId: "99999999-9999-4999-8999-999999999999", status: PartnerOrderStatus.Processing, integrationStatus: PartnerOrderIntegrationStatus.Processing, oneCOrderStatus: null, requestedDeliveryDate: "2099-01-10", external1cRef: null, external1cNumber: null, external1cDate: null, payloadSnapshot: salesOrderSnapshot(), safeErrorCode: null, safeErrorMessage: null, documentTotal: null, currencyCode: null, contractNumber: null, confirmedAt: null, lastReconciledAt: null, submittedAt: null, createdAt: "2026-01-01", updatedAt: "2026-01-01", ...overrides };
 }
 
 function exportResult() { return { orderReference: ref("77777777-7777-4777-8777-777777777777"), orderNumber: "NSUU-TEST", documentDate: "2026-07-13T20:17:30.000Z", status: "unposted", exportedAt: "2026-07-13T20:17:31.000Z", requestedDeliveryDate: "2099-01-10", documentTotal: 25, itemCount: 1, totalUnits: 2 }; }
-function orderItem() { return { id: "order-item-1", orderId: "order-1", productId: "product-1", externalProductRef: "66666666-6666-4666-8666-666666666666", productName: "Camera", sku: "SKU-1", quantity: 2, partnerUnitPrice: 12.5, currencyCode: "USD", lineTotal: 25, availableStock: 5, nearestArrivalDate: null, nearestArrivalQuantity: null, snapshotAt: "2026-01-01" }; }
+function orderItem() { return { id: "order-item-1", orderId: "order-1", productId: "product-1", externalProductRef: "66666666-6666-4666-8666-666666666666", productName: "Camera", sku: "SKU-1", quantity: 2, partnerUnitPrice: 219, currencyCode: "MDL", lineTotal: 438, sourceUnitPrice: 12.5, sourceCurrencyCode: "USD", appliedExchangeRate: 17.5, exchangeRateId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", exchangeRatePurpose: "retail_price_usd_to_mdl", exchangeRateEffectiveAt: "2026-09-20T00:00:00.000Z", exchangeRatePublishedAt: "2026-09-20T10:00:00.000Z", availableStock: 5, nearestArrivalDate: null, nearestArrivalQuantity: null, snapshotAt: "2026-01-01" }; }
 function salesOrderSnapshot() { return { portalOrderReference: SUBMISSION_KEY, items: [{}] }; }

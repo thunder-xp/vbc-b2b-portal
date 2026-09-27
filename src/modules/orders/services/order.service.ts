@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import Decimal from "decimal.js";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import { NotFoundError } from "../../access-control/services";
@@ -254,7 +255,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
     const resolvedCheckout = checkoutReadiness.resolved;
     if (!isOneCGuid(resolvedCheckout.contract.priceTypeRef)
-      || !isOneCGuid(resolvedCheckout.contract.publishedPriceCurrencyRef)) {
+      || !isOneCGuid(resolvedCheckout.contract.publishedPriceCurrencyRef)
+      || !isOneCGuid(resolvedCheckout.contract.settlementCurrencyRef)
+      || resolvedCheckout.contract.settlementCurrencyCode?.toUpperCase() !== "MDL") {
       failOrderSubmission(
         "price_type_currency_resolution",
         new RecoverableOrderSubmissionError(
@@ -270,6 +273,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     }
     const checkoutPriceTypeRef = resolvedCheckout.contract.priceTypeRef.trim().toLowerCase();
     const checkoutPublishedPriceCurrencyRef = resolvedCheckout.contract.publishedPriceCurrencyRef
+      .trim()
+      .toLowerCase();
+    const checkoutSettlementCurrencyRef = resolvedCheckout.contract.settlementCurrencyRef
       .trim()
       .toLowerCase();
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
@@ -532,7 +538,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const snapshots: OrderItemSnapshotInput[] = cartItems.map((item) => {
       const identity = identitiesById.get(item.productId);
       const view = viewsById.get(item.productId);
-      const price = view?.partnerPrice;
+      const sourcePrice = view?.partnerPrice;
+      const price = view?.partnerCheckoutPriceMdl;
+      const evidence = price?.conversionEvidence;
       const rawExternal1cId = identity?.external1cId;
       const trimmedExternal1cId = typeof rawExternal1cId === "string" ? rawExternal1cId.trim() : null;
       const productReferenceIsValid = isOneCGuid(rawExternal1cId);
@@ -553,7 +561,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         resolvedProductRef: productReferenceIsValid ? trimmedExternal1cId : null,
         referenceSource: "current_catalog",
         commercialViewFound: Boolean(view),
-        partnerPriceFound: Boolean(price),
+        partnerPriceFound: Boolean(sourcePrice),
         partnerPriceCurrencyResolved: Boolean(price?.currencyCode),
         partnerPriceAmountValid: Boolean(
           price && Number.isFinite(price.amount) && price.amount > 0,
@@ -572,7 +580,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity?.sku ?? null, submissionKey },
         );
       }
-      if (!price || !price.currencyCode || !Number.isFinite(price.amount) || price.amount <= 0) {
+      if (!sourcePrice || !sourcePrice.currencyCode || !price || price.currencyCode !== "MDL"
+        || !evidence || !Number.isFinite(price.amount) || price.amount <= 0) {
         failOrderSubmission(
           "partner_price_resolution",
           new RecoverableOrderSubmissionError(
@@ -582,13 +591,63 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity.sku, product1cRef: identity.external1cId, submissionKey },
         );
       }
-      const lineTotal = roundMoney(price.amount * item.quantity);
+      if (sourcePrice.currencyCode !== resolvedCheckout.contract.publishedPriceCurrencyCode) {
+        failOrderSubmission(
+          "price_type_currency_resolution",
+          new RecoverableOrderSubmissionError(
+            "Published order prices do not match the governed price-type currency.",
+            "ORDER_PRICE_CHANGED",
+          ),
+          {
+            cartId: cart.id,
+            companyId: company.id,
+            submissionKey,
+            publishedPriceCurrencyCode: resolvedCheckout.contract.publishedPriceCurrencyCode,
+            linePriceCurrencyCode: sourcePrice.currencyCode,
+          },
+        );
+      }
+      if (evidence.resultingCurrencyCode !== "MDL" || !money(evidence.resultingAmount).eq(price.amount)
+        || evidence.sourceCurrencyCode !== sourcePrice.currencyCode
+        || !money(evidence.sourceAmount).eq(sourcePrice.amount)
+        || (evidence.sourceCurrencyCode === "USD" && (
+          evidence.ratePurpose !== "retail_price_usd_to_mdl"
+          || !evidence.rateId || !Number.isFinite(evidence.appliedRate)
+          || money(evidence.appliedRate ?? 0).lte(0)
+          || !evidence.rateEffectiveAt || !evidence.ratePublishedAt
+          || !money(evidence.sourceAmount).times(evidence.appliedRate ?? 0)
+            .toDecimalPlaces(0, Decimal.ROUND_HALF_UP).eq(price.amount)
+        ))
+        || (evidence.sourceCurrencyCode === "MDL" && (
+          evidence.ratePurpose !== null || evidence.rateId !== null
+          || evidence.appliedRate !== null || !money(evidence.sourceAmount).eq(price.amount)
+        ))) {
+        failOrderSubmission(
+          "partner_price_conversion_evidence",
+          new RecoverableOrderSubmissionError(
+            "The governed MDL conversion evidence is unavailable.",
+            "ORDER_PRICE_CHANGED",
+          ),
+          { cartId: cart.id, companyId: company.id, productId: item.productId, submissionKey },
+        );
+      }
+      const lineTotal = money(price.amount).times(item.quantity).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
       return {
         productId: item.productId, externalProductRef: trimmedExternal1cId,
         externalCharacteristicRef: ZERO_CHARACTERISTIC_REF, externalUnitRef: DEFAULT_UNIT_REF,
         externalVatRateRef: DEFAULT_VAT_RATE_REF, productName: identity.name, sku: identity.sku,
-        quantity: item.quantity, partnerUnitPrice: price.amount, currencyCode: price.currencyCode,
-        lineTotal, availableStock: view.stock?.exactAvailableQuantity ?? null,
+        quantity: item.quantity, partnerUnitPrice: price.amount, currencyCode: "MDL",
+        lineTotal,
+        sourceUnitPrice: evidence.sourceAmount,
+        sourceCurrencyCode: evidence.sourceCurrencyCode,
+        appliedExchangeRate: evidence.appliedRate,
+        exchangeRateId: evidence.rateId,
+        exchangeRatePurpose: evidence.sourceCurrencyCode === "USD"
+          ? "retail_price_usd_to_mdl"
+          : null,
+        exchangeRateEffectiveAt: evidence.rateEffectiveAt,
+        exchangeRatePublishedAt: evidence.ratePublishedAt,
+        availableStock: view.stock?.exactAvailableQuantity ?? null,
         nearestArrivalDate: view.stock?.expectedArrival?.expectedDate ?? null,
         nearestArrivalQuantity: view.stock?.expectedArrival?.expectedQuantity ?? null,
       };
@@ -602,25 +661,11 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       deployedCommitSha: deployedCommitSha(),
     });
     const currencyCodes = [...new Set(snapshots.map((item) => item.currencyCode))];
-    if (currencyCodes.length !== 1) throw new RecoverableOrderSubmissionError("Cart prices use incompatible currencies.");
-    const exportSnapshots = snapshots;
-    const exportCurrencyCode = currencyCodes[0]!;
-    if (exportCurrencyCode !== resolvedCheckout.contract.publishedPriceCurrencyCode) {
-      failOrderSubmission(
-        "price_type_currency_resolution",
-        new RecoverableOrderSubmissionError(
-          "Published order prices do not match the governed price-type currency.",
-          "ORDER_PRICE_CHANGED",
-        ),
-        {
-          cartId: cart.id,
-          companyId: company.id,
-          submissionKey,
-          publishedPriceCurrencyCode: resolvedCheckout.contract.publishedPriceCurrencyCode,
-          linePriceCurrencyCode: exportCurrencyCode,
-        },
-      );
+    if (currencyCodes.length !== 1 || currencyCodes[0] !== "MDL") {
+      throw new RecoverableOrderSubmissionError("Cart prices are not available in MDL.");
     }
+    const exportSnapshots = snapshots;
+    const exportCurrencyCode = "MDL";
     console.info({
       event: "partner_order_submission_diagnostic",
       stage: "order_lines_resolved",
@@ -638,7 +683,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       submissionKey, deliveryDate, companyRef: counterpartyRef,
       contractRef: resolvedCheckout.contract.contractRef, priceTypeRef: checkoutPriceTypeRef,
       organizationReference: ref(resolvedCheckout.contract.organizationRef!, "organization"),
-      publishedPriceCurrencyRef: checkoutPublishedPriceCurrencyRef,
+      documentCurrencyRef: checkoutSettlementCurrencyRef,
       currencyCode: exportCurrencyCode, snapshots: exportSnapshots,
       paymentMethod: resolvedCheckout.paymentMethod,
       paymentDate: resolvedCheckout.paymentDate,
@@ -791,7 +836,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         orderId: order.id, external1cRef: exported.orderReference.externalId,
         external1cNumber: exported.orderNumber, external1cDate: exported.documentDate,
         oneCOrderStatus: exported.status,
-        documentTotal: snapshots.reduce((total, item) => total + item.lineTotal, 0),
+        documentTotal: sumMoney(snapshots.map((item) => item.lineTotal)),
         currencyCode: currencyCodes[0]!,
         contractNumber: resolvedCheckout.contract.number?.trim()
           || resolvedCheckout.contract.name.trim()
@@ -908,7 +953,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       external1cNumber: match.orderNumber,
       external1cDate: match.documentDate,
       oneCOrderStatus: match.status,
-      documentTotal: items.reduce((total, item) => total + item.lineTotal, 0),
+      documentTotal: sumMoney(items.map((item) => item.lineTotal)),
       currencyCode: singleCurrency(items),
       contractNumber: order.contractNumber,
       readBackResult: match.readBack ?? {},
@@ -969,7 +1014,7 @@ function mapOrderPreparationRepositoryError(error: unknown): RecoverableOrderSub
 
 function buildSalesOrder(input: {
   submissionKey: string; deliveryDate: string; companyRef: string; contractRef: string; priceTypeRef: string;
-  organizationReference: ExternalReferenceDTO; publishedPriceCurrencyRef: string; currencyCode: string;
+  organizationReference: ExternalReferenceDTO; documentCurrencyRef: string; currencyCode: string;
   snapshots: OrderItemSnapshotInput[];
   paymentMethod: CheckoutPaymentMethod; paymentDate: string; fulfillmentMethod: CheckoutFulfillmentMethod;
   carrierReference: ExternalReferenceDTO | null;
@@ -981,7 +1026,7 @@ function buildSalesOrder(input: {
     authorReference: ref(REST_AUTHOR_REF, "user"),
     organizationReference: input.organizationReference,
     priceTypeReference: ref(input.priceTypeRef, "price-type"),
-    currencyReference: ref(input.publishedPriceCurrencyRef, "currency"),
+    currencyReference: ref(input.documentCurrencyRef, "currency"),
     orderStateReference: ref(ORDER_STATE_REF, "order-state"),
     salesStructuralUnitReference: ref(SALES_STRUCTURAL_UNIT_REF, "structural-unit"),
     reservationStructuralUnitReference: ref(RESERVATION_STRUCTURAL_UNIT_REF, "structural-unit"),
@@ -993,7 +1038,7 @@ function buildSalesOrder(input: {
     plannedPaymentDate: input.paymentDate,
     fulfillmentMethod: input.fulfillmentMethod,
     carrierReference: input.carrierReference,
-    documentTotal: roundMoney(input.snapshots.reduce((sum, item) => sum + item.lineTotal, 0)),
+    documentTotal: sumMoney(input.snapshots.map((item) => item.lineTotal)),
     items: input.snapshots.map((item) => ({
       productReference: ref(item.externalProductRef, "catalog-product"), sku: item.sku, name: item.productName,
       quantity: item.quantity, unitCode: null, price: { amount: item.partnerUnitPrice, currency: item.currencyCode },
@@ -1015,7 +1060,7 @@ export function assertLegacyExportIntegrity(
       item.price !== null && Number.isFinite(item.price.amount) && item.price.amount > 0 &&
       Number.isFinite(item.lineTotal) && item.lineTotal > 0,
     );
-  const lineTotal = roundMoney(order.items.reduce((total, item) => total + item.lineTotal, 0));
+  const lineTotal = sumMoney(order.items.map((item) => item.lineTotal));
   if (!linesAreValid || lineTotal !== roundMoney(order.documentTotal)) {
     throw new RecoverableOrderSubmissionError(
       "The legacy 1C order payload failed total integrity validation.",
@@ -1104,7 +1149,13 @@ function normalizePaymentDate(value: string): string {
   }
   return normalized;
 }
-function roundMoney(value: number): number { return Math.round((value + Number.EPSILON) * 100) / 100; }
+function money(value: Decimal.Value): Decimal { return new Decimal(value); }
+function roundMoney(value: Decimal.Value): number {
+  return money(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+}
+function sumMoney(values: readonly Decimal.Value[]): number {
+  return roundMoney(values.reduce<Decimal>((sum, value) => sum.plus(value), new Decimal(0)));
+}
 function toJsonRecord(value: SalesOrderDTO): Record<string, unknown> { return JSON.parse(JSON.stringify(value)) as Record<string, unknown>; }
 function toSummary(
   order: PartnerOrder,

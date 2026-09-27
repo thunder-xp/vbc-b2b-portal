@@ -103,6 +103,13 @@ export type PartnerOrderItem = {
   partnerUnitPrice: number;
   currencyCode: string;
   lineTotal: number;
+  sourceUnitPrice: number | null;
+  sourceCurrencyCode: string | null;
+  appliedExchangeRate: number | null;
+  exchangeRateId: string | null;
+  exchangeRatePurpose: string | null;
+  exchangeRateEffectiveAt: string | null;
+  exchangeRatePublishedAt: string | null;
   availableStock: number | null;
   nearestArrivalDate: string | null;
   nearestArrivalQuantity: number | null;

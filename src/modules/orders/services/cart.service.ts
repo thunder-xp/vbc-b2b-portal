@@ -1,3 +1,5 @@
+import Decimal from "decimal.js";
+
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
@@ -219,7 +221,7 @@ export class DefaultCartService implements CartService {
         && items.length > 0
         && checkoutOptions?.paymentMethods.some((method) => method.value === "cashless" && method.enabled) === true
         && items.every((item) => {
-          const price = viewsById.get(item.productId)?.partnerPrice;
+          const price = checkoutPartnerPrice(viewsById.get(item.productId));
           return price !== null && price !== undefined
             && price.amount > 0 && price.currencyCode?.toUpperCase() === "MDL";
         }),
@@ -477,10 +479,10 @@ function toLine(
 ): CartLineDto {
   return {
     id, productId: product.id, slug: product.slug, productName: product.name, sku: product.sku, imageUrl: product.imageUrl, quantity,
-    ...(view?.partnerPrice
+    ...(checkoutPartnerPrice(view)
       ? {
-          partnerUnitPrice: view.partnerPrice.formattedAmount,
-          partnerLineTotal: formatLineTotal(view.partnerPrice, quantity),
+          partnerUnitPrice: checkoutPartnerPrice(view)!.formattedAmount,
+          partnerLineTotal: formatLineTotal(checkoutPartnerPrice(view), quantity),
         }
       : {}),
     retailUnitPrice: view?.retailPrice?.formattedAmount ?? null,
@@ -521,7 +523,9 @@ function formatLineTotal(
   price: ProductCommercialViewDto["partnerPrice"] | undefined,
   quantity: number,
 ): string | null {
-  return price?.currencyCode ? formatMoney(price.amount * quantity, price.currencyCode) : null;
+  return price?.currencyCode
+    ? formatMoney(new Decimal(price.amount).times(quantity).toNumber(), price.currencyCode)
+    : null;
 }
 
 function calculateTotal(
@@ -529,18 +533,24 @@ function calculateTotal(
   kind: "partner" | "retail",
 ): string | null {
   const prices = lines.map((line) =>
-    kind === "partner" ? line.view?.partnerPrice : line.view?.retailPrice,
+    kind === "partner" ? checkoutPartnerPrice(line.view) : line.view?.retailPrice,
   );
   if (!lines.length || prices.some((price) => !price?.currencyCode)) return null;
   const currencies = [...new Set(prices.map((price) => price?.currencyCode))];
   if (currencies.length !== 1 || !currencies[0]) return null;
   return formatMoney(
     lines.reduce(
-      (sum, line, index) => sum + (prices[index]?.amount ?? 0) * line.quantity,
-      0,
-    ),
+      (sum, line, index) => sum.plus(new Decimal(prices[index]?.amount ?? 0).times(line.quantity)),
+      new Decimal(0),
+    ).toNumber(),
     currencies[0],
   );
+}
+
+function checkoutPartnerPrice(
+  view: ProductCommercialViewDto | undefined,
+): ProductCommercialViewDto["partnerPrice"] | undefined {
+  return view?.partnerCheckoutPriceMdl ?? undefined;
 }
 
 function formatMoney(amount: number, currency: string): string {
