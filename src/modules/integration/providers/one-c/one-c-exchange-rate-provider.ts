@@ -104,7 +104,7 @@ function parseRate(value: unknown, now: Date): CommercialRateSourceDTO {
   }
   return {
     purpose: expected.purpose, currencyReference, code, symbolicCode, rate, multiplicity, normalizedRate,
-    effectiveAt: validTimestamp(value.effectiveAt, now, "effectiveAt"), dataVersion,
+    effectiveAt: validEffectiveDate(value.effectiveAt, now), dataVersion,
   };
 }
 
@@ -123,6 +123,17 @@ function validTimestamp(value: unknown, now: Date, field: string): string {
     throw new IntegrationValidationError(`1C ${field} is invalid.`);
   }
   return normalized!;
+}
+function validEffectiveDate(value: unknown, now: Date): string {
+  const date = typeof value === "string"
+    ? value.trim().match(/^(\d{4}-\d{2}-\d{2})(?:T|$)/)?.[1]
+    : null;
+  const normalized = date ? `${date}T00:00:00.000Z` : "";
+  const timestamp = Date.parse(normalized);
+  if (!date || !Number.isFinite(timestamp) || timestamp > now.getTime() + 5 * 60_000) {
+    throw new IntegrationValidationError("1C effectiveAt is invalid.");
+  }
+  return normalized;
 }
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }

@@ -16,8 +16,8 @@ describe("OneCExchangeRateProvider", () => {
     const parsed = parseCommercialRatePayload(payload, now);
     expect(parsed.generatedAt).toBe("2026-09-27T09:59:00.000Z");
     expect(parsed.rates).toEqual([
-      expect.objectContaining({ code: "113", purpose: "partner_price_usd_to_mdl", normalizedRate: "17.5876" }),
-      expect.objectContaining({ code: "999", purpose: "retail_price_usd_to_mdl", normalizedRate: "18.0105" }),
+      expect.objectContaining({ code: "113", purpose: "partner_price_usd_to_mdl", normalizedRate: "17.5876", effectiveAt: "2026-09-26T00:00:00.000Z" }),
+      expect.objectContaining({ code: "999", purpose: "retail_price_usd_to_mdl", normalizedRate: "18.0105", effectiveAt: "2026-09-26T00:00:00.000Z" }),
     ]);
   });
 
@@ -55,7 +55,7 @@ describe("OneCExchangeRateProvider", () => {
     expect(result.rates[1]).toMatchObject({
       purpose: "retail_price_usd_to_mdl",
       normalizedRate: "18.0105",
-      effectiveAt: "2026-09-25T21:00:00.000Z",
+      effectiveAt: "2026-09-26T00:00:00.000Z",
     });
   });
 });
