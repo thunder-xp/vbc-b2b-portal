@@ -13,7 +13,9 @@ const payload = {
 
 describe("OneCExchangeRateProvider", () => {
   it("maps exact authoritative 113 and 999 identities without inference", () => {
-    expect(parseCommercialRatePayload(payload, now).rates).toEqual([
+    const parsed = parseCommercialRatePayload(payload, now);
+    expect(parsed.generatedAt).toBe("2026-09-27T09:59:00.000Z");
+    expect(parsed.rates).toEqual([
       expect.objectContaining({ code: "113", purpose: "partner_price_usd_to_mdl", normalizedRate: "17.5876" }),
       expect.objectContaining({ code: "999", purpose: "retail_price_usd_to_mdl", normalizedRate: "18.0105" }),
     ]);
@@ -38,8 +40,22 @@ describe("OneCExchangeRateProvider", () => {
       return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } });
     });
     const provider = new OneCExchangeRateProvider({ endpointUrl: "https://onec.example/novotech/hs/b2b/commercial-rates", username: "b2b_rates_reader", password: "secret", requestTimeoutMs: 1000 }, () => now, fetcher as typeof fetch);
-    await expect(provider.fetchCommercialRates()).resolves.toMatchObject({ generatedAt: payload.generatedAt });
+    await expect(provider.fetchCommercialRates()).resolves.toMatchObject({ generatedAt: "2026-09-27T09:59:00.000Z" });
     expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("commercial-rates"), expect.objectContaining({ method: "GET", cache: "no-store" }));
     expect((requestInit?.headers as Record<string, string>).Authorization).toMatch(/^Basic /);
+  });
+
+  it("treats timezone-less 1C timestamps as Europe/Chisinau wall clock", () => {
+    const result = parseCommercialRatePayload({
+      ...payload,
+      generatedAt: "2026-09-27T20:41:35",
+      rates: payload.rates.map((rate) => ({ ...rate, effectiveAt: "2026-09-26T00:00:00" })),
+    }, new Date("2026-09-27T18:00:00.000Z"));
+    expect(result.generatedAt).toBe("2026-09-27T17:41:35.000Z");
+    expect(result.rates[1]).toMatchObject({
+      purpose: "retail_price_usd_to_mdl",
+      normalizedRate: "18.0105",
+      effectiveAt: "2026-09-25T21:00:00.000Z",
+    });
   });
 });

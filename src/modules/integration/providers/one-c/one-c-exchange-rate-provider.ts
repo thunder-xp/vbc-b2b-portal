@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 
 import type { OneCCommercialRatesEnv } from "@/src/lib/env";
 import { IntegrationTimeoutError, IntegrationValidationError } from "../../errors";
+import { parseOneCChisinauTimestamp } from "./one-c-datetime";
 
 export const ONE_C_COMMERCIAL_RATE_SOURCE = "РегистрСведений.КурсыВалют" as const;
 export const ONE_C_BCRU_CODE = "113" as const;
@@ -116,12 +117,12 @@ function decimalText(value: unknown): string {
   } catch { throw new IntegrationValidationError("1C commercial-rate numeric value is invalid."); }
 }
 function validTimestamp(value: unknown, now: Date, field: string): string {
-  if (typeof value !== "string") throw new IntegrationValidationError(`1C ${field} is invalid.`);
-  const timestamp = Date.parse(value);
+  const normalized = parseOneCChisinauTimestamp(value);
+  const timestamp = normalized ? Date.parse(normalized) : Number.NaN;
   if (!Number.isFinite(timestamp) || timestamp > now.getTime() + 5 * 60_000) {
     throw new IntegrationValidationError(`1C ${field} is invalid.`);
   }
-  return value;
+  return normalized!;
 }
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null; }

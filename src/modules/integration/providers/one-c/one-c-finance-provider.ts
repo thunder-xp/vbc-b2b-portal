@@ -25,6 +25,7 @@ import type { OneCProviderConfig } from "./one-c-provider.config";
 import { OneCODataClient } from "./one-c-odata-client";
 import { parseRequiredOneCGuid } from "./one-c-guid";
 import { normalizeOneCCurrencyCode } from "./one-c-currency";
+import { parseOneCChisinauTimestamp } from "./one-c-datetime";
 
 const REGISTER = "AccumulationRegister_РасчетыСПокупателями";
 const CONTRACTS = "Catalog_ДоговорыКонтрагентов";
@@ -410,34 +411,13 @@ function optionalGuid(value: unknown): string[] {
 }
 
 function isoTimestamp(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const timezoneLess = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/);
-  if (timezoneLess) {
-    const [, year, month, day, hour, minute, second, milliseconds = "0"] = timezoneLess;
-    const localWallClock = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), Number(milliseconds.padEnd(3, "0")));
-    const firstOffset = chisinauOffsetMs(localWallClock);
-    const utc = localWallClock - chisinauOffsetMs(localWallClock - firstOffset);
-    const parsed = new Date(utc);
-    return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
-  }
-  const parsed = new Date(value);
-  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+  return parseOneCChisinauTimestamp(value);
 }
 
 function oneCDate(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const date = value.match(/^(\d{4}-\d{2}-\d{2})(?:T|$)/)?.[1] ?? null;
   return date && Number.isFinite(Date.parse(`${date}T00:00:00Z`)) ? date : null;
-}
-
-function chisinauOffsetMs(timestamp: number): number {
-  const wholeSecond = Math.trunc(timestamp / 1000) * 1000;
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Chisinau", year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
-  }).formatToParts(new Date(wholeSecond));
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day), Number(values.hour), Number(values.minute), Number(values.second)) - wholeSecond;
 }
 
 function mapCalendarRows(value: unknown): PaymentCalendarRowDTO[] {
