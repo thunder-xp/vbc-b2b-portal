@@ -108,6 +108,7 @@ export type PartnerOrderItem = {
   appliedExchangeRate: number | null;
   exchangeRateId: string | null;
   exchangeRatePurpose: string | null;
+  exchangeRateSourceType: string | null;
   exchangeRateEffectiveAt: string | null;
   exchangeRatePublishedAt: string | null;
   availableStock: number | null;

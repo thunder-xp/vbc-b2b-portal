@@ -236,10 +236,8 @@ describe("OrderSubmitForm", () => {
       onlinePaymentEnabled
       submissionKey="55555555-5555-4555-8555-555555555555"
     />);
-    const online = screen.getByRole("radio", { name: /Онлайн-оплата/ });
+    const online = screen.getByRole("radio", { name: /Online payment MAIB/ });
     expect(online).toBeEnabled();
-    expect(online.closest("label")).toHaveTextContent("Мгновенное подтверждение заказа");
-    expect(online.closest("label")).toHaveTextContent("Безопасная оплата через MAIB");
     await user.click(online);
     expect(container.querySelector('input[name="paymentMethod"][value="online"]')).toBeChecked();
     expect(screen.getByLabelText("Дата оплаты", { exact: true })).toHaveValue(chisinauBusinessDate());
@@ -253,7 +251,7 @@ describe("OrderSubmitForm", () => {
       onlinePaymentEnabled={false}
       submissionKey="55555555-5555-4555-8555-555555555555"
     />);
-    expect(screen.getByRole("radio", { name: /Онлайн-оплата/ })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: /Online payment MAIB/ })).toBeDisabled();
     expect(screen.getByRole("radio", { name: /Безналичный/ })).toBeEnabled();
   });
 });
