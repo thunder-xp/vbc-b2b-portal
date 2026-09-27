@@ -334,7 +334,7 @@ export class EstimateLifecycleService {
     const lines = aggregateProductLines(source);
     if (!lines.length) throw new InvalidStateError("В смете нет товарных позиций для добавления в корзину.");
     const result = await this.cartService.mergeEstimateProducts(userId, {
-      estimateId: source.estimate.id,
+      estimateId: source.estimate.id, expectedRevision: source.estimate.revision,
       requestKey: normalizeUuid(requestKey), lines,
     });
     console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, estimateRevision: source.estimate.revision, ...result });

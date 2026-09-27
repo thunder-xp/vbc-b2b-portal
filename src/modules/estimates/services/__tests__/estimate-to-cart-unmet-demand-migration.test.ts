@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(join(process.cwd(), "supabase/migrations/20260914163104_estimate_to_cart_unmet_demand.sql"), "utf8");
+const liveTransferSql = readFileSync(join(process.cwd(), "supabase/migrations/20260927070234_restore_estimate_to_cart_all_states.sql"), "utf8");
 const cartService = readFileSync(join(process.cwd(), "src/modules/orders/services/cart.service.ts"), "utf8");
 const cartRepository = readFileSync(join(process.cwd(), "src/modules/orders/repositories/supabase/order.supabase-repository.ts"), "utf8");
 const workflow = readFileSync(join(process.cwd(), "src/modules/estimates/components/EstimateWorkflowPanel.tsx"), "utf8");
@@ -57,9 +58,17 @@ describe("Estimate-to-cart unmet demand migration", () => {
     expect(workflow).not.toContain('guided.primaryAction === "continue_order"');
   });
 
-  it("reuses the canonical all-state transfer instead of the accepted-version wrapper", () => {
-    expect(cartRepository).toContain('.rpc("transfer_estimate_to_cart_v2"');
+  it("reuses the canonical all-state engine through a revision-guarded wrapper", () => {
+    expect(cartRepository).toContain('.rpc("transfer_estimate_to_cart_v4"');
     expect(cartRepository).not.toContain('.rpc("transfer_accepted_estimate_to_cart_v3"');
+    expect(liveTransferSql).toContain("public.transfer_estimate_to_cart_v2");
+    expect(liveTransferSql).toContain("target_estimate.revision <> expected_estimate_revision");
+    expect(liveTransferSql).toContain("target_estimate.deleted_at is not null");
+    expect(liveTransferSql).not.toMatch(/target_estimate\.lifecycle_status\s+(?:not\s+)?in/i);
+    expect(liveTransferSql).not.toMatch(/target_estimate\.status\s*(?:=|<>|in)/i);
+    expect(liveTransferSql).toContain("set search_path = ''");
+    expect(liveTransferSql).toContain("from public, anon, authenticated");
+    expect(liveTransferSql).toContain("to authenticated");
   });
 
   it("retains product identity when an Estimate-owned cart line leaves the active catalog", () => {

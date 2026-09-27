@@ -150,6 +150,7 @@ describe("EstimateLifecycleService", () => {
 
     expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledWith("user-1", expect.objectContaining({
       estimateId: "estimate-1",
+      expectedRevision: 3,
       lines: [expect.objectContaining({ lineId: "item-0", productId: "product-1", quantity: 2, snapshotPartnerPrice: 10 })],
     }));
   });
