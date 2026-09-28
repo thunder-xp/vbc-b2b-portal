@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const hook = vi.hoisted(() => ({ handle: vi.fn() }));
 vi.mock("@/src/modules/auth/send-email-hook.service", () => ({
-  SendEmailHookError: class SendEmailHookError extends Error { constructor(readonly code: string) { super(code); } },
+  SendEmailHookError: class SendEmailHookError extends Error {
+    constructor(readonly code: string, readonly signatureDiagnostics?: Record<string, unknown>) { super(code); }
+  },
   handleSupabaseSendEmailHook: hook.handle,
 }));
 
@@ -75,6 +77,45 @@ describe("Supabase Send Email Hook route", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     await expect(response.json()).resolves.toMatchObject({ error: { message: "DELIVERY_UNAVAILABLE" } });
     expect(JSON.stringify(logger.mock.calls)).not.toContain("do-not-disclose");
+  });
+
+  it("logs only bounded structural diagnostics and keeps the public 401 response sanitized", async () => {
+    const { SendEmailHookError } = await import("@/src/modules/auth/send-email-hook.service");
+    hook.handle.mockRejectedValue(new SendEmailHookError("SIGNATURE_INVALID", {
+      webhookIdPresent: true,
+      webhookTimestampPresent: true,
+      webhookSignaturePresent: true,
+      webhookIdShapeValid: true,
+      timestampParseValid: true,
+      timestampSkewSeconds: 2,
+      signatureEntryCount: 2,
+      signatureVersionShapeValid: true,
+      configuredSecretCount: 1,
+      verificationFailureCategory: "NO_MATCHING_SIGNATURE",
+    }));
+    const logger = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const sensitiveBody = JSON.stringify({ email: "controlled@example.test", token_hash: "sensitive-token-hash" });
+    const response = await POST(request(sensitiveBody));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: { http_code: 401, message: "SIGNATURE_INVALID" } });
+    expect(logger).toHaveBeenCalledOnce();
+    const logged = logger.mock.calls[0]![0] as Record<string, unknown>;
+    expect(Object.keys(logged)).toEqual([
+      "event",
+      "correlationId",
+      "webhookIdPresent",
+      "webhookTimestampPresent",
+      "webhookSignaturePresent",
+      "webhookIdShapeValid",
+      "timestampParseValid",
+      "timestampSkewSeconds",
+      "signatureEntryCount",
+      "signatureVersionShapeValid",
+      "configuredSecretCount",
+      "verificationFailureCategory",
+    ]);
+    expect(JSON.stringify(logged)).not.toMatch(/controlled@example\.test|sensitive-token-hash|webhook-signature|whsec_|authorization/i);
   });
 });
 

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { Webhook } from "standardwebhooks";
+import { Webhook, WebhookVerificationError } from "standardwebhooks";
 import { z } from "zod";
 
 import { getCanonicalApplicationOrigin } from "@/src/lib/email/runtime-email-config";
@@ -44,8 +44,38 @@ type NotificationActionType = Extract<EmailActionType,
 type Locale = "ru" | "ro";
 type Delivery = Readonly<{ to: string; subject: string; title: string; body: string; button: string | null; link: string | null }>;
 
+const WEBHOOK_TOLERANCE_SECONDS = 5 * 60;
+const MAX_REPORTED_TIMESTAMP_SKEW_SECONDS = 24 * 60 * 60;
+const MAX_REPORTED_SIGNATURE_ENTRIES = 8;
+const MAX_SIGNATURE_HEADER_INSPECTION_CHARS = 4_096;
+
+export type SignatureVerificationFailureCategory =
+  | "MISSING_HEADERS"
+  | "INVALID_TIMESTAMP"
+  | "TIMESTAMP_TOO_OLD"
+  | "TIMESTAMP_TOO_NEW"
+  | "NO_MATCHING_SIGNATURE"
+  | "MALFORMED_SIGNATURE"
+  | "UNKNOWN_SIGNATURE_FAILURE";
+
+export type SignatureVerificationDiagnostics = Readonly<{
+  webhookIdPresent: boolean;
+  webhookTimestampPresent: boolean;
+  webhookSignaturePresent: boolean;
+  webhookIdShapeValid: boolean;
+  timestampParseValid: boolean;
+  timestampSkewSeconds: number | null;
+  signatureEntryCount: number;
+  signatureVersionShapeValid: boolean;
+  configuredSecretCount: number;
+  verificationFailureCategory: SignatureVerificationFailureCategory;
+}>;
+
 export class SendEmailHookError extends Error {
-  constructor(readonly code: "SIGNATURE_INVALID" | "PAYLOAD_INVALID" | "CONFIGURATION_INVALID" | "DELIVERY_UNAVAILABLE" | "DELIVERY_CONFIGURATION_INVALID") {
+  constructor(
+    readonly code: "SIGNATURE_INVALID" | "PAYLOAD_INVALID" | "CONFIGURATION_INVALID" | "DELIVERY_UNAVAILABLE" | "DELIVERY_CONFIGURATION_INVALID",
+    readonly signatureDiagnostics?: SignatureVerificationDiagnostics,
+  ) {
     super("Send Email hook request rejected.");
     this.name = "SendEmailHookError";
   }
@@ -66,16 +96,30 @@ export async function handleSupabaseSendEmailHook(
   const secrets = readHookSecrets(environment.SUPABASE_SEND_EMAIL_HOOK_SECRET);
   if (secrets.length === 0) throw new SendEmailHookError("CONFIGURATION_INVALID");
 
+  const diagnosticInput = inspectSignatureInput(headers, secrets.length);
+  const structuralFailure = classifyStructuralFailure(diagnosticInput);
+  if (structuralFailure) {
+    throw new SendEmailHookError("SIGNATURE_INVALID", createSignatureDiagnostics(diagnosticInput, structuralFailure));
+  }
+
   let verified: unknown = null;
+  const verificationFailures: unknown[] = [];
   for (const secret of secrets) {
     try {
       verified = new Webhook(secret).verify(rawPayload, Object.fromEntries(headers));
       break;
-    } catch {
+    } catch (error) {
+      verificationFailures.push(error);
       // Rotation is limited to the active and immediately previous key.
     }
   }
-  if (verified === null) throw new SendEmailHookError("SIGNATURE_INVALID");
+  if (verified === null) {
+    const verificationFailureCategory = verificationFailures.length > 0
+      && verificationFailures.every((error) => error instanceof WebhookVerificationError && error.message === "No matching signature found")
+      ? "NO_MATCHING_SIGNATURE"
+      : "UNKNOWN_SIGNATURE_FAILURE";
+    throw new SendEmailHookError("SIGNATURE_INVALID", createSignatureDiagnostics(diagnosticInput, verificationFailureCategory));
+  }
 
   const parsed = actionPayloadSchema.safeParse(verified);
   const webhookId = headers.get("webhook-id");
@@ -229,4 +273,89 @@ function readHookSecrets(value: string | undefined): string[] {
   const secrets = value.split("|").map((secret) => secret.trim().replace(/^v1,/, ""));
   if (secrets.length > 2) return [];
   return secrets.filter((secret) => /^whsec_[A-Za-z0-9+/=_-]{20,128}$/.test(secret));
+}
+
+type SignatureDiagnosticInput = Omit<SignatureVerificationDiagnostics, "verificationFailureCategory"> & Readonly<{
+  requiredHeaderValuesPresent: boolean;
+  rawTimestampSkewSeconds: number | null;
+}>;
+
+function inspectSignatureInput(headers: Headers, configuredSecretCount: number): SignatureDiagnosticInput {
+  const webhookId = headers.get("webhook-id");
+  const timestampHeader = headers.get("webhook-timestamp");
+  const signatureHeader = headers.get("webhook-signature");
+  const webhookIdPresent = webhookId !== null;
+  const webhookTimestampPresent = timestampHeader !== null;
+  const webhookSignaturePresent = signatureHeader !== null;
+  const timestamp = parseWebhookTimestamp(timestampHeader);
+  const rawTimestampSkewSeconds = timestamp === null ? null : Math.floor(Date.now() / 1_000) - timestamp;
+  const signature = inspectSignatureShape(signatureHeader);
+
+  return {
+    webhookIdPresent,
+    webhookTimestampPresent,
+    webhookSignaturePresent,
+    webhookIdShapeValid: webhookId !== null && /^[A-Za-z0-9_-]{1,200}$/.test(webhookId),
+    timestampParseValid: timestamp !== null,
+    timestampSkewSeconds: rawTimestampSkewSeconds === null
+      ? null
+      : Math.max(-MAX_REPORTED_TIMESTAMP_SKEW_SECONDS, Math.min(MAX_REPORTED_TIMESTAMP_SKEW_SECONDS, rawTimestampSkewSeconds)),
+    signatureEntryCount: signature.entryCount,
+    signatureVersionShapeValid: signature.shapeValid,
+    configuredSecretCount,
+    requiredHeaderValuesPresent: Boolean(webhookId && timestampHeader && signatureHeader),
+    rawTimestampSkewSeconds,
+  };
+}
+
+function parseWebhookTimestamp(value: string | null): number | null {
+  if (!value || !/^\d{1,16}$/.test(value)) return null;
+  const timestamp = Number(value);
+  return Number.isSafeInteger(timestamp) ? timestamp : null;
+}
+
+function inspectSignatureShape(value: string | null): Readonly<{ entryCount: number; shapeValid: boolean }> {
+  if (!value) return { entryCount: 0, shapeValid: false };
+  if (value.length > MAX_SIGNATURE_HEADER_INSPECTION_CHARS) {
+    return { entryCount: MAX_REPORTED_SIGNATURE_ENTRIES, shapeValid: false };
+  }
+  const rawEntries = value.trim().split(/\s+/).filter(Boolean);
+  const entryCount = Math.min(rawEntries.length, MAX_REPORTED_SIGNATURE_ENTRIES);
+  if (rawEntries.length === 0 || rawEntries.length > MAX_REPORTED_SIGNATURE_ENTRIES) {
+    return { entryCount, shapeValid: false };
+  }
+  const entries = rawEntries.map((entry, index) => index < rawEntries.length - 1 && entry.endsWith(",")
+    ? entry.slice(0, -1)
+    : entry);
+  return {
+    entryCount,
+    shapeValid: entries.every((entry) => /^v1,[A-Za-z0-9+/]{43}=$/.test(entry)),
+  };
+}
+
+function classifyStructuralFailure(input: SignatureDiagnosticInput): SignatureVerificationFailureCategory | null {
+  if (!input.requiredHeaderValuesPresent) return "MISSING_HEADERS";
+  if (!input.timestampParseValid || input.rawTimestampSkewSeconds === null) return "INVALID_TIMESTAMP";
+  if (input.rawTimestampSkewSeconds > WEBHOOK_TOLERANCE_SECONDS) return "TIMESTAMP_TOO_OLD";
+  if (input.rawTimestampSkewSeconds < -WEBHOOK_TOLERANCE_SECONDS) return "TIMESTAMP_TOO_NEW";
+  if (!input.signatureVersionShapeValid) return "MALFORMED_SIGNATURE";
+  return null;
+}
+
+function createSignatureDiagnostics(
+  input: SignatureDiagnosticInput,
+  verificationFailureCategory: SignatureVerificationFailureCategory,
+): SignatureVerificationDiagnostics {
+  return {
+    webhookIdPresent: input.webhookIdPresent,
+    webhookTimestampPresent: input.webhookTimestampPresent,
+    webhookSignaturePresent: input.webhookSignaturePresent,
+    webhookIdShapeValid: input.webhookIdShapeValid,
+    timestampParseValid: input.timestampParseValid,
+    timestampSkewSeconds: input.timestampSkewSeconds,
+    signatureEntryCount: input.signatureEntryCount,
+    signatureVersionShapeValid: input.signatureVersionShapeValid,
+    configuredSecretCount: input.configuredSecretCount,
+    verificationFailureCategory,
+  };
 }

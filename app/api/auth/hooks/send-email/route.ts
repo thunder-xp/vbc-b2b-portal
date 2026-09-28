@@ -70,7 +70,15 @@ export async function POST(request: Request): Promise<Response> {
     const status = code === "SIGNATURE_INVALID" ? 401
       : code === "PAYLOAD_INVALID" ? 400
         : 503;
-    console.error({ event: "supabase_send_email_hook_failed", correlationId, code, durationMs: Math.max(0, Math.round(performance.now() - startedAt)) });
+    if (error instanceof SendEmailHookError && code === "SIGNATURE_INVALID" && error.signatureDiagnostics) {
+      console.error({
+        event: "supabase_send_email_hook_signature_invalid",
+        correlationId,
+        ...error.signatureDiagnostics,
+      });
+    } else {
+      console.error({ event: "supabase_send_email_hook_failed", correlationId, code, durationMs: Math.max(0, Math.round(performance.now() - startedAt)) });
+    }
     return response(code === "CONFIGURATION_INVALID" || code === "DELIVERY_CONFIGURATION_INVALID" ? "DELIVERY_UNAVAILABLE" : code,
       status, correlationId, retryable ? SMTP_RETRY_AFTER_SECONDS : undefined);
   }
