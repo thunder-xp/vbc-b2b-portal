@@ -7,7 +7,7 @@ import type { OneCEnv } from "@/src/lib/env";
 import { IntegrationProviderUnavailableError, IntegrationValidationError } from "../../errors";
 
 const MAX_METADATA_BYTES = 16 * 1024 * 1024;
-const MAX_CANDIDATES = 120;
+const MAX_CANDIDATES = 180;
 const AGENT_TERMS = [
   "\u0410\u0433\u0435\u043d\u0442",
   "\u041f\u0440\u043e\u0435\u043a\u0442",
@@ -15,6 +15,7 @@ const AGENT_TERMS = [
   "\u041a\u043e\u043d\u0442\u0440\u0430\u0433\u0435\u043d\u0442",
   "\u041f\u0440\u0438\u0432\u043b\u0435\u0447",
   "\u0412\u043e\u0437\u043d\u0430\u0433\u0440\u0430\u0436",
+  "\u0414\u043e\u043f\u043e\u043b\u043d\u0438\u0442\u0435\u043b\u044c\u043d",
 ] as const;
 
 type XmlNode = Record<string, unknown>;
