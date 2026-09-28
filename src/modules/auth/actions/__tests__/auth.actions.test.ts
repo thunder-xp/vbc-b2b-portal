@@ -166,4 +166,32 @@ describe("classic password sign-in routing", () => {
       data: { registration_intent: "installer", registration_legal_form: "INDIVIDUAL", preferred_registration_locale: "ru" },
     }) }));
   });
+
+  it("classifies only known email-hook delivery failures with a private correlation diagnostic", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.signUp.mockResolvedValue({
+      data: { session: null },
+      error: Object.assign(new Error("Hook failed"), { code: "hook_payload_invalid_content_type", status: 500 }),
+    });
+    await expect(registerAgentAction({ error: null }, registration())).resolves.toEqual({ error: "Confirmation email could not be sent." });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({
+      event: "professional_registration_signup_failed",
+      category: "email_delivery_unavailable",
+      authErrorCode: "hook_payload_invalid_content_type",
+      status: 500,
+      correlationId: expect.any(String),
+    }));
+    expect(JSON.stringify(log.mock.calls)).not.toContain("agent@example.com");
+    log.mockRestore();
+  });
+
+  it("keeps unknown registration errors generic and does not expose account existence", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.signUp.mockResolvedValue({ data: { session: null }, error: new Error("User already registered") });
+    await expect(registerAgentAction({ error: null }, registration())).resolves.toEqual({ error: "Account could not be created." });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ category: "registration_failed", authErrorCode: "unknown" }));
+    expect(JSON.stringify(log.mock.calls)).not.toContain("User already registered");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("agent@example.com");
+    log.mockRestore();
+  });
 });

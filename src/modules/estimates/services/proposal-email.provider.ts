@@ -11,6 +11,7 @@ export type ProposalEmailMessage = {
   text: string;
   html: string;
   messageId?: string;
+  timeoutMs?: number;
   attachment?: { filename: string; content: Uint8Array };
 };
 
@@ -57,20 +58,40 @@ export class SmtpProposalEmailProvider implements ProposalEmailProvider {
 
   async send(message: ProposalEmailMessage) {
     if (externalEmailBlockReason()) throw new ProposalEmailProviderError("configuration");
-    const config = smtpConfig();
+    const config = smtpConfig(message.timeoutMs);
     const transporter = createSmtpTransport(config);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let closed = false;
+    const closeTransport = () => {
+      if (closed) return;
+      closed = true;
+      transporter.close();
+    };
     try {
-      const result = await transporter.sendMail({
+      const send = transporter.sendMail({
         from: { name: config.fromName, address: config.fromEmail }, to: message.to,
         subject: message.subject, text: message.text, html: message.html,
         messageId: message.messageId,
         attachments: message.attachment ? [{ filename: message.attachment.filename, content: Buffer.from(message.attachment.content), contentType: "application/pdf" }] : undefined,
       });
+      const boundedSend = message.timeoutMs === undefined
+        ? send
+        : Promise.race([
+          send,
+          new Promise<never>((_resolve, reject) => {
+            timeout = setTimeout(() => {
+              closeTransport();
+              reject(new ProposalEmailProviderError("timeout"));
+            }, message.timeoutMs);
+          }),
+        ]);
+      const result = await boundedSend;
       return { messageId: typeof result.messageId === "string" ? result.messageId.slice(0, 300) : null, category: "accepted" as const };
     } catch (error) {
       throw new ProposalEmailProviderError(categoryOf(error));
     } finally {
-      transporter.close();
+      if (timeout) clearTimeout(timeout);
+      closeTransport();
     }
   }
 }
@@ -115,14 +136,14 @@ function verificationResult(
   return { configured, connectionSuccessful, authenticationSuccessful, errorCategory, durationMs: Math.max(0, Math.round(performance.now() - startedAt)) };
 }
 
-function smtpConfig() {
+function smtpConfig(timeoutOverride?: number) {
   const required = (name: "SMTP_HOST" | "SMTP_USER" | "SMTP_PASSWORD") => {
     const value = process.env[name]?.trim();
     if (!value) throw new ProposalEmailProviderError("configuration");
     return value;
   };
   const port = Number(process.env.SMTP_PORT ?? "587");
-  const timeoutMs = Number(process.env.SMTP_TIMEOUT_MS ?? "10000");
+  const timeoutMs = timeoutOverride ?? Number(process.env.SMTP_TIMEOUT_MS ?? "10000");
   if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 30000) {
     throw new ProposalEmailProviderError("configuration");
   }
