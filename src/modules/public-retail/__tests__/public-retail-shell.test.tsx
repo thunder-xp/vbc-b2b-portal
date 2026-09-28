@@ -18,6 +18,18 @@ import { PublicRetailCartBadgeClient } from "../components/PublicRetailCartBadge
 import { PublicRetailShell } from "../components/PublicRetailShell";
 
 describe("Public Retail shell", () => {
+  it("moves cart and checkout context into the shared top breadcrumb bar", () => {
+    const { rerender } = render(<PublicRetailShell languagePath="/cart" locale="ru"><main>cart content</main></PublicRetailShell>);
+    const cartBreadcrumbs = screen.getByRole("navigation", { name: "Хлебные крошки" });
+    expect(within(cartBreadcrumbs).getByRole("heading", { level: 1, name: "Корзина" })).toBeInTheDocument();
+    expect(within(cartBreadcrumbs).getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/catalog?lang=ru");
+
+    rerender(<PublicRetailShell languagePath="/checkout" locale="ro"><main>checkout content</main></PublicRetailShell>);
+    const checkoutBreadcrumbs = screen.getByRole("navigation", { name: "Navigare ierarhică" });
+    expect(within(checkoutBreadcrumbs).getByRole("heading", { level: 1, name: "Plasarea comenzii" })).toBeInTheDocument();
+    expect(within(checkoutBreadcrumbs).getByRole("link", { name: "Coș" })).toHaveAttribute("href", "/cart?lang=ro");
+  });
+
   it("renders the exact desktop navigation and utility order", () => {
     render(<PublicRetailShell languagePath="/" locale="ru"><main>content</main></PublicRetailShell>);
 

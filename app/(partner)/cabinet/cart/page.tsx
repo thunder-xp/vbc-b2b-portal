@@ -7,7 +7,6 @@ import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartChe
 import { CartLineValue, CartPricingPanel } from "@/src/modules/orders/components/CartPricingPanel";
 import { maibConfigurationSummary } from "@/src/modules/payments/server";
 import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
-import { PageHeader } from "@/src/modules/platform-ui";
 import type { CartLineDto } from "@/src/modules/orders/services";
 import { getOrdersCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -49,7 +48,6 @@ export default async function CartPage() {
   const cart = result.data;
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader compact eyebrow={copy.checkoutEyebrow} title={copy.cart} />
 
       {cart.lines.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center">
@@ -125,7 +123,7 @@ export default async function CartPage() {
                                   ? copy.yourPrice
                                   : copy.retailPrice}
                                 :{" "}
-                                <strong className="whitespace-nowrap text-rose-700"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerUnitPrice : line.retailUnitPrice} online={line.onlineUnitPrice} /></strong>
+                                <strong className="whitespace-nowrap text-zinc-800"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerUnitPrice : line.retailUnitPrice} online={line.onlineUnitPrice} /></strong>
                               </p>
                               <p className="mt-1 text-xs text-zinc-600">
                                 {line.availableStock === null
@@ -152,7 +150,7 @@ export default async function CartPage() {
                                 ? copy.amount
                                 : copy.retailAmount}
                             </span>
-                            <p className="mt-1 font-semibold text-rose-700"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerLineTotal : line.retailLineTotal} online={line.onlineLineTotal} /></p>
+                            <p className="mt-1 font-semibold text-zinc-800"><CartLineValue standard={cart.commercialMode === "full" ? line.partnerLineTotal : line.retailLineTotal} online={line.onlineLineTotal} /></p>
                           </div>
                           <CartItemActions
                             itemId={line.id}

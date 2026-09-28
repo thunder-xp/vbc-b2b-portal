@@ -50,8 +50,8 @@ export function CartPricingPanel(props: CartPricingPanelProps) {
           <dt className="text-zinc-600">{props.copy.unitCount}</dt><dd className="text-right font-semibold">{props.totalUnitCount}</dd>
         </dl>
         <p className="mt-3 border-t border-zinc-200 pt-3 text-sm text-zinc-600">{props.copy.total}</p>
-        <p aria-live="polite" className="mt-1 text-xl font-semibold text-rose-700">{onlineSelected ? (props.total113 ?? props.copy.pricePending) : (props.total999 ?? props.copy.pricePending)}</p>
-        {!onlineSelected && props.savings ? <p className="mt-3 rounded-md bg-emerald-50 p-2 text-sm font-medium text-emerald-800">{labels.save}<strong className="text-rose-700">{props.savings}</strong></p> : null}
+        <p aria-live="polite" className="mt-1 text-xl font-semibold text-zinc-800">{onlineSelected ? (props.total113 ?? props.copy.pricePending) : (props.total999 ?? props.copy.pricePending)}</p>
+        {!onlineSelected && props.savings ? <p className="mt-3 rounded-md bg-emerald-50 p-2 text-sm font-medium text-emerald-800">{labels.save}<strong className="text-zinc-800">{props.savings}</strong></p> : null}
         {!props.onlinePaymentEnabled ? <p className="mt-3 text-xs text-amber-800">{labels.unavailable}</p> : null}
       </section>
 

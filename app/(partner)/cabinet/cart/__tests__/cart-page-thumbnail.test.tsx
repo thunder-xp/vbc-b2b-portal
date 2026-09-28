@@ -18,10 +18,13 @@ describe("cart product rows", () => {
     render(await CartPage());
     const thumbnail = screen.getByTestId("product-line-thumbnail");
     const product = screen.getByRole("link", { name: "Camera" });
-    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
-    expect(document.querySelector("[data-page-header]")).not.toHaveClass("border-b");
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(document.querySelector("[data-page-header]")).toBeNull();
     expect(thumbnail.compareDocumentPosition(product) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByText("$20.00")).toHaveLength(2);
+    expect(screen.getByText("$10.00").closest("strong")).toHaveClass("text-zinc-800");
+    expect(screen.getAllByText("$20.00", { selector: "p" })).toHaveLength(2);
+    for (const amount of screen.getAllByText("$20.00", { selector: "p" })) expect(amount).toHaveClass("text-zinc-800");
     expect(thumbnail.parentElement).toHaveClass("grid-cols-[3.5rem_minmax(0,1fr)]");
     expect(screen.getByText("Доступно 1 из 2")).toBeInTheDocument();
   });

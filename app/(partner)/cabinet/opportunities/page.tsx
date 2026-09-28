@@ -8,7 +8,7 @@ import { OpportunityCard } from "@/src/modules/commercial-opportunities/componen
 import { opportunityPresentationVariant } from "@/src/modules/commercial-opportunities/presentation";
 import type { CommercialOpportunityFilter } from "@/src/modules/commercial-opportunities/types";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions";
-import { NumberedPagination, PageHeader, actionClassName } from "@/src/modules/platform-ui";
+import { NumberedPagination, actionClassName } from "@/src/modules/platform-ui";
 import { secondaryCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import type { PartnerLocale } from "@/src/modules/partner-locale";
@@ -80,7 +80,6 @@ export default async function OpportunitiesPage({
         route="/cabinet/opportunities"
         sourceSurface="opportunity_center"
       />
-      <PageHeader compact title={copy.opportunitiesTitle} />
       <nav
         aria-label={copy.opportunitiesFilters}
         className="flex max-w-full gap-2 overflow-x-auto pb-1"

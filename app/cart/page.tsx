@@ -29,10 +29,7 @@ export default async function PublicRetailCartPage({ searchParams }: { searchPar
   return <PublicRetailShell cartQuantity={quantity} languagePath="/cart" locale={locale}>
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={locale}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-        <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
-          <div><p className="text-xs font-semibold uppercase text-blue-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
-          {quantity > 0 ? <p className="text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
-        </header>
+        {quantity > 0 ? <p className="mb-4 text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
         {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} checkoutAccess={checkoutAccess} locale={locale} offer={offer} />}
       </div>
     </main>
@@ -49,7 +46,7 @@ function CartContent({ cart, checkoutAccess, locale, offer }: { cart: PublicReta
   const hasInstallation = cart.bundles.some((bundle) => bundle.installationIntent
     && Object.values(bundle.installationIntent).some(Boolean));
 
-  return <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+  return <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
     <div className="space-y-8">
       {standalone.length > 0 ? <CartGroup items={standalone} label={ru ? "Товары" : "Produse"} locale={locale} revision={cart.revision} /> : null}
       {cart.bundles.map((bundle, index) => <CartBundle bundle={bundle} index={index} items={cart.items.filter((item) => item.bundleId === bundle.id)} key={bundle.id} locale={locale} revision={cart.revision} />)}

@@ -12,7 +12,7 @@ import { PublicLocaleSwitch } from "./PublicLocaleSwitch";
 
 type Props = { children: ReactNode; locale: PublicRetailLocale; languagePath: string; cartQuantity?: number; deferCartSummary?: boolean };
 
-export function PublicRetailShell({ children, locale, cartQuantity, deferCartSummary = false }: Props) {
+export function PublicRetailShell({ children, locale, languagePath, cartQuantity, deferCartSummary = false }: Props) {
   const copy = retailCopy[locale];
   const ru = locale === "ru";
   const catalogLabel = ru ? "Каталог" : "Catalog";
@@ -25,6 +25,8 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
     [ru ? "О компании" : "Despre noi", `/about?lang=${locale}`, false],
     [copy.contacts, `/contacts?lang=${locale}`, false],
   ] as const;
+
+  const pageContext = publicRetailPageContext(languagePath);
 
   return <div className="public-retail min-h-screen bg-white text-zinc-950" lang={locale}>
     <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
@@ -50,6 +52,7 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
             </details>
           </div>
         </div>
+        {pageContext ? <nav aria-label={ru ? "Хлебные крошки" : "Navigare ierarhică"} className="border-t border-zinc-100 py-2 text-xs sm:text-sm"><ol className="flex min-w-0 items-center gap-2"><li className="shrink-0 text-zinc-500"><Link className="hover:text-zinc-800" href={pageContext.parentHref(locale)}>{pageContext.parent(locale)}</Link></li><li aria-hidden="true" className="shrink-0 text-zinc-300">/</li><li className="min-w-0 truncate"><h1 aria-current="page" className="truncate font-medium text-zinc-800">{pageContext.title(locale)}</h1></li></ol></nav> : null}
       </div>
     </header>
     {children}
@@ -90,6 +93,20 @@ export function PublicRetailShell({ children, locale, cartQuantity, deferCartSum
       </div>
     </footer>
   </div>;
+}
+
+function publicRetailPageContext(path: string) {
+  if (path === "/cart") return {
+    parent: (activeLocale: PublicRetailLocale) => activeLocale === "ru" ? "Каталог" : "Catalog",
+    parentHref: (activeLocale: PublicRetailLocale) => `/catalog?lang=${activeLocale}`,
+    title: (activeLocale: PublicRetailLocale) => activeLocale === "ru" ? "Корзина" : "Coș",
+  };
+  if (path === "/checkout") return {
+    parent: (activeLocale: PublicRetailLocale) => activeLocale === "ru" ? "Корзина" : "Coș",
+    parentHref: (activeLocale: PublicRetailLocale) => `/cart?lang=${activeLocale}`,
+    title: (activeLocale: PublicRetailLocale) => activeLocale === "ru" ? "Оформление заказа" : "Plasarea comenzii",
+  };
+  return null;
 }
 
 function FooterGroup({ children, title }: { children: ReactNode; title: string }) {
