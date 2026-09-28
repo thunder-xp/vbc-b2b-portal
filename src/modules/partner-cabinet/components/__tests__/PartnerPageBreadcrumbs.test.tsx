@@ -25,7 +25,12 @@ describe("PartnerPageBreadcrumbs", () => {
     navigationState.pathname = "/cabinet/purchasing-lists";
     navigationState.filter = "favorites";
     render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent(/Покупки\s*\/\s*Избранное/);
+    expect(screen.getByRole("navigation")).toHaveTextContent(/Подбор товаров\s*\/\s*Избранное/);
+  });
+
+  it("localizes checkout context for Romanian partners", () => {
+    render(<PartnerPageBreadcrumbs locale="ro" />);
+    expect(screen.getByRole("navigation", { name: "Navigare ierarhică" })).toHaveTextContent(/Finalizarea comenzii\s*\/\s*Coș/);
   });
 
   it("does not render page context for routes without configured page headers", () => {

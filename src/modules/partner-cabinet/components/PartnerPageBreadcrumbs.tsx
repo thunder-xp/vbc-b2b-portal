@@ -16,20 +16,20 @@ const PAGE_CONTEXT: Record<string, Record<PartnerLocale, PageContext>> = {
     ro: { section: "Cabinet", title: "Finanțe" },
   },
   "/cabinet/offers": {
-    ru: { section: "Продажи", title: "Предложения" },
-    ro: { section: "Vânzări", title: "Oferte" },
+    ru: { section: "Продажи", title: "Специальные предложения" },
+    ro: { section: "Vânzări", title: "Oferte speciale" },
   },
   "/cabinet/opportunities": {
-    ru: { section: "Покупки", title: "Возможности" },
-    ro: { section: "Achiziții", title: "Oportunități" },
+    ru: { section: "Покупки", title: "Возможности для закупки" },
+    ro: { section: "Achiziții", title: "Oportunități de achiziție" },
   },
   "/cabinet/purchasing-lists": {
-    ru: { section: "Подборки", title: "Мои подборки" },
-    ro: { section: "Selecții", title: "Selecțiile mele" },
+    ru: { section: "Подбор товаров", title: "Мои комплекты" },
+    ro: { section: "Selectarea produselor", title: "Seturile mele" },
   },
   "/cabinet/specifications": {
-    ru: { section: "Продажи", title: "Спецификации" },
-    ro: { section: "Vânzări", title: "Specificații" },
+    ru: { section: "Проектная защита", title: "Проектные спецификации" },
+    ro: { section: "Protecția proiectelor", title: "Specificații de proiect" },
   },
 };
 
@@ -42,7 +42,7 @@ export function PartnerPageBreadcrumbs({ locale }: { locale: PartnerLocale }) {
   const isFavorites = pathname === "/cabinet/purchasing-lists" && searchParams.get("filter") === "favorites";
   const context = pageContext[locale];
   const title = isFavorites ? (locale === "ro" ? "Favorite" : "Избранное") : context.title;
-  const section = isFavorites ? (locale === "ro" ? "Achiziții" : "Покупки") : context.section;
+  const section = context.section;
 
   return (
     <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="col-span-2 row-start-3 min-w-0 border-t border-zinc-100 pt-2 text-xs sm:text-sm lg:col-span-3 lg:row-start-2">
