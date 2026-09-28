@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 
 import {
+  runOneCAgentMetadataAuditAction,
   runOneCHealthCheckAction,
   runOneCFinalCustomerContractAuditAction,
   runOneCRelationMetadataAuditAction,
   runOneCServiceMetadataAuditAction,
   runOneCServiceSourceAuditAction,
 } from "../actions";
+import type { OneCAgentMetadataAudit } from "../providers/one-c/one-c-agent-metadata-audit";
 import type { OneCRelationMetadataAudit } from "../providers/one-c/one-c-relation-metadata-audit";
 import type { OneCServiceMetadataAudit } from "../providers/one-c/one-c-service-metadata-audit";
 import type { OneCServiceSourceAudit } from "../providers/one-c/one-c-service-metadata-audit";
@@ -31,6 +33,7 @@ export function OneCHealthPanel({
   };
 }) {
   const [report, setReport] = useState<OneCHealthReport | null>(null);
+  const [agentMetadataAudit, setAgentMetadataAudit] = useState<OneCAgentMetadataAudit | null>(null);
   const [relationAudit, setRelationAudit] = useState<OneCRelationMetadataAudit | null>(null);
   const [serviceAudit, setServiceAudit] = useState<OneCServiceMetadataAudit | null>(null);
   const [serviceSourceAudit, setServiceSourceAudit] = useState<OneCServiceSourceAudit | null>(null);
@@ -48,6 +51,19 @@ export function OneCHealthPanel({
         return;
       }
       setReport(result.data);
+    });
+  }
+
+  function runAgentMetadataAudit() {
+    setError(null);
+    startTransition(async () => {
+      const result = await runOneCAgentMetadataAuditAction();
+      if (!result.success) {
+        setAgentMetadataAudit(null);
+        setError(result.message);
+        return;
+      }
+      setAgentMetadataAudit(result.data);
     });
   }
 
@@ -125,6 +141,14 @@ export function OneCHealthPanel({
             </p>
           </div>
           <button
+            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-semibold text-zinc-900 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isPending}
+            onClick={runAgentMetadataAudit}
+            type="button"
+          >
+            {isPending ? "Проверка..." : "Проверить метаданные Agent"}
+          </button>
+          <button
             className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
             disabled={isPending}
             onClick={runDiagnostic}
@@ -173,11 +197,38 @@ export function OneCHealthPanel({
       </section>
 
       {report ? <DiagnosticReport report={report} /> : null}
+      {agentMetadataAudit ? <AgentMetadataAudit audit={agentMetadataAudit} /> : null}
       {relationAudit ? <RelationMetadataAudit audit={relationAudit} /> : null}
       {serviceAudit ? <ServiceMetadataAudit audit={serviceAudit} /> : null}
       {serviceSourceAudit ? <ServiceSourceAudit audit={serviceSourceAudit} /> : null}
       {customerContractAudit ? <FinalCustomerContractAudit audit={customerContractAudit} /> : null}
     </div>
+  );
+}
+
+function AgentMetadataAudit({ audit }: { audit: OneCAgentMetadataAudit }) {
+  return (
+    <section className="rounded-lg border border-zinc-200 bg-white p-5" data-testid="one-c-agent-metadata-audit">
+      <h2 className="font-semibold text-zinc-950">Метаданные Agent / Contract / Project</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <Metric label="Entity types" value={String(audit.entityTypeCount)} />
+        <Metric label="Кандидатов" value={String(audit.candidateCount)} />
+        <Metric label="Размер metadata" value={`${audit.metadataBytes} bytes`} />
+      </div>
+      <div className="mt-4 space-y-3">
+        {audit.candidates.map((candidate) => (
+          <details className="rounded-md border border-zinc-200 p-4" key={candidate.entityType}>
+            <summary className="cursor-pointer font-medium text-zinc-950">
+              {candidate.entitySet ?? candidate.entityType}
+            </summary>
+            <p className="mt-2 text-xs text-zinc-500">{candidate.matchedTerms.join(", ")}</p>
+            <p className="mt-2 break-words text-sm text-zinc-700">
+              {candidate.properties.map(({ name, type }) => `${name}:${type ?? "unknown"}`).join(", ")}
+            </p>
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }
 

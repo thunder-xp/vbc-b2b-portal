@@ -23,6 +23,10 @@ import {
   type OneCServiceSourceAudit,
 } from "../providers/one-c/one-c-service-metadata-audit";
 import {
+  auditOneCAgentMetadata,
+  type OneCAgentMetadataAudit,
+} from "../providers/one-c/one-c-agent-metadata-audit";
+import {
   OneCFinalCustomerProvider,
   type OneCFinalCustomerContractAudit,
 } from "../../final-customer-provisioning/one-c-customer.provider";
@@ -100,6 +104,20 @@ export async function runOneCFinalCustomerContractAuditAction(): Promise<
     return success(
       "1C Final Customer contract audit completed.",
       await new OneCFinalCustomerProvider(getOneCEnv()).auditContract(),
+    );
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function runOneCAgentMetadataAuditAction(): Promise<
+  ActionResult<OneCAgentMetadataAudit>
+> {
+  try {
+    await requireAdminPermission("admin.diagnostics.run");
+    return success(
+      "1C Agent metadata inventory completed.",
+      await auditOneCAgentMetadata(getOneCEnv()),
     );
   } catch (error) {
     return failureFromError(error);
