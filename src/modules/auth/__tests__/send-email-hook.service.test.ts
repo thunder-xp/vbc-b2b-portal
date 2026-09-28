@@ -35,8 +35,12 @@ function payload(overrides: Record<string, unknown> = {}) {
   });
 }
 
-function signedHeaders(body: string, id = "email-hook-event-1", secret = `whsec_${base64Secret}`) {
-  const timestamp = new Date();
+function signedHeaders(
+  body: string,
+  id = "email-hook-event-1",
+  secret = `whsec_${base64Secret}`,
+  timestamp = new Date(),
+) {
   return new Headers({
     "webhook-id": id,
     "webhook-timestamp": String(Math.floor(timestamp.getTime() / 1_000)),
@@ -97,6 +101,159 @@ describe("Supabase Send Email Hook service", () => {
       environment, provider: { send }, correlationId: "malformed-test",
     })).rejects.toMatchObject({ code: "PAYLOAD_INVALID" } satisfies Partial<SendEmailHookError>);
     expect(send).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["webhook-id", { webhookIdPresent: false, webhookTimestampPresent: true, webhookSignaturePresent: true }],
+    ["webhook-timestamp", { webhookIdPresent: true, webhookTimestampPresent: false, webhookSignaturePresent: true }],
+    ["webhook-signature", { webhookIdPresent: true, webhookTimestampPresent: true, webhookSignaturePresent: false }],
+  ] as const)("classifies a missing %s header without recording header values", async (header, expected) => {
+    const body = payload();
+    const headers = signedHeaders(body);
+    headers.delete(header);
+    const error = await captureHookError(body, headers);
+    expect(error).toMatchObject({
+      code: "SIGNATURE_INVALID",
+      signatureDiagnostics: {
+        ...expected,
+        configuredSecretCount: 1,
+        verificationFailureCategory: "MISSING_HEADERS",
+      },
+    });
+    expect(Object.keys(error.signatureDiagnostics ?? {})).toEqual([
+      "webhookIdPresent",
+      "webhookTimestampPresent",
+      "webhookSignaturePresent",
+      "webhookIdShapeValid",
+      "timestampParseValid",
+      "timestampSkewSeconds",
+      "signatureEntryCount",
+      "signatureVersionShapeValid",
+      "configuredSecretCount",
+      "verificationFailureCategory",
+    ]);
+  });
+
+  it("classifies malformed, old, and future timestamps with bounded skew", async () => {
+    const body = payload();
+    const malformed = signedHeaders(body);
+    malformed.set("webhook-timestamp", "not-a-unix-time");
+    await expect(captureHookError(body, malformed)).resolves.toMatchObject({
+      signatureDiagnostics: {
+        timestampParseValid: false,
+        timestampSkewSeconds: null,
+        verificationFailureCategory: "INVALID_TIMESTAMP",
+      },
+    });
+
+    const oldTimestamp = new Date(Date.now() - 301_000);
+    const old = await captureHookError(body, signedHeaders(body, "old-event", `whsec_${base64Secret}`, oldTimestamp));
+    expect(old.signatureDiagnostics).toMatchObject({ timestampParseValid: true, verificationFailureCategory: "TIMESTAMP_TOO_OLD" });
+    expect(old.signatureDiagnostics?.timestampSkewSeconds).toBeGreaterThan(300);
+
+    const futureTimestamp = new Date(Date.now() + 301_000);
+    const future = await captureHookError(body, signedHeaders(body, "future-event", `whsec_${base64Secret}`, futureTimestamp));
+    expect(future.signatureDiagnostics).toMatchObject({ timestampParseValid: true, verificationFailureCategory: "TIMESTAMP_TOO_NEW" });
+    expect(future.signatureDiagnostics?.timestampSkewSeconds).toBeLessThan(-300);
+
+    const farFutureTimestamp = new Date(Date.now() + 10 * 24 * 60 * 60 * 1_000);
+    const farFuture = await captureHookError(body, signedHeaders(body, "far-future-event", `whsec_${base64Secret}`, farFutureTimestamp));
+    expect(farFuture.signatureDiagnostics?.timestampSkewSeconds).toBe(-86_400);
+  });
+
+  it("classifies structurally valid headers signed with the wrong secret as NO_MATCHING_SIGNATURE", async () => {
+    const body = payload();
+    const wrongSecret = `whsec_${Buffer.from("different-signing-secret-at-least-32bytes").toString("base64")}`;
+    const error = await captureHookError(body, signedHeaders(body, "wrong-secret-event", wrongSecret));
+    expect(error.signatureDiagnostics).toEqual({
+      webhookIdPresent: true,
+      webhookTimestampPresent: true,
+      webhookSignaturePresent: true,
+      webhookIdShapeValid: true,
+      timestampParseValid: true,
+      timestampSkewSeconds: expect.any(Number),
+      signatureEntryCount: 1,
+      signatureVersionShapeValid: true,
+      configuredSecretCount: 1,
+      verificationFailureCategory: "NO_MATCHING_SIGNATURE",
+    });
+  });
+
+  it("classifies a malformed signature structure without weakening verification", async () => {
+    const body = payload();
+    const headers = signedHeaders(body);
+    headers.set("webhook-signature", "v2,not-a-supported-signature");
+    const error = await captureHookError(body, headers);
+    expect(error.signatureDiagnostics).toMatchObject({
+      signatureEntryCount: 1,
+      signatureVersionShapeValid: false,
+      verificationFailureCategory: "MALFORMED_SIGNATURE",
+    });
+  });
+
+  it("verifies the untouched raw body and rejects a reserialized form signed for different bytes", async () => {
+    const rawBody = JSON.stringify(JSON.parse(payload()), null, 2);
+    const send = vi.fn<SmtpProposalEmailProvider["send"]>(async () => ({ messageId: null, category: "accepted" as const }));
+    await expect(handleSupabaseSendEmailHook(rawBody, signedHeaders(rawBody), {
+      environment, provider: { send }, correlationId: "raw-body-success",
+    })).resolves.toMatchObject({ correlationId: "raw-body-success" });
+
+    const reserializedBody = JSON.stringify(JSON.parse(rawBody));
+    const error = await captureHookError(reserializedBody, signedHeaders(rawBody, "raw-body-mismatch"));
+    expect(error.signatureDiagnostics?.verificationFailureCategory).toBe("NO_MATCHING_SIGNATURE");
+    expect(send).toHaveBeenCalledOnce();
+  });
+
+  it("accepts both governed secret forms and the bounded previous secret", async () => {
+    const body = payload();
+    const send = vi.fn<SmtpProposalEmailProvider["send"]>(async () => ({ messageId: null, category: "accepted" as const }));
+    await expect(handleSupabaseSendEmailHook(body, signedHeaders(body, "prefixed-secret"), {
+      environment, provider: { send }, correlationId: "prefixed-secret",
+    })).resolves.toBeTruthy();
+    await expect(handleSupabaseSendEmailHook(body, signedHeaders(body, "bare-secret"), {
+      environment: { ...environment, SUPABASE_SEND_EMAIL_HOOK_SECRET: `whsec_${base64Secret}` },
+      provider: { send }, correlationId: "bare-secret",
+    })).resolves.toBeTruthy();
+
+    const previousSecret = `whsec_${Buffer.from("previous-signing-secret-is-long-enough").toString("base64")}`;
+    await expect(handleSupabaseSendEmailHook(body, signedHeaders(body, "previous-secret", previousSecret), {
+      environment: { ...environment, SUPABASE_SEND_EMAIL_HOOK_SECRET: `${configuredSecret}|v1,${previousSecret}` },
+      provider: { send }, correlationId: "previous-secret",
+    })).resolves.toBeTruthy();
+    expect(send).toHaveBeenCalledTimes(3);
+  });
+
+  it("accepts matching first and second v1 signatures in Supabase's rotation header shape", async () => {
+    const body = payload();
+    const id = "multiple-signature-event";
+    const timestamp = new Date();
+    const activeSecret = `whsec_${base64Secret}`;
+    const previousSecret = `whsec_${Buffer.from("previous-multiple-signature-secret").toString("base64")}`;
+    const activeSignature = new Webhook(activeSecret).sign(id, timestamp, body);
+    const previousSignature = new Webhook(previousSecret).sign(id, timestamp, body);
+    const createHeaders = (signature: string) => new Headers({
+      "webhook-id": id,
+      "webhook-timestamp": String(Math.floor(timestamp.getTime() / 1_000)),
+      "webhook-signature": signature,
+    });
+    const send = vi.fn<SmtpProposalEmailProvider["send"]>(async () => ({ messageId: null, category: "accepted" as const }));
+
+    await expect(handleSupabaseSendEmailHook(body, createHeaders(`${activeSignature}, ${previousSignature}`), {
+      environment, provider: { send }, correlationId: "matching-first-signature",
+    })).resolves.toBeTruthy();
+    await expect(handleSupabaseSendEmailHook(body, createHeaders(`${previousSignature}, ${activeSignature}`), {
+      environment, provider: { send }, correlationId: "matching-second-signature",
+    })).resolves.toBeTruthy();
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects more than two configured rotation secrets", async () => {
+    const body = payload();
+    const threeSecrets = [configuredSecret, configuredSecret, configuredSecret].join("|");
+    await expect(handleSupabaseSendEmailHook(body, signedHeaders(body), {
+      environment: { ...environment, SUPABASE_SEND_EMAIL_HOOK_SECRET: threeSecrets },
+      provider: { send: vi.fn() }, correlationId: "too-many-secrets",
+    })).rejects.toMatchObject({ code: "CONFIGURATION_INVALID" } satisfies Partial<SendEmailHookError>);
   });
 
   it.each(["signup", "invite", "magiclink", "recovery", "email", "reauthentication"] as const)(
@@ -170,4 +327,18 @@ describe("Supabase Send Email Hook service", () => {
 
 function payloadRedirect() {
   return "https://www.nsd.md/auth/sign-in?confirmed=1&lang=ro&intent=agent&next=%2Fbecome-partner%2Fagent%3Flang%3Dro";
+}
+
+async function captureHookError(body: string, headers: Headers): Promise<SendEmailHookError> {
+  try {
+    await handleSupabaseSendEmailHook(body, headers, {
+      environment,
+      provider: { send: vi.fn() },
+      correlationId: "diagnostic-test",
+    });
+  } catch (error) {
+    expect(error).toBeInstanceOf(SendEmailHookError);
+    return error as SendEmailHookError;
+  }
+  throw new Error("Expected the Send Email hook to reject the request.");
 }
