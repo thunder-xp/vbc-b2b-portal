@@ -28,7 +28,7 @@ export default async function PublicRetailCartPage({ searchParams }: { searchPar
 
   return <PublicRetailShell cartQuantity={quantity} languagePath="/cart" locale={locale}>
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={locale}>
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {quantity > 0 ? <p className="mb-4 text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
         {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} checkoutAccess={checkoutAccess} locale={locale} offer={offer} />}
       </div>

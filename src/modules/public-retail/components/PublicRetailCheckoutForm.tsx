@@ -57,7 +57,7 @@ export function PublicRetailCheckoutForm({ checkout, locale, initialCustomer }: 
     });
   }
 
-  return <form action={submit} className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+  return <form action={submit} className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
     <div className="space-y-6">
       {message ? <div aria-live="assertive" className="flex gap-3 border-l-4 border-red-600 bg-red-50 p-4 text-sm text-red-900" ref={errorRef} tabIndex={-1}><AlertCircle aria-hidden="true" className="size-5 shrink-0" />{message}</div> : null}
       {checkout.priceChanged ? <div className="border-l-4 border-amber-500 bg-amber-50 p-4 text-sm text-amber-950">{ru ? "Цена одной или нескольких позиций изменилась. Ниже показаны актуальные цены; подтвердите именно их." : "Prețul uneia sau mai multor poziții s-a modificat. Mai jos sunt prețurile actuale; confirmați-le pe acestea."}</div> : null}
