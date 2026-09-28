@@ -74,6 +74,22 @@ describe("SmtpProposalEmailProvider", () => {
     }));
   });
 
+  it("applies the hook-specific SMTP deadline and closes a stalled send", async () => {
+    vi.useFakeTimers();
+    smtp.sendMail.mockReturnValue(new Promise(() => undefined));
+    const pending = new SmtpProposalEmailProvider().send({
+      to: "controlled@example.test", subject: "Confirm", text: "Confirm", html: "<p>Confirm</p>", timeoutMs: 4_000,
+    });
+    const rejected = expect(pending).rejects.toMatchObject({ category: "timeout" });
+    expect(smtp.createTransport).toHaveBeenCalledWith(expect.objectContaining({
+      connectionTimeout: 4_000, greetingTimeout: 4_000, socketTimeout: 4_000,
+    }));
+    await vi.advanceTimersByTimeAsync(4_000);
+    await rejected;
+    expect(smtp.close).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+
   it("does not open SMTP when the global outbound kill switch is on", async () => {
     vi.stubEnv("COMMUNICATION_OUTBOUND_KILL_SWITCH", "ON");
     await expect(new SmtpProposalEmailProvider().send({

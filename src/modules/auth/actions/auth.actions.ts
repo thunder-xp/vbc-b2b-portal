@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/src/lib/supabase/server";
@@ -132,27 +133,70 @@ async function registerProfessionalAction(
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: registrationEmailRedirectUrl(intent, locale, nextPath),
-      data: {
-        registration_intent: intent,
-        registration_legal_form: legalForm,
-        preferred_registration_locale: locale,
+  const correlationId = randomUUID();
+  let signUpResult: Awaited<ReturnType<typeof supabase.auth.signUp>>;
+  try {
+    signUpResult = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: registrationEmailRedirectUrl(intent, locale, nextPath),
+        data: {
+          registration_intent: intent,
+          registration_legal_form: legalForm,
+          preferred_registration_locale: locale,
+        },
       },
-    },
-  });
-
-  if (error) {
-    return { error: "Account could not be created." };
+    });
+  } catch (error) {
+    reportRegistrationFailure(error, correlationId);
+    return { error: isEmailDeliveryFailure(error) ? "Confirmation email could not be sent." : "Account could not be created." };
   }
 
-  if (data.session) redirect(nextPath);
+  if (signUpResult.error) {
+    const category = isEmailDeliveryFailure(signUpResult.error) ? "email_delivery_unavailable" : "registration_failed";
+    console.error({
+      event: "professional_registration_signup_failed",
+      correlationId,
+      category,
+      authErrorCode: safeAuthErrorCode(signUpResult.error),
+      status: safeAuthErrorStatus(signUpResult.error),
+    });
+    return { error: category === "email_delivery_unavailable" ? "Confirmation email could not be sent." : "Account could not be created." };
+  }
+
+  if (signUpResult.data.session) redirect(nextPath);
 
   const query = new URLSearchParams({ lang: locale, intent, next: nextPath });
   redirect(`/auth/check-email?${query.toString()}`);
+}
+
+function reportRegistrationFailure(error: unknown, correlationId: string) {
+  console.error({
+    event: "professional_registration_signup_failed",
+    correlationId,
+    category: isEmailDeliveryFailure(error) ? "email_delivery_unavailable" : "registration_failed",
+    authErrorCode: safeAuthErrorCode(error),
+    status: safeAuthErrorStatus(error),
+  });
+}
+
+function isEmailDeliveryFailure(error: unknown): boolean {
+  const code = safeAuthErrorCode(error);
+  if (["hook_payload_invalid_content_type", "hook_error", "hook_timeout", "hook_payload_invalid"].includes(code)) return true;
+  if (!error || typeof error !== "object" || !("message" in error) || typeof error.message !== "string") return false;
+  return /error sending confirmation email|failed to send confirmation email|send email hook unavailable/i.test(error.message);
+}
+
+function safeAuthErrorCode(error: unknown): string {
+  if (!error || typeof error !== "object" || !("code" in error) || typeof error.code !== "string") return "unknown";
+  const code = error.code.toLowerCase();
+  return /^hook_[a-z0-9_]{1,64}$/.test(code) ? code : "unknown";
+}
+
+function safeAuthErrorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object" || !("status" in error) || typeof error.status !== "number") return null;
+  return Number.isInteger(error.status) && error.status >= 400 && error.status <= 599 ? error.status : null;
 }
 
 export async function signOutAction(): Promise<void> {

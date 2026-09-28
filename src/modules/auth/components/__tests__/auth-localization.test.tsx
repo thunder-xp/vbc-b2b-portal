@@ -21,6 +21,13 @@ vi.mock("@/src/modules/quick-auth/actions", () => ({
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 
+describe("registration email delivery localization", () => {
+  it("shows a generic localized delivery retry message in Romanian and Russian", () => {
+    expect(localizeRegistrationError("ru", "Confirmation email could not be sent.")).toBe(authCopy.ru.registration.emailDeliveryUnavailable);
+    expect(localizeRegistrationError("ro", "Confirmation email could not be sent.")).toBe(authCopy.ro.registration.emailDeliveryUnavailable);
+  });
+});
+
 describe("authentication localization", () => {
   beforeEach(() => {
     window.localStorage.clear();
