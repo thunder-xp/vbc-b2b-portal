@@ -14,7 +14,7 @@ const AGENT_CODE_PROPERTY_NAMES = ["NSD Код агента", "NSD код аге
 
 export class OneCAgentOperationsProvider {
   private readonly client: OneCODataClient;
-  private propertyRef: string | null | undefined;
+  private propertyRefs: ReadonlySet<string> | undefined;
 
   constructor(client?: OneCODataClient) {
     this.client = client ?? new OneCODataClient(getOneCEnv());
@@ -114,26 +114,29 @@ export class OneCAgentOperationsProvider {
   }
 
   private async agentCode(row: Record<string, unknown>): Promise<string | null> {
-    const propertyRef = await this.agentCodePropertyRef();
-    if (!propertyRef) return null;
+    const propertyRefs = await this.agentCodePropertyRefs();
+    if (propertyRefs.size === 0) return null;
     const matches = rows(row["ДополнительныеРеквизиты"])
-      .filter((item) => guid(item["Свойство_Key"]) === propertyRef)
+      .filter((item) => {
+        const propertyRef = guid(item["Свойство_Key"]);
+        return propertyRef !== null && propertyRefs.has(propertyRef);
+      })
       .map((item) => optionalText(item["ТекстоваяСтрока"]) ?? scalarText(item["Значение"]))
       .filter((value): value is string => Boolean(value));
-    if (matches.length > 1) throw new Error("ONEC_AGENT_CODE_PROPERTY_AMBIGUOUS");
-    return matches[0] ?? null;
+    const uniqueMatches = [...new Set(matches)];
+    if (uniqueMatches.length > 1) throw new Error("ONEC_AGENT_CODE_PROPERTY_AMBIGUOUS");
+    return uniqueMatches[0] ?? null;
   }
 
-  private async agentCodePropertyRef(): Promise<string | null> {
-    if (this.propertyRef !== undefined) return this.propertyRef;
+  private async agentCodePropertyRefs(): Promise<ReadonlySet<string>> {
+    if (this.propertyRefs !== undefined) return this.propertyRefs;
     const filters = AGENT_CODE_PROPERTY_NAMES.map((name) => `Description eq '${name.replaceAll("'", "''")}'`).join(" or ");
     const payload = await this.client.getFilteredCollection(PROPERTY, {
       select: "Ref_Key,Description,Имя,Заголовок,DeletionMark,Доступен", filter: `(${filters}) and DeletionMark eq false`, top: 10,
     }, { requestKind: "agent_code_property_resolve" });
     const exact = collection(payload).filter((item) => AGENT_CODE_PROPERTY_NAMES.includes(requiredText(item.Description) as typeof AGENT_CODE_PROPERTY_NAMES[number]));
-    if (exact.length > 1) throw new Error("ONEC_AGENT_CODE_PROPERTY_AMBIGUOUS");
-    this.propertyRef = exact[0] ? requireGuidValue(exact[0].Ref_Key) : null;
-    return this.propertyRef;
+    this.propertyRefs = new Set(exact.map((item) => requireGuidValue(item.Ref_Key)));
+    return this.propertyRefs;
   }
 }
 
