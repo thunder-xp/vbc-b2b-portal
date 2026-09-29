@@ -18,7 +18,8 @@ describe("OneCAgentOperationsProvider", () => {
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ reference: CONTRACT, counterpartyRef: COUNTERPARTY, codeState: "MATCH", sourceAgentCode: "MD-P-001" });
     expect(client.getFilteredCollection.mock.calls[0][0]).toBe("Catalog_ДоговорыКонтрагентов");
-    expect(client.getFilteredCollection.mock.calls[0][1].filter).toContain(COUNTERPARTY);
+    expect(client.getFilteredCollection.mock.calls[0][1].filter)
+      .toBe(`Owner eq cast(guid'${COUNTERPARTY}', 'Catalog_Контрагенты')`);
   });
 
   it("returns MISMATCH instead of fuzzy-matching a different Agent code", async () => {

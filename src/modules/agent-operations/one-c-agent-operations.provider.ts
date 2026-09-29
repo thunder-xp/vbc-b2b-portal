@@ -43,7 +43,7 @@ export class OneCAgentOperationsProvider {
     const owner = requireGuid(counterpartyRef);
     const payload = await this.client.getFilteredCollection(CONTRACT, {
       select: "Ref_Key,Code,Description,DeletionMark,Недействителен,Owner,Owner_Type,НомерДоговора,ДатаДоговора,СрокДействия,ДоговорПодписан,ВидДоговора,ДополнительныеРеквизиты",
-      filter: `Owner eq guid'${owner}'`, top: 50,
+      filter: `Owner eq cast(guid'${owner}', '${COUNTERPARTY}')`, top: 50,
     }, { requestKind: "agent_contract_candidates" });
     return Promise.all(collection(payload).map((row) => this.mapContract(row, owner, expectedAgentCode)));
   }

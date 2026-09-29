@@ -88,5 +88,13 @@ function FactGroup({ title, facts }: { title: string; facts: string[][] }) { ret
 function BindingLine({ primary, reference, state }: { primary: string; reference: string; state: string }) { return <div className="mt-3"><div className="flex flex-wrap justify-between gap-2"><p className="font-medium">{primary}</p><span className={state === "MATCH" ? "text-emerald-800" : "text-amber-800"}>{state}</span></div><p className="mt-1 break-all font-mono text-xs text-zinc-500">{reference}</p></div>; }
 function CandidateList<T>({ candidates, render }: { candidates: T[]; pending: boolean; render: (candidate: T) => ReactNode }) { return candidates.length ? <div className="mt-3 space-y-2">{candidates.map(render)}</div> : null; }
 function BindButton({ disabled, onBind }: { disabled: boolean; onBind: (reason: string | null) => void }) { const [reason, setReason] = useState(""); return <div className="mt-2 flex flex-wrap gap-2"><input className="h-9 min-w-0 flex-1 rounded border border-zinc-300 px-2 text-sm" onChange={(event) => setReason(event.target.value)} placeholder="Причина при замене текущей привязки" value={reason}/><button className="h-9 rounded bg-zinc-900 px-3 text-sm font-semibold text-white disabled:bg-zinc-300" disabled={disabled} onClick={() => onBind(reason.trim() || null)} type="button">Связать</button></div>; }
-function formatDate(value: string | null) { return value ? new Date(value).toLocaleString("ru-RU") : "—"; }
+function formatDate(value: string | null) {
+  return value
+    ? new Intl.DateTimeFormat("ru-MD", {
+        dateStyle: "short",
+        timeStyle: "medium",
+        timeZone: "Europe/Chisinau",
+      }).format(new Date(value))
+    : "—";
+}
 function maskEmail(value: string | null) { if (!value) return "—"; const [name, domain] = value.split("@"); return `${name?.slice(0, 2) ?? ""}***@${domain ?? "***"}`; }
