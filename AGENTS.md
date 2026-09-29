@@ -8,6 +8,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## Supabase Migration Governance
+
+1. `origin/main` is the canonical Supabase migration source history.
+2. A migration may not be applied to Production unless the exact migration file is already present in the canonical release history being promoted.
+3. Feature branches may test and replay migrations only locally or against isolated safe environments.
+4. Production migration execution directly from an unmerged feature worktree is prohibited.
+5. Before every Production database push, verify the current branch and release SHA, confirm each migration file exists in canonical history, run `npm run verify:migration-history`, and run `supabase db push --linked --dry-run`.
+6. Any remote-only migration version is a release blocker.
+7. Never use `supabase migration repair` for a remote-only version unless the owner explicitly approves a genuine ledger correction.
+
 ## Commercial Currency Semantics
 
 Keep contract settlement currency separate from authoritative 1C price-type currency and published local price currency. Validate settlement independently; only authoritative and published price currencies must match. Never add settlement-to-price equality, implicit FX conversion, or a fallback price type.
