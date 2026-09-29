@@ -14,7 +14,7 @@ const AGENT_CODE_PROPERTY_NAMES = ["NSD Код агента", "NSD код аге
 
 export class OneCAgentOperationsProvider {
   private readonly client: OneCODataClient;
-  private propertyRefs: ReadonlySet<string> | undefined;
+  private propertyRefs: Promise<ReadonlySet<string>> | undefined;
 
   constructor(client?: OneCODataClient) {
     this.client = client ?? new OneCODataClient(getOneCEnv());
@@ -130,13 +130,23 @@ export class OneCAgentOperationsProvider {
 
   private async agentCodePropertyRefs(): Promise<ReadonlySet<string>> {
     if (this.propertyRefs !== undefined) return this.propertyRefs;
+    const resolution = this.resolveAgentCodePropertyRefs();
+    this.propertyRefs = resolution;
+    try {
+      return await resolution;
+    } catch (error) {
+      if (this.propertyRefs === resolution) this.propertyRefs = undefined;
+      throw error;
+    }
+  }
+
+  private async resolveAgentCodePropertyRefs(): Promise<ReadonlySet<string>> {
     const filters = AGENT_CODE_PROPERTY_NAMES.map((name) => `Description eq '${name.replaceAll("'", "''")}'`).join(" or ");
     const payload = await this.client.getFilteredCollection(PROPERTY, {
       select: "Ref_Key,Description,Имя,Заголовок,DeletionMark,Доступен", filter: `(${filters}) and DeletionMark eq false`, top: 10,
     }, { requestKind: "agent_code_property_resolve" });
     const exact = collection(payload).filter((item) => AGENT_CODE_PROPERTY_NAMES.includes(requiredText(item.Description) as typeof AGENT_CODE_PROPERTY_NAMES[number]));
-    this.propertyRefs = new Set(exact.map((item) => requireGuidValue(item.Ref_Key)));
-    return this.propertyRefs;
+    return new Set(exact.map((item) => requireGuidValue(item.Ref_Key)));
   }
 }
 

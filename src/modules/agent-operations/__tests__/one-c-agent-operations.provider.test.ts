@@ -39,6 +39,19 @@ describe("OneCAgentOperationsProvider", () => {
     expect(result[0]).toMatchObject({ codeState: "MATCH", sourceAgentCode: "MD-P-001" });
   });
 
+  it("resolves Agent-code metadata once for a batch of contract candidates", async () => {
+    const client = mockClient();
+    client.getFilteredCollection
+      .mockResolvedValueOnce({ value: [
+        contractRow("MD-P-001"),
+        { ...contractRow("MD-P-001"), Ref_Key: "33333333-3333-3333-3333-333333333334" },
+      ] })
+      .mockResolvedValueOnce({ value: [propertyRow()] });
+    const result = await provider(client).listContracts(COUNTERPARTY, "MD-P-001");
+    expect(result).toHaveLength(2);
+    expect(client.getFilteredCollection).toHaveBeenCalledTimes(2);
+  });
+
   it("fails closed when governed metadata definitions contain conflicting Agent codes", async () => {
     const client = mockClient();
     const row = contractRow("MD-P-001");
