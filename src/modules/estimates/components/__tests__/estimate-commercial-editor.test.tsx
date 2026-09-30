@@ -43,6 +43,7 @@ const detail: EstimateDetailDto = {
     pricingMode: "direct", pricingInputValue: 100, internalCostUnitPrice: null, convertedCostUnitPrice: 80, exchangeRate: 1,
     exchangeRateEffectiveDate: "2026-07-16", lineDiscountPercent: 0, markupPercent: 25, marginPercent: 20,
     sellingUnitPrice: 100, formattedSellingUnitPrice: "$100.00", lineTotal: "$100.00", imageUrl: null,
+    currentStockStatus: "in_stock", currentAvailableQuantity: 5,
   }], charges: [],
 };
 const workflow: EstimateWorkflowDto = { estimateId: "estimate-1", estimateStatus: "draft", lifecycleStatus: "draft", acceptedVersionId: null, emailDeliveryAvailable: false, guidedState: { state: "draft", primaryAction: null, secondaryActions: ["duplicate"], resumeCartId: null }, draftReadiness: { state: "prepare_proposal", primaryAction: "prepare_proposal", target: null, linePosition: null, ready: true, checks: [] }, permissions: { canManage: true, canSend: true, canConvert: true, canManageOrders: true }, versions: [], readiness: { ready: true, checks: [] } };
@@ -73,7 +74,10 @@ describe("EstimateCommercialEditor", () => {
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(saveEstimateCommercialAction).toHaveBeenCalledWith(detail.id, expect.objectContaining({ sections: expect.arrayContaining([expect.objectContaining({ id: detail.sections[0].id, systemKey: "equipment", name: "Камеры объекта", sortOrder: 0, discountPercent: 0, showSubtotal: true })]) }));
   });
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4 }, message: "Saved", errorCode: null });
+  });
   afterEach(() => {
     Reflect.deleteProperty(navigator, "share");
     Reflect.deleteProperty(navigator, "canShare");
@@ -88,6 +92,7 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByText("Параметры сметы").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Сохранить и выйти" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Сохранить" })).not.toBeInTheDocument();
     expect(screen.getByTestId("estimate-customer-field")).not.toHaveClass("sm:col-span-2");
     expect(within(screen.getByTestId("estimate-customer-field")).getByText("Заказчик")).toBeInTheDocument();
   });
@@ -153,30 +158,76 @@ describe("EstimateCommercialEditor", () => {
 
   it("keeps one proposal-preparation action above clean totals", () => {
     renderEditor();
+    expect(screen.getByTestId("estimate-line-stock")).toHaveTextContent(/^5$/);
     const summary = screen.getByRole("heading", { name: "Коммерческий расчёт" });
-    const proposal = screen.getByRole("heading", { name: "Подготовьте КП" });
+    const proposal = screen.getByRole("button", { name: "Подготовить КП" });
     expect(summary.compareDocumentPosition(proposal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     const sidebar = summary.closest("aside");
     expect(sidebar).not.toBeNull();
     expect(within(sidebar!).queryByText("НДС")).not.toBeInTheDocument();
     expect(within(sidebar!).queryByText("КП / ИТОГ")).not.toBeInTheDocument();
+    expect(within(sidebar!).queryByText(/позиций:/)).not.toBeInTheDocument();
+    expect(within(sidebar!).getByText("Моя прибыль")).toBeInTheDocument();
+    expect(within(screen.getByTestId("estimate-summary-profit")).getByText(/20,00/)).toBeInTheDocument();
     expect(within(sidebar!).getByRole("link", { name: "Предпросмотр КП" })).toBeInTheDocument();
     const previewAction = within(sidebar!).getByRole("link", { name: "Предпросмотр КП" });
     const prepareAction = within(sidebar!).getByRole("button", { name: "Подготовить КП" });
-    const cartAction = within(sidebar!).getByRole("button", { name: "Передать в корзину" });
     expect(previewAction.compareDocumentPosition(prepareAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(prepareAction.compareDocumentPosition(cartAction) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(sidebar!).queryByRole("button", { name: "Создать заказ" })).not.toBeInTheDocument();
     expect(prepareAction).toBeEnabled();
   });
 
+  it("removes partner-facing rate-age copy and normalizes the materials label", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16", rateFreshness: { label: "Коммерческий курс обновлён 165 часов назад.", staleNotice: "stale" } }}
+      initialEstimate={detail}
+      services={[]}
+      workflow={workflow}
+    />);
+    expect(screen.queryByText(/Коммерческий курс обновлён/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Курс устарел/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Монтажные материалы")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Материалы").length).toBeGreaterThan(1);
+  });
+
+  it("uses the danger semantic only when total profit is negative", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], pricingInputValue: 50, sellingUnitPrice: 50 }] }}
+      services={[]}
+      workflow={workflow}
+    />);
+    expect(within(screen.getByTestId("estimate-summary-profit")).getByText(/-30,00/)).toHaveClass("text-red-700");
+  });
+
   it("renders thumbnails only for product lines before their description", () => {
-    const serviceLine = { ...detail.lines[0], id: "service-line", lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Installation" };
+    const serviceLine = { ...detail.lines[0], id: "service-line", sectionId: detail.sections[2].id, lineType: "service" as const, productId: null, sku: null, imageUrl: null, description: "Монтаж видеокамеры" };
     render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, lines: [detail.lines[0], serviceLine], itemCount: 2 }} services={[]} workflow={workflow} />);
     expect(screen.getAllByTestId("product-line-thumbnail")).toHaveLength(1);
     const productDescription = screen.getByText("Camera");
     expect(screen.getByTestId("product-line-thumbnail").compareDocumentPosition(productDescription) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByDisplayValue("Installation")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Монтаж оборудования")).toBeInTheDocument();
+    const worksSection = document.querySelector('[data-section-key="installation_works"]');
+    expect(worksSection).not.toBeNull();
+    expect(within(worksSection as HTMLElement).queryByText("Фото")).not.toBeInTheDocument();
+    expect(within(worksSection as HTMLElement).queryByText("Наличие")).not.toBeInTheDocument();
+    expect(within(worksSection as HTMLElement).queryByTestId("estimate-line-stock")).not.toBeInTheDocument();
+  });
+
+  it("autosaves ordinary edits without blocking section movement or the next add flow", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateCommercialAction).mockResolvedValue({ success: true, data: { ...detail, revision: 4, lines: [{ ...detail.lines[0], quantity: 2 }] }, message: "Saved", errorCode: null });
+    renderEditor();
+    const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
+    await user.clear(quantity);
+    await user.type(quantity, "2");
+    const addEquipment = screen.getByRole("button", { name: "Добавить оборудование" });
+    expect(addEquipment).toBeEnabled();
+    await user.click(addEquipment);
+    expect(screen.getByRole("combobox", { name: "Код, модель или название" })).toBeEnabled();
+    await waitFor(() => expect(saveEstimateCommercialAction).toHaveBeenCalledTimes(1), { timeout: 2000 });
+    await waitFor(() => expect(screen.getByText("✓ Сохранено")).toHaveAttribute("role", "status"));
   });
 
   it("keeps catalog-known product fields behind line details while quantity and customer price stay primary", async () => {
@@ -305,7 +356,8 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByTestId("estimate-mobile-actions-trigger")).toHaveFocus();
   });
 
-  it("uses a safe PDP link, compact description, governed stock tone, and shortened source-price label", () => {
+  it("uses a compact expandable description, governed stock tone, and authoritative pricing helper", async () => {
+    const user = userEvent.setup();
     render(<EstimateCommercialEditor
       commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
       initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], description: "Compact customer-facing product summary.", currentStockStatus: "out_of_stock", currentAvailableQuantity: 0 }] }}
@@ -315,12 +367,58 @@ describe("EstimateCommercialEditor", () => {
     const productLink = screen.getByRole("link", { name: "Camera" });
     expect(productLink).toHaveAttribute("href", "/cabinet/catalog/camera");
     expect(productLink).toHaveAttribute("target", "_blank");
-    expect(screen.getByText("Compact customer-facing product summary.")).toHaveClass("line-clamp-3");
-    expect(screen.getByText("Ваша цена:")).toBeInTheDocument();
-    expect(screen.queryByText(/Ваша цена Novotech/)).not.toBeInTheDocument();
-    expect(screen.getByText("$80.00")).toHaveClass("text-emerald-700");
+    const description = screen.getByText("Compact customer-facing product summary.");
+    expect(description).toHaveClass("line-clamp-1");
+    const disclosure = screen.getByRole("button", { name: "Подробнее" });
+    expect(disclosure).not.toHaveTextContent("Подробнее");
+    await user.click(disclosure);
+    expect(description).not.toHaveClass("line-clamp-1");
+    expect(screen.getByRole("button", { name: "Скрыть описание" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByText(/Ваша цена|Моя цена/)).not.toBeInTheDocument();
+    expect(screen.getByText("Наценка: 25%")).toBeInTheDocument();
     expect(screen.getByTestId("estimate-line-stock")).toHaveClass("text-rose-950");
-    expect(screen.getByTestId("estimate-line-stock")).not.toHaveTextContent("уточняется");
+    expect(screen.getByTestId("estimate-line-stock")).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId("estimate-line-stock")).not.toHaveTextContent(/В наличии|уточняется|недоступен/);
+    expect(screen.getByRole("spinbutton", { name: "Кол-во" })).toHaveAttribute("step", "1");
+  });
+
+  it("shows uncertain stock as zero and marks negative markup in the row and summary", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], pricingInputValue: 70, sellingUnitPrice: 70, currentStockStatus: "unknown", currentAvailableQuantity: null }] }}
+      services={[]}
+      workflow={workflow}
+    />);
+    expect(screen.getByTestId("estimate-line-stock")).toHaveTextContent(/^0$/);
+    expect(screen.getByTestId("estimate-line-stock")).not.toHaveTextContent(/В наличии|Наличие уточняется/);
+    const markup = screen.getByText(/Наценка: -12,5%/);
+    expect(markup).toHaveClass("text-red-700");
+    expect(screen.getByTestId("estimate-summary-warnings")).toHaveTextContent("Наценка ниже 0: 1");
+    expect(screen.getByTestId("estimate-summary-warnings")).not.toHaveTextContent("Нет в наличии");
+  });
+
+  it("keeps one canonical Preview control and surfaces actual stock warnings in the summary", () => {
+    render(<EstimateCommercialEditor
+      commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }}
+      initialEstimate={{ ...detail, lines: [{ ...detail.lines[0], currentStockStatus: "out_of_stock", currentAvailableQuantity: 0 }] }}
+      services={[]}
+      workflow={workflow}
+    />);
+    expect(screen.getAllByRole("link", { name: "Предпросмотр КП" })).toHaveLength(1);
+    expect(screen.getByTestId("estimate-summary-warnings")).toHaveTextContent("Нет в наличии: 1");
+    expect(screen.getByRole("button", { name: "Подготовить КП" })).toBeEnabled();
+    expect(screen.getByText("✓ Сохранено")).toHaveAttribute("role", "status");
+  });
+
+  it("switches from direct selling price to authoritative markup without changing commercial truth", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(screen.getByRole("button", { name: "Описание, единица и скидка" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Способ расчёта цены" }), "markup");
+    const markup = screen.getByRole("spinbutton", { name: "Наценка %" });
+    expect(markup).toHaveValue(25);
+    expect(screen.queryByText(/Продажа:/)).not.toBeInTheDocument();
+    expect(screen.getByText("● Не сохранено")).toHaveAttribute("role", "status");
   });
 
   it("does not generate a broken PDP link for an unavailable or external line", () => {
@@ -411,7 +509,7 @@ describe("EstimateCommercialEditor", () => {
 
     const actionBar = screen.getByTestId("estimate-mobile-action-bar");
     expect(await within(actionBar).findByRole("button", { name: "Поделиться" })).toBeInTheDocument();
-    expect(actionBar.firstElementChild).toHaveClass("grid-cols-[repeat(3,minmax(0,1fr))_3rem]");
+    expect(actionBar.firstElementChild).toHaveClass("grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]");
 
     const quantity = screen.getByRole("spinbutton", { name: "Кол-во" });
     await user.clear(quantity);
@@ -457,9 +555,20 @@ describe("EstimateCommercialEditor", () => {
     expect(await screen.findByRole("button", { name: "Distribuie" })).toBeInTheDocument();
   });
 
+  it("localizes materials and profit consistently in Romanian", () => {
+    render(
+      <PartnerLocaleProvider locale="ro">
+        <EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={workflow} />
+      </PartnerLocaleProvider>,
+    );
+    expect(screen.queryByText("Materiale de instalare")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Materiale").length).toBeGreaterThan(1);
+    expect(screen.getByText("Profitul meu")).toBeInTheDocument();
+  });
+
   it("renders exactly the four governed sections without structural controls", () => {
     renderEditor();
-    for (const name of ["Оборудование", "Монтажные материалы", "Монтажные работы", "Пусконаладочные работы"]) {
+    for (const name of ["Оборудование", "Материалы", "Монтажные работы", "Пусконаладочные работы"]) {
       expect(screen.getByRole("heading", { name, level: 3 })).toBeInTheDocument();
     }
     expect(screen.queryByRole("button", { name: "Добавить раздел" })).not.toBeInTheDocument();

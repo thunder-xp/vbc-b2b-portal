@@ -327,6 +327,19 @@ describe("DefaultEstimateService", () => {
     expect(repository.addLines).toHaveBeenLastCalledWith(expect.objectContaining({ targetSectionId: insertion.targetSectionId, lines: [expect.objectContaining({ lineType: "custom", description: "Кабельные работы", unit: "meter", quantity: 10.5, sellingUnitPrice: 4.2 })] }));
   });
 
+  it("normalizes and de-duplicates the legacy commissioning work option", async () => {
+    vi.mocked(repository.listServices).mockResolvedValue([
+      { ...serviceRecord, id: "legacy-commissioning", name: "Настройка оборудования", workSectionKey: "commissioning_works" },
+      { ...serviceRecord, id: "canonical-commissioning", name: "Программирование сценария", workSectionKey: "commissioning_works" },
+    ]);
+
+    const result = await service.listServices("user-1");
+
+    expect(result.filter((item) => item.workSectionKey === "commissioning_works")).toEqual([
+      expect.objectContaining({ id: "canonical-commissioning", name: "Программирование сценария" }),
+    ]);
+  });
+
   it("adds several controlled services through one repository mutation", async () => {
     vi.mocked(repository.findAggregateById).mockResolvedValue(workAggregate([]));
     const secondService = { ...serviceRecord, id: "service-2", name: "Настройка системы" };

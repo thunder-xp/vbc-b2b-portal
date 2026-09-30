@@ -132,7 +132,7 @@ describe("DefaultProposalService", () => {
     expect(proposal.projectName).toBe("Проект Chișinău 2026");
     expect(proposal.sections.map((section) => section.name)).toEqual([
       "Оборудование",
-      "Монтажные материалы",
+      "Материалы",
       "Монтажные работы",
       "Пусконаладочные работы",
     ]);
@@ -150,6 +150,27 @@ describe("DefaultProposalService", () => {
     expect(proposal.sections[0].lines[0].lineTotal).toBe(200);
     expect(proposal.sections).toHaveLength(4);
     expect(Object.isFrozen(proposal)).toBe(true);
+  });
+
+  it("normalizes legacy commissioning work wording in customer preview without rewriting the estimate", async () => {
+    const source = aggregate();
+    source.sections[0] = { ...source.sections[0], systemKey: "commissioning_works", name: "Пусконаладочные работы" };
+    source.items[0] = {
+      ...source.items[0],
+      lineType: "service",
+      productId: null,
+      serviceId: "service-1",
+      skuSnapshot: null,
+      productNameSnapshot: null,
+      description: "Настройка оборудования",
+    };
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(source);
+
+    const proposal = (await service.preparePreview("user-1", "estimate-1")).proposal;
+
+    expect(proposal.sections.find(section => section.name === "Пусконаладочные работы")?.lines[0]?.description)
+      .toBe("Программирование сценария");
+    expect(source.items[0].description).toBe("Настройка оборудования");
   });
 
   it("saves one settings batch without touching estimate lines", async () => {

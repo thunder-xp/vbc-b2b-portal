@@ -17,7 +17,8 @@ import { evaluateFreshness } from "../../integration/freshness";
 import type { AddEstimateLineInput, EstimateRepository, ExternalNomenclatureItemType, ExternalNomenclatureRecord, PartnerNomenclatureRecord, SaveEstimateCommercialInput } from "../repositories";
 import { EstimateRepositoryError } from "../repositories";
 import { isFinalCustomerIndustryCode, type Estimate, type EstimateAggregate, type EstimateChargeType, type EstimateCurrencyChangePolicy, type EstimateItem, type EstimateLifecycleStatus, type EstimatePricingMode, type EstimateSectionSystemKey, type EstimateStatus, type EstimateUnit, type EstimateVatMode, type FinalCustomerIndustryCode } from "../types";
-import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, resolveCurrencyRate } from "./commercial-calculation";
+import { canonicalEstimateWorkName } from "../estimate-work-labels";
+import { calculateCommercialLine, calculateEstimateCommercials, convertMoney, profitCostBasisForLineType, resolveCurrencyRate } from "./commercial-calculation";
 import { CANONICAL_ESTIMATE_SECTION_BY_KEY, canonicalSectionOrder } from "./estimate-sections";
 
 const VIEW_PERMISSION = "estimates.view";
@@ -125,6 +126,7 @@ export type EstimateDetailDto = {
     totalExcludingVat: number;
     finalTotal: number;
     grossProfit?: number | null;
+    profitIncompleteLineCount?: number;
     overallMarginPercent?: number | null;
   };
   hasIncompletePricing: boolean;
@@ -619,18 +621,26 @@ export class DefaultEstimateService implements EstimateService {
   async listServices(userId: string): Promise<EstimateServiceDto[]> {
     const companyId = await this.resolveCompany(userId, VIEW_PERMISSION);
     const canViewPartnerPrice = await this.canViewPartnerPrice(userId, companyId);
-    return (await this.repository.listServices(companyId)).map((service) => ({
-      id: service.id,
-      name: service.name,
-      description: service.description,
-      defaultUnit: service.defaultUnit,
-      unitLabel: unitLabel(service.defaultUnit),
-      defaultCost: canViewPartnerPrice ? service.defaultCost : null,
-      defaultSellingPrice: service.defaultSellingPrice,
-      vatApplicable: service.vatApplicable,
-      category: service.category,
-      workSectionKey: service.workSectionKey,
-    }));
+    const selected = new Map<string, { dto: EstimateServiceDto; score: number }>();
+    for (const service of await this.repository.listServices(companyId)) {
+      const canonicalName = canonicalEstimateWorkName(service.name);
+      const dto: EstimateServiceDto = {
+        id: service.id,
+        name: canonicalName,
+        description: service.description,
+        defaultUnit: service.defaultUnit,
+        unitLabel: unitLabel(service.defaultUnit),
+        defaultCost: canViewPartnerPrice ? service.defaultCost : null,
+        defaultSellingPrice: service.defaultSellingPrice,
+        vatApplicable: service.vatApplicable,
+        category: service.category,
+        workSectionKey: service.workSectionKey,
+      };
+      const key = `${service.workSectionKey ?? "unclassified"}:${canonicalName.toLocaleLowerCase()}`;
+      const score = (service.companyId ? 2 : 0) + (service.name.trim() === canonicalName ? 1 : 0);
+      if (!selected.has(key) || score > selected.get(key)!.score) selected.set(key, { dto, score });
+    }
+    return [...selected.values()].map(({ dto }) => dto);
   }
 
   async searchProducts(userId: string, input: { search?: string; categoryId?: string; brandId?: string; includeFacets?: boolean }): Promise<EstimateProductPickerDto> {
@@ -1078,7 +1088,7 @@ export class DefaultEstimateService implements EstimateService {
         convertedCostUnitPrice: service.defaultCost,
         exchangeRate: service.defaultCost === null ? null : 1,
         exchangeRateEffectiveDate: null,
-        description: service.name,
+        description: canonicalEstimateWorkName(service.name),
         quantity: normalizeQuantity(selection.quantity),
         unit: service.defaultUnit,
         sellingUnitPrice: normalizeMoney(selection.sellingUnitPrice),
@@ -1244,6 +1254,7 @@ export class DefaultEstimateService implements EstimateService {
       const normalizedLine = {
         id,
         sectionId,
+        profitCostBasis: profitCostBasisForLineType(existing.lineType),
         position: index + 1,
         description: normalizeDescription(line.description),
         quantity: normalizeQuantity(line.quantity),
@@ -1415,6 +1426,7 @@ export function projectEstimateDetail(
   } = detail;
   const {
     grossProfit: _grossProfit,
+    profitIncompleteLineCount: _profitIncompleteLineCount,
     overallMarginPercent: _overallMarginPercent,
     ...safeTotals
   } = detail.totals;
@@ -1625,6 +1637,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
     lines: items.map((item) => ({
       id: item.id,
       sectionId: item.sectionId,
+      profitCostBasis: profitCostBasisForLineType(item.lineType),
       quantity: item.quantity,
       pricingMode: item.pricingMode,
       pricingInputValue: resolvePricingInputValue(item),
@@ -1669,6 +1682,7 @@ function toCommercialDetail(aggregate: EstimateAggregate, images = new Map<strin
       totalExcludingVat: calculated.totalExcludingVat,
       finalTotal: calculated.finalTotal,
       grossProfit: calculated.grossProfit,
+      profitIncompleteLineCount: calculated.profitIncompleteLineCount,
       overallMarginPercent: calculated.overallMarginPercent,
     },
     hasIncompletePricing: calculated.incompletePricing,

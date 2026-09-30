@@ -8,7 +8,8 @@ import { isDefaultProductDescription } from "../../catalog/services/product-desc
 import { companyLogoUrl } from "../../partner-cabinet/services/company-logo-url";
 import type { EstimateRepository, ProposalRepository } from "../repositories";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
-import { CANONICAL_ESTIMATE_SECTIONS, resolveCanonicalLineSectionKey } from "./estimate-sections";
+import { canonicalEstimateWorkName } from "../estimate-work-labels";
+import { CANONICAL_ESTIMATE_SECTIONS, estimateSectionPresentationName, resolveCanonicalLineSectionKey } from "./estimate-sections";
 
 const VIEW_PERMISSION = "estimates.view";
 const MANAGE_PERMISSION = "estimates.manage";
@@ -207,7 +208,9 @@ function prepareCustomerProposal(input: {
   const sectionById = new Map(sections.map((section) => [section.id, section]));
   const proposalLines = items.slice().sort((a, b) => a.position - b.position).map((item) => ({
     sectionKey: resolveCanonicalLineSectionKey(item.lineType, sectionById.get(item.sectionId) ?? null),
-    position: item.position, lineType: item.lineType, description: item.description, sku: item.skuSnapshot,
+    position: item.position, lineType: item.lineType,
+    description: item.lineType === "service" ? canonicalEstimateWorkName(item.description) : item.description,
+    sku: item.skuSnapshot,
     productName: item.productNameSnapshot,
     imageUrl: item.productId ? normalizeProposalProductImageUrl(input.images.get(item.productId) ?? null) : null,
     quantity: item.quantity, unitLabel: unitLabel(item.unit), unitPrice: item.sellingUnitPrice!,
@@ -227,7 +230,10 @@ function prepareCustomerProposal(input: {
       lineDiscountPercent: line.lineDiscountPercent,
       lineTotal: line.lineTotal,
     }));
-    const name = sections.find(persisted => persisted.systemKey === section.key)?.name ?? section.name;
+    const name = estimateSectionPresentationName(
+      section.key,
+      sections.find(persisted => persisted.systemKey === section.key)?.name,
+    );
     return { name, subtotal: lines.reduce((sum, line) => sum + line.lineTotal, 0), lines };
   });
   const customerCharges = charges.filter((charge) => charge.customerVisible).sort((a, b) => a.sortOrder - b.sortOrder).map((charge) => ({ description: charge.description, amount: charge.amount }));

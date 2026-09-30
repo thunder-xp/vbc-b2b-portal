@@ -83,6 +83,21 @@ export type EstimateToCartSourceLine = {
   productId: string;
   quantity: number;
   snapshotPartnerPrice: number | null;
+  snapshotCurrencyCode?: string | null;
+  skuSnapshot?: string | null;
+  productNameSnapshot?: string | null;
+};
+
+export type EstimateToCartPreviewLine = EstimateToCartSourceLine & {
+  classification: "ORDERABLE" | "PRODUCT_UNAVAILABLE";
+  sku: string | null;
+  productName: string;
+  currentPrice: number | null;
+  currentCurrencyCode: string | null;
+  priceChanged: boolean;
+  availableQuantity: number | null;
+  stockStatus: "FULLY_AVAILABLE" | "PARTIAL_STOCK" | "OUT_OF_STOCK" | "STOCK_UNKNOWN" | "NOT_STOCKED";
+  expectedArrivalDate: string | null;
 };
 
 export type EstimateToCartResult = EstimateCartTransferResult;
@@ -99,9 +114,11 @@ export interface CartService {
   updateQuantity(userId: string, itemId: string, quantity: number): Promise<number>;
   removeItem(userId: string, itemId: string): Promise<number>;
   getEstimateSource(userId: string): Promise<CartEstimateSourceDto>;
+  previewEstimateProducts(userId: string, lines: EstimateToCartSourceLine[]): Promise<EstimateToCartPreviewLine[]>;
   mergeEstimateProducts(userId: string, input: {
     estimateId: string;
-    versionId: string | null;
+    versionId: string;
+    expectedRevision: number;
     requestKey: string;
     lines: EstimateToCartSourceLine[];
   }): Promise<EstimateToCartResult>;
@@ -339,13 +356,36 @@ export class DefaultCartService implements CartService {
 
   async mergeEstimateProducts(userId: string, input: {
     estimateId: string;
-    versionId: string | null;
+    versionId: string;
+    expectedRevision: number;
     requestKey: string;
     lines: EstimateToCartSourceLine[];
   }): Promise<EstimateToCartResult> {
     const companyId = await this.resolveCompanyId(userId);
-    const lines = input.lines.filter((line) => line.lineId && line.productId && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 9999);
-    if (lines.length !== input.lines.length) throw new InvalidStateError("Estimate contains an invalid product quantity.");
+    const resolved = await this.resolveEstimateProducts(userId, input.lines);
+    return this.repository.mergeEstimateProducts({
+      companyId, estimateId: input.estimateId, versionId: input.versionId, expectedRevision: input.expectedRevision,
+      requestKey: input.requestKey,
+      items: resolved.map((line) => ({
+        lineId: line.lineId,
+        productId: line.productId,
+        quantity: line.quantity,
+        currentPrice: line.currentPrice,
+        currencyCode: line.currentCurrencyCode,
+        availableQuantity: line.availableQuantity,
+        stockStatus: line.stockStatus,
+      })),
+    });
+  }
+
+  async previewEstimateProducts(userId: string, lines: EstimateToCartSourceLine[]): Promise<EstimateToCartPreviewLine[]> {
+    await this.resolveCompanyId(userId);
+    return this.resolveEstimateProducts(userId, lines);
+  }
+
+  private async resolveEstimateProducts(userId: string, inputLines: EstimateToCartSourceLine[]): Promise<EstimateToCartPreviewLine[]> {
+    const lines = inputLines.filter((line) => line.lineId && line.productId && Number.isInteger(line.quantity) && line.quantity >= 1 && line.quantity <= 9999);
+    if (lines.length !== inputLines.length) throw new InvalidStateError("Estimate contains an invalid product quantity.");
     const ids = [...new Set(lines.map((line) => line.productId))];
     const [products, views] = await Promise.all([
       this.catalogService.getProductsByIds(userId, ids),
@@ -357,11 +397,9 @@ export class DefaultCartService implements CartService {
         : this.pricingInventoryService.getProductCommercialViews(userId, ids),
     ]);
     const productIds = new Set(products.map((product) => product.id));
+    const productById = new Map(products.map((product) => [product.id, product]));
     const viewById = new Map(views.map((view) => [view.productId, view]));
-    return this.repository.mergeEstimateProducts({
-      companyId, estimateId: input.estimateId, versionId: input.versionId,
-      requestKey: input.requestKey,
-      items: lines.map((line) => {
+    return lines.map((line) => {
         const view = viewById.get(line.productId);
         const available = view?.stock?.exactAvailableQuantity ?? null;
         const stockStatus = !productIds.has(line.productId)
@@ -374,16 +412,23 @@ export class DefaultCartService implements CartService {
                 ? "PARTIAL_STOCK" as const
                 : "OUT_OF_STOCK" as const;
         return {
-          lineId: line.lineId,
-          productId: line.productId,
-          quantity: line.quantity,
+          ...line,
+          classification: productIds.has(line.productId) ? "ORDERABLE" as const : "PRODUCT_UNAVAILABLE" as const,
+          sku: productById.get(line.productId)?.sku ?? line.skuSnapshot ?? null,
+          productName: productById.get(line.productId)?.name ?? line.productNameSnapshot ?? line.productId,
           currentPrice: view?.partnerPrice?.amount ?? null,
-          currencyCode: view?.partnerPrice?.currencyCode ?? null,
+          currentCurrencyCode: view?.partnerPrice?.currencyCode ?? null,
+          priceChanged: pricesDiffer(
+            line.snapshotPartnerPrice,
+            line.snapshotCurrencyCode ?? null,
+            view?.partnerPrice?.amount ?? null,
+            view?.partnerPrice?.currencyCode ?? null,
+          ),
           availableQuantity: stockStatus === "NOT_STOCKED" ? 0 : available,
           stockStatus,
+          expectedArrivalDate: view?.stock?.expectedArrival?.expectedDate ?? null,
         };
-      }),
-    });
+      });
   }
 
   private async resolveCompanyId(userId: string): Promise<string> {
@@ -489,4 +534,15 @@ function calculateTotal(
 
 function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat("ru-RU", { style: "currency", currency }).format(amount);
+}
+
+function pricesDiffer(
+  snapshotAmount: number | null,
+  snapshotCurrency: string | null,
+  currentAmount: number | null,
+  currentCurrency: string | null,
+): boolean {
+  if (snapshotAmount === null && currentAmount === null) return false;
+  if (snapshotAmount === null || currentAmount === null) return true;
+  return snapshotAmount !== currentAmount || snapshotCurrency !== currentCurrency;
 }

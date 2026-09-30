@@ -4,6 +4,7 @@ import {
   Archive,
   ChevronDown,
   ChevronRight,
+  ChevronUp,
   Copy,
   Eye,
   CheckCircle2,
@@ -24,10 +25,10 @@ import { availabilityToneForStatus } from "../../catalog/components/ProductAvail
 import { recordBehaviorInteraction } from "../../behavior-analytics/components";
 import {
   getEstimatesCopy,
-  getCatalogCopy,
   formatPartnerDate,
   formatPartnerDateTime,
   formatPartnerMoney,
+  estimateWorkNameForLocale,
   partnerText,
   usePartnerLocale,
   type EstimatesCopy,
@@ -39,12 +40,18 @@ import {
   removeEstimateLineAction,
   saveEstimateCommercialAction,
 } from "../actions/estimate.actions";
+import { canonicalEstimateWorkName } from "../estimate-work-labels";
 import {
   calculateEstimateCommercials,
   EstimateCalculationError,
+  profitCostBasisForLineType,
   resolveCurrencyRate,
 } from "../services/commercial-calculation";
 import { deriveEstimateDraftReadiness } from "../services/draft-readiness";
+import {
+  deriveEstimateEditorWarnings,
+  type EstimateEditorWarning,
+} from "../services/estimate-editor-warnings";
 import type {
   EstimateCommercialCheckDto,
   EstimateCommercialOptionsDto,
@@ -60,6 +67,7 @@ import {
 import type {
   EstimateChargeType,
   EstimateCurrencyChangePolicy,
+  EstimatePricingMode,
   EstimateSectionSystemKey,
   EstimateUnit,
   EstimateVatMode,
@@ -73,7 +81,7 @@ import {
 } from "./EstimateLinePicker";
 import { EstimateWorkflowPanel } from "./EstimateWorkflowPanel";
 import { EstimateQuickAdd } from "./EstimateQuickAdd";
-import { estimateStockLabel } from "./estimate-stock-label";
+import { estimateStockQuantity } from "./estimate-stock-label";
 import {
   canonicalEstimatePdfFileName,
   ESTIMATE_PDF_READY_EVENT,
@@ -135,11 +143,11 @@ export function EstimateCommercialEditor({
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
-  const catalogCopy = getCatalogCopy(locale);
   const router = useRouter();
   const [estimate, setEstimate] = useState(initialEstimate);
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialEstimate));
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [currencyChoice, setCurrencyChoice] = useState<string | null>(null);
   const [currencyChangePolicy, setCurrencyChangePolicy] =
@@ -158,6 +166,10 @@ export function EstimateCommercialEditor({
   const [templateName, setTemplateName] = useState("");
   const [generatedSharePdf, setGeneratedSharePdf] =
     useState<EstimatePdfReadyDetail | null>(null);
+  const draftRef = useRef(draft);
+  const estimateRef = useRef(estimate);
+  const dirtyRef = useRef(dirty);
+  const savePromiseRef = useRef<Promise<EstimateDetailDto | null> | null>(null);
   const mobileActionsTriggerRef = useRef<HTMLButtonElement>(null);
   const desktopActionsRef = useRef<HTMLDivElement>(null);
   const desktopActionsTriggerRef = useRef<HTMLButtonElement>(null);
@@ -183,6 +195,7 @@ export function EstimateCommercialEditor({
           lines: draft.lines.map((line) => ({
             id: line.id,
             sectionId: line.sectionId,
+            profitCostBasis: profitCostBasisForLineType(line.lineType),
             quantity: line.quantity,
             pricingMode: line.pricingMode,
             pricingInputValue: line.pricingInputValue,
@@ -240,6 +253,16 @@ export function EstimateCommercialEditor({
       } : null,
     });
   }, [dirty, draft.currencyCode, draft.lines, estimate.lifecycleStatus, estimate.revision, isDraft, latestProposal, preview, workflow.permissions.canManage]);
+  const summaryWarnings = useMemo(
+    () => deriveEstimateEditorWarnings(draft.lines, commercialCheck, preview.value?.lines ?? []),
+    [commercialCheck, draft.lines, preview.value?.lines],
+  );
+
+  useEffect(() => {
+    draftRef.current = draft;
+    estimateRef.current = estimate;
+    dirtyRef.current = dirty;
+  }, [dirty, draft, estimate]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -294,14 +317,23 @@ export function EstimateCommercialEditor({
   }, [dirty, locale]);
 
   const update = (next: (current: Draft) => Draft) => {
-    setDraft(next);
+    setDraft((current) => {
+      const updated = next(current);
+      draftRef.current = updated;
+      return updated;
+    });
+    dirtyRef.current = true;
     setDirty(true);
     setSaveState("dirty");
     setMessage(null);
   };
   const acceptServer = (next: EstimateDetailDto, nextMessage: string) => {
+    const acceptedDraft = toDraft(next);
+    estimateRef.current = next;
+    draftRef.current = acceptedDraft;
+    dirtyRef.current = false;
     setEstimate(next);
-    setDraft(toDraft(next));
+    setDraft(acceptedDraft);
     setDirty(false);
     setSaveState("saved");
     setMessage(nextMessage);
@@ -323,29 +355,28 @@ export function EstimateCommercialEditor({
       } else setMessage(result.message);
     });
 
-  const save = () => {
-    if (!preview.value) return setMessage(preview.error);
+  const persistDraft = useCallback((): Promise<EstimateDetailDto | null> => {
+    if (savePromiseRef.current) return savePromiseRef.current;
+    const snapshot = draftRef.current;
+    const currentEstimate = estimateRef.current;
     const payload: SaveEstimateCommercialCommand = {
-      expectedRevision: estimate.revision,
-      name: draft.name,
-      finalCustomerId: draft.finalCustomerId,
-      customerName: draft.customerName,
-      projectName: draft.projectName,
-      validityDays: draft.validityDays,
-      currencyCode: draft.currencyCode,
+      expectedRevision: currentEstimate.revision,
+      name: snapshot.name,
+      finalCustomerId: snapshot.finalCustomerId,
+      customerName: snapshot.customerName,
+      projectName: snapshot.projectName,
+      validityDays: snapshot.validityDays,
+      currencyCode: snapshot.currencyCode,
       currencyChangePolicy,
-      vatMode: draft.vatMode,
-      vatRatePercent: draft.vatMode === "none" ? 0 : 20,
-      globalDiscountPercent: draft.globalDiscountPercent,
-      sections: draft.sections.map((section, sortOrder) => ({
-        ...section,
-        sortOrder,
-      })),
-      lines: draft.lines.map((line, position) => ({
+      vatMode: snapshot.vatMode,
+      vatRatePercent: snapshot.vatMode === "none" ? 0 : 20,
+      globalDiscountPercent: snapshot.globalDiscountPercent,
+      sections: snapshot.sections.map((section, sortOrder) => ({ ...section, sortOrder })),
+      lines: snapshot.lines.map((line, position) => ({
         id: line.id,
         sectionId: line.sectionId,
         position: position + 1,
-        description: line.description,
+        description: line.lineType === "service" ? canonicalEstimateWorkName(line.description) : line.description,
         quantity: line.quantity,
         unit: line.unit,
         pricingMode: line.pricingMode,
@@ -353,21 +384,63 @@ export function EstimateCommercialEditor({
         internalCostUnitPrice: line.internalCostUnitPrice ?? null,
         lineDiscountPercent: line.lineDiscountPercent,
       })),
-      charges: draft.charges.map((charge, sortOrder) => ({
-        ...charge,
-        sortOrder,
-      })),
+      charges: snapshot.charges.map((charge, sortOrder) => ({ ...charge, sortOrder })),
     };
     setSaveState("saving");
-    startTransition(async () => {
-      const result = await saveEstimateCommercialAction(estimate.id, payload);
-      if (result.success) acceptServer(result.data, result.message);
-      else {
+    const request = saveEstimateCommercialAction(currentEstimate.id, payload).then((result) => {
+      if (!result.success) {
         setMessage(result.message);
         setSaveState("error");
+        return null;
       }
+      estimateRef.current = result.data;
+      setEstimate(result.data);
+      setTargetSectionId((current) => result.data.sections.some((section) => section.id === current)
+        ? current
+        : (canonicalTargetSectionId(result.data.sections, "equipment") ?? ""));
+      if (draftRef.current === snapshot) {
+        const acceptedDraft = toDraft(result.data);
+        draftRef.current = acceptedDraft;
+        dirtyRef.current = false;
+        setDraft(acceptedDraft);
+        setDirty(false);
+        setSaveState("saved");
+        setMessage(result.message);
+      } else {
+        setSaveState("dirty");
+      }
+      return result.data;
+    }).catch(() => {
+      setMessage(copy.operationFailed);
+      setSaveState("error");
+      return null;
+    }).finally(() => {
+      savePromiseRef.current = null;
     });
+    savePromiseRef.current = request;
+    return request;
+  }, [copy.operationFailed, currencyChangePolicy, setMessage]);
+  const save = () => {
+    if (!preview.value) {
+      setMessage(preview.error);
+      return;
+    }
+    void persistDraft();
   };
+  const flushDraftBeforeInsertion = useCallback(async () => {
+    for (let attempt = 0; attempt < 3 && dirtyRef.current; attempt += 1) {
+      const saved = await persistDraft();
+      if (!saved) return null;
+    }
+    return dirtyRef.current ? null : estimateRef.current;
+  }, [persistDraft]);
+  useEffect(() => {
+    if (!dirty || !preview.value || !isDraft || saveState === "saving" || saveState === "error") return;
+    const timer = window.setTimeout(() => {
+      void persistDraft();
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [dirty, draft, estimate.revision, isDraft, persistDraft, preview.value, saveState]);
   const checkCommercialState = () =>
     startCheck(async () => {
       recordBehaviorInteraction({
@@ -544,7 +617,10 @@ export function EstimateCommercialEditor({
   }, [closeMobileActions, mobileActionsOpen]);
 
   const undoChanges = () => {
-    setDraft(toDraft(estimate));
+    const restored = toDraft(estimateRef.current);
+    draftRef.current = restored;
+    dirtyRef.current = false;
+    setDraft(restored);
     setDirty(false);
     setSaveState("saved");
     closeActionMenus();
@@ -661,6 +737,7 @@ export function EstimateCommercialEditor({
     : !dirty && saveState === "saved"
       ? copy.saved
       : copy.save;
+  const showSaveAction = dirty || saveState === "saving" || saveState === "error";
 
   return (
     <div
@@ -728,7 +805,6 @@ export function EstimateCommercialEditor({
             </dl>
           </div>
           <div className="hidden flex-wrap items-center gap-2 xl:flex">
-            <Link className={buttonClass} href={proposalPreviewHref} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
             <div className="relative" ref={desktopActionsRef}>
               <button aria-expanded={desktopActionsOpen} aria-haspopup="menu" className={buttonClass} data-testid="estimate-desktop-actions-trigger" onClick={() => setDesktopActionsOpen((current) => !current)} ref={desktopActionsTriggerRef} type="button">
                 <MoreHorizontal className="size-4" />
@@ -738,7 +814,7 @@ export function EstimateCommercialEditor({
                 {secondaryActions()}
               </div> : null}
             </div>
-            <button
+            {showSaveAction ? <button
               aria-keyshortcuts="Control+S Meta+S"
               aria-label={copy.save}
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-45"
@@ -748,7 +824,7 @@ export function EstimateCommercialEditor({
             >
               <Save className="size-4" />
               {saveLabel}
-            </button>
+            </button> : null}
           </div>
         </div>
         {isDraft && insertionSection && targetSectionId ? <div className="mt-2 min-w-0 space-y-2" data-testid="estimate-composition-lane">
@@ -766,12 +842,12 @@ export function EstimateCommercialEditor({
               {presentationSections.filter(section => section.config.defaultMode === "service" && section.targetSectionId).map(section => <option key={section.targetSectionId} value={section.targetSectionId!}>{section.customName ?? sectionName(section.config.key, copy)}</option>)}
             </select> : <span className="truncate text-xs text-zinc-500">{insertionSection.customName ?? sectionName(insertionSection.config.key, copy)}</span>}
           </div>
-          <EstimateQuickAdd key={targetSectionId} estimate={estimate} services={services} sectionId={targetSectionId} serviceMode={insertionSection.config.defaultMode === "service"} serviceWorkSectionKey={insertionSection.config.key === "installation_works" || insertionSection.config.key === "commissioning_works" ? insertionSection.config.key : undefined} disabled={dirty || pending} onPendingChange={setInserting} onResult={acceptServer} onExternal={() => setPickerMode("external")} onBatch={() => setPickerMode(insertionSection.config.defaultMode)} />
+          <EstimateQuickAdd beforeInsert={flushDraftBeforeInsertion} key={targetSectionId} estimate={estimate} services={services} sectionId={targetSectionId} serviceMode={insertionSection.config.defaultMode === "service"} serviceWorkSectionKey={insertionSection.config.key === "installation_works" || insertionSection.config.key === "commissioning_works" ? insertionSection.config.key : undefined} disabled={controlsDisabled} onPendingChange={setInserting} onResult={acceptServer} onExternal={() => setPickerMode("external")} onBatch={() => setPickerMode(insertionSection.config.defaultMode)} />
         </div> : null}
       </header>
       {isDraft && insertionSection && pickerMode ? <section className="relative border border-zinc-200" aria-label={copy.add}>
         <button className="absolute right-2 top-2 z-10 inline-flex size-11 items-center justify-center bg-white" aria-label={copy.cancel} onClick={() => { setPickerMode(null); requestAnimationFrame(() => document.getElementById("estimate-quick-search")?.focus()); }} type="button"><X className="size-4" /></button>
-        <EstimateLinePicker allowedModes={insertionSection.config.allowedModes} contextLabel={insertionSection.customName ?? sectionName(insertionSection.config.key, copy)} disabled={dirty || pending || inserting} estimate={estimate} externalItemType={externalItemTypeForSection(insertionSection.config.key)} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={targetSectionId} targetSectionKey={insertionSection.config.key} />
+        <EstimateLinePicker allowedModes={insertionSection.config.allowedModes} beforeInsert={flushDraftBeforeInsertion} contextLabel={insertionSection.customName ?? sectionName(insertionSection.config.key, copy)} disabled={controlsDisabled} estimate={estimate} externalItemType={externalItemTypeForSection(insertionSection.config.key)} mode={pickerMode} onModeChange={setPickerMode} onResult={acceptServer} services={services} targetSectionId={targetSectionId} targetSectionKey={insertionSection.config.key} />
       </section> : null}
       {message && (
         <p
@@ -888,16 +964,6 @@ export function EstimateCommercialEditor({
             </select>
             </Field>
           </div>
-          {commercialOptions.rateFreshness ? (
-            <div className="text-xs text-zinc-500">
-              <p>{commercialOptions.rateFreshness.label}</p>
-              {commercialOptions.rateFreshness.staleNotice ? (
-                <p className="mt-1 text-amber-800">
-                  {copy.staleRateWarning}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </details>
 
@@ -953,6 +1019,7 @@ export function EstimateCommercialEditor({
             const localizedSectionName = section.customName ?? sectionName(canonical.key, copy);
             const sectionLines = section.lines;
             const isCollapsed = collapsed.has(canonical.key);
+            const isWorksSection = canonical.defaultMode === "service";
             return (
               <section
                 className="border-y border-zinc-200 bg-white"
@@ -995,12 +1062,12 @@ export function EstimateCommercialEditor({
                   <div>
                     {sectionLines.length ? (
                       <div
-                        className="hidden grid-cols-[3rem_minmax(0,1fr)_6rem_4.5rem_6.5rem_6rem_2.75rem] gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-500 xl:grid"
+                        className={`${isWorksSection ? "xl:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_2.75rem]" : "xl:grid-cols-[3rem_minmax(0,1fr)_6rem_4.5rem_6.5rem_6rem_2.75rem]"} hidden gap-2 border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-[11px] font-semibold text-zinc-500 xl:grid`}
                         data-testid="estimate-line-header"
                       >
-                        <span>{copy.photo}</span>
+                        {!isWorksSection ? <span>{copy.photo}</span> : null}
                         <span>{copy.position}</span>
-                        <span>{locale === "ro" ? "Stoc" : "Наличие"}</span>
+                        {!isWorksSection ? <span>{locale === "ro" ? "Stoc" : "Наличие"}</span> : null}
                         <span>{copy.quantity}</span>
                         <span>{copy.sellingPrice}</span>
                         <span>{copy.lineTotal}</span>
@@ -1014,6 +1081,9 @@ export function EstimateCommercialEditor({
                             (item) => item.id === line.id,
                           );
                           const productName = line.productName ?? line.description;
+                          const displayedDescription = line.lineType === "service"
+                            ? estimateWorkNameForLocale(line.description, locale)
+                            : line.description;
                           const stockTone = availabilityToneForStatus(
                             line.productUnavailable ? "out_of_stock" : line.currentStockStatus ?? undefined,
                           );
@@ -1026,10 +1096,10 @@ export function EstimateCommercialEditor({
                               key={line.id}
                             >
                               <div
-                                className="grid grid-cols-[3rem_minmax(0,1fr)_2.75rem] items-start gap-2 xl:grid-cols-[3rem_minmax(0,1fr)_6rem_4.5rem_6.5rem_6rem_2.75rem]"
+                                className={`${isWorksSection ? "grid-cols-[minmax(0,1fr)_2.75rem] xl:grid-cols-[minmax(0,1fr)_4.5rem_6.5rem_6rem_2.75rem]" : "grid-cols-[3rem_minmax(0,1fr)_2.75rem] xl:grid-cols-[3rem_minmax(0,1fr)_6rem_4.5rem_6.5rem_6rem_2.75rem]"} grid items-start gap-2`}
                                 data-testid="estimate-line-grid"
                               >
-                                <div className="flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50">
+                                {!isWorksSection ? <div className="flex size-12 items-center justify-center overflow-hidden rounded border border-zinc-200 bg-zinc-50">
                                   {line.lineType === "product" ||
                                   line.lineType === "external" ? (
                                     <ProductLineThumbnail
@@ -1043,15 +1113,27 @@ export function EstimateCommercialEditor({
                                       className="size-12"
                                     />
                                   )}
-                                </div>
+                                </div> : null}
                                 {line.lineType === "product" ? (
                                   <div className="min-w-0 py-1">
-                                    {line.productSlug && !line.productUnavailable ? <Link className="block truncate text-sm font-semibold text-zinc-900 underline-offset-2 hover:text-emerald-800 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500" href={`/cabinet/catalog/${line.productSlug}`} rel="noopener noreferrer" target="_blank" title={productName}>{productName}</Link> : <p className="truncate text-sm font-semibold text-zinc-900" title={productName}>{productName}</p>}
+                                    <div className="flex min-w-0 items-start gap-1">
+                                      {line.description && line.description !== productName ? <button
+                                        aria-expanded={expandedDescriptions.has(line.id)}
+                                        aria-label={expandedDescriptions.has(line.id) ? copy.hideDetails : copy.showDetails}
+                                        className="inline-flex size-6 shrink-0 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                        onClick={() => setExpandedDescriptions((current) => toggleSet(current, line.id))}
+                                        title={expandedDescriptions.has(line.id) ? copy.hideDetails : copy.showDetails}
+                                        type="button"
+                                      >
+                                        {expandedDescriptions.has(line.id) ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                                      </button> : null}
+                                      {line.productSlug && !line.productUnavailable ? <Link className="block min-w-0 truncate text-sm font-semibold text-zinc-900 underline-offset-2 hover:text-emerald-800 hover:underline focus-visible:ring-2 focus-visible:ring-emerald-500" href={`/cabinet/catalog/${line.productSlug}`} rel="noopener noreferrer" target="_blank" title={productName}>{productName}</Link> : <p className="min-w-0 truncate text-sm font-semibold text-zinc-900" title={productName}>{productName}</p>}
+                                    </div>
                                     <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
                                       <span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType, copy)}</span>
                                       {line.sku ? <span className="text-[10px] text-zinc-500">SKU {line.sku}</span> : null}
                                     </div>
-                                    {line.description && line.description !== productName ? <p className="mt-1 line-clamp-3 text-xs leading-4 text-zinc-600" title={line.description}>{line.description}</p> : null}
+                                    {line.description && line.description !== productName ? <p className={`${expandedDescriptions.has(line.id) ? "whitespace-normal" : "line-clamp-1"} mt-1 min-w-0 text-xs leading-4 text-zinc-600`} title={line.description}>{line.description}</p> : null}
                                   </div>
                                 ) : (
                                   <Field
@@ -1071,8 +1153,8 @@ export function EstimateCommercialEditor({
                                         )
                                       }
                                       required={line.lineType === "custom" || line.lineType === "external"}
-                                      title={line.description}
-                                      value={line.description}
+                                      title={displayedDescription}
+                                      value={displayedDescription}
                                     />
                                     <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
                                       <span className={lineTypeTone(line.lineType)}>{lineTypeLabel(line.lineType, copy)}</span>
@@ -1080,15 +1162,17 @@ export function EstimateCommercialEditor({
                                     </div>
                                   </Field>
                                 )}
-                                <p className={`col-span-3 flex items-center gap-2 text-xs xl:col-span-1 xl:min-h-11 ${stockTone.text}`} data-testid="estimate-line-stock">{line.lineType === "product" ? <><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${stockTone.indicator}`} /><span>{line.productUnavailable ? (locale === "ro" ? "Produs indisponibil" : "Товар недоступен") : estimateStockLabel({ stockStatus: line.currentStockStatus, availableQuantity: line.currentAvailableQuantity }, catalogCopy)}</span></> : "—"}</p>
-                                <div className="col-span-3 grid grid-cols-3 gap-2 xl:contents">
+                                {!isWorksSection ? <p className={`col-span-3 flex items-center gap-2 rounded px-2 py-1 text-xs xl:col-span-1 xl:min-h-11 ${stockTone.container} ${stockTone.text}`} data-testid="estimate-line-stock">{line.lineType === "product" ? <><span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${stockTone.indicator}`} /><span>{estimateStockQuantity({ stockStatus: line.productUnavailable ? "out_of_stock" : line.currentStockStatus, availableQuantity: line.currentAvailableQuantity })}</span></> : "—"}</p> : null}
+                                <div className={`${isWorksSection ? "col-span-2" : "col-span-3"} grid grid-cols-3 gap-2 xl:contents`}>
                                   <Field
                                     label={copy.quantity}
                                     labelClassName="xl:sr-only"
                                   >
                                     <NumberInput
+                                      ariaLabel={copy.quantity}
                                       disabled={controlsDisabled}
                                       inputId={`estimate-line-${line.id}-quantity`}
+                                      step="1"
                                       onValue={(value) =>
                                         updateLine(
                                           draft,
@@ -1112,6 +1196,7 @@ export function EstimateCommercialEditor({
                                     labelClassName="xl:sr-only"
                                   >
                                     <NumberInput
+                                      ariaLabel={line.pricingMode === "direct" ? copy.customerSellingPrice : line.pricingMode === "markup" ? copy.markup : copy.margin}
                                       disabled={controlsDisabled}
                                       inputId={`estimate-line-${line.id}-price`}
                                       nullable
@@ -1126,10 +1211,9 @@ export function EstimateCommercialEditor({
                                       }
                                       value={line.pricingInputValue}
                                     />
-                                    {line.lineType === "product" &&
-                                    line.sourcePrice ? (
-                                      <span aria-hidden="true" className="mt-1 block text-[11px] font-normal text-zinc-500">
-                                        {copy.partnerNovotechPrice}: <strong className="font-semibold text-emerald-700">{line.sourcePrice}</strong>
+                                    {line.lineType === "product" && calculated?.markupPercent !== null && calculated?.markupPercent !== undefined ? (
+                                      <span className={`mt-1 block text-[11px] font-medium leading-4 ${calculated.markupPercent < 0 ? "text-red-700" : "text-zinc-500"}`} data-negative-markup={calculated.markupPercent < 0 ? "true" : undefined}>
+                                        {copy.markupValue.replace("{value}", formatPercent(calculated.markupPercent, locale))}
                                       </span>
                                     ) : null}
                                   </Field>
@@ -1161,7 +1245,7 @@ export function EstimateCommercialEditor({
                                     </p>
                                   </div>
                                 </div>
-                                  <div className="relative col-start-3 row-start-1 justify-self-end xl:col-auto xl:row-auto" data-testid="estimate-line-advanced" id={`estimate-line-${line.id}-details`} ref={openLineMenuId === line.id ? lineMenuRef : undefined}>
+                                  <div className={`relative row-start-1 justify-self-end xl:col-auto xl:row-auto ${isWorksSection ? "col-start-2" : "col-start-3"}`} data-testid="estimate-line-advanced" id={`estimate-line-${line.id}-details`} ref={openLineMenuId === line.id ? lineMenuRef : undefined}>
                                     <button aria-expanded={openLineMenuId === line.id} aria-haspopup="dialog" aria-label={copy.lineDetails} title={copy.lineDetails} className="flex size-11 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" onClick={(event) => {
                                       if (openLineMenuId === line.id) return closeLineMenu(true);
                                       lineMenuTriggerRef.current = event.currentTarget;
@@ -1170,7 +1254,7 @@ export function EstimateCommercialEditor({
                                       <MoreHorizontal className="size-4" />
                                     </button>
                                     {openLineMenuId === line.id ? <div aria-label={copy.lineDetails} className="absolute right-0 z-10 grid w-64 max-w-[calc(100vw-3rem)] gap-2 rounded border border-zinc-200 bg-white p-3 shadow-lg" role="dialog">
-                                      <button aria-label={copy.deleteLine} className="inline-flex min-h-11 items-center justify-start gap-2 rounded px-3 text-sm font-semibold text-red-700 outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-45" disabled={controlsDisabled || dirty} onClick={() => { closeLineMenu(); mutate(() => removeEstimateLineAction(estimate.id, line.id, estimate.revision)); }} type="button"><Trash2 className="size-4 text-red-700" />{copy.deleteLine}</button>
+                                      <button aria-label={copy.deleteLine} className="inline-flex min-h-11 items-center justify-start gap-2 rounded px-3 text-sm font-semibold text-red-700 outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-45" disabled={controlsDisabled} onClick={async () => { closeLineMenu(); const currentEstimate = await flushDraftBeforeInsertion(); if (currentEstimate) mutate(() => removeEstimateLineAction(currentEstimate.id, line.id, currentEstimate.revision)); }} type="button"><Trash2 className="size-4 text-red-700" />{copy.deleteLine}</button>
                                       {line.lineType === "product" ? <Field label={copy.description}>
                                         <input
                                           className={`${inputClass} w-full`}
@@ -1181,6 +1265,29 @@ export function EstimateCommercialEditor({
                                           }
                                           value={line.description}
                                         />
+                                      </Field> : null}
+                                      {line.lineType === "product" && line.convertedCostUnitPrice && line.convertedCostUnitPrice > 0 ? <Field label={copy.pricingMethod}>
+                                        <select
+                                          className={`${inputClass} w-full`}
+                                          disabled={controlsDisabled}
+                                          onChange={(event) => {
+                                            const pricingMode = event.target.value as EstimatePricingMode;
+                                            updateLine(draft, setDraft, setDirty, line.id, {
+                                              pricingMode,
+                                              pricingInputValue: pricingMode === "markup"
+                                                ? calculated?.markupPercent ?? null
+                                                : pricingMode === "margin"
+                                                  ? calculated?.marginPercent ?? null
+                                                  : calculated?.sellingUnitPrice ?? null,
+                                            });
+                                            closeLineMenu();
+                                          }}
+                                          value={line.pricingMode}
+                                        >
+                                          <option value="direct">{copy.directPricing}</option>
+                                          <option value="markup">{copy.markupPricing}</option>
+                                          {line.pricingMode === "margin" ? <option value="margin">{copy.margin}</option> : null}
+                                        </select>
                                       </Field> : null}
                                       <Field label={copy.unit}>
                                         <select
@@ -1227,7 +1334,7 @@ export function EstimateCommercialEditor({
                         <button
                           aria-label={sectionAddLabel(canonical.key, copy)}
                           className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45"
-                          disabled={controlsDisabled || dirty || !section.targetSectionId}
+                          disabled={controlsDisabled || !section.targetSectionId}
                           onClick={() =>
                             section.targetSectionId &&
                             openPickerForSection(
@@ -1260,13 +1367,14 @@ export function EstimateCommercialEditor({
           ) : null}
         </main>
         <aside className="min-w-0 border-y border-zinc-200 bg-white p-4 xl:sticky xl:top-56 xl:border-l">
-          <p className="mb-2 text-xs text-zinc-500">{copy.positions}: {draft.lines.length}</p>
           <Summary
             copy={copy}
             currency={draft.currencyCode}
             locale={locale}
             preview={preview.value}
             sections={presentationSections}
+            showProfit={!retailOnly}
+            warnings={summaryWarnings}
             vatMode={draft.vatMode}
             vatRatePercent={draft.vatRatePercent}
           />
@@ -1288,15 +1396,17 @@ export function EstimateCommercialEditor({
       >
         <div
           className={`mx-auto grid max-w-lg gap-2 ${
-            mobileShareDocumentId
+            mobileShareDocumentId && showSaveAction
               ? "grid-cols-[repeat(3,minmax(0,1fr))_3rem]"
-              : "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]"
+              : mobileShareDocumentId || showSaveAction
+                ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_3rem]"
+                : "grid-cols-[minmax(0,1fr)_3rem]"
           }`}
         >
           <button
             aria-label={copy.mobileAddProduct}
             className={buttonClass}
-            disabled={controlsDisabled || dirty || !equipmentSectionId}
+            disabled={controlsDisabled || !equipmentSectionId}
             onClick={() =>
               equipmentSectionId &&
               openPickerForSection(equipmentSectionId, "product")
@@ -1306,7 +1416,7 @@ export function EstimateCommercialEditor({
             <Plus className="size-4" />
             {copy.add}
           </button>
-          <button
+          {showSaveAction ? <button
             aria-keyshortcuts="Control+S Meta+S"
             aria-label={copy.mobileSave}
             className="inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold text-white disabled:bg-zinc-200 disabled:text-zinc-600"
@@ -1316,7 +1426,7 @@ export function EstimateCommercialEditor({
           >
             <Save className="size-4 shrink-0" />
             <span className="truncate">{saveLabel}</span>
-          </button>
+          </button> : null}
           {mobileShareDocumentId ? (
             <EstimatePdfShareAction
               className="inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md border border-emerald-700 bg-white px-2 text-xs font-semibold text-emerald-800 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45"
@@ -1667,6 +1777,8 @@ function Summary({
   locale,
   preview,
   sections,
+  showProfit,
+  warnings,
   vatMode,
   vatRatePercent,
 }: {
@@ -1675,6 +1787,8 @@ function Summary({
   locale: PartnerLocale;
   preview: ReturnType<typeof calculateEstimateCommercials> | null;
   sections: PresentationSection[];
+  showProfit: boolean;
+  warnings: EstimateEditorWarning[];
   vatMode: EstimateVatMode;
   vatRatePercent: number;
 }) {
@@ -1729,7 +1843,24 @@ function Summary({
             {copy.incompletePricing}
           </p>
         )}
+        {showProfit ? <div className="mt-4 border-t border-zinc-200 pt-3" data-testid="estimate-summary-profit">
+          <p className="text-xs font-medium text-zinc-500">{copy.myProfit}</p>
+          <p className={`mt-1 text-lg font-semibold ${preview?.grossProfit !== null && preview?.grossProfit !== undefined && preview.grossProfit < 0 ? "text-red-700" : "text-emerald-800"}`}>
+            {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency, locale)}
+          </p>
+          {preview?.profitIncompleteLineCount ? <p className="mt-1 text-xs text-amber-800">
+            {copy.profitIncomplete.replace("{count}", String(preview.profitIncompleteLineCount))}
+          </p> : null}
+        </div> : null}
       </div>
+      {warnings.length ? <div className="mt-4 border-t border-amber-200 pt-3" data-testid="estimate-summary-warnings">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-900">{copy.quoteWarnings}</p>
+        <ul className="mt-2 space-y-1.5">
+          {warnings.map((warning) => <li className="text-xs text-amber-900" key={warning.kind}>
+            ⚠ {warningLabel(warning, copy)}
+          </li>)}
+        </ul>
+      </div> : null}
     </section>
   );
 }
@@ -1837,17 +1968,21 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 function NumberInput({
+  ariaLabel,
   value,
   onValue,
   disabled,
   nullable = false,
   inputId,
+  step = "0.01",
 }: {
+  ariaLabel?: string;
   value: number | null;
   onValue: (value: number | null) => void;
   disabled?: boolean;
   nullable?: boolean;
   inputId?: string;
+  step?: string;
 }) {
   const [editor, setEditor] = useState({
     sourceValue: value,
@@ -1870,6 +2005,7 @@ function NumberInput({
   };
   return (
     <input
+      aria-label={ariaLabel}
       className={`${inputClass} w-full`}
       disabled={disabled}
       id={inputId}
@@ -1891,7 +2027,7 @@ function NumberInput({
           event.currentTarget.blur();
         }
       }}
-      step="0.01"
+      step={step}
       type="number"
       value={editor.inputValue}
     />
@@ -2020,6 +2156,15 @@ function canonicalTargetSectionId(
 }
 function money(value: number, currency: string, locale: PartnerLocale) {
   return formatPartnerMoney(value, currency, locale);
+}
+function formatPercent(value: number, locale: PartnerLocale) {
+  return `${new Intl.NumberFormat(locale === "ro" ? "ro-RO" : "ru-RU", { maximumFractionDigits: 2 }).format(value)}%`;
+}
+function warningLabel(warning: EstimateEditorWarning, copy: EstimatesCopy) {
+  const template = warning.kind === "no_stock"
+    ? copy.noStockWarning
+    : copy.negativeMarkupWarning;
+  return template.replace("{count}", String(warning.count));
 }
 function formatNullableMoney(value: number | null, currency: string, locale: PartnerLocale, copy: EstimatesCopy) {
   return value === null ? copy.pricePending : money(value, currency, locale);
