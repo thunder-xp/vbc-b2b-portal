@@ -143,7 +143,10 @@ export function CartItemActions({
   };
 
   return (
-    <div className="col-span-full flex min-w-0 flex-wrap items-center justify-end gap-1.5 md:col-span-1 md:justify-start">
+    <div
+      className="col-span-full flex min-w-0 flex-wrap items-center justify-end gap-1.5 md:col-span-1 md:justify-start"
+      data-cart-quantity-actions
+    >
       <div className="flex shrink-0 items-center gap-1">
         <button
           aria-label={copy.decreaseQuantity}
@@ -195,13 +198,13 @@ export function CartItemActions({
       >
         <Trash2 aria-hidden="true" className="size-4" />
       </button>
-      {message ? <p
+      <p
         aria-live="polite"
-        className="basis-full text-right text-xs text-zinc-500 md:text-left"
+        className="sr-only"
         id={`${itemId}-quantity-status`}
       >
         {message}
-      </p> : <p aria-live="polite" className="sr-only" id={`${itemId}-quantity-status`} />}
+      </p>
     </div>
   );
 }

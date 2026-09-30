@@ -215,6 +215,39 @@ describe("cart checkout mutation barrier", () => {
     expect(increase.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(remove).toHaveClass("size-11");
   });
+
+  it("keeps quantity feedback non-disruptive after plus and minus updates", async () => {
+    mocks.update.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Количество обновлено.",
+      data: 1,
+    });
+    const view = render(
+      <CartCheckoutCoordinator>
+        <CartItemActions itemId="item-1" quantity={2} />
+      </CartCheckoutCoordinator>,
+    );
+
+    const actions = view.container.querySelector("[data-cart-quantity-actions]");
+    const stableClassName = actions?.className;
+    fireEvent.click(screen.getByRole("button", { name: "Увеличить количество" }));
+
+    const savedStatus = await screen.findByText("Количество сохранено: 3 ед.");
+    expect(savedStatus).toHaveClass("sr-only");
+    expect(actions).toHaveAttribute("class", stableClassName);
+    expect(actions?.querySelector("p:not(.sr-only)")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Удалить" }).previousElementSibling)
+      .toContainElement(screen.getByRole("button", { name: "Увеличить количество" }));
+
+    await waitFor(() => expect(
+      screen.getByRole("button", { name: "Уменьшить количество" }),
+    ).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Уменьшить количество" }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Количество сохранено: 2 ед.")).toHaveClass("sr-only");
+    expect(actions).toHaveAttribute("class", stableClassName);
+  });
 });
 
 function renderFlow() {

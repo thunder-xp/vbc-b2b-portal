@@ -107,7 +107,7 @@ export default async function CartPage() {
                             <div className="min-w-0">
                               <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5" data-cart-product-identity>
                                 <span className="shrink-0 text-xs text-zinc-500">
-                                  {copy.sku} {line.sku}
+                                  SKU {line.sku}
                                 </span>
                                 <span aria-hidden="true" className="text-xs text-zinc-300">·</span>
                                 {line.catalogVisible === false

@@ -17,10 +17,11 @@ describe("cart product rows", () => {
   it("renders compact product identity with SKU before title and no redundant stock line", async () => {
     render(await CartPage());
     const thumbnail = screen.getByTestId("product-line-thumbnail");
-    const sku = screen.getByText("Артикул 400001");
+    const sku = screen.getByText("SKU 400001");
     const product = screen.getByRole("link", { name: "Camera" });
     expect(thumbnail.compareDocumentPosition(product) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(sku.compareDocumentPosition(product) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/Артикул/)).not.toBeInTheDocument();
     expect(screen.getAllByText("$20.00")).toHaveLength(2);
     expect(thumbnail.parentElement).toHaveClass("grid-cols-[3.5rem_minmax(0,1fr)]");
     expect(screen.queryByText("Доступно 1 из 2")).not.toBeInTheDocument();
