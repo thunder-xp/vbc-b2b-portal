@@ -3,6 +3,8 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const page = readFileSync(resolve("app/(partner)/cabinet/cart/page.tsx"), "utf8");
+const cartService = readFileSync(resolve("src/modules/orders/services/cart.service.ts"), "utf8");
+const pricingPanel = readFileSync(resolve("src/modules/orders/components/CartPricingPanel.tsx"), "utf8");
 const action = readFileSync(resolve("src/modules/orders/actions/cart.actions.ts"), "utf8");
 const orderAction = readFileSync(resolve("src/modules/orders/actions/order.actions.ts"), "utf8");
 const recheckAction = action.slice(
@@ -11,10 +13,15 @@ const recheckAction = action.slice(
 );
 
 describe("cart commercial integrity UX", () => {
-  it("uses honest unresolved price and stock labels", () => {
-    expect(page).toContain("copy.pricePending");
-    expect(page).toContain("copy.stockPending");
+  it("keeps honest unresolved pricing while removing redundant item stock copy", () => {
+    expect(pricingPanel).toContain("props.copy.pricePending");
+    expect(page).not.toContain("copy.stockPending");
+    expect(page).not.toContain("copy.inStock");
+    expect(page).not.toContain("copy.outOfStock");
+    expect(page).not.toContain("copy.availableOfRequested");
     expect(page).not.toMatch(/availableStock\s*\?\?\s*0/);
+    expect(cartService).toContain("availableStock: catalogVisible ? view?.stock?.exactAvailableQuantity ?? null : 0");
+    expect(cartService).toContain("availabilityGroup: catalogVisible ? resolveAvailabilityGroup(view) : \"confirmation\"");
   });
 
   it("rechecks one batched local cart projection without inline 1C access", () => {
@@ -41,10 +48,10 @@ describe("cart commercial integrity UX", () => {
   });
 
   it("keeps one canonical kit persistence action", () => {
-    expect(page).toContain("[&>button]:h-11");
-    expect(page).toContain("[&>button]:w-full");
-    expect(page).toContain("<SaveAsPurchasingListButton label={locale === \"ro\" ? \"Salvează setul\" : \"Сохранить комплект\"} source=\"cart\" />");
-    expect(page).not.toContain("SaveAsPurchaseTemplateButton");
+    expect(pricingPanel).toContain("[&_button]:min-h-11");
+    expect(pricingPanel).toContain("[&_button]:w-full");
+    expect(pricingPanel).toContain("<SaveAsPurchasingListButton label={props.locale === \"ro\" ? \"Salvează setul\" : \"Сохранить комплект\"} source=\"cart\" />");
+    expect(pricingPanel).not.toContain("SaveAsPurchaseTemplateButton");
   });
 
   it("uses concise persistence labels and omits the visible checkout heading", () => {

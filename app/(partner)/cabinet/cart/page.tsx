@@ -48,15 +48,6 @@ export default async function CartPage() {
   const cart = result.data;
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase text-emerald-700">
-          {copy.checkoutEyebrow}
-        </p>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-950">
-          {copy.cart}
-        </h1>
-      </header>
-
       {cart.lines.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center">
           <h2 className="text-lg font-semibold">{copy.cartEmpty}</h2>
@@ -105,7 +96,7 @@ export default async function CartPage() {
                     <ul className="divide-y divide-zinc-200">
                       {lines.map((line) => (
                         <li
-                          className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_8rem_11.25rem] md:items-center"
+                          className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 p-3 md:grid-cols-[minmax(0,1fr)_7rem_auto] md:items-center md:gap-3 md:p-4"
                           key={line.id}
                         >
                           <div className="grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[4rem_minmax(0,1fr)]">
@@ -114,19 +105,22 @@ export default async function CartPage() {
                               productName={line.productName}
                             />
                             <div className="min-w-0">
-                              {line.catalogVisible === false
-                                ? <p className="line-clamp-2 font-semibold text-zinc-950">{line.productName}</p>
-                                : <Link
-                                    className="line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700"
-                                    href={`/cabinet/catalog/${line.slug}`}
-                                    prefetch={false}
-                                  >
-                                    {line.productName}
-                                  </Link>}
-                              <p className="mt-1 text-xs text-zinc-500">
-                                {copy.sku}: {line.sku}
-                              </p>
-                              <p className="mt-2 text-sm">
+                              <div className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5" data-cart-product-identity>
+                                <span className="shrink-0 text-xs text-zinc-500">
+                                  {copy.sku} {line.sku}
+                                </span>
+                                <span aria-hidden="true" className="text-xs text-zinc-300">·</span>
+                                {line.catalogVisible === false
+                                  ? <p className="min-w-0 line-clamp-2 font-semibold text-zinc-950">{line.productName}</p>
+                                  : <Link
+                                      className="min-w-0 line-clamp-2 font-semibold text-zinc-950 hover:text-emerald-700"
+                                      href={`/cabinet/catalog/${line.slug}`}
+                                      prefetch={false}
+                                    >
+                                      {line.productName}
+                                    </Link>}
+                              </div>
+                              <p className="mt-1.5 text-sm">
                                 {cart.commercialMode === "full"
                                   ? copy.yourPrice
                                   : copy.retailPrice}
@@ -137,15 +131,6 @@ export default async function CartPage() {
                                     online={line.onlineUnitPrice}
                                   />
                                 </strong>
-                              </p>
-                              <p className="mt-1 text-xs text-zinc-600">
-                                {line.availableStock === null
-                                  ? copy.stockPending
-                                  : line.availableStock <= 0
-                                    ? copy.outOfStock
-                                    : line.availableStock < line.quantity
-                                      ? `${copy.availableOfRequested.replace("{available}", String(line.availableStock)).replace("{requested}", String(line.quantity))}`
-                                      : copy.inStock}
                               </p>
                               {line.nearestArrivalDate && (
                                 <p className="mt-1 text-xs text-zinc-600">

@@ -7,6 +7,7 @@ import type { PartnerWorkspaceShellContext } from "./PartnerLayout";
 import { UserMenu } from "./UserMenu";
 import { QuickActionsMenu } from "./QuickActionsMenu";
 import { PartnerCartLink } from "./PartnerCartLink";
+import { PartnerPageBreadcrumbs } from "./PartnerPageBreadcrumbs";
 import { getQuickProductCopy, partnerText, type PartnerTranslationKey } from "../../partner-locale";
 
 export function PartnerHeader({ context, mobileNavigation }: { context: PartnerWorkspaceShellContext; mobileNavigation?: ReactNode }) {
@@ -41,6 +42,7 @@ export function PartnerHeader({ context, mobileNavigation }: { context: PartnerW
         ) : null}
         <UserMenu context={context} />
       </div>
+      <PartnerPageBreadcrumbs locale={context.locale} />
     </header>
   );
 }

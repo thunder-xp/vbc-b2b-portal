@@ -6,7 +6,7 @@ import { CampaignCard } from "@/src/modules/commercial-campaigns/components";
 import type { CampaignFilter } from "@/src/modules/commercial-campaigns/types";
 import { secondaryCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
-import { PageHeader, actionClassName } from "@/src/modules/platform-ui";
+import { actionClassName } from "@/src/modules/platform-ui";
 
 export default async function OffersPage({
   searchParams,
@@ -38,7 +38,6 @@ export default async function OffersPage({
     redirect("/auth/sign-in");
   return (
     <div className="min-w-0 space-y-3">
-      <PageHeader compact title={copy.offersTitle} />
       <nav
         aria-label={copy.offersFilters}
         className="flex max-w-full gap-2 overflow-x-auto pb-1"

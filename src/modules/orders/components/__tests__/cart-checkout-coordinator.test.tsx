@@ -197,6 +197,24 @@ describe("cart checkout mutation barrier", () => {
     expect(screen.getByRole("button", { name: "Удалить" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Проверяем заказ…" })).toBeDisabled();
   });
+
+  it("places remove immediately after the compact quantity controls", () => {
+    render(
+      <CartCheckoutCoordinator>
+        <CartItemActions itemId="item-1" quantity={2} />
+      </CartCheckoutCoordinator>,
+    );
+
+    const decrease = screen.getByRole("button", { name: "Уменьшить количество" });
+    const quantity = screen.getByRole("spinbutton", { name: "Количество товара" });
+    const increase = screen.getByRole("button", { name: "Увеличить количество" });
+    const remove = screen.getByRole("button", { name: "Удалить" });
+
+    expect(decrease.compareDocumentPosition(quantity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(quantity.compareDocumentPosition(increase) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(increase.compareDocumentPosition(remove) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(remove).toHaveClass("size-11");
+  });
 });
 
 function renderFlow() {

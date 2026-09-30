@@ -6,23 +6,22 @@ const listAction = vi.hoisted(() => vi.fn());
 vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listPurchasingListsAction: listAction }));
 vi.mock("@/src/modules/partner-locale/server", () => ({ getPartnerLocale: async () => "ru" }));
 
-describe("Favorites heading presentation", () => {
+describe("saved selections presentation", () => {
   beforeEach(() => listAction.mockResolvedValue({ success: true, data: { records: [], page: 1, totalPages: 1 } }));
 
-  it("removes only the Favorites heading border while retaining spacing and empty state", async () => {
+  it("moves the Favorites page context out of the body and retains the empty state", async () => {
     const { container } = render(await PurchasingListsPage({ searchParams: Promise.resolve({ filter: "favorites" }) }));
-    expect(screen.getByRole("heading", { level: 1, name: "Избранное" })).toBeInTheDocument();
-    expect(container.querySelector("header")).toHaveClass("pb-5");
-    expect(container.querySelector("header")).not.toHaveClass("border-b");
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(container.querySelector("[data-page-header]")).toBeNull();
     expect(container.querySelector(".border-dashed")).toHaveClass("rounded-lg", "px-4", "py-8");
     expect(container.querySelector("hr")).toBeNull();
     expect(listAction).toHaveBeenCalledExactlyOnceWith({ search: undefined, filter: "all", page: 1 });
   });
 
-  it("retains the My Kits heading border and content card structure", async () => {
+  it("moves the saved-list page context out of the body and retains content cards", async () => {
     listAction.mockResolvedValue({ success: true, data: { records: [{ id: "kit-1", name: "Test kit", isSystemFavorites: false, itemCount: 2, totalQuantity: 3, updatedAt: "2026-09-06" }], page: 1, totalPages: 1 } });
     const { container } = render(await PurchasingListsPage({ searchParams: Promise.resolve({}) }));
-    expect(container.querySelector("header")).toHaveClass("border-b", "pb-5");
+    expect(container.querySelector("[data-page-header]")).toBeNull();
     expect(screen.getByRole("heading", { name: "Test kit" })).toBeInTheDocument();
   });
 
