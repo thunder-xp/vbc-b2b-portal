@@ -21,3 +21,7 @@ export interface ProposalRepository {
 export class ProposalRepositoryError extends Error {
   constructor() { super("Proposal persistence failed."); this.name = "ProposalRepositoryError"; }
 }
+
+export class ProposalSettingsConflictError extends ProposalRepositoryError {
+  constructor() { super(); this.name = "ProposalSettingsConflictError"; }
+}

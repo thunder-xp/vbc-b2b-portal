@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { InvalidStateError, NotFoundError } from "../../../access-control/services";
-import type { EstimateRepository, ProposalRepository } from "../../repositories";
+import { DomainConflictError, InvalidStateError, NotFoundError } from "../../../access-control/services";
+import { ProposalSettingsConflictError, type EstimateRepository, type ProposalRepository } from "../../repositories";
 import type { EstimateAggregate, GeneratedEstimateDocument, ProposalTemplate } from "../../types";
 import { renderProposalPdf } from "../proposal-pdf.renderer";
 import { DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, normalizeSettings, stableJson } from "../proposal.service";
@@ -177,6 +177,13 @@ describe("DefaultProposalService", () => {
     await service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS);
     expect(proposals.saveSettings).toHaveBeenCalledTimes(1);
     expect(estimates.findAggregateById).not.toHaveBeenCalled();
+  });
+
+  it("preserves a bounded proposal-settings revision conflict", async () => {
+    vi.mocked(proposals.saveSettings).mockRejectedValue(new ProposalSettingsConflictError());
+
+    await expect(service.saveSettings("user-1", "estimate-1", 2, template.id, DEFAULT_PROPOSAL_SETTINGS))
+      .rejects.toMatchObject({ code: "PROPOSAL_SETTINGS_CONFLICT" } satisfies Partial<DomainConflictError>);
   });
 
   it("denies a cross-company presentation-settings mutation before persistence", async () => {

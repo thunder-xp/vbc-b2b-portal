@@ -138,6 +138,42 @@ describe("proposal UI", () => {
     expect(screen.queryByText(/SKU 4000|Dahua DHI-ARA11|Камера 1/)).not.toBeInTheDocument();
   });
 
+  it("removes every disabled display option from the HTML preview", () => {
+    const value = proposal();
+    const hiddenSettings: ProposalSettings = {
+      ...value.settings,
+      showProductImages: false,
+      showSku: false,
+      showProductName: false,
+      showDescription: false,
+      showUnitPrice: false,
+      showLineDiscount: false,
+      showSectionSubtotals: false,
+      showVatBreakdown: false,
+      showPartnerLogo: false,
+      showHeadingGreeting: false,
+    };
+    render(<ProposalDocument proposal={{
+      ...value,
+      settings: hiddenSettings,
+      branding: { ...value.branding, logoUrl: "https://www.nsd.md/logo.png" },
+      sections: [{ ...value.sections[0], lines: [{ ...value.sections[0].lines[0], imageUrl: "https://www.nsd.md/product.png" }] }],
+    }} />);
+
+    expect(document.querySelector("img")).not.toBeInTheDocument();
+    for (const hiddenText of [
+      "SKU 4000",
+      "Dahua DHI-ARA11",
+      "Камера 1",
+      "Коммерческое предложение",
+      "Предложение",
+      "Цена за ед.",
+      "Скидка",
+      "Итого за оборудование:",
+      "НДС (20%)",
+    ]) expect(screen.queryByText(hiddenText)).not.toBeInTheDocument();
+  });
+
   it("keeps new display options enabled for historical immutable snapshots that predate them", () => {
     const value = proposal();
     const historicalSettings = { ...value.settings };
@@ -197,6 +233,55 @@ describe("proposal UI", () => {
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledTimes(1);
     expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({ expectedRevision: 3, templateId: template.id, settings: expect.objectContaining({ senderDisplayName: "XVISION", showSku: true }) }));
+  });
+
+  it("persists all ten display overrides independently as false", async () => {
+    vi.clearAllMocks();
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+    await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
+
+    for (const label of [
+      "Изображения товаров",
+      "Артикулы SKU",
+      "Наименование",
+      "Описание",
+      "Цена за единицу",
+      "Скидка по строке",
+      "Итоги разделов",
+      "Разбивка НДС",
+      "Логотип партнёра",
+      "Заголовок и обращение",
+    ]) await user.click(screen.getByRole("checkbox", { name: label }));
+
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+    expect(saveEstimateProposalSettingsAction).toHaveBeenCalledWith("estimate-1", expect.objectContaining({
+      settings: expect.objectContaining({
+        showProductImages: false,
+        showSku: false,
+        showProductName: false,
+        showDescription: false,
+        showUnitPrice: false,
+        showLineDiscount: false,
+        showSectionSubtotals: false,
+        showVatBreakdown: false,
+        showPartnerLogo: false,
+        showHeadingGreeting: false,
+      }),
+    }));
+  });
+
+  it("shows a localized stale-revision message without exposing database details", async () => {
+    vi.clearAllMocks();
+    const user = userEvent.setup();
+    vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: false, data: null, message: "The resource changed.", errorCode: "PROPOSAL_SETTINGS_CONFLICT" });
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+    await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
+    await user.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    expect(await screen.findByText("Смета была изменена. Обновите страницу и повторите сохранение настроек.")).toBeInTheDocument();
+    expect(screen.queryByText(/PT409|SQLSTATE|database/i)).not.toBeInTheDocument();
   });
 
   it("preserves the proposal-specific sender override when another template is selected", async () => {

@@ -55,6 +55,48 @@ describe("proposal PDF renderer", () => {
     expect(noIdentity).toContain('"stack":[{"text":""}]');
   });
 
+  it("removes all ten disabled display options from the PDF definition", () => {
+    const value = fixture(1);
+    const logoUrl = "partner-logo";
+    const imageUrl = "product-image";
+    const proposal = {
+      ...value,
+      settings: {
+        ...value.settings,
+        showProductImages: false,
+        showSku: false,
+        showProductName: false,
+        showDescription: false,
+        showUnitPrice: false,
+        showLineDiscount: false,
+        showSectionSubtotals: false,
+        showVatBreakdown: false,
+        showPartnerLogo: false,
+        showHeadingGreeting: false,
+      },
+      branding: { ...value.branding, logoUrl },
+      sections: [{ ...value.sections[0], lines: [{ ...value.sections[0].lines[0], imageUrl }] }],
+    };
+    const definition = JSON.stringify(createDocumentDefinition(proposal, new Map([
+      [logoUrl, "data:image/png;base64,LOGO"],
+      [imageUrl, "data:image/png;base64,PRODUCT"],
+    ])));
+
+    for (const hiddenText of [
+      "data:image/png;base64,LOGO",
+      "data:image/png;base64,PRODUCT",
+      "SKU-1",
+      "Dahua DHI-ARA11",
+      "Камера видеонаблюдения 1",
+      DEFAULT_PROPOSAL_SETTINGS.introduction,
+      "Цена за ед.",
+      "Скидка",
+      "Итого за оборудование",
+      "НДС (20%)",
+    ]) expect(definition).not.toContain(hiddenText);
+    expect(definition).not.toContain('"style":"title"');
+  });
+
   it("renders valid compact PDFs for each newly governed option disabled", async () => {
     for (const setting of ["showSku", "showProductName", "showDescription", "showHeadingGreeting"] as const) {
       const value = fixture(3);

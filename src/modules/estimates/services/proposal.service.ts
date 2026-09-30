@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
-import { InvalidStateError, NotFoundError } from "../../access-control/services";
+import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
 import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
 import { isDefaultProductDescription } from "../../catalog/services/product-description-summary";
 import { companyLogoUrl } from "../../partner-cabinet/services/company-logo-url";
-import type { EstimateRepository, ProposalRepository } from "../repositories";
+import { ProposalSettingsConflictError, type EstimateRepository, type ProposalRepository } from "../repositories";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
 import { canonicalEstimateWorkName } from "../estimate-work-labels";
 import { CANONICAL_ESTIMATE_SECTIONS, estimateSectionPresentationName, resolveCanonicalLineSectionKey } from "./estimate-sections";
@@ -114,7 +114,15 @@ export class DefaultProposalService {
     const estimate = await this.estimateRepository.findById(normalizeId(estimateId));
     if (!estimate || estimate.companyId !== context.company.id) throw new NotFoundError("Estimate was not found.");
     const normalized = normalizeSettings(settings);
-    const revision = await this.proposalRepository.saveSettings({ estimateId: estimate.id, expectedRevision, templateId: templateId ? normalizeId(templateId) : null, settings: normalized });
+    let revision: number;
+    try {
+      revision = await this.proposalRepository.saveSettings({ estimateId: estimate.id, expectedRevision, templateId: templateId ? normalizeId(templateId) : null, settings: normalized });
+    } catch (error) {
+      if (error instanceof ProposalSettingsConflictError) {
+        throw new DomainConflictError("PROPOSAL_SETTINGS_CONFLICT");
+      }
+      throw error;
+    }
     console.info({ event: "estimate_proposal_settings_updated", estimateId: estimate.id, companyId: context.company.id, revision });
     return { revision };
   }
