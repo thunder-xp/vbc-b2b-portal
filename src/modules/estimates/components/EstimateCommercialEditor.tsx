@@ -1120,7 +1120,7 @@ export function EstimateCommercialEditor({
                                       {line.description && line.description !== productName ? <button
                                         aria-expanded={expandedDescriptions.has(line.id)}
                                         aria-label={expandedDescriptions.has(line.id) ? copy.hideDetails : copy.showDetails}
-                                        className="inline-flex size-6 shrink-0 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                                        className="inline-flex size-11 shrink-0 items-center justify-center rounded text-zinc-600 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500 xl:size-6"
                                         onClick={() => setExpandedDescriptions((current) => toggleSet(current, line.id))}
                                         title={expandedDescriptions.has(line.id) ? copy.hideDetails : copy.showDetails}
                                         type="button"

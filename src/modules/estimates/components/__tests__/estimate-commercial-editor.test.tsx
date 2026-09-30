@@ -371,6 +371,7 @@ describe("EstimateCommercialEditor", () => {
     expect(description).toHaveClass("line-clamp-1");
     const disclosure = screen.getByRole("button", { name: "Подробнее" });
     expect(disclosure).not.toHaveTextContent("Подробнее");
+    expect(disclosure).toHaveClass("size-11", "xl:size-6");
     await user.click(disclosure);
     expect(description).not.toHaveClass("line-clamp-1");
     expect(screen.getByRole("button", { name: "Скрыть описание" })).toHaveAttribute("aria-expanded", "true");
