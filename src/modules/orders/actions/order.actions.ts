@@ -63,6 +63,7 @@ export async function submitCartOrderAction(
         requestedDeliveryDate,
         paymentMethod,
         paymentDate,
+        pricingMode: requestedPaymentMethod === "online" ? "rate_113_online" : "rate_999_default",
         fulfillmentMethod,
         carrierId,
         notificationLocale,

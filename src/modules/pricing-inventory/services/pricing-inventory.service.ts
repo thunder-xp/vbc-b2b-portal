@@ -24,6 +24,7 @@ export type ProductPriceViewDto = {
     appliedRate: number | null;
     rateId: string | null;
     ratePurpose: "partner_price_usd_to_mdl" | "retail_price_usd_to_mdl" | null;
+    rateSourceType: CommercialRate["sourceType"] | null;
     rateEffectiveAt: string | null;
     ratePublishedAt: string | null;
     resultingAmount: number;
@@ -734,6 +735,7 @@ function createGovernedPartnerMdlView(
         appliedRate: null,
         rateId: null,
         ratePurpose: null,
+        rateSourceType: null,
         rateEffectiveAt: null,
         ratePublishedAt: null,
         resultingAmount: partnerPrice.priceAmount,
@@ -759,6 +761,7 @@ function createGovernedPartnerMdlView(
       ratePurpose: exchangeRate?.purpose === ratePurpose
         ? ratePurpose
         : null,
+      rateSourceType: exchangeRate?.purpose === ratePurpose ? exchangeRate.sourceType : null,
       rateEffectiveAt: exchangeRate?.effectiveAt ?? null,
       ratePublishedAt: exchangeRate?.publishedAt ?? null,
       resultingAmount: amount,

@@ -178,6 +178,8 @@ export const getOrdersCopy = definePartnerCopy(
     checkoutReviewHint:
       "Проверьте состав, количество и итоговую сумму перед отправкой.",
     requestedDeliveryDate: "Дата резервации",
+    onlinePaymentViaMaib: "Онлайн-оплата через MAIB",
+    onlinePaymentSubmit: "Оплатить онлайн",
     selected: "Выбрано",
     reservationHint:
       "До этой даты оборудование планируется удерживать под ваш заказ. Менеджер Novotech свяжется с вами для подтверждения отгрузки.",
@@ -456,6 +458,8 @@ export const getOrdersCopy = definePartnerCopy(
     checkoutReviewHint:
       "Verificați conținutul, cantitatea și totalul înainte de trimitere.",
     requestedDeliveryDate: "Data rezervării",
+    onlinePaymentViaMaib: "Plată online prin MAIB",
+    onlinePaymentSubmit: "Plătește online",
     selected: "Selectat",
     reservationHint:
       "Echipamentul este planificat să fie rezervat pentru comanda dvs. până la această dată. Managerul Novotech vă va contacta pentru confirmarea livrării.",

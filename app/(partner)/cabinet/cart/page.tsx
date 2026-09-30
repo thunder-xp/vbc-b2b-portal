@@ -4,11 +4,9 @@ import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLi
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
 import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
-import { OrderSubmitForm } from "@/src/modules/orders/components/OrderSubmitForm";
+import { CartLineValue, CartPricingPanel } from "@/src/modules/orders/components/CartPricingPanel";
 import { maibConfigurationSummary } from "@/src/modules/payments/server";
 import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
-import { CreateEstimateFromCartButton } from "@/src/modules/estimates/components/CreateEstimateFromCartButton";
-import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 import type { CartLineDto } from "@/src/modules/orders/services";
 import { getOrdersCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -72,7 +70,7 @@ export default async function CartPage() {
           </Link>
         </div>
       ) : (
-        <CartCheckoutCoordinator>
+        <CartCheckoutCoordinator managedPaymentSelection>
           <OrderReconciliationStatus
             initialState={cart.reconciliationLock ? {
               orderId: cart.reconciliationLock.orderId,
@@ -134,11 +132,10 @@ export default async function CartPage() {
                                   : copy.retailPrice}
                                 :{" "}
                                 <strong className="whitespace-nowrap">
-                                  {cart.commercialMode === "full"
-                                    ? (line.partnerUnitPrice ??
-                                      copy.pricePending)
-                                    : (line.retailUnitPrice ??
-                                      copy.pricePending)}
+                                  <CartLineValue
+                                    standard={cart.commercialMode === "full" ? line.partnerUnitPrice : line.retailUnitPrice}
+                                    online={line.onlineUnitPrice}
+                                  />
                                 </strong>
                               </p>
                               <p className="mt-1 text-xs text-zinc-600">
@@ -167,9 +164,10 @@ export default async function CartPage() {
                                 : copy.retailAmount}
                             </span>
                             <p className="mt-1 font-semibold">
-                              {cart.commercialMode === "full"
-                                ? (line.partnerLineTotal ?? copy.unavailable)
-                                : (line.retailLineTotal ?? copy.unavailable)}
+                              <CartLineValue
+                                standard={cart.commercialMode === "full" ? line.partnerLineTotal : line.retailLineTotal}
+                                online={line.onlineLineTotal}
+                              />
                             </p>
                           </div>
                           <CartItemActions
@@ -185,34 +183,16 @@ export default async function CartPage() {
               })}
             </div>
             <aside className="space-y-4 [&_button]:min-h-11 [&_input]:min-h-11">
-              <div className="rounded-lg border border-zinc-200 bg-white p-4">
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-zinc-600">{copy.itemCount}</dt>
-                  <dd className="text-right font-semibold">{cart.positionCount}</dd>
-                  <dt className="text-zinc-600">{copy.unitCount}</dt>
-                  <dd className="text-right font-semibold">{cart.totalUnitCount}</dd>
-                </dl>
-                <p className="mt-3 border-t border-zinc-200 pt-3 text-sm text-zinc-600">
-                  {cart.commercialMode === "full"
-                    ? copy.total
-                    : copy.retailReferenceTotal}
-                </p>
-                <p className="mt-1 text-xl font-semibold">
-                  {cart.commercialMode === "full"
-                    ? (cart.total ?? copy.pricePending)
-                    : (cart.retailReferenceTotal ?? copy.pricePending)}
-                </p>
-                {cart.commercialMode === "retail_only" ? (
-                  <p className="mt-3 text-xs leading-5 text-zinc-600">
-                    {copy.retailOnlyNote}
-                  </p>
-                ) : null}
-              </div>
-              <CreateEstimateFromCartButton />
-              <div aria-label={copy.additionalCartActions} className="[&>button]:h-11 [&>button]:w-full [&>button]:justify-center">
-                <SaveAsPurchasingListButton label={locale === "ro" ? "Salvează setul" : "Сохранить комплект"} source="cart" />
-              </div>
-              <OrderSubmitForm
+              <CartPricingPanel
+                positionCount={cart.positionCount}
+                totalUnitCount={cart.totalUnitCount}
+                total999={cart.commercialMode === "full"
+                  ? cart.total ?? null
+                  : cart.retailReferenceTotal ?? null}
+                total113={cart.onlineTotal ?? null}
+                savings={cart.onlineSavings ?? null}
+                locale={locale}
+                copy={copy}
                 cartId={cart.id!}
                 intentVersion={cart.intentVersion!}
                 submissionKey={crypto.randomUUID()}
@@ -222,6 +202,11 @@ export default async function CartPage() {
                   && cart.onlinePaymentPreflightEligible === true}
                 reconciliationLocked={cart.reconciliationLock !== null}
               />
+              {cart.commercialMode === "retail_only" ? (
+                <p className="text-xs leading-5 text-zinc-600">
+                  {copy.retailOnlyNote}
+                </p>
+              ) : null}
             </aside>
           </div>
         </CartCheckoutCoordinator>

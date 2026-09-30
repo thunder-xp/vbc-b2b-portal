@@ -244,6 +244,7 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
         applied_exchange_rate: item.appliedExchangeRate,
         exchange_rate_id: item.exchangeRateId,
         exchange_rate_purpose: item.exchangeRatePurpose,
+        exchange_rate_source_type: item.exchangeRateSourceType,
         exchange_rate_effective_at: item.exchangeRateEffectiveAt,
         exchange_rate_published_at: item.exchangeRatePublishedAt,
         available_stock: item.availableStock,
@@ -379,6 +380,7 @@ function mapOrderItem(row: Row): PartnerOrderItem {
     sourceUnitPrice: nullableNumber(row.source_unit_price), sourceCurrencyCode: nullableText(row.source_currency_code),
     appliedExchangeRate: nullableNumber(row.applied_exchange_rate), exchangeRateId: nullableText(row.exchange_rate_id),
     exchangeRatePurpose: nullableText(row.exchange_rate_purpose), exchangeRateEffectiveAt: nullableText(row.exchange_rate_effective_at),
+    exchangeRateSourceType: nullableText(row.exchange_rate_source_type),
     exchangeRatePublishedAt: nullableText(row.exchange_rate_published_at),
     nearestArrivalDate: nullableText(row.nearest_arrival_date), nearestArrivalQuantity: nullableNumber(row.nearest_arrival_quantity), snapshotAt: text(row.snapshot_at),
   };
