@@ -41,6 +41,16 @@ describe("CommercialCampaignService", () => {
     expect(repository.createDraft).toHaveBeenCalledWith(governed);
   });
 
+  it("requires a valid per-product threshold for Quantity to PROMO", async () => {
+    const repository = stubRepository();
+    const service = new CommercialCampaignService(repository, workspace() as never);
+    const quantityPromo = { ...validDraft(), mechanicType: "quantity_threshold_promo" as const, items: [{ ...validDraft().items[0], benefitType: "existing_price_profile" as const, governedBenefitReference: SPECIAL_OFFERS_PROMO_PROFILE.externalRef, promoThresholdQuantity: 5 }] };
+    await service.createDraft(quantityPromo);
+    expect(repository.createDraft).toHaveBeenCalledWith(quantityPromo);
+    expect(() => service.createDraft({ ...quantityPromo, items: [{ ...quantityPromo.items[0], promoThresholdQuantity: 0 }] })).toThrow("Quantity → PROMO");
+    expect(() => service.createDraft({ ...quantityPromo, items: [{ ...quantityPromo.items[0], maximumQuantityPerCompany: 4 }] })).toThrow("Quantity → PROMO");
+  });
+
   it("keeps catalog and company discovery bounded on the server", async () => {
     const repository = stubRepository();
     const service = new CommercialCampaignService(repository, workspace() as never);
@@ -63,5 +73,5 @@ describe("CommercialCampaignService", () => {
 });
 
 function workspace() { return { getWorkspaceContext: vi.fn().mockResolvedValue({ accessState: "active", companyId: "company-1" }) }; }
-function validDraft() { return { contractVersion: "2" as const, requestId: "10000000-0000-4000-8000-000000000001", code: "TEST_1", name: "Test campaign", partnerTitle: "Partner offer", partnerDescription: "Long partner campaign description", campaignType: "product_offer" as const, startsAt: "2026-07-31T10:00:00Z", endsAt: "2026-08-31T10:00:00Z", priority: 100, termsSummary: "Current price applies", audienceMode: "explicit_company" as const, companyIds: ["company-1"], items: [{ productId: "product-1", sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only" as const, governedBenefitReference: null, partnerMessage: null }] }; }
+function validDraft() { return { contractVersion: "3" as const, requestId: "10000000-0000-4000-8000-000000000001", code: "TEST_1", name: "Test campaign", partnerTitle: "Partner offer", partnerDescription: "Long partner campaign description", campaignType: "product_offer" as const, startsAt: "2026-07-31T10:00:00Z", endsAt: "2026-08-31T10:00:00Z", priority: 100, termsSummary: "Current price applies", mechanicType: "legacy_promo" as const, audienceMode: "explicit_company" as const, companyIds: ["company-1"], items: [{ productId: "product-1", sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only" as const, governedBenefitReference: null, partnerMessage: null, promoThresholdQuantity: null }] }; }
 function stubRepository(): CommercialCampaignRepository { return { listPartner: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }), getPartner: vi.fn(), addToCart: vi.fn(), recordEngagement: vi.fn(), listAdmin: vi.fn(), getAdmin: vi.fn(), getBuilderOptions: vi.fn(), searchProducts: vi.fn(), searchCompanies: vi.fn(), createDraft: vi.fn(), updateDraft: vi.fn(), duplicate: vi.fn(), archive: vi.fn(), resume: vi.fn(), reopenForEdit: vi.fn().mockResolvedValue({ revision: 2 }), deleteArchived: vi.fn(), publish: vi.fn(), pause: vi.fn() }; }

@@ -26,7 +26,7 @@ export async function getPartnerCampaignAction(campaignId: string): Promise<Camp
   }
 }
 
-export async function addCampaignItemToCartAction(input: { campaignItemId: string; quantity: number; requestId: string }): Promise<CampaignActionResult<{ cartItemId: string; quantity: number }>> {
+export async function addCampaignItemToCartAction(input: { campaignItemId: string; quantity: number; requestId: string }): Promise<CampaignActionResult<{ cartItemId: string; quantity: number; mechanicType: "legacy_promo" | "quantity_threshold_promo"; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: string }>> {
   try {
     const data = await createCommercialCampaignService().addToCart(await getAuthenticatedUserId(), input.campaignItemId, input.quantity, input.requestId);
     revalidatePath("/cabinet/cart");

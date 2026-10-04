@@ -1,6 +1,8 @@
 export type CampaignStatus = "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
 export type CampaignFilter = "active" | "ending" | "stock" | "arrivals" | "purchased";
 export type CampaignType = "product_offer" | "stock_clearance" | "arrival_promotion" | "reorder_campaign" | "category_campaign" | "partner_segment_offer";
+export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo";
+export type CampaignPromoEligibilityReason = "eligible" | "below_threshold" | "invalid_threshold" | "missing_promo" | "inactive_campaign" | "outside_period" | "outside_audience" | "product_not_in_scope" | "legacy_campaign";
 
 export type CampaignMoney = { amount: number; currency: string };
 export type CampaignProduct = {
@@ -13,6 +15,8 @@ export type CampaignProduct = {
   minimumQuantity: number;
   maximumQuantityPerCompany: number | null;
   partnerMessage: string | null;
+  mechanicType: CampaignMechanicType;
+  promoThresholdQuantity: number | null;
   msrpPrice: CampaignMoney | null;
   partnerPrice: CampaignMoney | null;
   specialPrice: CampaignMoney | null;
@@ -33,6 +37,7 @@ export type PartnerCampaign = {
   priority: number;
   imageAssetPath: string | null;
   termsSummary: string;
+  mechanicType: CampaignMechanicType;
   products: CampaignProduct[];
 };
 
@@ -95,7 +100,7 @@ export type CampaignBuilderOptions = {
   assets: CampaignAssetOption[];
 };
 export type CampaignDraftInput = {
-  contractVersion: "2";
+  contractVersion: "3";
   requestId: string;
   code: string;
   name: string;
@@ -108,6 +113,7 @@ export type CampaignDraftInput = {
   priority: number;
   imageAssetPath?: string;
   termsSummary: string;
+  mechanicType: CampaignMechanicType;
   audienceMode: "explicit_company" | "all_active_partners" | "commercial_mode_full" | "commercial_mode_retail_only" | "momentum_slowing" | "momentum_attention";
   companyIds: string[];
   items: Array<{
@@ -118,6 +124,7 @@ export type CampaignDraftInput = {
     benefitType: "informational_only" | "existing_price_profile";
     governedBenefitReference: string | null;
     partnerMessage: string | null;
+    promoThresholdQuantity: number | null;
   }>;
 };
 export type CampaignDraftUpdateInput = CampaignDraftInput & {
@@ -139,6 +146,7 @@ export type CampaignDraftSeed = {
     endsAt: string;
     priority: number;
     image: string;
+    mechanicType: CampaignMechanicType;
   };
   audienceMode: CampaignDraftInput["audienceMode"];
   companyIds: string[];

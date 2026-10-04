@@ -121,7 +121,10 @@ export default async function OfferDetailPage({
                 <CampaignCartControl
                   itemId={product.itemId}
                   maximum={product.maximumQuantityPerCompany}
+                  mechanicType={product.mechanicType}
                   minimum={product.minimumQuantity}
+                  promoPrice={product.specialPrice}
+                  promoThresholdQuantity={product.promoThresholdQuantity}
                 />
               </div>
             </article>

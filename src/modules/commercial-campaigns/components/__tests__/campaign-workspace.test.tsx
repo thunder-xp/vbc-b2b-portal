@@ -33,7 +33,7 @@ describe("Special Offers workspace", () => {
   });
 
   it("keeps selected products visible when the bounded search result changes", async () => {
-    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, product: camera }] }} options={options} />);
+    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "", mechanicType: "legacy_promo" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, promoThresholdQuantity: null, product: camera }] }} options={options} />);
     await userEvent.click(screen.getByRole("button", { name: "2. Товары" }));
     expect(screen.getByText("Выбранные товары")).toBeInTheDocument();
     expect(screen.getAllByText(/800147 · DH-C4K-P/).length).toBeGreaterThan(0);
@@ -55,8 +55,22 @@ describe("Special Offers workspace", () => {
     expect(screen.queryByTestId("selected-campaign-product")).not.toBeInTheDocument();
   });
 
+  it("configures a governed per-product Quantity to PROMO threshold", async () => {
+    const user = userEvent.setup();
+    render(<CampaignBuilder options={options} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: /Коммерческая механика/ }), "quantity_threshold_promo");
+    await user.click(screen.getByRole("button", { name: "2. Товары" }));
+    await user.click(screen.getByRole("button", { name: /800147.*Добавить/ }));
+    const threshold = screen.getByRole("spinbutton", { name: "PROMO от, шт. 800147" });
+    await user.type(threshold, "5");
+    expect(threshold).toHaveValue(5);
+    expect(screen.getAllByText("Количество → PROMO").length).toBeGreaterThan(0);
+    expect(screen.getByText("От 5 шт. → PROMO")).toBeInTheDocument();
+    expect(screen.getByText("PROMO · USD")).toBeInTheDocument();
+  });
+
   it("keeps a datetime-local input change in the draft preview", async () => {
-    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, product: camera }] }} options={options} />);
+    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "", mechanicType: "legacy_promo" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, promoThresholdQuantity: null, product: camera }] }} options={options} />);
     fireEvent.input(screen.getByLabelText("Начало"), { target: { value: "2026-10-04T12:30" } });
     await userEvent.click(screen.getByRole("button", { name: "4. Проверка" }));
     expect(screen.getByText(/2026-10-04T12:30 — 2026-10-05T10:00/)).toBeInTheDocument();
@@ -69,7 +83,7 @@ describe("Special Offers workspace", () => {
 
   it("fixes the governed commercial condition to PROMO and blocks a missing PROMO price", async () => {
     const user = userEvent.setup();
-    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, product: { ...camera, promoPrice: null } }] }} options={options} />);
+    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "", mechanicType: "legacy_promo" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, promoThresholdQuantity: null, product: { ...camera, promoPrice: null } }] }} options={options} />);
     await user.click(screen.getByRole("button", { name: "2. Товары" }));
     await user.selectOptions(screen.getByLabelText("Коммерческое условие"), "existing_price_profile");
     expect(screen.getByText("PROMO · USD")).toBeInTheDocument();

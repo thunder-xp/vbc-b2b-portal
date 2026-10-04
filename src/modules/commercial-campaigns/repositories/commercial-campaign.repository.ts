@@ -1,9 +1,9 @@
-import type { AdminCampaignDetail, AdminCampaignFilter, AdminCampaignPage, CampaignBuilderOptions, CampaignCompanySearch, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter, CampaignProductSearch, PartnerCampaign, PartnerCampaignPage } from "../types";
+import type { AdminCampaignDetail, AdminCampaignFilter, AdminCampaignPage, CampaignBuilderOptions, CampaignCompanySearch, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter, CampaignMechanicType, CampaignProductSearch, CampaignPromoEligibilityReason, PartnerCampaign, PartnerCampaignPage } from "../types";
 
 export interface CommercialCampaignRepository {
   listPartner(input: { companyId: string; filter: CampaignFilter; limit: number; offset: number }): Promise<PartnerCampaignPage>;
   getPartner(companyId: string, campaignId: string): Promise<PartnerCampaign | null>;
-  addToCart(input: { companyId: string; campaignItemId: string; quantity: number; requestId: string }): Promise<{ cartItemId: string; quantity: number }>;
+  addToCart(input: { companyId: string; campaignItemId: string; quantity: number; requestId: string }): Promise<{ cartItemId: string; quantity: number; mechanicType: CampaignMechanicType; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: CampaignPromoEligibilityReason }>;
   recordEngagement(input: { companyId: string; campaignId: string; campaignItemId?: string; eventType: "impression" | "detail_opened" | "product_opened"; quantity?: number; requestId: string }): Promise<void>;
   listAdmin(input: Required<Pick<AdminCampaignFilter, "pageSize">> & Omit<AdminCampaignFilter, "page" | "pageSize"> & { offset: number }): Promise<AdminCampaignPage>;
   getAdmin(campaignId: string): Promise<AdminCampaignDetail | null>;

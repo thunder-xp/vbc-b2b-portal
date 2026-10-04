@@ -2,18 +2,25 @@
 
 import { ShoppingCart } from "lucide-react";
 import { useState, useTransition } from "react";
-import { secondaryCopy, usePartnerLocale } from "@/src/modules/partner-locale";
+import { formatPartnerMoney, secondaryCopy, usePartnerLocale } from "@/src/modules/partner-locale";
 
 import { addCampaignItemToCartAction } from "../actions/commercial-campaign.actions";
+import type { CampaignMechanicType, CampaignMoney } from "../types";
 
 export function CampaignCartControl({
   itemId,
   minimum,
   maximum,
+  mechanicType,
+  promoThresholdQuantity,
+  promoPrice,
 }: {
   itemId: string;
   minimum: number;
   maximum: number | null;
+  mechanicType: CampaignMechanicType;
+  promoThresholdQuantity: number | null;
+  promoPrice: CampaignMoney | null;
 }) {
   const locale = usePartnerLocale();
   const copy = secondaryCopy(locale);
@@ -21,6 +28,17 @@ export function CampaignCartControl({
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const threshold = mechanicType === "quantity_threshold_promo" ? promoThresholdQuantity : null;
+  const remaining = threshold ? Math.max(0, threshold - quantity) : 0;
+  const eligibilityMessage = threshold && promoPrice
+    ? remaining > 0
+      ? locale === "ro"
+        ? `Adăugați încă ${remaining} buc. pentru prețul PROMO.`
+        : `Добавьте ещё ${remaining} шт., чтобы получить PROMO.`
+      : locale === "ro"
+        ? `PROMO activă · ${threshold}+ buc. → ${formatPartnerMoney(promoPrice.amount, "USD", locale)}`
+        : `PROMO активна · ${threshold}+ шт. → ${formatPartnerMoney(promoPrice.amount, "USD", locale)}`
+    : "";
   return (
     <div className="mt-4 flex flex-wrap items-end gap-2">
       <label className="grid gap-1 text-xs font-medium text-zinc-600">
@@ -64,6 +82,11 @@ export function CampaignCartControl({
         <ShoppingCart aria-hidden="true" className="size-4" />
         {pending ? copy.adding : copy.addToCart}
       </button>
+      {eligibilityMessage ? (
+        <p className={`w-full text-sm font-medium ${remaining > 0 ? "text-zinc-600" : "text-emerald-800"}`} data-testid="campaign-promo-eligibility">
+          {eligibilityMessage}
+        </p>
+      ) : null}
       {message ? (
         <p className="w-full text-sm text-zinc-700" role="status">
           {message}

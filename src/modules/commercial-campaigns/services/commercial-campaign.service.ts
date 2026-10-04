@@ -54,7 +54,12 @@ export class CommercialCampaignService {
 
 function validateDraft(input: CampaignDraftInput): void {
   const starts = Date.parse(input.startsAt); const ends = Date.parse(input.endsAt);
-  if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(input.code) || input.name.trim().length < 3 || input.partnerTitle.trim().length < 3 || input.partnerDescription.trim().length < 10 || input.termsSummary.trim().length < 3 || !Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || !input.items.length || input.items.length > 50 || (input.audienceMode === "explicit_company" && !input.companyIds.length)) throw new InvalidStateError("Campaign input is invalid.");
+  if (input.contractVersion !== "3" || !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(input.code) || input.name.trim().length < 3 || input.partnerTitle.trim().length < 3 || input.partnerDescription.trim().length < 10 || input.termsSummary.trim().length < 3 || !Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || !input.items.length || input.items.length > 50 || (input.audienceMode === "explicit_company" && !input.companyIds.length)) throw new InvalidStateError("Campaign input is invalid.");
   if (input.items.some((item) => item.minimumQuantity < 1 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < item.minimumQuantity)) throw new InvalidStateError("Campaign quantity limits are invalid.");
   if (input.items.some((item) => item.benefitType === "existing_price_profile" ? item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile must be PROMO.");
+  if (input.mechanicType === "quantity_threshold_promo") {
+    if (input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef || !Number.isInteger(item.promoThresholdQuantity) || Number(item.promoThresholdQuantity) < 1 || Number(item.promoThresholdQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.promoThresholdQuantity))) throw new InvalidStateError("Quantity → PROMO requires a valid per-product threshold and governed PROMO price.");
+  } else if (input.mechanicType !== "legacy_promo" || input.items.some((item) => item.promoThresholdQuantity !== null)) {
+    throw new InvalidStateError("Campaign mechanic configuration is invalid.");
+  }
 }
