@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 
-const partnerCabinetFont = IBM_Plex_Sans({
+const appFont = Inter({
   display: "swap",
   subsets: ["cyrillic", "latin"],
-  variable: "--font-partner-cabinet",
+  variable: "--font-inter",
   weight: ["400", "500", "600", "700"],
 });
 
@@ -30,7 +30,7 @@ export default async function RootLayout({
   const locale = (await headers()).get("x-novotech-document-locale") === "ro" ? "ro" : "ru";
 
   return (
-    <html lang={locale} className={`${partnerCabinetFont.variable} h-full antialiased`}>
+    <html lang={locale} className={`${appFont.variable} h-full antialiased`} data-app-font="Inter">
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

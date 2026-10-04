@@ -40,7 +40,7 @@ export function PartnerLayout({
   return (
     <PartnerLocaleProvider locale={context.locale}>
     <LiveCommerceSelectionProvider canAddToCart={Boolean(context.canAddSelectionToCart)} canCreateEstimate={Boolean(context.canCreateEstimateFromSelection)} canSaveAsKit={Boolean(context.canManagePurchasingLists)}>
-    <div className="min-h-screen overflow-x-clip bg-zinc-50 font-[family-name:var(--font-partner-cabinet)] text-zinc-950 tabular-nums" data-partner-font="IBM Plex Sans" data-partner-portal lang={context.locale}>
+    <div className="min-h-screen overflow-x-clip bg-zinc-50 text-zinc-950" data-partner-portal lang={context.locale}>
       <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
         <PartnerSidebar companyName={context.companyName} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
       </div>

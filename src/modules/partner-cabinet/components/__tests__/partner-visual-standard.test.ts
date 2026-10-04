@@ -45,15 +45,16 @@ describe("Partner Cabinet visual standard", () => {
     expect(css).toContain("[data-partner-page-header] p");
   });
 
-  it("uses IBM Plex Sans and tabular numerals at the Partner Cabinet root", () => {
+  it("inherits the global Inter font and tabular numerals in the Partner Cabinet", () => {
     const rootLayout = read("app/layout.tsx");
     const partnerLayout = read("src/modules/partner-cabinet/components/PartnerLayout.tsx");
-    expect(rootLayout).toContain("IBM_Plex_Sans");
+    const globalCss = read("app/globals.css");
+    expect(rootLayout).toContain("Inter");
     expect(rootLayout).toContain('subsets: ["cyrillic", "latin"]');
-    expect(rootLayout).not.toContain("Inter");
-    expect(partnerLayout).toContain('data-partner-font="IBM Plex Sans"');
-    expect(partnerLayout).toContain("tabular-nums");
-    expect(read("app/globals.css")).toContain("font-variant-numeric: tabular-nums");
+    expect(rootLayout).not.toContain("IBM_Plex_Sans");
+    expect(partnerLayout).not.toContain("font-partner-cabinet");
+    expect(partnerLayout).not.toContain("data-partner-font");
+    expect(globalCss).toContain("font-variant-numeric: tabular-nums");
   });
 
   it("keeps important page actions while removing their redundant visual title blocks", () => {

@@ -109,7 +109,7 @@ describe("Partner workspace shell", () => {
     expect(topLevelLabels(sections[1]!)).toEqual(["ТОВАРЫ", "Покупки", "Подборки"]);
     expect(topLevelLabels(sections[2]!)).toEqual(["Сметы и КП", "Монтаж и заявки", "Проектная защита"]);
     expect(topLevelLabels(sections[3]!)).toEqual(["Экспертиза Novotech", "Программы лояльности", "Гарантия и техподдержка"]);
-    expect(document.querySelector('[data-sidebar-font="IBM Plex Sans"]')).toBeInTheDocument();
+    expect(document.querySelector("[data-sidebar-font]")).not.toBeInTheDocument();
 
     const productsButton = screen.getByRole("button", { name: "ТОВАРЫ" });
     expect(productsButton).toHaveAttribute("aria-expanded", "false");
