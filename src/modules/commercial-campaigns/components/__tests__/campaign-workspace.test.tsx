@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CampaignBuilder } from "../CampaignBuilder";
 import { SPECIAL_OFFERS_COPY } from "../../copy";
+import { SPECIAL_OFFERS_PROMO_PROFILE } from "../../promo-profile";
 
 const push = vi.fn();
 const searchProducts = vi.fn();
@@ -15,8 +16,8 @@ vi.mock("../../actions/commercial-campaign.actions", () => ({
   searchCampaignCompaniesAction: (...args: unknown[]) => searchCompanies(...args),
 }));
 
-const camera = { id: "10000000-0000-4000-8000-000000000001", sku: "800147", model: "DH-C4K-P", name: "Camera", imageUrl: null, categoryId: "cat-1", categoryName: "CCTV", brandId: "brand-1", brandName: "Dahua", availableQuantity: 12, currentPrice: { amount: 118.8, currency: "USD" } };
-const options = { products: [camera], productTotalCount: 848, categories: [{ id: "cat-1", parentId: null, name: "CCTV" }], brands: [{ id: "brand-1", name: "Dahua" }], companies: [{ id: "20000000-0000-4000-8000-000000000001", name: "Partner SRL", status: "active" }], priceProfiles: [{ reference: "profile-1", code: "B2B", name: "B2B price", currency: "USD" }], assets: [{ path: "/retail/security-installation-hero.webp", label: "Безопасность" }] };
+const camera = { id: "10000000-0000-4000-8000-000000000001", sku: "800147", model: "DH-C4K-P", name: "Camera", imageUrl: null, categoryId: "cat-1", categoryName: "CCTV", brandId: "brand-1", brandName: "Dahua", availableQuantity: 12, currentPrice: { amount: 118.8, currency: "USD" }, promoPrice: { amount: 110, currency: "USD" } };
+const options = { products: [camera], productTotalCount: 848, categories: [{ id: "cat-1", parentId: null, name: "CCTV" }], brands: [{ id: "brand-1", name: "Dahua" }], companies: [{ id: "20000000-0000-4000-8000-000000000001", name: "Partner SRL", status: "active" }], priceProfiles: [{ reference: SPECIAL_OFFERS_PROMO_PROFILE.externalRef, code: SPECIAL_OFFERS_PROMO_PROFILE.externalCode, name: SPECIAL_OFFERS_PROMO_PROFILE.name, currency: SPECIAL_OFFERS_PROMO_PROFILE.currency }], assets: [{ path: "/retail/security-installation-hero.webp", label: "Безопасность" }] };
 
 describe("Special Offers workspace", () => {
   beforeEach(() => {
@@ -64,5 +65,15 @@ describe("Special Offers workspace", () => {
   it("provides both required user-facing locale labels", () => {
     expect(SPECIAL_OFFERS_COPY.ru.title).toBe("Специальные предложения");
     expect(SPECIAL_OFFERS_COPY.ro.title).toBe("Oferte speciale");
+  });
+
+  it("fixes the governed commercial condition to PROMO and blocks a missing PROMO price", async () => {
+    const user = userEvent.setup();
+    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, product: { ...camera, promoPrice: null } }] }} options={options} />);
+    await user.click(screen.getByRole("button", { name: "2. Товары" }));
+    await user.selectOptions(screen.getByLabelText("Коммерческое условие"), "existing_price_profile");
+    expect(screen.getByText("PROMO · USD")).toBeInTheDocument();
+    expect(screen.getByText("Для позиции 800147 отсутствует опубликованная цена PROMO.")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Профиль цены" })).not.toBeInTheDocument();
   });
 });

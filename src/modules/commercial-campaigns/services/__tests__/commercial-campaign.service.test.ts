@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CommercialCampaignRepository } from "../../repositories";
 import { CommercialCampaignService } from "../commercial-campaign.service";
+import { SPECIAL_OFFERS_PROMO_PROFILE } from "../../promo-profile";
 
 describe("CommercialCampaignService", () => {
   it("uses one bounded audience-scoped list request", async () => {
@@ -30,11 +31,12 @@ describe("CommercialCampaignService", () => {
     expect(() => service.createDraft({ ...validDraft(), items: [{ ...validDraft().items[0], minimumQuantity: 3, maximumQuantityPerCompany: 2 }] })).toThrow("Campaign quantity limits are invalid");
   });
 
-  it("accepts only a governed reference for an existing price profile", async () => {
+  it("accepts only the exact PROMO reference for an existing price profile", async () => {
     const repository = stubRepository();
     const service = new CommercialCampaignService(repository, workspace() as never);
-    expect(() => service.createDraft({ ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile", governedBenefitReference: null }] })).toThrow("Campaign price profile is invalid");
-    const governed = { ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile" as const, governedBenefitReference: "one-c-profile-ref" }] };
+    expect(() => service.createDraft({ ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile", governedBenefitReference: null }] })).toThrow("must be PROMO");
+    expect(() => service.createDraft({ ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile", governedBenefitReference: "non-promo-profile" }] })).toThrow("must be PROMO");
+    const governed = { ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile" as const, governedBenefitReference: SPECIAL_OFFERS_PROMO_PROFILE.externalRef }] };
     await service.createDraft(governed);
     expect(repository.createDraft).toHaveBeenCalledWith(governed);
   });

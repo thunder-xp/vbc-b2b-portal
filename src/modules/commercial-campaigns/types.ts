@@ -73,6 +73,7 @@ export type CampaignProductOption = {
   brandName: string | null;
   availableQuantity: number | null;
   currentPrice: CampaignMoney | null;
+  promoPrice: CampaignMoney | null;
 };
 export type CampaignProductSearch = {
   items: CampaignProductOption[];

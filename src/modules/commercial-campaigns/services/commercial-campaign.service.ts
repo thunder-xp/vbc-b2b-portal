@@ -2,6 +2,7 @@ import { InvalidStateError } from "../../access-control/services";
 import type { PartnerWorkspaceContextService } from "../../partner-cabinet/services";
 import type { CommercialCampaignRepository } from "../repositories";
 import type { AdminCampaignFilter, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter } from "../types";
+import { SPECIAL_OFFERS_PROMO_PROFILE } from "../promo-profile";
 
 export class CommercialCampaignService {
   constructor(private readonly repository: CommercialCampaignRepository, private readonly workspaceContext: PartnerWorkspaceContextService) {}
@@ -53,5 +54,5 @@ function validateDraft(input: CampaignDraftInput): void {
   const starts = Date.parse(input.startsAt); const ends = Date.parse(input.endsAt);
   if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(input.code) || input.name.trim().length < 3 || input.partnerTitle.trim().length < 3 || input.partnerDescription.trim().length < 10 || input.termsSummary.trim().length < 3 || !Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || !input.items.length || input.items.length > 50 || (input.audienceMode === "explicit_company" && !input.companyIds.length)) throw new InvalidStateError("Campaign input is invalid.");
   if (input.items.some((item) => item.minimumQuantity < 1 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < item.minimumQuantity)) throw new InvalidStateError("Campaign quantity limits are invalid.");
-  if (input.items.some((item) => item.benefitType === "existing_price_profile" ? !item.governedBenefitReference : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile is invalid.");
+  if (input.items.some((item) => item.benefitType === "existing_price_profile" ? item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile must be PROMO.");
 }

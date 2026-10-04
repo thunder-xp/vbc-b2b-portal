@@ -117,8 +117,10 @@ function mapAdminSummary(value: unknown) {
   return [{ id: value.id, code: text(value.code), name: text(value.name), partnerTitle: text(value.partner_title), status: text(value.status) as "draft", startsAt: text(value.starts_at), endsAt: text(value.ends_at), priority: number(value.priority), itemCount: number(value.item_count), audienceCount: number(value.audience_count), createdAt: text(value.created_at), updatedAt: text(value.updated_at) }];
 }
 function mapProduct(item: Row): CampaignProductOption {
-  return { id: text(item.id), sku: text(item.sku), model: nullableText(item.model), name: text(item.name), imageUrl: nullableText(item.imageUrl), categoryId: nullableText(item.categoryId), categoryName: nullableText(item.categoryName), brandId: nullableText(item.brandId), brandName: nullableText(item.brandName), availableQuantity: nullableNumber(item.availableQuantity), currentPrice: record(item.currentPrice) ? { amount: number(item.currentPrice.amount), currency: text(item.currentPrice.currency) } : null };
+  return { id: text(item.id), sku: text(item.sku), model: nullableText(item.model), name: text(item.name), imageUrl: nullableText(item.imageUrl), categoryId: nullableText(item.categoryId), categoryName: nullableText(item.categoryName), brandId: nullableText(item.brandId), brandName: nullableText(item.brandName), availableQuantity: nullableNumber(item.availableQuantity), currentPrice: money(item.currentPrice), promoPrice: money(item.promoPrice) };
 }
+
+function money(value: unknown) { return record(value) ? { amount: number(value.amount), currency: text(value.currency) } : null; }
 function mapMoney(value: unknown) { return record(value) ? { amount: number(value.amount), currency: text(value.currency) } : null; }
 function mapUsdMoney(value: unknown) { const money = mapMoney(value); return money?.currency.toUpperCase() === "USD" && money.amount > 0 ? { ...money, currency: "USD" } : null; }
 function record(value: unknown): value is Row { return typeof value === "object" && value !== null && !Array.isArray(value); }
