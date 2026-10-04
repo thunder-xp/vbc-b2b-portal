@@ -96,9 +96,7 @@ describe("Partner workspace shell", () => {
       "Рабочий стол",
       "Каталог товаров",
       "Покупки",
-      "Избранное",
-      "Мои комплекты",
-      "Сравнение",
+      "Подборки",
       "Сметы и КП",
       "Заказы и финансы",
       "Экспертиза Novotech",
@@ -120,9 +118,11 @@ describe("Partner workspace shell", () => {
 
     const selectionButton = screen.getByRole("button", { name: "Покупки" });
     await user.click(selectionButton);
-    const selectionGroup = within(screen.getByRole("navigation", { name: "Рабочие разделы" }));
     const purchases = within(document.getElementById("purchases-navigation")!);
     expect(purchases.getAllByRole("link").map((link) => link.textContent)).toEqual(["Подбор товаров", "Возможности для закупки", "Специальные предложения"]);
+    const collectionsButton = screen.getByRole("button", { name: "Подборки" });
+    await user.click(collectionsButton);
+    const selectionGroup = within(document.getElementById("collections-navigation")!);
     expect(selectionGroup.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists?filter=favorites");
     expect(selectionGroup.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
     expect(selectionGroup.getByRole("link", { name: "Сравнение" })).toHaveAttribute("href", "/cabinet/compare");
@@ -291,6 +291,19 @@ describe("Partner workspace shell", () => {
     expect(groupButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("expands and collapses the collections group", async () => {
+    const user = userEvent.setup();
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+    const collections = screen.getByRole("button", { name: "Подборки" });
+
+    expect(collections).toHaveAttribute("aria-expanded", "false");
+    await user.click(collections);
+    expect(collections).toHaveAttribute("aria-expanded", "true");
+    expect(within(document.getElementById("collections-navigation")!).getAllByRole("link")).toHaveLength(3);
+    await user.click(collections);
+    expect(collections).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("keeps only one expandable navigation group open", async () => {
     const user = userEvent.setup();
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
@@ -371,7 +384,7 @@ describe("Partner workspace shell", () => {
 
     pathname = "/cabinet/purchasing-lists/kit-1";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Подборки" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -385,7 +398,7 @@ describe("Partner workspace shell", () => {
     pathname = path;
     query = search;
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    const selected = document.querySelectorAll('nav > div > a[aria-current="page"]');
+    const selected = document.querySelectorAll('#collections-navigation a[aria-current="page"]');
     expect(selected).toHaveLength(1);
     expect(selected[0]).toHaveTextContent(label);
     expect(selected[0]).toHaveClass("bg-emerald-500/15");
@@ -393,13 +406,13 @@ describe("Partner workspace shell", () => {
       expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
       expect(screen.getByRole("link", { name: other })).not.toHaveClass("bg-emerald-500/15");
     }
-    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Подборки" })).toHaveAttribute("aria-expanded", "true");
     for (const [name, icon] of [["Избранное", "star"], ["Мои комплекты", "layers"], ["Сравнение", "columns-3"]]) {
       const link = screen.getByRole("link", { name });
-      expect(link.parentElement?.parentElement?.tagName).toBe("NAV");
       expect(screen.getAllByRole("link", { name })).toHaveLength(1);
       expect(link.querySelector("svg")).toHaveClass("lucide-" + icon);
       expect(document.getElementById("purchases-navigation")).not.toContainElement(link);
+      expect(document.getElementById("collections-navigation")).toContainElement(link);
     }
     const star = screen.getByRole("link", { name: "Избранное" }).querySelector("svg");
     expect(star).toHaveClass("lucide-star", "size-4", "shrink-0");
@@ -426,10 +439,11 @@ describe("Partner workspace shell", () => {
     render(<PartnerMobileNavigation hasWorkspaceAccess navigation={navigation} />);
     await user.click(screen.getByRole("button", { name: "Открыть навигацию" }));
     expect(screen.getByRole("link", { name: "Избранное" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Подборки" })).toHaveAttribute("aria-expanded", "true");
     await user.click(screen.getByRole("button", { name: "Сметы и КП" }));
-    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "false");
-    await user.click(screen.getByRole("button", { name: "Покупки" }));
-    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Подборки" })).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: "Подборки" }));
+    expect(screen.getByRole("button", { name: "Подборки" })).toHaveAttribute("aria-expanded", "true");
     await user.click(screen.getByRole("link", { name: "Избранное" }));
     expect(screen.queryByRole("navigation", { name: "Рабочие разделы" })).not.toBeInTheDocument();
   });

@@ -25,7 +25,7 @@ describe("PartnerPageBreadcrumbs", () => {
     navigationState.pathname = "/cabinet/purchasing-lists";
     navigationState.filter = "favorites";
     render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent(/^Избранное$/);
+    expect(screen.getByRole("navigation")).toHaveTextContent(/Подборки\s*\/\s*Избранное/);
   });
 
   it.each([
@@ -34,13 +34,13 @@ describe("PartnerPageBreadcrumbs", () => {
     ["ro", "/cabinet/purchasing-lists", "favorites", "Favorite"],
     ["ro", "/cabinet/purchasing-lists", null, "Seturile mele"],
     ["ro", "/cabinet/compare", null, "Comparație"],
-  ] as const)("uses a compact top-level identity for %s %s %s", (locale, pathname, filter, title) => {
+  ] as const)("uses the collections hierarchy for %s %s %s", (locale, pathname, filter, title) => {
     navigationState.pathname = pathname;
     navigationState.filter = filter;
     render(<PartnerPageBreadcrumbs locale={locale} />);
     const breadcrumb = screen.getByRole("navigation");
-    expect(breadcrumb.textContent).toBe(title);
-    expect(breadcrumb.querySelectorAll("li")).toHaveLength(1);
+    expect(breadcrumb.textContent).toBe(`${locale === "ro" ? "Colecții" : "Подборки"}/${title}`);
+    expect(breadcrumb.querySelectorAll("li")).toHaveLength(3);
     expect(screen.getByRole("heading", { name: title })).toHaveAttribute("aria-current", "page");
   });
 

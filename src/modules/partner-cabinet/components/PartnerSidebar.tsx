@@ -299,6 +299,7 @@ export function PartnerSidebar({
   });
   const activeGroupId = [
     ["purchases-navigation", [...businessNavigation, { key: "product_selection" }]],
+    ["collections-navigation", selectionNavigation],
     ["project-protection-navigation", projectNavigation],
     ["estimates-navigation", estimatesNavigation],
     ["orders-finance-navigation", commercialNavigation],
@@ -354,9 +355,16 @@ export function PartnerSidebar({
             />}
           </ExpandableNavigationGroup>}
 
-          {selectionNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
-          ))}
+          <ExpandableNavigationGroup
+            {...groupProps("collections-navigation")}
+            hasWorkspaceAccess={hasWorkspaceAccess}
+            icon={Layers3}
+            id="collections-navigation"
+            items={selectionNavigation}
+            label={t("nav.group.collections")}
+            onNavigate={onNavigate}
+            activeKey={activeKey}
+          />
 
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}

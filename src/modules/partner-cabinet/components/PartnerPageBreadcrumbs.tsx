@@ -28,12 +28,12 @@ const PAGE_CONTEXT: Record<string, Record<PartnerLocale, PageContext>> = {
     ro: { section: "Achiziții", title: "Oportunități de achiziție" },
   },
   "/cabinet/purchasing-lists": {
-    ru: { title: "Мои комплекты" },
-    ro: { title: "Seturile mele" },
+    ru: { section: "Подборки", title: "Мои комплекты" },
+    ro: { section: "Colecții", title: "Seturile mele" },
   },
   "/cabinet/compare": {
-    ru: { title: "Сравнение" },
-    ro: { title: "Comparație" },
+    ru: { section: "Подборки", title: "Сравнение" },
+    ro: { section: "Colecții", title: "Comparație" },
   },
   "/cabinet/specifications": {
     ru: { section: "Проектная защита", title: "Проектные спецификации" },
