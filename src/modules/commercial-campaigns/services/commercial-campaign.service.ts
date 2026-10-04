@@ -61,7 +61,19 @@ function validateDraft(input: CampaignDraftInput): void {
   if (input.items.some((item) => item.minimumQuantity < 1 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < item.minimumQuantity)) throw new InvalidStateError("Campaign quantity limits are invalid.");
   if (input.items.some((item) => item.benefitType === "existing_price_profile" ? item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile must be PROMO.");
   if (input.mechanicType !== "fixed_bundle_promo" && input.items.some((item) => item.requiredBundleQuantity != null)) throw new InvalidStateError("Bundle quantities require the fixed bundle mechanic.");
-  if (input.mechanicType === "fixed_bundle_promo") {
+  if (input.mechanicType !== "conditional_attach_promo" && input.items.some((item) => item.attachRole != null || item.requiredTriggerQuantity != null)) throw new InvalidStateError("Attach roles require the conditional attach mechanic.");
+  if (input.mechanicType === "conditional_attach_promo") {
+    if (input.items.filter((item) => item.attachRole === "TRIGGER").length < 1
+      || input.items.filter((item) => item.attachRole === "REWARD").length !== 1
+      || new Set(input.items.map((item) => item.productId)).size !== input.items.length
+      || input.items.some((item) => item.promoThresholdQuantity !== null || item.requiredBundleQuantity != null
+        || (item.attachRole === "TRIGGER" ? item.benefitType !== "informational_only" || item.governedBenefitReference !== null
+          || !Number.isInteger(item.requiredTriggerQuantity) || Number(item.requiredTriggerQuantity) < item.minimumQuantity
+          || Number(item.requiredTriggerQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.requiredTriggerQuantity)
+          : item.attachRole !== "REWARD" || item.requiredTriggerQuantity != null || item.benefitType !== "existing_price_profile"))) {
+      throw new InvalidStateError("Укажите хотя бы один товар-условие с целым количеством и ровно один отдельный товар с PROMO.");
+    }
+  } else if (input.mechanicType === "fixed_bundle_promo") {
     if (input.items.length < 2 || new Set(input.items.map((item) => item.productId)).size !== input.items.length
       || input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef
         || !Number.isInteger(item.requiredBundleQuantity) || Number(item.requiredBundleQuantity) < item.minimumQuantity

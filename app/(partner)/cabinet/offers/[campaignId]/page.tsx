@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPartnerCampaignAction } from "@/src/modules/commercial-campaigns/actions";
-import { CampaignBundleProgress, CampaignCartControl, CampaignPriceStack } from "@/src/modules/commercial-campaigns/components";
+import { CampaignAttachProgress, CampaignBundleProgress, CampaignCartControl, CampaignPriceStack } from "@/src/modules/commercial-campaigns/components";
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import {
   formatPartnerDate,
@@ -61,6 +61,7 @@ export default async function OfferDetailPage({
         ) : null}
       </header>
       {campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} locale={locale} /> : null}
+      {campaign.attachProgress ? <CampaignAttachProgress progress={campaign.attachProgress} locale={locale} /> : null}
       <section aria-labelledby="campaign-products">
         <h2 className="text-xl font-semibold" id="campaign-products">
           {copy.offerProducts}
@@ -114,19 +115,19 @@ export default async function OfferDetailPage({
                   </p>
                 ) : null}
                 <p className="mt-2 text-xs text-zinc-500">
-                  {campaign.mechanicType === "fixed_bundle_promo" ? `${locale === "ro" ? "Cantitate în set" : "Количество в комплекте"}: ${product.requiredBundleQuantity}` : `${copy.minimum}: ${product.minimumQuantity}`} {copy.units}
+                  {campaign.mechanicType === "conditional_attach_promo" ? product.attachRole === "TRIGGER" ? `${locale === "ro" ? "Condiție" : "Условие"}: ${product.requiredTriggerQuantity}` : locale === "ro" ? "Produs cu PROMO" : "Товар с PROMO" : campaign.mechanicType === "fixed_bundle_promo" ? `${locale === "ro" ? "Cantitate în set" : "Количество в комплекте"}: ${product.requiredBundleQuantity}` : `${copy.minimum}: ${product.minimumQuantity}`} {campaign.mechanicType === "conditional_attach_promo" && product.attachRole === "REWARD" ? "" : copy.units}
                   {product.maximumQuantityPerCompany
                     ? ` · ${copy.companyLimit}: ${product.maximumQuantityPerCompany} ${copy.units}`
                     : ""}
                 </p>
-                <CampaignCartControl
+                {campaign.mechanicType !== "conditional_attach_promo" || product.attachRole === "TRIGGER" ? <CampaignCartControl
                   itemId={product.itemId}
                   maximum={product.maximumQuantityPerCompany}
                   mechanicType={product.mechanicType}
                   minimum={product.minimumQuantity}
                   promoPrice={product.specialPrice}
                   promoThresholdQuantity={product.promoThresholdQuantity}
-                />
+                /> : null}
               </div>
             </article>
           ))}

@@ -8,6 +8,7 @@ import {
 } from "@/src/modules/partner-locale";
 
 import { CampaignBundleProgress } from "./CampaignBundleProgress";
+import { CampaignAttachProgress } from "./CampaignAttachProgress";
 import type { PartnerCampaign } from "../types";
 
 export function CampaignCard({
@@ -73,6 +74,7 @@ export function CampaignCard({
           ) : null}
         </div>
         {campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} locale={locale} /> : null}
+        {campaign.attachProgress ? <CampaignAttachProgress progress={campaign.attachProgress} locale={locale} /> : null}
         <Link
           className="mt-5 inline-flex min-h-11 items-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           href={`/cabinet/offers/${campaign.id}`}

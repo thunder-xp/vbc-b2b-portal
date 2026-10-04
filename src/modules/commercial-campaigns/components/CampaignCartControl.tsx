@@ -76,7 +76,7 @@ export function CampaignCartControl({
                   : result.message
                 : copy.cartError,
             );
-            if (result.success) { setRequestId(crypto.randomUUID()); if (mechanicType === "fixed_bundle_promo") router.refresh(); }
+            if (result.success) { setRequestId(crypto.randomUUID()); if (mechanicType === "fixed_bundle_promo" || mechanicType === "conditional_attach_promo") router.refresh(); }
           })
         }
         type="button"

@@ -10,7 +10,8 @@ export type EffectivePriceEvidence = {
   campaignId?: string;
   campaignItemId?: string;
   publicationVersion?: number;
-  mechanicType?: "quantity_threshold_promo" | "fixed_bundle_promo";
+  mechanicType?: "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo";
+  attachRole?: "REWARD";
   thresholdQuantity?: number;
   requiredBundleQuantity?: number;
 };

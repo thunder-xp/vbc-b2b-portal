@@ -146,6 +146,7 @@ export async function publishCampaignAction(campaignId: string, requestId: strin
       ? "Публикация отклонена: товары, аудитория и период пересекаются с другой PROMO кампанией. Измените состав, аудиторию или период."
       : detail.includes("CAMPAIGN_PROMO_PRICE_MISSING") ? "Публикация отклонена: у компонента отсутствует опубликованная цена PROMO."
       : detail.includes("CAMPAIGN_BUNDLE_COMPOSITION_INVALID") ? "В комплекте нужны минимум два разных товара и количество для каждого."
+      : detail.includes("CAMPAIGN_ATTACH_COMPOSITION_INVALID") ? "Укажите хотя бы один товар-условие с целым количеством и ровно один отдельный товар с PROMO."
       : "Публикация отклонена: проверьте период, товары и аудиторию.";
     return fail(error, message, "campaign_publish_failed");
   }
