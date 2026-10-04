@@ -96,6 +96,30 @@ export async function resumeCampaignAction(campaignId: string, reason: string): 
   catch (error) { return fail(error, "Не удалось возобновить предложение.", "campaign_resume_failed"); }
 }
 
+export async function reopenCampaignForEditAction(campaignId: string, reason: string): Promise<CampaignActionResult<{ revision: number }>> {
+  await requireAdminPermission("campaigns.edit");
+  try {
+    const data = await createCommercialCampaignService().reopenForEdit(campaignId, reason);
+    revalidatePath("/admin/commercial/campaigns");
+    revalidatePath(`/admin/commercial/campaigns/${campaignId}`);
+    return campaignSuccess(data, "Предложение остановлено и открыто для редактирования.");
+  } catch (error) {
+    return fail(error, "Не удалось открыть предложение для редактирования.", "campaign_reopen_failed");
+  }
+}
+
+export async function deleteArchivedCampaignAction(campaignId: string, reason: string): Promise<CampaignActionResult<boolean>> {
+  await requireAdminPermission("campaigns.edit");
+  try {
+    await createCommercialCampaignService().deleteArchived(campaignId, reason);
+    revalidatePath("/admin/commercial/campaigns");
+    revalidatePath(`/admin/commercial/campaigns/${campaignId}`);
+    return campaignSuccess(true, "Архивное предложение удалено из рабочего списка.");
+  } catch (error) {
+    return fail(error, "Удалить можно только архивное предложение.", "campaign_delete_archived_failed");
+  }
+}
+
 export async function publishCampaignAction(campaignId: string, requestId: string): Promise<CampaignActionResult<{ status: string; version: number; audienceCount: number }>> {
   await requireAdminPermission("campaigns.publish");
   try {

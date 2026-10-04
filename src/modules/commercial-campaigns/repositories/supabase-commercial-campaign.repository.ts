@@ -97,6 +97,15 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
     const { error } = await (await createClient()).rpc("resume_commercial_campaign_v1", { p_campaign_id: campaignId, p_reason: reason });
     if (error) throw new CommercialCampaignRepositoryError(error.code);
   }
+  async reopenForEdit(campaignId: string, reason: string): Promise<{ revision: number }> {
+    const { data, error } = await (await createClient()).rpc("reopen_commercial_campaign_for_edit_v1", { p_campaign_id: campaignId, p_reason: reason });
+    if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    return { revision: number(data.revision) };
+  }
+  async deleteArchived(campaignId: string, reason: string): Promise<void> {
+    const { error } = await (await createClient()).rpc("delete_archived_commercial_campaign_v1", { p_campaign_id: campaignId, p_reason: reason });
+    if (error) throw new CommercialCampaignRepositoryError(error.code);
+  }
   async publish(campaignId: string, requestId: string) {
     const { data, error } = await (await createClient()).rpc("publish_commercial_campaign", { p_campaign_id: campaignId, p_request_id: requestId });
     if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);

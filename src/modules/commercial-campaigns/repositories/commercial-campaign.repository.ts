@@ -15,6 +15,8 @@ export interface CommercialCampaignRepository {
   duplicate(campaignId: string, requestId: string): Promise<string>;
   archive(campaignId: string, reason: string): Promise<void>;
   resume(campaignId: string, reason: string): Promise<void>;
+  reopenForEdit(campaignId: string, reason: string): Promise<{ revision: number }>;
+  deleteArchived(campaignId: string, reason: string): Promise<void>;
   publish(campaignId: string, requestId: string): Promise<{ status: string; version: number; audienceCount: number }>;
   pause(campaignId: string, reason: string): Promise<void>;
 }

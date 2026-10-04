@@ -40,6 +40,8 @@ export class CommercialCampaignService {
   duplicate(campaignId: string, requestId: string) { return this.repository.duplicate(campaignId, requestId); }
   archive(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign archive reason is required."); return this.repository.archive(campaignId, reason.trim()); }
   resume(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign resume reason is required."); return this.repository.resume(campaignId, reason.trim()); }
+  reopenForEdit(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign reopen reason is required."); return this.repository.reopenForEdit(campaignId, reason.trim()); }
+  deleteArchived(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign deletion reason is required."); return this.repository.deleteArchived(campaignId, reason.trim()); }
   publish(campaignId: string, requestId: string) { return this.repository.publish(campaignId, requestId); }
   pause(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign pause reason is required."); return this.repository.pause(campaignId, reason.trim()); }
 
