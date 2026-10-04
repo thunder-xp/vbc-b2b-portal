@@ -4,6 +4,7 @@ import type { CommercialCampaignRepository } from "../repositories";
 import type { AdminCampaignFilter, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter } from "../types";
 import { SPECIAL_OFFERS_PROMO_PROFILE } from "../promo-profile";
 import { isCampaignRequiredQuantityValid } from "../campaign-draft-mechanics";
+import { isSpendConfigValid } from "../spend-config";
 
 export class CommercialCampaignService {
   constructor(private readonly repository: CommercialCampaignRepository, private readonly workspaceContext: PartnerWorkspaceContextService) {}
@@ -63,7 +64,10 @@ function validateDraft(input: CampaignDraftInput): void {
   if (input.items.some((item) => item.benefitType === "existing_price_profile" ? item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile must be PROMO.");
   if (input.mechanicType !== "fixed_bundle_promo" && input.items.some((item) => item.requiredBundleQuantity != null)) throw new InvalidStateError("Bundle quantities require the fixed bundle mechanic.");
   if (input.mechanicType !== "conditional_attach_promo" && input.items.some((item) => item.attachRole != null || item.requiredTriggerQuantity != null)) throw new InvalidStateError("Attach roles require the conditional attach mechanic.");
-  if (input.mechanicType === "conditional_attach_promo") {
+  if (input.mechanicType !== "spend_threshold_promo" && input.spendConfig != null) throw new InvalidStateError("Spend config requires the spend mechanic.");
+  if (input.mechanicType === "spend_threshold_promo") {
+    if (!isSpendConfigValid(input.spendConfig, input.items)) throw new InvalidStateError("Укажите положительный USD-порог, товары закупки и один отдельный товар с PROMO.");
+  } else if (input.mechanicType === "conditional_attach_promo") {
     if (input.items.filter((item) => item.attachRole === "TRIGGER").length < 1
       || input.items.filter((item) => item.attachRole === "REWARD").length !== 1
       || new Set(input.items.map((item) => item.productId)).size !== input.items.length

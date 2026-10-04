@@ -128,7 +128,7 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
 function mapCampaign(value: unknown): PartnerCampaign[] {
   if (!record(value) || typeof value.id !== "string") return [];
   const campaignMechanic = mechanicType(value.mechanicType);
-  return [{ id: value.id, code: text(value.code), title: text(value.title), description: text(value.description), type: text(value.type) as PartnerCampaign["type"], startsAt: text(value.startsAt), endsAt: text(value.endsAt), priority: number(value.priority), imageAssetPath: nullableText(value.imageAssetPath), termsSummary: text(value.termsSummary), mechanicType: campaignMechanic, bundleProgress: mapBundle(value.bundleProgress), attachProgress: mapAttach(value.attachProgress), products: records(value.products).map((item) => ({ itemId: text(item.itemId), productId: text(item.productId), sku: text(item.sku), name: text(item.name), slug: text(item.slug), imageUrl: nullableText(item.imageUrl), minimumQuantity: number(item.minimumQuantity), maximumQuantityPerCompany: nullableNumber(item.maximumQuantityPerCompany), partnerMessage: nullableText(item.partnerMessage), mechanicType: mechanicType(item.mechanicType || campaignMechanic), promoThresholdQuantity: nullableNumber(item.promoThresholdQuantity), requiredBundleQuantity: nullableNumber(item.requiredBundleQuantity), attachRole: attachRole(item.attachRole), requiredTriggerQuantity: nullableNumber(item.requiredTriggerQuantity), msrpPrice: mapUsdMoney(item.msrpPrice), partnerPrice: mapUsdMoney(item.partnerPrice), specialPrice: mapUsdMoney(item.specialPrice), price: mapMoney(item.price), availableQuantity: nullableNumber(item.availableQuantity), expectedArrivalDate: nullableText(item.expectedArrivalDate) })) }];
+  return [{ id: value.id, code: text(value.code), title: text(value.title), description: text(value.description), type: text(value.type) as PartnerCampaign["type"], startsAt: text(value.startsAt), endsAt: text(value.endsAt), priority: number(value.priority), imageAssetPath: nullableText(value.imageAssetPath), termsSummary: text(value.termsSummary), mechanicType: campaignMechanic, bundleProgress: mapBundle(value.bundleProgress), attachProgress: mapAttach(value.attachProgress), spendProgress: mapSpend(value.spendProgress), products: records(value.products).map((item) => ({ itemId: text(item.itemId), productId: text(item.productId), sku: text(item.sku), name: text(item.name), slug: text(item.slug), imageUrl: nullableText(item.imageUrl), minimumQuantity: number(item.minimumQuantity), maximumQuantityPerCompany: nullableNumber(item.maximumQuantityPerCompany), partnerMessage: nullableText(item.partnerMessage), mechanicType: mechanicType(item.mechanicType || campaignMechanic), promoThresholdQuantity: nullableNumber(item.promoThresholdQuantity), requiredBundleQuantity: nullableNumber(item.requiredBundleQuantity), attachRole: attachRole(item.attachRole), spendRole: item.spendRole === "QUALIFYING_SPEND" || item.spendRole === "REWARD" ? item.spendRole : null, requiredTriggerQuantity: nullableNumber(item.requiredTriggerQuantity), msrpPrice: mapUsdMoney(item.msrpPrice), partnerPrice: mapUsdMoney(item.partnerPrice), specialPrice: mapUsdMoney(item.specialPrice), price: mapMoney(item.price), availableQuantity: nullableNumber(item.availableQuantity), expectedArrivalDate: nullableText(item.expectedArrivalDate) })) }];
 }
 function mapAdminSummary(value: unknown) {
   if (!record(value) || typeof value.id !== "string") return [];
@@ -147,7 +147,7 @@ function text(value: unknown): string { return typeof value === "string" ? value
 function nullableText(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function number(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function nullableNumber(value: unknown): number | null { return value === null || value === undefined ? null : number(value); }
-function mechanicType(value: unknown): import("../types").CampaignMechanicType { return value === "quantity_threshold_promo" || value === "fixed_bundle_promo" || value === "conditional_attach_promo" ? value : "legacy_promo"; }
+function mechanicType(value: unknown): import("../types").CampaignMechanicType { return value === "quantity_threshold_promo" || value === "fixed_bundle_promo" || value === "conditional_attach_promo" || value === "spend_threshold_promo" ? value : "legacy_promo"; }
 function mapBundle(value: unknown): import("../types").CampaignBundleState | null {
   if (!record(value) || typeof value.campaignId !== "string") return null;
   return { campaignId: value.campaignId, publicationVersion: number(value.publicationVersion), eligible: value.eligible === true,
@@ -170,6 +170,19 @@ function mapAttach(value: unknown): import("../types").CampaignAttachState | nul
       minimumQuantity: number(reward.minimumQuantity), currentQuantity: number(reward.currentQuantity), availableQuantity: nullableNumber(reward.availableQuantity) } : null };
 }
 function eligibilityReason(value: unknown): import("../types").CampaignPromoEligibilityReason {
-  const allowed = new Set(["eligible", "below_threshold", "invalid_threshold", "missing_promo", "inactive_campaign", "outside_period", "outside_audience", "product_not_in_scope", "legacy_campaign", "trigger_normal_price", "incomplete_triggers", "reward_absent"]);
+  const allowed = new Set(["eligible", "below_threshold", "invalid_threshold", "missing_promo", "inactive_campaign", "outside_period", "outside_audience", "product_not_in_scope", "legacy_campaign", "trigger_normal_price", "incomplete_triggers", "reward_absent", "qualifying_normal_price", "missing_base_usd", "base_price_access_denied", "invalid_publication"]);
   return typeof value === "string" && allowed.has(value) ? value as import("../types").CampaignPromoEligibilityReason : "legacy_campaign";
+}
+
+function mapSpend(value: unknown): import("../types").CampaignSpendState | null {
+  if (!record(value) || typeof value.campaignId !== "string") return null;
+  const reward = record(value.reward) ? value.reward : null;
+  return { campaignId: value.campaignId, publicationVersion: number(value.publicationVersion), eligible: value.eligible === true,
+    conditionsReady: value.conditionsReady === true, thresholdReached: value.thresholdReached === true,
+    rewardPresent: value.rewardPresent === true, rewardStockReady: value.rewardStockReady === true, reason: text(value.reason),
+    thresholdAmountUsd: text(value.thresholdAmountUsd) || "0", qualifyingSpendUsd: text(value.qualifyingSpendUsd) || "0", remainingSpendUsd: text(value.remainingSpendUsd) || "0",
+    qualifyingProducts: records(value.qualifyingProducts).map((item) => ({ campaignItemId: text(item.campaignItemId), productId: text(item.productId),
+      sku: text(item.sku), name: text(item.name), currentQuantity: number(item.currentQuantity) })),
+    reward: reward ? { campaignItemId: text(reward.campaignItemId), productId: text(reward.productId), sku: text(reward.sku), name: text(reward.name),
+      minimumQuantity: number(reward.minimumQuantity), currentQuantity: number(reward.currentQuantity), availableQuantity: nullableNumber(reward.availableQuantity) } : null };
 }

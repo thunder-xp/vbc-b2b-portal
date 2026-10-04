@@ -144,6 +144,8 @@ export async function publishCampaignAction(campaignId: string, requestId: strin
     const detail = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
     const message = detail.includes("CAMPAIGN_COMMERCIAL_SCOPE_CONFLICT")
       ? "Публикация отклонена: товары, аудитория и период пересекаются с другой PROMO кампанией. Измените состав, аудиторию или период."
+      : detail.includes("CAMPAIGN_SPEND_BASE_USD_MISSING") ? "Публикация отклонена: для товара закупки нет действующей базовой цены партнёра в USD для выбранной аудитории."
+      : detail.includes("CAMPAIGN_SPEND_CONFIG_INVALID") ? "Укажите положительный USD-порог, хотя бы один товар закупки и один отдельный товар с PROMO."
       : detail.includes("CAMPAIGN_PROMO_PRICE_MISSING") ? "Публикация отклонена: у компонента отсутствует опубликованная цена PROMO."
       : detail.includes("CAMPAIGN_BUNDLE_COMPOSITION_INVALID") ? "В комплекте нужны минимум два разных товара и количество для каждого."
       : detail.includes("CAMPAIGN_ATTACH_COMPOSITION_INVALID") ? "Укажите хотя бы один товар-условие с целым количеством и ровно один отдельный товар с PROMO."

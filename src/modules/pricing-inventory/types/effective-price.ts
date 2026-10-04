@@ -10,7 +10,11 @@ export type EffectivePriceEvidence = {
   campaignId?: string;
   campaignItemId?: string;
   publicationVersion?: number;
-  mechanicType?: "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo";
+  mechanicType?: "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo" | "spend_threshold_promo";
+  spendRole?: "REWARD";
+  spendConfig?: import("../../commercial-campaigns/types").SpendThresholdPromoConfig;
+  qualifyingSpendUsd?: string;
+  qualifyingSources?: Array<{ productId: string; quantity: number; priceId: string; sourceAmountUsd: string }>;
   attachRole?: "REWARD";
   thresholdQuantity?: number;
   requiredBundleQuantity?: number;

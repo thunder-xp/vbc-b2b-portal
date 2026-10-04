@@ -16,6 +16,11 @@ export function isCampaignRequiredQuantityValid(
 
 /** Clear inactive mechanic fields while preserving the existing editor transition policy. */
 export function configureCampaignItemMechanic<T extends DraftItem>(item: T, mechanic: CampaignMechanicType): T {
+  if (mechanic === "spend_threshold_promo") {
+    return { ...item, minimumQuantity: 1, attachRole: null, requiredTriggerQuantity: null,
+      benefitType: "informational_only", governedBenefitReference: null,
+      promoThresholdQuantity: null, requiredBundleQuantity: null };
+  }
   if (mechanic === "conditional_attach_promo") {
     return { ...item, minimumQuantity: 1, attachRole: "TRIGGER", requiredTriggerQuantity: null,
       benefitType: "informational_only", governedBenefitReference: null,

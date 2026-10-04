@@ -1,8 +1,17 @@
 export type CampaignStatus = "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
 export type CampaignFilter = "active" | "ending" | "stock" | "arrivals" | "purchased";
 export type CampaignType = "product_offer" | "stock_clearance" | "arrival_promotion" | "reorder_campaign" | "category_campaign" | "partner_segment_offer";
-export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo";
-export type CampaignPromoEligibilityReason = "eligible" | "below_threshold" | "invalid_threshold" | "missing_promo" | "inactive_campaign" | "outside_period" | "outside_audience" | "product_not_in_scope" | "legacy_campaign" | "trigger_normal_price" | "incomplete_triggers" | "reward_absent";
+export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo" | "spend_threshold_promo";
+/** Decimal strings preserve the monetary contract across JSON and editor boundaries. */
+export type SpendThresholdPromoConfig = { thresholdAmountUsd: string; currency: "USD"; qualifyingProductIds: string[]; rewardProductId: string };
+export type CampaignSpendState = {
+  campaignId: string; publicationVersion: number; eligible: boolean; conditionsReady: boolean;
+  thresholdAmountUsd: string; qualifyingSpendUsd: string; remainingSpendUsd: string;
+  thresholdReached: boolean; rewardPresent: boolean; rewardStockReady: boolean; reason: string;
+  qualifyingProducts: Array<{ campaignItemId: string; productId: string; sku: string; name: string; currentQuantity: number }>;
+  reward: CampaignAttachState["reward"];
+};
+export type CampaignPromoEligibilityReason = "eligible" | "below_threshold" | "invalid_threshold" | "missing_promo" | "inactive_campaign" | "outside_period" | "outside_audience" | "product_not_in_scope" | "legacy_campaign" | "trigger_normal_price" | "incomplete_triggers" | "reward_absent" | "qualifying_normal_price" | "missing_base_usd" | "base_price_access_denied" | "invalid_publication";
 
 export type CampaignBundleComponent = {
   campaignItemId: string; productId: string; sku: string; name: string;
@@ -35,6 +44,7 @@ export type CampaignProduct = {
   promoThresholdQuantity: number | null;
   requiredBundleQuantity?: number | null;
   attachRole?: "TRIGGER" | "REWARD" | null;
+  spendRole?: "QUALIFYING_SPEND" | "REWARD" | null;
   requiredTriggerQuantity?: number | null;
   msrpPrice: CampaignMoney | null;
   partnerPrice: CampaignMoney | null;
@@ -60,6 +70,7 @@ export type PartnerCampaign = {
   products: CampaignProduct[];
   bundleProgress?: CampaignBundleState | null;
   attachProgress?: CampaignAttachState | null;
+  spendProgress?: CampaignSpendState | null;
 };
 
 export type PartnerCampaignPage = { items: PartnerCampaign[]; totalCount: number };
@@ -121,6 +132,7 @@ export type CampaignBuilderOptions = {
   assets: CampaignAssetOption[];
 };
 export type CampaignDraftInput = {
+  spendConfig?: SpendThresholdPromoConfig | null;
   contractVersion: "3";
   requestId: string;
   code: string;
@@ -156,6 +168,7 @@ export type CampaignDraftUpdateInput = CampaignDraftInput & {
   expectedRevision: number;
 };
 export type CampaignDraftSeed = {
+  spendConfig?: SpendThresholdPromoConfig | null;
   campaignId: string;
   revision: number;
   values: {
