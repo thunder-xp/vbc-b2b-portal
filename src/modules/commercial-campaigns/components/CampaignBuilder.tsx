@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ChangeEvent, 
 
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import { createCampaignDraftAction, searchCampaignCompaniesAction, searchCampaignProductsAction, updateCampaignDraftAction } from "../actions/commercial-campaign.actions";
+import { fromCampaignDateTimeInput } from "../campaign-datetime";
 import type { CampaignBuilderOptions, CampaignDraftInput, CampaignDraftSeed, CampaignProductOption, CampaignType } from "../types";
 
 const STEPS = ["Основное", "Товары", "Аудитория", "Проверка"] as const;
@@ -89,7 +90,7 @@ export function CampaignBuilder({ options, initial, preview = false }: { options
 
   const payload = (): CampaignDraftInput => ({
     contractVersion: "2", requestId: requestId.current, code: values.code.trim().toUpperCase(), name: values.name.trim(), partnerTitle: values.title.trim(), partnerDescription: values.description.trim(), internalNote: values.internalNote.trim() || undefined,
-    campaignType: values.type, startsAt: new Date(values.startsAt).toISOString(), endsAt: new Date(values.endsAt).toISOString(), priority: values.priority, imageAssetPath: values.image || undefined, termsSummary: values.terms.trim(), audienceMode, companyIds: companies,
+    campaignType: values.type, startsAt: fromCampaignDateTimeInput(values.startsAt), endsAt: fromCampaignDateTimeInput(values.endsAt), priority: values.priority, imageAssetPath: values.image || undefined, termsSummary: values.terms.trim(), audienceMode, companyIds: companies,
     items: items.map((item, index) => ({ productId: item.productId, sortOrder: index + 1, minimumQuantity: item.minimumQuantity, maximumQuantityPerCompany: item.maximumQuantityPerCompany, benefitType: item.benefitType, governedBenefitReference: item.governedBenefitReference, partnerMessage: item.partnerMessage })),
   });
   const save = () => {
