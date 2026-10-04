@@ -60,7 +60,7 @@ export function CampaignBuilder({ options, initial, preview = false }: { options
 
   const mark = () => setDirty(true);
   const bind = (key: keyof typeof values) => ({ value: values[key], onChange: (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { setValues((current) => ({ ...current, [key]: key === "priority" ? Number(event.target.value) : event.target.value })); mark(); } });
-  const bindDate = (key: "startsAt" | "endsAt") => ({ value: values[key], onInput: (event: FormEvent<HTMLInputElement>) => { setValues((current) => ({ ...current, [key]: event.currentTarget.value })); mark(); } });
+  const bindDate = (key: "startsAt" | "endsAt") => ({ value: values[key], onInput: (event: FormEvent<HTMLInputElement>) => { const value = event.currentTarget.value; setValues((current) => ({ ...current, [key]: value })); mark(); } });
   const selectedIds = useMemo(() => new Set(items.map((item) => item.productId)), [items]);
   const selectedCompanies = useMemo(() => new Map([...options.companies, ...companyResult].filter((company) => companies.includes(company.id)).map((company) => [company.id, company])), [companies, companyResult, options.companies]);
 

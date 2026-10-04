@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -37,6 +37,13 @@ describe("Special Offers workspace", () => {
     expect(screen.getByText("Выбранные товары")).toBeInTheDocument();
     expect(screen.getAllByText(/800147 · DH-C4K-P/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Выбрано: 1\/50\./)).toBeInTheDocument();
+  });
+
+  it("keeps a datetime-local input change in the draft preview", async () => {
+    render(<CampaignBuilder initial={{ campaignId: "30000000-0000-4000-8000-000000000001", revision: 2, values: { code: "TEST", name: "Test offer", title: "Partner offer", description: "A complete partner offer description", internalNote: "", terms: "Terms", type: "product_offer", startsAt: "2026-10-04T10:00", endsAt: "2026-10-05T10:00", priority: 10, image: "" }, audienceMode: "explicit_company", companyIds: [options.companies[0].id], items: [{ productId: camera.id, sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null, partnerMessage: null, product: camera }] }} options={options} />);
+    fireEvent.input(screen.getByLabelText("Начало"), { target: { value: "2026-10-04T12:30" } });
+    await userEvent.click(screen.getByRole("button", { name: "4. Проверка" }));
+    expect(screen.getByText(/2026-10-04T12:30 — 2026-10-05T10:00/)).toBeInTheDocument();
   });
 
   it("provides both required user-facing locale labels", () => {
