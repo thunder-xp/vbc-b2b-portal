@@ -7,7 +7,7 @@ import { OrderRepositoryError, type CartReconciliationLock, type CartRepository,
 const CART_COLUMNS = "id, company_id, created_by, status, intent_version, created_at, updated_at";
 const CART_ITEM_COLUMNS = "id, cart_id, product_id, quantity, created_at, updated_at, cart_item_sources(product_name_snapshot, sku_snapshot, slug_snapshot, image_url_snapshot)";
 const ORDER_COLUMNS = "id, company_id, submitted_by, cart_id, submission_key, submission_attempt_id, request_fingerprint, status, integration_status, one_c_order_status, requested_delivery_date, external_1c_ref, external_1c_number, external_1c_date, authoritative_presence, last_authority_verified_at, last_authority_result, payload_snapshot, safe_error_code, safe_error_message, document_total, currency_code, contract_number, confirmed_at, last_reconciled_at, reconciliation_attempt_count, reconciliation_last_attempt_at, reconciliation_correlation_id, submitted_at, created_at, updated_at";
-const ORDER_ITEM_COLUMNS = "id, order_id, product_id, external_product_ref, product_name, sku, quantity, partner_unit_price, currency_code, line_total, source_unit_price, source_currency_code, applied_exchange_rate, exchange_rate_id, exchange_rate_purpose, exchange_rate_effective_at, exchange_rate_published_at, available_stock, nearest_arrival_date, nearest_arrival_quantity, snapshot_at";
+const ORDER_ITEM_COLUMNS = "id, order_id, product_id, external_product_ref, product_name, sku, quantity, partner_unit_price, currency_code, line_total, source_unit_price, source_currency_code, applied_exchange_rate, exchange_rate_id, exchange_rate_purpose, exchange_rate_source_type, exchange_rate_effective_at, exchange_rate_published_at, effective_price_evidence, available_stock, nearest_arrival_date, nearest_arrival_quantity, snapshot_at";
 
 type Row = Record<string, unknown>;
 
@@ -240,6 +240,7 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
         currency_code: item.currencyCode,
         line_total: item.lineTotal,
         source_unit_price: item.sourceUnitPrice,
+        effective_price_evidence: item.effectivePriceEvidence ?? null,
         source_currency_code: item.sourceCurrencyCode,
         applied_exchange_rate: item.appliedExchangeRate,
         exchange_rate_id: item.exchangeRateId,
@@ -378,6 +379,9 @@ function mapOrderItem(row: Row): PartnerOrderItem {
     productName: text(row.product_name), sku: text(row.sku), quantity: Number(row.quantity), partnerUnitPrice: Number(row.partner_unit_price),
     currencyCode: text(row.currency_code), lineTotal: Number(row.line_total), availableStock: nullableNumber(row.available_stock),
     sourceUnitPrice: nullableNumber(row.source_unit_price), sourceCurrencyCode: nullableText(row.source_currency_code),
+    effectivePriceEvidence: isRecord(row.effective_price_evidence)
+      ? row.effective_price_evidence as import("../../../pricing-inventory/types/effective-price").EffectivePriceEvidence
+      : null,
     appliedExchangeRate: nullableNumber(row.applied_exchange_rate), exchangeRateId: nullableText(row.exchange_rate_id),
     exchangeRatePurpose: nullableText(row.exchange_rate_purpose), exchangeRateEffectiveAt: nullableText(row.exchange_rate_effective_at),
     exchangeRateSourceType: nullableText(row.exchange_rate_source_type),

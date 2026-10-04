@@ -93,6 +93,7 @@ export type PartnerOrder = {
 };
 
 export type PartnerOrderItem = {
+  effectivePriceEvidence?: import("../../pricing-inventory/types/effective-price").EffectivePriceEvidence | null;
   id: string;
   orderId: string;
   productId: string;

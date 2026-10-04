@@ -16,6 +16,7 @@ import type {
   CheckoutPaymentMethod,
 } from "../repositories";
 import { OrderRepositoryError, type CartRepository, type OrderItemSnapshotInput, type PartnerOrderRepository } from "../repositories/order.repository";
+import { EffectiveCommercialPriceChangedError } from "../../pricing-inventory/types/effective-price";
 import { CartStatus, PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder, type PartnerOrderItem } from "../types";
 import {
   OrderReconciliationRequiredError,
@@ -302,7 +303,8 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
     const checkoutSettlementCurrencyRef = resolvedCheckout.contract.settlementCurrencyRef
       .trim()
       .toLowerCase();
-    if (resolvedCheckout.contract.publishedPriceCurrencyCode?.toUpperCase() === "USD") {
+    let commercialRateChecked = false;
+    const ensureCommercialRateFresh = async () => {
       if (!this.commercialRateCheckoutGuard) {
         failOrderSubmission("commercial_rate_freshness", new RecoverableOrderSubmissionError(
           "Коммерческий курс обновляется. Повторите оформление через несколько секунд.",
@@ -331,6 +333,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           sourceCheckedAt: rateEvidence.checkedAt, targetedRefresh: rateEvidence.refreshed,
         });
       }
+      commercialRateChecked = true;
+    };
+    if (resolvedCheckout.contract.publishedPriceCurrencyCode?.toUpperCase() === "USD") {
+      await ensureCommercialRateFresh();
     }
     if (!cart) throw new RecoverableOrderSubmissionError("The active cart is not available.");
     if (cart.id !== submittedCartId) {
@@ -398,6 +404,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
                 userId,
                 productIds,
                 checkoutPriceTypeRef,
+                cart.id,
               )
             : (this.pricingInventoryService.getAuthoritativeProductCommercialViews
                 ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
@@ -422,17 +429,28 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         ...diagnosticError(error),
       });
       if (error instanceof RecoverableOrderSubmissionError) throw error;
+      if (error instanceof EffectiveCommercialPriceChangedError) {
+        throw new RecoverableOrderSubmissionError(error.message, "ORDER_PRICE_CHANGED");
+      }
       throw new RecoverableOrderSubmissionError("Order preflight validation failed.");
     }
     const [identities, initialOrderPricing] = resolvedInputs;
     let commercialViews = initialOrderPricing.views;
     const commercialMode = initialOrderPricing.commercialMode;
+    if (!commercialRateChecked && commercialViews.some((view) => view.partnerPrice?.currencyCode === "USD")) {
+      await ensureCommercialRateFresh();
+    }
     const identitiesById = new Map(identities.map((item) => [item.id, item]));
     const initialViewsById = new Map(commercialViews.map((item) => [item.productId, item]));
     const staleProductIds = productIds.filter((productId) => {
       const updatedAt = initialViewsById.get(productId)?.partnerPrice?.lastUpdatedAt;
       return !updatedAt || isStale(updatedAt, "price");
     });
+    if (staleProductIds.some((productId) => initialViewsById.get(productId)?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO")) {
+      // Existing targeted refresh is scoped to the contract profile, not PROMO.
+      // Fail closed rather than refreshing a different profile or accepting stale PROMO.
+      throw new RecoverableOrderSubmissionError("The governed PROMO price must be refreshed before checkout.", "ORDER_PRICE_STALE");
+    }
     if (staleProductIds.length) {
       console.info({
         event: "partner_order_checkout_preflight",
@@ -495,14 +513,22 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           correlationId,
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleProductIds.length });
       }
-      const refreshedOrderPricing = this.pricingInventoryService.getAuthoritativeOrderPricing
-        ? await this.pricingInventoryService.getAuthoritativeOrderPricing(userId, productIds, checkoutPriceTypeRef)
-        : {
+      let refreshedOrderPricing;
+      try {
+        refreshedOrderPricing = this.pricingInventoryService.getAuthoritativeOrderPricing
+          ? await this.pricingInventoryService.getAuthoritativeOrderPricing(userId, productIds, checkoutPriceTypeRef, cart.id)
+          : {
             commercialMode,
             views: this.pricingInventoryService.getAuthoritativeProductCommercialViews
               ? await this.pricingInventoryService.getAuthoritativeProductCommercialViews(userId, productIds)
               : await this.pricingInventoryService.getProductCommercialViews(userId, productIds),
           };
+      } catch (error) {
+        if (error instanceof EffectiveCommercialPriceChangedError) {
+          throw new RecoverableOrderSubmissionError(error.message, "ORDER_PRICE_CHANGED");
+        }
+        throw error;
+      }
       commercialViews = refreshedOrderPricing.views;
       const refreshedViewsById = new Map(commercialViews.map((item) => [item.productId, item]));
       const missingProductIds = staleProductIds.filter((productId) => !refreshedViewsById.get(productId)?.partnerPrice);
@@ -647,7 +673,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity.sku, product1cRef: identity.external1cId, submissionKey },
         );
       }
-      if (sourcePrice.currencyCode !== resolvedCheckout.contract.publishedPriceCurrencyCode) {
+      const expectedSourceCurrency = view?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO"
+        ? "USD" : resolvedCheckout.contract.publishedPriceCurrencyCode;
+      if (sourcePrice.currencyCode !== expectedSourceCurrency) {
         failOrderSubmission(
           "price_type_currency_resolution",
           new RecoverableOrderSubmissionError(
@@ -698,6 +726,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         quantity: item.quantity, partnerUnitPrice: price.amount, currencyCode: "MDL",
         lineTotal,
         sourceUnitPrice: evidence.sourceAmount,
+        effectivePriceEvidence: view?.effectivePriceEvidence ?? null,
         sourceCurrencyCode: evidence.sourceCurrencyCode,
         appliedExchangeRate: evidence.appliedRate,
         exchangeRateId: evidence.rateId,
@@ -1048,6 +1077,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
 }
 
 const ORDER_PREPARATION_CODES = new Set<RecoverableOrderSubmissionCode>([
+  "ORDER_PRICE_CHANGED",
   "ORDER_CART_VERSION_CONFLICT",
   "ORDER_INVALID_SHIPMENT_DATE",
   "ORDER_PAYMENT_CONFIGURATION_INVALID",

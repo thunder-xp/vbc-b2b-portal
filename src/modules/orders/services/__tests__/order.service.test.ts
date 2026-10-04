@@ -6,10 +6,51 @@ import { OrderRepositoryError, type PartnerOrderRepository } from "../../reposit
 import { PartnerOrderIntegrationStatus, PartnerOrderStatus, type PartnerOrder } from "../../types";
 import { assertLegacyExportIntegrity, DefaultPartnerOrderService } from "../order.service";
 import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "../order-submission.errors";
+import { EffectiveCommercialPriceChangedError } from "../../../pricing-inventory/types/effective-price";
 
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
 
 describe("DefaultPartnerOrderService", () => {
+  it("persists governed PROMO source and provenance and exports the same explicit MDL line value", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+    const view = { ...commercial("product-1", 84), effectivePriceEvidence: { priceSource: "CAMPAIGN_PROMO" as const, priceTypeRef: "b9f5d585-dab1-11e9-8a58-000c29cf9dd4", priceId: "governed-promo", sourceAmount: 84, sourceCurrency: "USD" as const, campaignId: "campaign-1", campaignItemId: "item-1", publicationVersion: 2, mechanicType: "quantity_threshold_promo" as const, thresholdQuantity: 5 } };
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([view]);
+    await dependencies.service.submit("user-1", input());
+    const snapshot = dependencies.orderRepository.beginSubmission.mock.calls[0]![0];
+    expect(snapshot.items[0]).toMatchObject({ sourceUnitPrice: 84, sourceCurrencyCode: "USD", partnerUnitPrice: 1470, effectivePriceEvidence: view.effectivePriceEvidence });
+    expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(expect.objectContaining({ items: [expect.objectContaining({ price: { amount: 1470, currency: "MDL" } })] }));
+    expect(dependencies.pricingService.getAuthoritativeOrderPricing).toHaveBeenCalledWith("user-1", ["product-1"], expect.any(String), "44444444-4444-4444-8444-444444444444");
+  });
+
+  it("returns the existing commercial conflict and never exports after PROMO eligibility is lost", async () => {
+    const dependencies = makeDependencies();
+    dependencies.pricingService.getAuthoritativeOrderPricing.mockRejectedValue(new EffectiveCommercialPriceChangedError());
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  it("checks FX freshness for USD PROMO even when the contract base profile is MDL", async () => {
+    const dependencies = makeDependencies();
+    const config = checkoutConfiguration();
+    config.publishedPriceCurrencyCode = "MDL";
+    config.cashless.publishedPriceCurrencyCode = "MDL";
+    config.cashless.authoritativePriceCurrencyCode = "MDL";
+    dependencies.checkoutConfigurationRepository.getByCompanyId.mockResolvedValue(config);
+    dependencies.commercialRateCheckoutGuard.ensureFresh.mockRejectedValue(new Error("Unavailable"));
+    const view = { ...commercial("product-1", 84), effectivePriceEvidence: { priceSource: "CAMPAIGN_PROMO" as const, priceTypeRef: "b9f5d585-dab1-11e9-8a58-000c29cf9dd4", priceId: "governed-promo", sourceAmount: 84, sourceCurrency: "USD" as const, campaignId: "campaign-1", campaignItemId: "item-1", publicationVersion: 2, mechanicType: "quantity_threshold_promo" as const, thresholdQuantity: 5 } };
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([view]);
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_REFRESH_FAILED" });
+    expect(dependencies.commercialRateCheckoutGuard.ensureFresh).toHaveBeenCalledTimes(1);
+    expect(dependencies.orderRepository.beginSubmission).not.toHaveBeenCalled();
+  });
+
+  it("maps a last-moment DB price conflict without sending an order to 1C", async () => {
+    const dependencies = makeDependencies();
+    dependencies.orderRepository.beginSubmission.mockRejectedValue(new OrderRepositoryError("PT409", "ORDER_PRICE_CHANGED"));
+    await expect(dependencies.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+    expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
   it("uses partner BCRU pricing and snapshots online mode for immediate payment", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
     await dependencies.service.submit("user-1", { ...input(), pricingMode: "rate_113_online" });
@@ -604,7 +645,7 @@ describe("DefaultPartnerOrderService", () => {
     await dependencies.service.submit("user-1", { ...input(), paymentMethod: "cash" });
 
     expect(dependencies.pricingService.getAuthoritativeOrderPricing)
-      .toHaveBeenCalledWith("user-1", ["product-1"], cashPriceTypeRef);
+      .toHaveBeenCalledWith("user-1", ["product-1"], cashPriceTypeRef, "44444444-4444-4444-8444-444444444444");
     expect(dependencies.orderProvider.exportSalesOrder).toHaveBeenCalledWith(
       expect.objectContaining({
         contractReference: expect.objectContaining({ externalId: "77777777-7777-4777-8777-777777777777" }),

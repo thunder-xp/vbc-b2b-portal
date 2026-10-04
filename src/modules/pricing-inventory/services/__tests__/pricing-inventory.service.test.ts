@@ -25,6 +25,25 @@ import type { CommercialRate, ProductPrice, ProductStockBalance } from "../../ty
 import type { ProductSupplierArrival } from "../../repositories";
 
 describe("DefaultPricingInventoryService", () => {
+  it("uses one effective cart resolver and the existing dual FX projections for cart and checkout", async () => {
+    const repository = new FakePricingInventoryRepository([makePrice("company-1", 92, "BASE", "USD")], [], [], 17.5, 18);
+    const evidence = { priceSource: "CAMPAIGN_PROMO" as const, priceTypeRef: "b9f5d585-dab1-11e9-8a58-000c29cf9dd4", priceId: "promo-price", sourceAmount: 84, sourceCurrency: "USD" as const, campaignId: "campaign", campaignItemId: "item", publicationVersion: 2, mechanicType: "quantity_threshold_promo" as const, thresholdQuantity: 5 };
+    const resolveCartPrices = vi.fn().mockResolvedValue([{ productId: "product-1", quantity: 5, price: makePrice(null, 84, evidence.priceTypeRef, "USD"), evidence }]);
+    const service = new DefaultPricingInventoryService(Object.assign(repository, { resolveCartPrices }), new FakeCompanyAccessService(), new FakePermissionService(["pricing.partner_price.view"]));
+    const cart = await service.getCartCommercialViews("user-1", "cart-1", ["product-1"]);
+    expect(cart[0]).toMatchObject({ partnerPrice: { amount: 84 }, partnerPriceMdl: { amount: 1470 }, partnerCheckoutPriceMdl: { amount: 1512 }, effectivePriceEvidence: evidence });
+    const checkout = await service.getAuthoritativeOrderPricing("user-1", ["product-1"], "BASE", "cart-1");
+    expect(checkout.views[0]?.partnerPrice?.amount).toBe(84);
+    expect(resolveCartPrices).toHaveBeenNthCalledWith(1, { userId: "user-1", cartId: "cart-1", review: true, priceTypeRef: goldPriceType });
+    expect(resolveCartPrices).toHaveBeenNthCalledWith(2, { userId: "user-1", cartId: "cart-1", review: false, priceTypeRef: "BASE" });
+    expect(repository.authoritativePriceReads).toBe(0);
+    expect(repository.lastPriceInputs).toEqual([]);
+  });
+
+  it("does not silently fall back when contextual pricing authority is unavailable", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([]), new FakeCompanyAccessService(), new FakePermissionService(["pricing.partner_price.view"]));
+    await expect(service.getCartCommercialViews("user-1", "cart-1", ["product-1"])).rejects.toThrow("Authoritative cart pricing is unavailable");
+  });
   it("loads stock-only editor data in two bounded reads without prices or rates", async () => {
     const repository = new FakePricingInventoryRepository([]);
     const totals = vi.spyOn(repository, "listStockTotalsForProducts");

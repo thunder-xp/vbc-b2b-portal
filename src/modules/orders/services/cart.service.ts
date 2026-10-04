@@ -181,7 +181,9 @@ export class DefaultCartService implements CartService {
     const productIds = items.map((item) => item.productId);
     const [products, views, checkoutConfiguration] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
-      this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+      this.pricingInventoryService.getCartCommercialViews
+        ? this.pricingInventoryService.getCartCommercialViews(userId, cart.id, productIds)
+        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
       this.checkoutConfigurationRepository?.getByCompanyId(companyId) ?? null,
     ]);
     const productsById = new Map(products.map((product) => [product.id, product]));

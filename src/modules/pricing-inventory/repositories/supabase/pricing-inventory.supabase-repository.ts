@@ -24,6 +24,7 @@ import {
   type ProductStockBalance,
 } from "../../types";
 import { normalizeOneCCurrencyCode } from "@/src/lib/currency";
+import { EffectiveCommercialPriceChangedError, type EffectiveCartPrice, type EffectivePriceEvidence } from "../../types/effective-price";
 import {
   mapProductPriceRow,
   mapProductStockBalanceRow,
@@ -339,6 +340,26 @@ export class SupabasePricingInventoryRepository
 
     if (error) throw new PricingInventoryRepositoryUnexpectedError();
     return ((data ?? []) as ProductPriceRow[]).map(mapProductPriceRow);
+  }
+
+  async resolveCartPrices(input: { userId: string; cartId: string; priceTypeRef?: string; review: boolean }): Promise<EffectiveCartPrice[]> {
+    // Actor is resolved by the service from the authenticated session, never from browser input.
+    const { data, error } = input.review
+      ? await (await createClient()).rpc("resolve_partner_cart_prices_v1", {
+      p_cart_id: input.cartId,
+      p_price_type_ref: input.priceTypeRef ?? null,
+      p_review: true,
+    }) : await createAdminClient().rpc("resolve_partner_cart_prices_for_order_v1", {
+      p_actor: input.userId,
+      p_cart_id: input.cartId,
+      p_price_type_ref: input.priceTypeRef ?? null,
+    });
+    if (error?.code === "PT409") throw new EffectiveCommercialPriceChangedError();
+    if (error || !data || !Array.isArray(data.items)) throw new PricingInventoryRepositoryUnexpectedError();
+    return (data.items as Array<{ productId: string; quantity: number; price: ProductPriceRow | null; evidence: EffectivePriceEvidence | null }>).map((item) => ({
+      ...item,
+      price: item.price ? mapProductPriceRow(item.price) : null,
+    }));
   }
 
   async listStockForProducts(

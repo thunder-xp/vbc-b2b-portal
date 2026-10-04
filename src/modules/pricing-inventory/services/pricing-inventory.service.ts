@@ -10,6 +10,7 @@ import { MembershipStatus } from "../../access-control/types";
 import type { PricingInventoryRepository, ProductStockTotal, ProductSupplierArrival, RetailPriceHistoryRange, RetailPriceHistoryRow, UsdMdlExchangeRate } from "../repositories";
 import type { ProductPrice } from "../types";
 import type { CommercialRate, CommercialRateSnapshot } from "../types";
+import type { EffectivePriceEvidence } from "../types/effective-price";
 import { normalizeOneCCurrencyCode } from "../../../lib/currency";
 import { evaluateFreshness, type FreshnessView } from "../../integration/freshness";
 
@@ -69,6 +70,7 @@ export type CommercialOpportunityViewDto = {
 
 export type ProductCommercialViewDto = {
   productId: string;
+  effectivePriceEvidence?: EffectivePriceEvidence | null;
   partnerPrice: ProductPriceViewDto | null;
   partnerPriceMdl?: ProductPriceViewDto | null;
   partnerCheckoutPriceMdl?: ProductPriceViewDto | null;
@@ -107,6 +109,7 @@ export type RetailPriceHistoryDto = RetailPriceHistoryRow & {
 };
 
 export interface PricingInventoryService {
+  getCartCommercialViews?(userId: string, cartId: string, productIds: string[]): Promise<ProductCommercialInternalDto[]>;
   getProductStockViews?(userId: string, productIds: string[]): Promise<Array<{ productId: string; stock: ProductStockViewDto }>>;
   getCommercialVisibility?(userId: string): Promise<CommercialVisibilityContext>;
   listAvailableCurrencyCodes?(userId: string): Promise<string[]>;
@@ -122,6 +125,7 @@ export interface PricingInventoryService {
     userId: string,
     productIds: string[],
     externalPriceTypeRef?: string,
+    cartId?: string,
   ): Promise<AuthoritativeOrderPricingContext>;
   getProductIdsByAvailability?(
     userId: string,
@@ -208,6 +212,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     userId: string,
     productIds: string[],
     externalPriceTypeRef?: string,
+    cartId?: string,
   ): Promise<AuthoritativeOrderPricingContext> {
     const normalizedProductIds = normalizeProductIds(productIds);
     if (!normalizedProductIds.length) {
@@ -216,7 +221,11 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         views: [],
       };
     }
-    return this.loadProductCommercialContext(userId, normalizedProductIds, true, externalPriceTypeRef);
+    return this.loadProductCommercialContext(userId, normalizedProductIds, true, externalPriceTypeRef, cartId ? { cartId, review: false } : undefined);
+  }
+
+  async getCartCommercialViews(userId: string, cartId: string, productIds: string[]): Promise<ProductCommercialInternalDto[]> {
+    return (await this.loadProductCommercialContext(userId, normalizeProductIds(productIds), false, undefined, { cartId, review: true })).views;
   }
 
   private async loadProductCommercialViews(
@@ -236,6 +245,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
     normalizedProductIds: string[],
     authoritativePartnerPricing: boolean,
     externalPriceTypeRef?: string,
+    cartContext?: { cartId: string; review: boolean },
   ): Promise<AuthoritativeOrderPricingContext> {
     const company = await this.resolveActiveCompany(userId);
     const companyId = company.id;
@@ -247,10 +257,18 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       authoritativePartnerPricing || visibility.canViewPartnerPrice;
     const canViewRetailPrice = visibility.canViewRetailPrice;
     const governedPriceTypeRef = externalPriceTypeRef ?? company.external1cPriceTypeId;
-    const [partnerPrices, retailReferencePrices, stockBalances, supplierArrivals, commercialRates, derivedPriceDomainsFresh] = await Promise.all([
+    // A single authenticated batch RPC selects source truth; existing FX projection stays shared.
+    const needsEffectivePrices = cartContext && canViewPartnerPrice;
+    if (needsEffectivePrices && !this.pricingInventoryRepository.resolveCartPrices) throw new Error("Authoritative cart pricing is unavailable.");
+    const effectivePricesPromise = needsEffectivePrices
+      ? this.pricingInventoryRepository.resolveCartPrices!({ ...cartContext, userId, priceTypeRef: governedPriceTypeRef ?? undefined })
+      : Promise.resolve(undefined);
+    const [partnerPrices, retailReferencePrices, stockBalances, supplierArrivals, commercialRates, derivedPriceDomainsFresh, effectivePrices] = await Promise.all([
       canViewPartnerPrice && governedPriceTypeRef
         ? (
-          authoritativePartnerPricing
+          needsEffectivePrices
+            ? effectivePricesPromise.then((items) => items!.flatMap((item) => item.price ? [item.price] : []))
+            : authoritativePartnerPricing
           && this.pricingInventoryRepository.listAuthoritativePricesForProducts
             ? this.pricingInventoryRepository.listAuthoritativePricesForProducts({
                 productIds: normalizedProductIds,
@@ -292,7 +310,10 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       canViewPartnerPrice && canViewRetailPrice
         ? this.pricingInventoryRepository.areDerivedPriceDomainsFresh?.() ?? Promise.resolve(false)
         : Promise.resolve(false),
+      effectivePricesPromise,
     ]);
+
+    const evidenceByProduct = new Map(effectivePrices?.map((item) => [item.productId, item.evidence]));
 
     const views = normalizedProductIds.map((productId) => {
       const partnerPrice = canViewPartnerPrice
@@ -337,6 +358,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       const retailPriceMdl = createRetailPriceMdlView(retailPrice);
       return {
         productId,
+        ...(effectivePrices ? { effectivePriceEvidence: evidenceByProduct.get(productId) ?? null } : {}),
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
         partnerPriceMdl,
         partnerCheckoutPriceMdl,

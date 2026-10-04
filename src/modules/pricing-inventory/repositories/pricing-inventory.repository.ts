@@ -71,6 +71,7 @@ export type UpsertProductStockBalanceInput = FindProductStockBalanceInput & {
 };
 
 export interface PricingInventoryRepository {
+  resolveCartPrices?(input: { userId: string; cartId: string; priceTypeRef?: string; review: boolean }): Promise<import("../types/effective-price").EffectiveCartPrice[]>;
   areDerivedPriceDomainsFresh?(): Promise<boolean>;
   findPriceTypeName?(externalRef: string): Promise<string | null>;
   listAvailableCurrencyCodes?(companyId: string): Promise<string[]>;
