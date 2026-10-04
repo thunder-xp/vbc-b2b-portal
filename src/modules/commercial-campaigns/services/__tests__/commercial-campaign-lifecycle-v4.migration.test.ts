@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { readableCampaignText } from "../../copy";
 
 const migration = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20261004160000_fix_special_offers_admin_lifecycle_and_encoding_v4.sql"), "utf8");
 const detailPage = fs.readFileSync(path.join(process.cwd(), "app/(admin)/admin/commercial/campaigns/[campaignId]/page.tsx"), "utf8");
@@ -40,5 +41,7 @@ describe("Special Offers lifecycle and encoding v4", () => {
     expect(detailPage).toContain("Спеццена PROMO");
     expect(detailPage).toContain("Нет ограничения");
     expect(detailPage).not.toMatch(/\?{3,}/);
+    expect(readableCampaignText("??????????", "Описание предложения недоступно.")).toBe("Описание предложения недоступно.");
+    expect(readableCampaignText("Корректный текст?", "fallback")).toBe("Корректный текст?");
   });
 });
