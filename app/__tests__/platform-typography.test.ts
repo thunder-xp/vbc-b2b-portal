@@ -37,7 +37,7 @@ describe("platform typography standard", () => {
     );
     expect(css).toContain("font-family: var(--font-app-sans);");
     expect(css).toContain("font-size: 14px;");
-    expect(css).toContain("line-height: 1.4;");
+    expect(css).toContain("line-height: 1.35;");
     expect(partnerLayout).not.toContain("font-[family-name:");
     expect(partnerLayout).not.toContain("font-partner-cabinet");
   });
