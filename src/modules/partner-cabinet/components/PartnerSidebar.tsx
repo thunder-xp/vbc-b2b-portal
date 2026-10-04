@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
 import { activeNavigationKey } from "./active-navigation";
@@ -98,7 +98,7 @@ function NavigationItem({
 }: {
   expanded?: boolean;
   hasWorkspaceAccess: boolean;
-  item: WorkspaceNavigationItem;
+  item: Omit<WorkspaceNavigationItem, "key"> & { key: string };
   onNavigate?: () => void;
   activeKey: string | undefined;
   submenu?: boolean;
@@ -172,7 +172,11 @@ function ExpandableNavigationGroup({
   onNavigate,
   onToggle,
   activeKey,
+  children,
+  routeActiveOverride,
 }: {
+  children?: ReactNode;
+  routeActiveOverride?: boolean;
   icon: typeof Gauge;
   expanded: boolean;
   hasWorkspaceAccess: boolean;
@@ -183,10 +187,10 @@ function ExpandableNavigationGroup({
   onToggle: () => void;
   activeKey: string | undefined;
 }) {
-  const routeActive = items.some((item) => activeKey === item.key);
+  const routeActive = routeActiveOverride ?? items.some((item) => activeKey === item.key);
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && !children) return null;
 
   return (
     <div>
@@ -212,6 +216,7 @@ function ExpandableNavigationGroup({
       >
         <div className="overflow-hidden">
           <div className="ml-5 space-y-0.5 border-l border-white/10 py-1 pl-2">
+            {children}
             {items.map((item) => (
               <NavigationItem
                 expanded={expanded}
@@ -243,7 +248,11 @@ export function PartnerSidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeKey = activeNavigationKey(pathname, searchParams, navigation.filter((item) => item.availability === "available"));
+  const canSelectProducts = hasWorkspaceAccess && ["catalog", "cart"].every((key) => navigation.some((item) => item.key === key && item.availability === "available"));
+  const activeKey = activeNavigationKey(pathname, searchParams, [
+    ...navigation.filter((item) => item.availability === "available"),
+    ...(canSelectProducts ? [{ key: "product_selection", href: "/cabinet/quick-order" }] : []),
+  ]);
   const locale = usePartnerLocale();
   const t = usePartnerText();
   const navigationByKey = new Map(navigation.map((item) => [item.key, { ...item, label: partnerNavigationLabel(locale, item.key) }]));
@@ -289,7 +298,7 @@ export function PartnerSidebar({
     return item ? [item] : [];
   });
   const activeGroupId = [
-    ["product-selection-navigation", selectionNavigation],
+    ["purchases-navigation", [...selectionNavigation, ...businessNavigation, { key: "product_selection" }]],
     ["project-protection-navigation", projectNavigation],
     ["estimates-navigation", estimatesNavigation],
     ["orders-finance-navigation", commercialNavigation],
@@ -324,11 +333,29 @@ export function PartnerSidebar({
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
           ))}
 
-          {businessNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
-          ))}
-
-          <ExpandableNavigationGroup {...groupProps("product-selection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={SearchCheck} id="product-selection-navigation" items={selectionNavigation} label={t("nav.group.productSelection")} onNavigate={onNavigate} activeKey={activeKey} />
+          {(canSelectProducts || selectionNavigation.length > 0 || businessNavigation.length > 0) && <ExpandableNavigationGroup
+            {...groupProps("purchases-navigation")}
+            hasWorkspaceAccess={hasWorkspaceAccess}
+            icon={ShoppingCart}
+            id="purchases-navigation"
+            items={businessNavigation}
+            label={t("nav.group.purchases")}
+            onNavigate={onNavigate}
+            activeKey={activeKey}
+            routeActiveOverride={activeGroupId === "purchases-navigation"}
+          >
+            {canSelectProducts && <NavigationItem
+              expanded={openGroupId === "purchases-navigation"}
+              hasWorkspaceAccess={hasWorkspaceAccess}
+              item={{ ...navigationByKey.get("catalog")!, key: "product_selection", label: t("nav.group.productSelection"), href: "/cabinet/quick-order", icon: "solution_selection" }}
+              onNavigate={onNavigate}
+              activeKey={activeKey}
+              submenu
+            />}
+            {selectionNavigation.length > 0 && <div id="product-selection-navigation" className="ml-5 space-y-0.5 border-l border-white/10 pl-2">
+              {selectionNavigation.map((item) => <NavigationItem expanded={openGroupId === "purchases-navigation"} hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} submenu />)}
+            </div>}
+          </ExpandableNavigationGroup>}
 
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}

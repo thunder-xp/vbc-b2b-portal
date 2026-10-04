@@ -15,9 +15,13 @@ const PAGE_CONTEXT: Record<string, Record<PartnerLocale, PageContext>> = {
     ru: { section: "Кабинет", title: "Финансы" },
     ro: { section: "Cabinet", title: "Finanțe" },
   },
+  "/cabinet/quick-order": {
+    ru: { section: "Покупки", title: "Подбор товаров" },
+    ro: { section: "Achiziții", title: "Selectarea produselor" },
+  },
   "/cabinet/offers": {
-    ru: { section: "Продажи", title: "Специальные предложения" },
-    ro: { section: "Vânzări", title: "Oferte speciale" },
+    ru: { section: "Покупки", title: "Специальные предложения" },
+    ro: { section: "Achiziții", title: "Oferte speciale" },
   },
   "/cabinet/opportunities": {
     ru: { section: "Покупки", title: "Возможности для закупки" },

@@ -33,6 +33,17 @@ describe("PartnerPageBreadcrumbs", () => {
     expect(screen.getByRole("navigation", { name: "Navigare ierarhică" })).toHaveTextContent(/Finalizarea comenzii\s*\/\s*Coș/);
   });
 
+  it.each([
+    ["/cabinet/quick-order", "Подбор товаров"],
+    ["/cabinet/opportunities", "Возможности для закупки"],
+    ["/cabinet/offers", "Специальные предложения"],
+  ])("shows purchasing context for %s", (route, title) => {
+    navigationState.pathname = route;
+    render(<PartnerPageBreadcrumbs locale="ru" />);
+    expect(screen.getByRole("navigation")).toHaveTextContent("Покупки");
+    expect(screen.getByRole("heading", { name: title })).toHaveAttribute("aria-current", "page");
+  });
+
   it("does not render page context for routes without configured page headers", () => {
     navigationState.pathname = "/cabinet/catalog";
     const { container } = render(<PartnerPageBreadcrumbs locale="ru" />);

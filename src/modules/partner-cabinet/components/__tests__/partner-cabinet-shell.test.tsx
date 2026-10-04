@@ -95,9 +95,7 @@ describe("Partner workspace shell", () => {
     expect(topLevelLabels).toEqual([
       "Рабочий стол",
       "Каталог товаров",
-      "Возможности для закупки",
-      "Специальные предложения",
-      "Подбор товаров",
+      "Покупки",
       "Сметы и КП",
       "Заказы и финансы",
       "Экспертиза Novotech",
@@ -117,7 +115,7 @@ describe("Partner workspace shell", () => {
     expect(installationGroup.getByRole("link", { name: "Статус монтажей" })).toHaveAttribute("href", "/cabinet/installation-marketplace?view=overview");
     expect(installationGroup.getByRole("link", { name: "Профиль инсталлятора" })).toHaveAttribute("href", "/cabinet/installation-marketplace?view=profile");
 
-    const selectionButton = screen.getByRole("button", { name: "Подбор товаров" });
+    const selectionButton = screen.getByRole("button", { name: "Покупки" });
     await user.click(selectionButton);
     const selectionGroup = within(document.getElementById("product-selection-navigation")!);
     expect(selectionGroup.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists?filter=favorites");
@@ -132,6 +130,8 @@ describe("Partner workspace shell", () => {
     expect(projectGroup.queryByRole("link", { name: "Подбор решения" })).not.toBeInTheDocument();
     expect(projectGroup.getByRole("link", { name: "Спецификации" })).toHaveAttribute("href", "/cabinet/specifications");
 
+    await user.click(screen.getByRole("button", { name: "Покупки" }));
+    expect(screen.getByRole("link", { name: "Подбор товаров" })).toHaveAttribute("href", "/cabinet/quick-order");
     expect(screen.getByRole("link", { name: "Возможности для закупки" })).toHaveAttribute("href", "/cabinet/opportunities");
     expect(screen.getByRole("link", { name: "Специальные предложения" })).toHaveAttribute("href", "/cabinet/offers");
 
@@ -366,7 +366,7 @@ describe("Partner workspace shell", () => {
 
     pathname = "/cabinet/purchasing-lists/kit-1";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -414,11 +414,24 @@ describe("Partner workspace shell", () => {
     await user.click(screen.getByRole("button", { name: "Открыть навигацию" }));
     expect(screen.getByRole("link", { name: "Избранное" })).toHaveAttribute("aria-current", "page");
     await user.click(screen.getByRole("button", { name: "Сметы и КП" }));
-    expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "false");
-    await user.click(screen.getByRole("button", { name: "Подбор товаров" }));
-    expect(screen.getByRole("button", { name: "Подбор товаров" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "false");
+    await user.click(screen.getByRole("button", { name: "Покупки" }));
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "true");
     await user.click(screen.getByRole("link", { name: "Избранное" }));
     expect(screen.queryByRole("navigation", { name: "Рабочие разделы" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["/cabinet/quick-order", "Подбор товаров"],
+    ["/cabinet/opportunities", "Возможности для закупки"],
+    ["/cabinet/offers", "Специальные предложения"],
+  ])("opens and highlights purchases for direct URL %s", (route, label) => {
+    pathname = route;
+    render(<PartnerSidebar navigation={navigation} />);
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveClass("text-emerald-200");
+    expect(screen.getAllByRole("link", { name: label })).toHaveLength(1);
+    expect(screen.getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
   });
 
   it("does not link commercial modules when workspace access is blocked", () => {
