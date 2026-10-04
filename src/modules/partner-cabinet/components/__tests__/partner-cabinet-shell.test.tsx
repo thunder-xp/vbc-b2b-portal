@@ -88,7 +88,6 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
     expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
-    expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
 
     const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-sidebar-section]"));
     expect(sections.map((section) => section.dataset.sidebarSection)).toEqual([
@@ -99,7 +98,7 @@ describe("Partner workspace shell", () => {
     ]);
     expect(sections.map((section) => within(section).getByRole("heading", { level: 2 }).textContent)).toEqual([
       "БИЗНЕС",
-      "ТОВАРЫ",
+      "ЗАКУПКИ",
       "ПРОДАЖИ",
       "ПОДДЕРЖКА",
     ]);
@@ -107,10 +106,19 @@ describe("Partner workspace shell", () => {
     const topLevelLabels = (section: HTMLElement) => Array.from(section.querySelectorAll<HTMLElement>('[data-sidebar-top-level="true"]'))
       .map((item) => item.querySelector(":scope > span.flex-1")?.textContent?.trim() ?? item.textContent?.trim());
     expect(topLevelLabels(sections[0]!)).toEqual(["Рабочий стол", "Заказы и финансы"]);
-    expect(topLevelLabels(sections[1]!)).toEqual(["Каталог", "Покупки", "Подборки"]);
+    expect(topLevelLabels(sections[1]!)).toEqual(["ТОВАРЫ", "Покупки", "Подборки"]);
     expect(topLevelLabels(sections[2]!)).toEqual(["Сметы и КП", "Монтаж и заявки", "Проектная защита"]);
     expect(topLevelLabels(sections[3]!)).toEqual(["Экспертиза Novotech", "Программы лояльности", "Гарантия и техподдержка"]);
     expect(document.querySelector('[data-sidebar-font="Inter"]')).toHaveStyle({ fontFeatureSettings: '"tnum" on' });
+
+    const productsButton = screen.getByRole("button", { name: "ТОВАРЫ" });
+    expect(productsButton).toHaveAttribute("aria-expanded", "false");
+    await user.click(productsButton);
+    const products = within(document.getElementById("products-navigation")!);
+    expect(products.getAllByRole("link").map((link) => link.textContent)).toEqual(["Витрина", "Каталог товаров"]);
+    expect(products.getByRole("link", { name: "Витрина" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(products.getByRole("link", { name: "Каталог товаров" })).toHaveAttribute("href", "/cabinet/catalog?view=all");
+    expect(products.getAllByRole("link").every((link) => link.dataset.sidebarSubmenuItem === "true")).toBe(true);
 
     await user.click(screen.getByRole("button", { name: "Экспертиза Novotech" }));
     const expertiseGroup = within(document.getElementById("expertise-navigation")!);
@@ -278,6 +286,22 @@ describe("Partner workspace shell", () => {
     expect(document.querySelector('[data-header-control="language"]')).toBeNull();
   });
 
+  it.each([
+    ["", "Витрина", "/cabinet/catalog"],
+    ["view=all", "Каталог товаров", "/cabinet/catalog?view=all"],
+  ])("opens products and highlights the governed catalog mode for %s", (search, label, href) => {
+    pathname = "/cabinet/catalog";
+    query = search;
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+
+    expect(screen.getByRole("button", { name: "ТОВАРЫ" })).toHaveAttribute("aria-expanded", "true");
+    const selected = document.querySelectorAll('#products-navigation a[aria-current="page"]');
+    expect(selected).toHaveLength(1);
+    expect(selected[0]).toHaveTextContent(label);
+    expect(screen.getByRole("link", { name: label })).toHaveAttribute("href", href);
+    expect(screen.getByRole("link", { name: label })).toHaveClass("bg-emerald-500/15");
+  });
+
   it("automatically expands the commercial group for an active child route", () => {
     pathname = "/cabinet/finance";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
@@ -310,6 +334,19 @@ describe("Partner workspace shell", () => {
     expect(within(document.getElementById("collections-navigation")!).getAllByRole("link")).toHaveLength(3);
     await user.click(collections);
     expect(collections).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("expands and collapses the products group with exactly two children", async () => {
+    const user = userEvent.setup();
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+    const products = screen.getByRole("button", { name: "ТОВАРЫ" });
+
+    expect(products).toHaveAttribute("aria-expanded", "false");
+    await user.click(products);
+    expect(products).toHaveAttribute("aria-expanded", "true");
+    expect(within(document.getElementById("products-navigation")!).getAllByRole("link")).toHaveLength(2);
+    await user.click(products);
+    expect(products).toHaveAttribute("aria-expanded", "false");
   });
 
   it("keeps only one expandable navigation group open", async () => {

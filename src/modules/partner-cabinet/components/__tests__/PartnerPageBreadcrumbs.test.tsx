@@ -1,10 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const navigationState = vi.hoisted(() => ({ pathname: "/cabinet/cart", filter: null as string | null }));
+const navigationState = vi.hoisted(() => ({ pathname: "/cabinet/cart", filter: null as string | null, view: null as string | null }));
 vi.mock("next/navigation", () => ({
   usePathname: () => navigationState.pathname,
-  useSearchParams: () => new URLSearchParams(navigationState.filter ? `filter=${navigationState.filter}` : ""),
+  useSearchParams: () => new URLSearchParams([
+    navigationState.filter ? `filter=${navigationState.filter}` : "",
+    navigationState.view ? `view=${navigationState.view}` : "",
+  ].filter(Boolean).join("&")),
 }));
 
 import { PartnerPageBreadcrumbs } from "../PartnerPageBreadcrumbs";
@@ -13,6 +16,7 @@ describe("PartnerPageBreadcrumbs", () => {
   beforeEach(() => {
     navigationState.pathname = "/cabinet/cart";
     navigationState.filter = null;
+    navigationState.view = null;
   });
 
   it("shows localized Cart context in the top-bar breadcrumb landmark", () => {
@@ -60,9 +64,18 @@ describe("PartnerPageBreadcrumbs", () => {
     expect(screen.getByRole("heading", { name: title })).toHaveAttribute("aria-current", "page");
   });
 
-  it("does not render page context for routes without configured page headers", () => {
+  it("renders the governed B2B showcase hierarchy", () => {
     navigationState.pathname = "/cabinet/catalog";
-    const { container } = render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(container).toBeEmptyDOMElement();
+    render(<PartnerPageBreadcrumbs locale="ru" />);
+    expect(screen.getByRole("navigation")).toHaveTextContent(/ЗАКУПКИ\s*\/\s*ТОВАРЫ\s*\/\s*Витрина/);
+    expect(screen.getByRole("heading", { name: "Витрина" })).toHaveAttribute("aria-current", "page");
+  });
+
+  it("renders the governed full catalog hierarchy", () => {
+    navigationState.pathname = "/cabinet/catalog";
+    navigationState.view = "all";
+    render(<PartnerPageBreadcrumbs locale="ru" />);
+    expect(screen.getByRole("navigation")).toHaveTextContent(/ЗАКУПКИ\s*\/\s*ТОВАРЫ\s*\/\s*Каталог товаров/);
+    expect(screen.getByRole("heading", { name: "Каталог товаров" })).toHaveAttribute("aria-current", "page");
   });
 });

@@ -4,9 +4,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import type { PartnerLocale } from "../../partner-locale";
 
-type PageContext = Readonly<{ section?: string; title: string }>;
+type PageContext = Readonly<{ group?: string; section?: string; title: string }>;
 
 const PAGE_CONTEXT: Record<string, Record<PartnerLocale, PageContext>> = {
+  "/cabinet/catalog": {
+    ru: { section: "ЗАКУПКИ", group: "ТОВАРЫ", title: "Витрина" },
+    ro: { section: "ACHIZIȚII", group: "PRODUSE", title: "Vitrină" },
+  },
   "/cabinet/cart": {
     ru: { section: "Оформление заказа", title: "Корзина" },
     ro: { section: "Finalizarea comenzii", title: "Coș" },
@@ -48,15 +52,25 @@ export function PartnerPageBreadcrumbs({ locale }: { locale: PartnerLocale }) {
   if (!pageContext) return null;
 
   const isFavorites = pathname === "/cabinet/purchasing-lists" && searchParams.get("filter") === "favorites";
+  const isFullCatalog = pathname === "/cabinet/catalog" && searchParams.get("view") === "all";
   const context = pageContext[locale];
-  const title = isFavorites ? (locale === "ro" ? "Favorite" : "Избранное") : context.title;
+  const title = isFavorites
+    ? (locale === "ro" ? "Favorite" : "Избранное")
+    : isFullCatalog
+      ? (locale === "ro" ? "Catalog produse" : "Каталог товаров")
+      : context.title;
   const section = context.section;
+  const group = context.group;
 
   return (
     <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="col-span-2 row-start-3 min-w-0 border-t border-zinc-100 pt-2 text-xs sm:text-sm lg:col-span-3 lg:row-start-2">
       <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
         {section && <>
           <li className="shrink-0 truncate text-zinc-500">{section}</li>
+          <li aria-hidden="true" className="shrink-0 text-zinc-300">/</li>
+        </>}
+        {group && <>
+          <li className="shrink-0 truncate text-zinc-500">{group}</li>
           <li aria-hidden="true" className="shrink-0 text-zinc-300">/</li>
         </>}
         <li className="min-w-0 truncate"><h1 aria-current="page" className="truncate font-medium text-zinc-800">{title}</h1></li>

@@ -13,7 +13,7 @@ const sectionsAction = source("src/modules/catalog/actions/list-merchandising-se
 describe("catalog curated mode boundaries", () => {
   it("selects one mutually exclusive server data path", () => {
     expect(page).toContain('routeState.mode === "curated"');
-    expect(page).toContain("listCatalogMerchandisingSectionsAction()");
+    expect(page).toContain("listCatalogMerchandisingSectionsAction({");
     expect(page).toContain("listCatalogProductsAction({");
     expect(page).not.toContain("isCatalogLanding");
   });

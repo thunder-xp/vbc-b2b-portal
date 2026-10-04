@@ -89,6 +89,8 @@ const expertiseNavigationOrder: readonly WorkspaceCapabilityKey[] = ["expertise_
 const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_marketplace", "installation_profile"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
 
+type SidebarNavigationItem = Omit<WorkspaceNavigationItem, "key"> & { key: string };
+
 function SidebarSection({
   children,
   id,
@@ -127,7 +129,7 @@ function NavigationItem({
 }: {
   expanded?: boolean;
   hasWorkspaceAccess: boolean;
-  item: Omit<WorkspaceNavigationItem, "key"> & { key: string };
+  item: SidebarNavigationItem;
   onNavigate?: () => void;
   activeKey: string | undefined;
   submenu?: boolean;
@@ -223,7 +225,7 @@ function ExpandableNavigationGroup({
   expanded: boolean;
   hasWorkspaceAccess: boolean;
   id: string;
-  items: WorkspaceNavigationItem[];
+  items: SidebarNavigationItem[];
   label: string;
   onNavigate?: () => void;
   onToggle: () => void;
@@ -291,9 +293,11 @@ export function PartnerSidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const catalogCapability = navigation.find((item) => item.key === "catalog" && item.availability === "available");
   const canSelectProducts = hasWorkspaceAccess && ["catalog", "cart"].every((key) => navigation.some((item) => item.key === key && item.availability === "available"));
   const activeKey = activeNavigationKey(pathname, searchParams, [
     ...navigation.filter((item) => item.availability === "available"),
+    ...(catalogCapability ? [{ key: "catalog_full", href: "/cabinet/catalog?view=all" }] : []),
     ...(canSelectProducts ? [{ key: "product_selection", href: "/cabinet/quick-order" }] : []),
   ]);
   const locale = usePartnerLocale();
@@ -303,9 +307,12 @@ export function PartnerSidebar({
     const item = navigationByKey.get(key);
     return item ? [item] : [];
   });
-  const catalogNavigation = catalogNavigationOrder.flatMap((key) => {
+  const productNavigation = catalogNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
-    return item ? [{ ...item, label: t("nav.sidebar.catalog") }] : [];
+    return item ? [
+      { ...item, key: "catalog", label: t("nav.sidebar.showcase"), href: "/cabinet/catalog" },
+      { ...item, key: "catalog_full", label: partnerNavigationLabel(locale, "catalog"), href: "/cabinet/catalog?view=all" },
+    ] : [];
   });
   const businessNavigation = businessNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -345,6 +352,7 @@ export function PartnerSidebar({
     return item ? [item] : [];
   });
   const activeGroupId = [
+    ["products-navigation", productNavigation],
     ["purchases-navigation", [...businessNavigation, { key: "product_selection" }]],
     ["collections-navigation", selectionNavigation],
     ["project-protection-navigation", projectNavigation],
@@ -354,7 +362,7 @@ export function PartnerSidebar({
     ["installation-navigation", installationNavigation],
     ["loyalty-navigation", loyaltyNavigation],
     ["support-navigation", supportNavigation],
-  ].find(([, items]) => (items as WorkspaceNavigationItem[]).some((item) => activeKey === item.key))?.[0] as string | undefined;
+  ].find(([, items]) => (items as SidebarNavigationItem[]).some((item) => activeKey === item.key))?.[0] as string | undefined;
   const [openGroupId, setOpenGroupId] = useState<string | null>(() => activeGroupId ?? null);
   const [previousActiveGroupId, setPreviousActiveGroupId] = useState(activeGroupId);
   if (activeGroupId !== previousActiveGroupId) {
@@ -367,7 +375,7 @@ export function PartnerSidebar({
     onToggle: () => setOpenGroupId((current) => current === id ? (activeGroupId === id ? id : null) : id),
   });
   const hasBusinessSection = dashboardNavigation.length > 0 || commercialNavigation.length > 0;
-  const hasProductsSection = catalogNavigation.length > 0 || canSelectProducts || businessNavigation.length > 0 || selectionNavigation.length > 0;
+  const hasProductsSection = productNavigation.length > 0 || canSelectProducts || businessNavigation.length > 0 || selectionNavigation.length > 0;
   const hasSalesSection = estimatesNavigation.length > 0 || installationNavigation.length > 0 || projectNavigation.length > 0;
   const hasSupportSection = expertiseNavigation.length > 0 || loyaltyNavigation.length > 0 || supportNavigation.length > 0;
 
@@ -394,9 +402,16 @@ export function PartnerSidebar({
           </SidebarSection>}
 
           {hasProductsSection && <SidebarSection id="products" title={t("nav.section.products")}>
-            {catalogNavigation.map((item) => (
-              <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
-            ))}
+            <ExpandableNavigationGroup
+              {...groupProps("products-navigation")}
+              hasWorkspaceAccess={hasWorkspaceAccess}
+              icon={Boxes}
+              id="products-navigation"
+              items={productNavigation}
+              label={t("nav.group.products")}
+              onNavigate={onNavigate}
+              activeKey={activeKey}
+            />
 
           {(canSelectProducts || businessNavigation.length > 0) && <ExpandableNavigationGroup
             {...groupProps("purchases-navigation")}
