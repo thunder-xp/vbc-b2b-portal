@@ -41,6 +41,8 @@ declare
   started timestamptz;
   previous_updated_at timestamptz;
   reopened jsonb;
+  switch_campaign uuid;
+  switch_draft jsonb;
 begin
   insert into auth.users(id,aud,role,email,created_at,updated_at) values
     (actor,'authenticated','authenticated','quantity-promo-admin@example.test',now(),now()),
@@ -112,6 +114,43 @@ begin
     update public.price_types set name='PROMO',currency_code='USD' where id=promo_profile;
   end loop;
   campaign := public.create_commercial_campaign_draft_v2(draft);
+  -- Reuse this fixture to exercise one existing draft across all four mechanics.
+  insert into public.product_prices(product_id,external_1c_price_type_id,currency,price_amount,valid_from,is_active,
+    price_type_id,effective_at,currency_status,is_published)
+  values(product,'b9f5d585-dab1-11e9-8a58-000c29cf9dd4','USD',84,now()-interval '1 day',true,promo_profile,now()-interval '1 day','resolved',true);
+  switch_draft := draft || jsonb_build_object('requestId',gen_random_uuid(),'code','FOUNDATION_SWITCH','mechanicType','quantity_threshold_promo',
+    'items',jsonb_build_array(
+      (draft->'items'->0) || jsonb_build_object('attachRole',null,'requiredTriggerQuantity',null,'benefitType','existing_price_profile',
+        'governedBenefitReference','b9f5d585-dab1-11e9-8a58-000c29cf9dd4','promoThresholdQuantity',4,'requiredBundleQuantity',null),
+      (draft->'items'->2) || jsonb_build_object('attachRole',null,'requiredTriggerQuantity',null,'promoThresholdQuantity',1,'requiredBundleQuantity',null)));
+  switch_campaign := public.create_commercial_campaign_draft_v2(switch_draft);
+  for mechanic in 1..3 loop
+    if mechanic=1 then
+      switch_draft := switch_draft || jsonb_build_object('mechanicType','fixed_bundle_promo','items',jsonb_build_array(
+        (switch_draft->'items'->0) || jsonb_build_object('promoThresholdQuantity',null,'requiredBundleQuantity',4),
+        (switch_draft->'items'->1) || jsonb_build_object('promoThresholdQuantity',null,'requiredBundleQuantity',1)));
+    elsif mechanic=2 then
+      switch_draft := switch_draft || jsonb_build_object('mechanicType','conditional_attach_promo','items',jsonb_build_array(
+        (switch_draft->'items'->0) || jsonb_build_object('requiredBundleQuantity',null,'attachRole','TRIGGER','requiredTriggerQuantity',4,
+          'benefitType','informational_only','governedBenefitReference',null),
+        (switch_draft->'items'->1) || jsonb_build_object('requiredBundleQuantity',null,'attachRole','REWARD','requiredTriggerQuantity',null)));
+    else
+      switch_draft := switch_draft || jsonb_build_object('mechanicType','legacy_promo','items',jsonb_build_array(
+        (switch_draft->'items'->0) || jsonb_build_object('attachRole',null,'requiredTriggerQuantity',null),
+        (switch_draft->'items'->1) || jsonb_build_object('attachRole',null,'requiredTriggerQuantity',null)));
+    end if;
+    perform public.update_commercial_campaign_draft_v2(switch_campaign,
+      (select draft_revision from public.commercial_campaigns where id=switch_campaign),gen_random_uuid(),switch_draft);
+    if exists(select 1 from public.commercial_campaign_items where campaign_id=switch_campaign and (
+      promo_threshold_quantity is not null or (mechanic<>1 and required_bundle_quantity is not null)
+      or (mechanic<>2 and (attach_role is not null or required_trigger_quantity is not null)))) then
+      raise exception 'Foundation draft switch retained inactive mechanic state';
+    end if;
+  end loop;
+  if exists(select 1 from public.commercial_campaign_versions where campaign_id=switch_campaign) then
+    raise exception 'Draft switch unexpectedly published a version';
+  end if;
+  delete from public.product_prices where product_id=product and price_type_id=promo_profile;
   perform public.publish_commercial_campaign(campaign,gen_random_uuid());
   select id into item from public.commercial_campaign_items where campaign_id=campaign and product_id=product;
   select id into reward_item from public.commercial_campaign_items where campaign_id=campaign and product_id=product_c;

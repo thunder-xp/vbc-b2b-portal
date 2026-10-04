@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ChangeEvent, 
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import { createCampaignDraftAction, searchCampaignCompaniesAction, searchCampaignProductsAction, updateCampaignDraftAction } from "../actions/commercial-campaign.actions";
 import { fromCampaignDateTimeInput } from "../campaign-datetime";
+import { configureCampaignItemMechanic, isCampaignRequiredQuantityValid } from "../campaign-draft-mechanics";
 import { missingPromoPriceMessage, SPECIAL_OFFERS_PROMO_PROFILE } from "../promo-profile";
 import type { CampaignBuilderOptions, CampaignDraftInput, CampaignDraftSeed, CampaignMechanicType, CampaignProductOption, CampaignType } from "../types";
 
@@ -66,17 +67,23 @@ export function CampaignBuilder({ options, initial, preview = false }: { options
   const selectedIds = useMemo(() => new Set(items.map((item) => item.productId)), [items]);
   const selectedCompanies = useMemo(() => new Map([...options.companies, ...companyResult].filter((company) => companies.includes(company.id)).map((company) => [company.id, company])), [companies, companyResult, options.companies]);
 
-  const toggleProduct = (product: CampaignProductOption) => { setItems((current) => current.some((item) => item.productId === product.id) ? current.filter((item) => item.productId !== product.id) : current.length >= 50 ? current : [...current, { productId: product.id, sortOrder: current.length + 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: !(["legacy_promo", "conditional_attach_promo"] as CampaignMechanicType[]).includes(values.mechanicType) ? "existing_price_profile" : "informational_only", governedBenefitReference: !(["legacy_promo", "conditional_attach_promo"] as CampaignMechanicType[]).includes(values.mechanicType) ? SPECIAL_OFFERS_PROMO_PROFILE.externalRef : null, partnerMessage: null, promoThresholdQuantity: null, requiredBundleQuantity: null, attachRole: values.mechanicType === "conditional_attach_promo" ? "TRIGGER" : null, requiredTriggerQuantity: null, product }]); mark(); };
+  const toggleProduct = (product: CampaignProductOption) => {
+    setItems((current) => current.some((item) => item.productId === product.id)
+      ? current.filter((item) => item.productId !== product.id)
+      : current.length >= 50 ? current : [...current, configureCampaignItemMechanic<SelectedItem>({
+        productId: product.id, sortOrder: current.length + 1, minimumQuantity: 1,
+        maximumQuantityPerCompany: null, benefitType: "informational_only", governedBenefitReference: null,
+        partnerMessage: null, promoThresholdQuantity: null, requiredBundleQuantity: null,
+        attachRole: null, requiredTriggerQuantity: null, product,
+      }, values.mechanicType)]);
+    mark();
+  };
   const patchItem = (productId: string, patch: Partial<SelectedItem>) => { setItems((current) => current.map((item) => item.productId === productId ? { ...item, ...patch } : item)); mark(); };
   const moveItem = (index: number, delta: number) => { setItems((current) => { const target = index + delta; if (target < 0 || target >= current.length) return current; const next = [...current]; [next[index], next[target]] = [next[target], next[index]]; return next.map((item, sortOrder) => ({ ...item, sortOrder: sortOrder + 1 })); }); mark(); };
   const toggleCompany = (id: string) => { setCompanies((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]); mark(); };
   const changeMechanic = (mechanicType: CampaignMechanicType) => {
     setValues((current) => ({ ...current, mechanicType }));
-    setItems((current) => current.map((item) => mechanicType === "conditional_attach_promo"
-      ? { ...item, minimumQuantity: 1, attachRole: "TRIGGER", requiredTriggerQuantity: null, benefitType: "informational_only", governedBenefitReference: null, promoThresholdQuantity: null, requiredBundleQuantity: null }
-      : mechanicType !== "legacy_promo"
-      ? { ...item, attachRole: null, requiredTriggerQuantity: null, minimumQuantity: 1, benefitType: "existing_price_profile", governedBenefitReference: SPECIAL_OFFERS_PROMO_PROFILE.externalRef, promoThresholdQuantity: mechanicType === "quantity_threshold_promo" ? item.promoThresholdQuantity : null, requiredBundleQuantity: mechanicType === "fixed_bundle_promo" ? item.requiredBundleQuantity : null }
-      : { ...item, attachRole: null, requiredTriggerQuantity: null, promoThresholdQuantity: null, requiredBundleQuantity: null }));
+    setItems((current) => current.map((item) => configureCampaignItemMechanic(item, mechanicType)));
     mark();
   };
 
@@ -98,19 +105,18 @@ export function CampaignBuilder({ options, initial, preview = false }: { options
       if (values.mechanicType === "conditional_attach_promo") {
         if (!items.some((item) => item.attachRole === "TRIGGER")) next.items = "Добавьте хотя бы один товар-условие.";
         if (items.filter((item) => item.attachRole === "REWARD").length !== 1) next.items = "Выберите ровно один товар с PROMO.";
-        const invalid = items.find((item) => item.attachRole === "TRIGGER" && (!Number.isInteger(item.requiredTriggerQuantity)
-          || Number(item.requiredTriggerQuantity) < 1 || Number(item.requiredTriggerQuantity) > 9999
-          || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.requiredTriggerQuantity)));
+        const invalid = items.find((item) => item.attachRole === "TRIGGER"
+          && !isCampaignRequiredQuantityValid(item.requiredTriggerQuantity, item.minimumQuantity, item.maximumQuantityPerCompany));
         if (invalid) next.items = `Укажите целое количество условия от 1 до 9999 для SKU ${invalid.product.sku}.`;
       }
       if (values.mechanicType === "fixed_bundle_promo") {
         if (items.length < 2) next.items = "В комплекте должно быть не менее двух разных товаров.";
-        const invalid = items.find((item) => !Number.isInteger(item.requiredBundleQuantity) || Number(item.requiredBundleQuantity) < 1
-          || Number(item.requiredBundleQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.requiredBundleQuantity));
+        const invalid = items.find((item) => !isCampaignRequiredQuantityValid(item.requiredBundleQuantity, item.minimumQuantity, item.maximumQuantityPerCompany));
         if (invalid) next.items = `Укажите количество в комплекте от 1 до 9999 для SKU ${invalid.product.sku}.`;
       }
       if (values.mechanicType === "quantity_threshold_promo") {
-        const invalidThreshold = items.find((item) => item.benefitType !== "existing_price_profile" || !Number.isInteger(item.promoThresholdQuantity) || Number(item.promoThresholdQuantity) < 1 || Number(item.promoThresholdQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.promoThresholdQuantity));
+        const invalidThreshold = items.find((item) => item.benefitType !== "existing_price_profile"
+          || !isCampaignRequiredQuantityValid(item.promoThresholdQuantity, 1, item.maximumQuantityPerCompany));
         if (invalidThreshold) next.items = `Укажите целое количество PROMO от 1 до 9999 для SKU ${invalidThreshold.product.sku}.`;
       }
     }
@@ -193,20 +199,15 @@ function CampaignPreview({ values, items, audienceLabel, errors }: { values: { t
   const commercialReady = items.every((item) => {
     if (values.mechanicType === "legacy_promo") return item.benefitType === "informational_only" || item.governedBenefitReference === SPECIAL_OFFERS_PROMO_PROFILE.externalRef && item.product.promoPrice?.currency === SPECIAL_OFFERS_PROMO_PROFILE.currency;
     if (values.mechanicType === "conditional_attach_promo") return item.attachRole === "TRIGGER"
-      ? Number.isInteger(item.requiredTriggerQuantity) && Number(item.requiredTriggerQuantity) >= item.minimumQuantity && Number(item.requiredTriggerQuantity) <= 9999
-        && (item.maximumQuantityPerCompany === null || item.maximumQuantityPerCompany >= Number(item.requiredTriggerQuantity))
+      ? isCampaignRequiredQuantityValid(item.requiredTriggerQuantity, item.minimumQuantity, item.maximumQuantityPerCompany)
       : item.attachRole === "REWARD" && item.benefitType === "existing_price_profile" && item.governedBenefitReference === SPECIAL_OFFERS_PROMO_PROFILE.externalRef && item.product.promoPrice?.currency === "USD";
     if (values.mechanicType === "fixed_bundle_promo") return item.benefitType === "existing_price_profile"
       && item.governedBenefitReference === SPECIAL_OFFERS_PROMO_PROFILE.externalRef && item.product.promoPrice?.currency === "USD"
-      && Number.isInteger(item.requiredBundleQuantity) && Number(item.requiredBundleQuantity) >= 1 && Number(item.requiredBundleQuantity) <= 9999
-      && (item.maximumQuantityPerCompany === null || item.maximumQuantityPerCompany >= Number(item.requiredBundleQuantity));
+      && isCampaignRequiredQuantityValid(item.requiredBundleQuantity, item.minimumQuantity, item.maximumQuantityPerCompany);
     return item.benefitType === "existing_price_profile"
       && item.governedBenefitReference === SPECIAL_OFFERS_PROMO_PROFILE.externalRef
       && item.product.promoPrice?.currency === SPECIAL_OFFERS_PROMO_PROFILE.currency
-      && Number.isInteger(item.promoThresholdQuantity)
-      && Number(item.promoThresholdQuantity) >= 1
-      && Number(item.promoThresholdQuantity) <= 9999
-      && (item.maximumQuantityPerCompany === null || item.maximumQuantityPerCompany >= Number(item.promoThresholdQuantity));
+      && isCampaignRequiredQuantityValid(item.promoThresholdQuantity, 1, item.maximumQuantityPerCompany);
   });
   const checks = [{ label: "Основные данные", ok: values.title.trim().length >= 3 && values.description.trim().length >= 10 }, { label: "Период", ok: Boolean(values.startsAt && values.endsAt && Date.parse(values.endsAt) > Date.parse(values.startsAt)) }, { label: "Товары", ok: values.mechanicType === "conditional_attach_promo" ? items.some((item) => item.attachRole === "TRIGGER") && items.filter((item) => item.attachRole === "REWARD").length === 1 : values.mechanicType === "fixed_bundle_promo" ? items.length >= 2 : items.length > 0 }, { label: "Коммерческие условия", ok: commercialReady }, { label: "Аудитория", ok: Boolean(audienceLabel) }, { label: "Оформление", ok: values.terms.trim().length >= 3 }];
   return <div className="space-y-5"><section className="overflow-hidden rounded-md border border-zinc-200"><div className="relative min-h-40 bg-zinc-100">{values.image ? <Image alt="" className="object-cover" fill sizes="900px" src={values.image} /> : null}</div><div className="p-5"><p className="text-xs font-semibold uppercase text-emerald-700">Специальное предложение</p><h2 className="mt-1 text-2xl font-semibold">{values.title || "Заголовок предложения"}</h2><p className="mt-2 text-sm text-zinc-600">{values.description || "Описание предложения"}</p><p className="mt-3 text-sm">{values.startsAt || "?"} — {values.endsAt || "?"}</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{items.map((item) => <div className="rounded border p-3" key={item.productId}><b>{item.product.sku} · {item.product.model || item.product.name}</b><p className="text-sm text-zinc-600">{item.product.currentPrice ? `${item.product.currentPrice.amount} ${item.product.currentPrice.currency}` : "Текущая цена не опубликована"} · остаток {item.product.availableQuantity ?? "—"}</p>{item.benefitType === "existing_price_profile" ? <p className={item.product.promoPrice ? "text-sm font-semibold text-emerald-800" : "text-sm text-rose-700"}>{item.product.promoPrice ? `Спеццена PROMO: ${item.product.promoPrice.amount} ${item.product.promoPrice.currency}` : missingPromoPriceMessage(item.product.sku)}</p> : null}<p className="text-xs">{values.mechanicType === "conditional_attach_promo" ? item.attachRole === "TRIGGER" ? `Товар-условие: ${item.requiredTriggerQuantity ?? "?"} шт. · цена партнёра` : "Товар с PROMO" : values.mechanicType === "fixed_bundle_promo" ? `Количество в комплекте: ${item.requiredBundleQuantity ?? "?"}` : values.mechanicType === "quantity_threshold_promo" ? `От ${item.promoThresholdQuantity ?? "?"} шт. → PROMO` : `Мин. ${item.minimumQuantity}`}{item.maximumQuantityPerCompany ? ` · лимит ${item.maximumQuantityPerCompany}` : ""}</p></div>)}</div><p className="mt-4 text-sm">{values.terms}</p></div></section><section><h3 className="font-semibold">Готовность к публикации</h3><ul className="mt-2 grid gap-2 sm:grid-cols-2">{checks.map((check) => <li className={check.ok ? "text-emerald-700" : "text-rose-700"} key={check.label}>{check.ok ? "✓" : "○"} {check.label}</li>)}</ul><p className="mt-3 text-sm text-zinc-600">Аудитория: {audienceLabel}. Публикация создаст неизменяемые снимки определения и аудитории.</p>{Object.values(errors).map((error) => <ErrorText key={error}>{error}</ErrorText>)}</section></div>;

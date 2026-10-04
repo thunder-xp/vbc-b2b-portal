@@ -3,6 +3,7 @@ import type { PartnerWorkspaceContextService } from "../../partner-cabinet/servi
 import type { CommercialCampaignRepository } from "../repositories";
 import type { AdminCampaignFilter, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter } from "../types";
 import { SPECIAL_OFFERS_PROMO_PROFILE } from "../promo-profile";
+import { isCampaignRequiredQuantityValid } from "../campaign-draft-mechanics";
 
 export class CommercialCampaignService {
   constructor(private readonly repository: CommercialCampaignRepository, private readonly workspaceContext: PartnerWorkspaceContextService) {}
@@ -68,21 +69,20 @@ function validateDraft(input: CampaignDraftInput): void {
       || new Set(input.items.map((item) => item.productId)).size !== input.items.length
       || input.items.some((item) => item.promoThresholdQuantity !== null || item.requiredBundleQuantity != null
         || (item.attachRole === "TRIGGER" ? item.benefitType !== "informational_only" || item.governedBenefitReference !== null
-          || !Number.isInteger(item.requiredTriggerQuantity) || Number(item.requiredTriggerQuantity) < item.minimumQuantity
-          || Number(item.requiredTriggerQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.requiredTriggerQuantity)
+          || !isCampaignRequiredQuantityValid(item.requiredTriggerQuantity, item.minimumQuantity, item.maximumQuantityPerCompany)
           : item.attachRole !== "REWARD" || item.requiredTriggerQuantity != null || item.benefitType !== "existing_price_profile"))) {
       throw new InvalidStateError("Укажите хотя бы один товар-условие с целым количеством и ровно один отдельный товар с PROMO.");
     }
   } else if (input.mechanicType === "fixed_bundle_promo") {
     if (input.items.length < 2 || new Set(input.items.map((item) => item.productId)).size !== input.items.length
       || input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef
-        || !Number.isInteger(item.requiredBundleQuantity) || Number(item.requiredBundleQuantity) < item.minimumQuantity
-        || Number(item.requiredBundleQuantity) > 9999 || item.promoThresholdQuantity !== null
-        || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.requiredBundleQuantity))) {
+        || !isCampaignRequiredQuantityValid(item.requiredBundleQuantity, item.minimumQuantity, item.maximumQuantityPerCompany)
+        || item.promoThresholdQuantity !== null)) {
       throw new InvalidStateError("Bundle → PROMO requires at least two distinct products with positive required quantities and governed PROMO.");
     }
   } else if (input.mechanicType === "quantity_threshold_promo") {
-    if (input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef || !Number.isInteger(item.promoThresholdQuantity) || Number(item.promoThresholdQuantity) < 1 || Number(item.promoThresholdQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.promoThresholdQuantity))) throw new InvalidStateError("Quantity → PROMO requires a valid per-product threshold and governed PROMO price.");
+    if (input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef
+      || !isCampaignRequiredQuantityValid(item.promoThresholdQuantity, 1, item.maximumQuantityPerCompany))) throw new InvalidStateError("Quantity → PROMO requires a valid per-product threshold and governed PROMO price.");
   } else if (input.mechanicType !== "legacy_promo" || input.items.some((item) => item.promoThresholdQuantity !== null)) {
     throw new InvalidStateError("Campaign mechanic configuration is invalid.");
   }
