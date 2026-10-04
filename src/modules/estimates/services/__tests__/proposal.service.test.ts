@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DomainConflictError, InvalidStateError, NotFoundError } from "../../../access-control/services";
-import { ProposalSettingsConflictError, type EstimateRepository, type ProposalRepository } from "../../repositories";
+import { ProposalSettingsConflictError, ProposalSettingsUnavailableError, type EstimateRepository, type ProposalRepository } from "../../repositories";
 import type { EstimateAggregate, GeneratedEstimateDocument, ProposalTemplate } from "../../types";
 import { renderProposalPdf } from "../proposal-pdf.renderer";
-import { DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, normalizeSettings, stableJson } from "../proposal.service";
+import { canEditProposalPresentation, DEFAULT_PROPOSAL_SETTINGS, DefaultProposalService, normalizeSettings, stableJson } from "../proposal.service";
 
 vi.mock("../proposal-pdf.renderer", () => ({ renderProposalPdf: vi.fn().mockResolvedValue({ bytes: new Uint8Array([37, 80, 68, 70]), pageCount: 1 }) }));
 
@@ -177,6 +177,44 @@ describe("DefaultProposalService", () => {
     await service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS);
     expect(proposals.saveSettings).toHaveBeenCalledTimes(1);
     expect(estimates.findAggregateById).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [{ status: "draft", lifecycleStatus: "draft" }, true],
+    [{ status: "ready", lifecycleStatus: "draft" }, true],
+    [{ status: "archived", lifecycleStatus: "draft" }, true],
+    [{ status: "archived", lifecycleStatus: "sent" }, false],
+    [{ status: "archived", lifecycleStatus: "accepted" }, false],
+    [{ status: "archived", lifecycleStatus: "rejected" }, false],
+    [{ status: "archived", lifecycleStatus: "expired" }, false],
+    [{ status: "archived", lifecycleStatus: "converted_to_order" }, false],
+    [{ status: "sent", lifecycleStatus: "sent" }, false],
+  ] as const)("derives the server-authoritative presentation capability for %o", (state, expected) => {
+    expect(canEditProposalPresentation(state)).toBe(expected);
+  });
+
+  it("returns the archived unsent draft presentation capability in the preview DTO", async () => {
+    const source = aggregate();
+    source.estimate = { ...source.estimate, status: "archived", lifecycleStatus: "draft" };
+    vi.mocked(estimates.findAggregateById).mockResolvedValue(source);
+
+    await expect(service.preparePreview("user-1", "estimate-1"))
+      .resolves.toMatchObject({ canEditProposalPresentation: true });
+  });
+
+  it("rejects immutable presentation states before persistence", async () => {
+    vi.mocked(estimates.findById).mockResolvedValue({ ...aggregate().estimate, status: "archived", lifecycleStatus: "sent" });
+
+    await expect(service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS))
+      .rejects.toMatchObject({ code: "PROPOSAL_PRESENTATION_IMMUTABLE" } satisfies Partial<DomainConflictError>);
+    expect(proposals.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it("maps an authorization-race rejection to the immutable presentation contract", async () => {
+    vi.mocked(proposals.saveSettings).mockRejectedValue(new ProposalSettingsUnavailableError());
+
+    await expect(service.saveSettings("user-1", "estimate-1", 3, template.id, DEFAULT_PROPOSAL_SETTINGS))
+      .rejects.toMatchObject({ code: "PROPOSAL_PRESENTATION_IMMUTABLE" } satisfies Partial<DomainConflictError>);
   });
 
   it("preserves a bounded proposal-settings revision conflict", async () => {

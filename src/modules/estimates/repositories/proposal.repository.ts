@@ -25,3 +25,7 @@ export class ProposalRepositoryError extends Error {
 export class ProposalSettingsConflictError extends ProposalRepositoryError {
   constructor() { super(); this.name = "ProposalSettingsConflictError"; }
 }
+
+export class ProposalSettingsUnavailableError extends ProposalRepositoryError {
+  constructor() { super(); this.name = "ProposalSettingsUnavailableError"; }
+}

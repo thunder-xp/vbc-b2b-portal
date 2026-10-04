@@ -5,7 +5,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { deriveProductDescriptionSummary } from "../../../catalog/services/product-description-summary";
 import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalBranding, ProposalSettings, ProposalTemplate } from "../../types";
 import type { ProposalRepository } from "../proposal.repository";
-import { ProposalRepositoryError, ProposalSettingsConflictError } from "../proposal.repository";
+import { ProposalRepositoryError, ProposalSettingsConflictError, ProposalSettingsUnavailableError } from "../proposal.repository";
 
 type TemplateRow = { id: string; company_id: string | null; template_key: string; name: string; configuration: ProposalSettings; is_system: boolean };
 type DocumentRow = {
@@ -71,6 +71,7 @@ export class SupabaseProposalRepository implements ProposalRepository {
       target_template_id: input.templateId, settings_payload: input.settings,
     });
     if (error?.code === "PT409") throw new ProposalSettingsConflictError();
+    if (error?.code === "42501") throw new ProposalSettingsUnavailableError();
     if (error || !data) throw new ProposalRepositoryError();
     return Number((data as { revision: number }).revision);
   }

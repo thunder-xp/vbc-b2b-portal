@@ -6,8 +6,8 @@ import { MembershipStatus } from "../../access-control/types";
 import { normalizeProductImageUrl } from "../../catalog/components/product-image-source";
 import { isDefaultProductDescription } from "../../catalog/services/product-description-summary";
 import { companyLogoUrl } from "../../partner-cabinet/services/company-logo-url";
-import { ProposalSettingsConflictError, type EstimateRepository, type ProposalRepository } from "../repositories";
-import type { CustomerProposalDto, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
+import { ProposalSettingsConflictError, ProposalSettingsUnavailableError, type EstimateRepository, type ProposalRepository } from "../repositories";
+import type { CustomerProposalDto, Estimate, GeneratedEstimateDocument, ProposalSettings, ProposalTemplate } from "../types";
 import { canonicalEstimateWorkName } from "../estimate-work-labels";
 import { CANONICAL_ESTIMATE_SECTIONS, estimateSectionPresentationName, resolveCanonicalLineSectionKey } from "./estimate-sections";
 
@@ -21,6 +21,7 @@ export type ProposalPreviewDto = {
   proposal: CustomerProposalDto;
   estimateId: string;
   estimateRevision: number;
+  canEditProposalPresentation: boolean;
   selectedTemplateId: string | null;
   templates: ProposalTemplate[];
 };
@@ -106,13 +107,16 @@ export class DefaultProposalService {
       },
       deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
     });
-    return { proposal: dto, estimateId: aggregate.estimate.id, estimateRevision: aggregate.estimate.revision, selectedTemplateId: selectedTemplate?.id ?? null, templates: normalizedTemplates };
+    return { proposal: dto, estimateId: aggregate.estimate.id, estimateRevision: aggregate.estimate.revision, canEditProposalPresentation: canEditProposalPresentation(aggregate.estimate), selectedTemplateId: selectedTemplate?.id ?? null, templates: normalizedTemplates };
   }
 
   async saveSettings(userId: string, estimateId: string, expectedRevision: number, templateId: string | null, settings: ProposalSettings) {
     const context = await this.resolveContext(userId, MANAGE_PERMISSION);
     const estimate = await this.estimateRepository.findById(normalizeId(estimateId));
     if (!estimate || estimate.companyId !== context.company.id) throw new NotFoundError("Estimate was not found.");
+    if (!canEditProposalPresentation(estimate)) {
+      throw new DomainConflictError("PROPOSAL_PRESENTATION_IMMUTABLE");
+    }
     const normalized = normalizeSettings(settings);
     let revision: number;
     try {
@@ -120,6 +124,9 @@ export class DefaultProposalService {
     } catch (error) {
       if (error instanceof ProposalSettingsConflictError) {
         throw new DomainConflictError("PROPOSAL_SETTINGS_CONFLICT");
+      }
+      if (error instanceof ProposalSettingsUnavailableError) {
+        throw new DomainConflictError("PROPOSAL_PRESENTATION_IMMUTABLE");
       }
       throw error;
     }
@@ -205,6 +212,12 @@ export class DefaultProposalService {
     await this.permissionService.ensurePermission(userId, context.company.id, permission);
     return context;
   }
+}
+
+export function canEditProposalPresentation(estimate: Pick<Estimate, "status" | "lifecycleStatus">): boolean {
+  return estimate.status === "draft"
+    || estimate.status === "ready"
+    || (estimate.status === "archived" && estimate.lifecycleStatus === "draft");
 }
 
 function prepareCustomerProposal(input: {

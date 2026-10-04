@@ -220,7 +220,7 @@ describe("proposal UI", () => {
   it("applies a template and saves all settings in one action", async () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
-    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" canEditProposalPresentation estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
     await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
     expect(screen.getByRole("combobox", { name: "Шаблон" })).toHaveValue(template.id);
     const senderName = screen.getByRole("textbox", { name: "Название компании / бренда" });
@@ -239,7 +239,7 @@ describe("proposal UI", () => {
     vi.clearAllMocks();
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
-    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" canEditProposalPresentation estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
     await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
 
     for (const label of [
@@ -276,7 +276,7 @@ describe("proposal UI", () => {
     vi.clearAllMocks();
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: false, data: null, message: "The resource changed.", errorCode: "PROPOSAL_SETTINGS_CONFLICT" });
-    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" canEditProposalPresentation estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
     await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
     await user.click(screen.getByRole("button", { name: "Сохранить" }));
 
@@ -284,11 +284,26 @@ describe("proposal UI", () => {
     expect(screen.queryByText(/PT409|SQLSTATE|database/i)).not.toBeInTheDocument();
   });
 
+  it("renders immutable proposal presentation settings as an explicit read-only view", async () => {
+    vi.clearAllMocks();
+    const user = userEvent.setup();
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" canEditProposalPresentation={false} estimateId="estimate-1" initialSettings={settings} revision={3} selectedTemplateId={template.id} templates={[template]} />);
+
+    await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
+
+    expect(screen.getByText("Оформление этой зафиксированной версии нельзя изменить.")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Шаблон" })).toBeDisabled();
+    expect(screen.getByRole("textbox", { name: "Заголовок" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Скидка по строке" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Сохранить" })).not.toBeInTheDocument();
+    expect(saveEstimateProposalSettingsAction).not.toHaveBeenCalled();
+  });
+
   it("preserves the proposal-specific sender override when another template is selected", async () => {
     const user = userEvent.setup();
     vi.mocked(saveEstimateProposalSettingsAction).mockResolvedValue({ success: true, data: { revision: 4 }, message: "Сохранено", errorCode: null });
     const secondTemplate: ProposalTemplate = { ...template, id: "template-2", key: "service_offer", name: "Сервисное предложение", configuration: { ...settings, title: "Сервис" } };
-    render(<ProposalControls automaticSenderDisplayName="Partner SRL" estimateId="estimate-1" initialSettings={{ ...settings, senderDisplayName: "XVISION" }} revision={3} selectedTemplateId={template.id} templates={[template, secondTemplate]} />);
+    render(<ProposalControls automaticSenderDisplayName="Partner SRL" canEditProposalPresentation estimateId="estimate-1" initialSettings={{ ...settings, senderDisplayName: "XVISION" }} revision={3} selectedTemplateId={template.id} templates={[template, secondTemplate]} />);
     await user.click(screen.getByRole("button", { name: "Настройки оформления" }));
     await user.selectOptions(screen.getByRole("combobox", { name: "Шаблон" }), secondTemplate.id);
     expect(screen.getByRole("textbox", { name: "Название компании / бренда" })).toHaveValue("XVISION");
