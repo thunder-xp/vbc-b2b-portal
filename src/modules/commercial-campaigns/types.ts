@@ -1,9 +1,18 @@
 export type CampaignStatus = "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
 export type CampaignFilter = "active" | "ending" | "stock" | "arrivals" | "purchased";
 export type CampaignType = "product_offer" | "stock_clearance" | "arrival_promotion" | "reorder_campaign" | "category_campaign" | "partner_segment_offer";
-export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo";
+export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo" | "fixed_bundle_promo";
 export type CampaignPromoEligibilityReason = "eligible" | "below_threshold" | "invalid_threshold" | "missing_promo" | "inactive_campaign" | "outside_period" | "outside_audience" | "product_not_in_scope" | "legacy_campaign";
 
+export type CampaignBundleComponent = {
+  campaignItemId: string; productId: string; sku: string; name: string;
+  requiredBundleQuantity: number; currentQuantity: number; missingQuantity: number;
+  availableQuantity: number | null;
+};
+export type CampaignBundleState = {
+  campaignId: string; publicationVersion: number; eligible: boolean;
+  conditionsReady: boolean; stockReady: boolean; reason: string; components: CampaignBundleComponent[];
+};
 export type CampaignMoney = { amount: number; currency: string };
 export type CampaignProduct = {
   itemId: string;
@@ -17,6 +26,7 @@ export type CampaignProduct = {
   partnerMessage: string | null;
   mechanicType: CampaignMechanicType;
   promoThresholdQuantity: number | null;
+  requiredBundleQuantity?: number | null;
   msrpPrice: CampaignMoney | null;
   partnerPrice: CampaignMoney | null;
   specialPrice: CampaignMoney | null;
@@ -39,6 +49,7 @@ export type PartnerCampaign = {
   termsSummary: string;
   mechanicType: CampaignMechanicType;
   products: CampaignProduct[];
+  bundleProgress?: CampaignBundleState | null;
 };
 
 export type PartnerCampaignPage = { items: PartnerCampaign[]; totalCount: number };
@@ -125,6 +136,7 @@ export type CampaignDraftInput = {
     governedBenefitReference: string | null;
     partnerMessage: string | null;
     promoThresholdQuantity: number | null;
+    requiredBundleQuantity?: number | null;
   }>;
 };
 export type CampaignDraftUpdateInput = CampaignDraftInput & {

@@ -26,13 +26,26 @@ export async function getPartnerCampaignAction(campaignId: string): Promise<Camp
   }
 }
 
-export async function addCampaignItemToCartAction(input: { campaignItemId: string; quantity: number; requestId: string }): Promise<CampaignActionResult<{ cartItemId: string; quantity: number; mechanicType: "legacy_promo" | "quantity_threshold_promo"; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: string }>> {
+export async function addCampaignItemToCartAction(input: { campaignItemId: string; quantity: number; requestId: string }): Promise<CampaignActionResult<{ cartItemId: string; quantity: number; mechanicType: import("../types").CampaignMechanicType; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: string }>> {
   try {
     const data = await createCommercialCampaignService().addToCart(await getAuthenticatedUserId(), input.campaignItemId, input.quantity, input.requestId);
     revalidatePath("/cabinet/cart");
     return campaignSuccess(data, `Добавлено в корзину: ${data.quantity} шт.`);
   } catch (error) {
     return fail(error, "Не удалось добавить товар. Проверьте количество и условия предложения.", "campaign_cart_failed");
+  }
+}
+
+export async function completeCampaignBundleAction(input: { campaignId: string; requestId: string }): Promise<CampaignActionResult<import("../types").CampaignBundleState>> {
+  try {
+    const data = await createCommercialCampaignService().completeBundle(await getAuthenticatedUserId(), input.campaignId, input.requestId);
+    revalidatePath("/cabinet/cart");
+    revalidatePath("/cabinet/offers");
+    revalidatePath(`/cabinet/offers/${input.campaignId}`);
+    revalidatePath("/cabinet", "layout");
+    return campaignSuccess(data, "Комплект добавлен в корзину.");
+  } catch (error) {
+    return fail(error, "Комплект недоступен. Проверьте наличие и условия предложения.", "campaign_bundle_failed");
   }
 }
 
@@ -128,7 +141,13 @@ export async function publishCampaignAction(campaignId: string, requestId: strin
     revalidatePath(`/admin/commercial/campaigns/${campaignId}`);
     return campaignSuccess(data, "Кампания опубликована.");
   } catch (error) {
-    return fail(error, "Публикация отклонена: проверьте период, товары и аудиторию.", "campaign_publish_failed");
+    const detail = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+    const message = detail.includes("CAMPAIGN_COMMERCIAL_SCOPE_CONFLICT")
+      ? "Публикация отклонена: товары, аудитория и период пересекаются с другой PROMO кампанией. Измените состав, аудиторию или период."
+      : detail.includes("CAMPAIGN_PROMO_PRICE_MISSING") ? "Публикация отклонена: у компонента отсутствует опубликованная цена PROMO."
+      : detail.includes("CAMPAIGN_BUNDLE_COMPOSITION_INVALID") ? "В комплекте нужны минимум два разных товара и количество для каждого."
+      : "Публикация отклонена: проверьте период, товары и аудиторию.";
+    return fail(error, message, "campaign_publish_failed");
   }
 }
 

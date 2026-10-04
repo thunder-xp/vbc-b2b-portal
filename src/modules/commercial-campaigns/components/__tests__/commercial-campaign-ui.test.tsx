@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { CampaignCard, CampaignCartControl, CampaignPriceStack } from "..";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../../actions", () => ({ addCampaignItemToCartAction: vi.fn() }));
 
 const product = { itemId: "item-1", productId: "product-1", sku: "400123", name: "Camera", slug: "camera", imageUrl: "/camera.webp", minimumQuantity: 2, maximumQuantityPerCompany: 10, partnerMessage: null, mechanicType: "legacy_promo" as const, promoThresholdQuantity: null, msrpPrice: { amount: 120, currency: "USD" }, partnerPrice: { amount: 100, currency: "USD" }, specialPrice: { amount: 90, currency: "USD" }, price: { amount: 100, currency: "USD" }, availableQuantity: 5, expectedArrivalDate: null };

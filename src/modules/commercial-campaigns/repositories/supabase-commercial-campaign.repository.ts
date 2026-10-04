@@ -20,6 +20,14 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
     if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);
     return { cartItemId: text(data.cartItemId), quantity: number(data.quantity), mechanicType: mechanicType(data.mechanicType), thresholdQuantity: nullableNumber(data.thresholdQuantity), promoEligible: data.promoEligible === true, eligibilityReason: eligibilityReason(data.eligibilityReason) };
   }
+  async completeBundle(input: { companyId: string; campaignId: string; requestId: string }) {
+    const { data, error } = await (await createClient()).rpc("complete_commercial_campaign_bundle_v1", {
+      p_company_id: input.companyId, p_campaign_id: input.campaignId, p_request_id: input.requestId,
+    });
+    const progress = mapBundle(data);
+    if (error || !progress) throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    return progress;
+  }
   async recordEngagement(input: Parameters<CommercialCampaignRepository["recordEngagement"]>[0]): Promise<void> {
     const { error } = await (await createClient()).rpc("record_commercial_campaign_engagement", { p_company_id: input.companyId, p_campaign_id: input.campaignId, p_campaign_item_id: input.campaignItemId ?? null, p_event_type: input.eventType, p_quantity: input.quantity ?? null, p_request_id: input.requestId });
     if (error) throw new CommercialCampaignRepositoryError(error.code);
@@ -108,7 +116,7 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
   }
   async publish(campaignId: string, requestId: string) {
     const { data, error } = await (await createClient()).rpc("publish_commercial_campaign", { p_campaign_id: campaignId, p_request_id: requestId });
-    if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    if (error || !record(data)) throw new CommercialCampaignRepositoryError(error?.message ?? error?.code ?? null);
     return { status: text(data.status), version: number(data.version), audienceCount: number(data.audienceCount) };
   }
   async pause(campaignId: string, reason: string): Promise<void> {
@@ -120,7 +128,7 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
 function mapCampaign(value: unknown): PartnerCampaign[] {
   if (!record(value) || typeof value.id !== "string") return [];
   const campaignMechanic = mechanicType(value.mechanicType);
-  return [{ id: value.id, code: text(value.code), title: text(value.title), description: text(value.description), type: text(value.type) as PartnerCampaign["type"], startsAt: text(value.startsAt), endsAt: text(value.endsAt), priority: number(value.priority), imageAssetPath: nullableText(value.imageAssetPath), termsSummary: text(value.termsSummary), mechanicType: campaignMechanic, products: records(value.products).map((item) => ({ itemId: text(item.itemId), productId: text(item.productId), sku: text(item.sku), name: text(item.name), slug: text(item.slug), imageUrl: nullableText(item.imageUrl), minimumQuantity: number(item.minimumQuantity), maximumQuantityPerCompany: nullableNumber(item.maximumQuantityPerCompany), partnerMessage: nullableText(item.partnerMessage), mechanicType: mechanicType(item.mechanicType || campaignMechanic), promoThresholdQuantity: nullableNumber(item.promoThresholdQuantity), msrpPrice: mapUsdMoney(item.msrpPrice), partnerPrice: mapUsdMoney(item.partnerPrice), specialPrice: mapUsdMoney(item.specialPrice), price: mapMoney(item.price), availableQuantity: nullableNumber(item.availableQuantity), expectedArrivalDate: nullableText(item.expectedArrivalDate) })) }];
+  return [{ id: value.id, code: text(value.code), title: text(value.title), description: text(value.description), type: text(value.type) as PartnerCampaign["type"], startsAt: text(value.startsAt), endsAt: text(value.endsAt), priority: number(value.priority), imageAssetPath: nullableText(value.imageAssetPath), termsSummary: text(value.termsSummary), mechanicType: campaignMechanic, bundleProgress: mapBundle(value.bundleProgress), products: records(value.products).map((item) => ({ itemId: text(item.itemId), productId: text(item.productId), sku: text(item.sku), name: text(item.name), slug: text(item.slug), imageUrl: nullableText(item.imageUrl), minimumQuantity: number(item.minimumQuantity), maximumQuantityPerCompany: nullableNumber(item.maximumQuantityPerCompany), partnerMessage: nullableText(item.partnerMessage), mechanicType: mechanicType(item.mechanicType || campaignMechanic), promoThresholdQuantity: nullableNumber(item.promoThresholdQuantity), requiredBundleQuantity: nullableNumber(item.requiredBundleQuantity), msrpPrice: mapUsdMoney(item.msrpPrice), partnerPrice: mapUsdMoney(item.partnerPrice), specialPrice: mapUsdMoney(item.specialPrice), price: mapMoney(item.price), availableQuantity: nullableNumber(item.availableQuantity), expectedArrivalDate: nullableText(item.expectedArrivalDate) })) }];
 }
 function mapAdminSummary(value: unknown) {
   if (!record(value) || typeof value.id !== "string") return [];
@@ -139,7 +147,15 @@ function text(value: unknown): string { return typeof value === "string" ? value
 function nullableText(value: unknown): string | null { return typeof value === "string" ? value : null; }
 function number(value: unknown): number { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
 function nullableNumber(value: unknown): number | null { return value === null || value === undefined ? null : number(value); }
-function mechanicType(value: unknown): "legacy_promo" | "quantity_threshold_promo" { return value === "quantity_threshold_promo" ? value : "legacy_promo"; }
+function mechanicType(value: unknown): import("../types").CampaignMechanicType { return value === "quantity_threshold_promo" || value === "fixed_bundle_promo" ? value : "legacy_promo"; }
+function mapBundle(value: unknown): import("../types").CampaignBundleState | null {
+  if (!record(value) || typeof value.campaignId !== "string") return null;
+  return { campaignId: value.campaignId, publicationVersion: number(value.publicationVersion), eligible: value.eligible === true,
+    conditionsReady: value.conditionsReady === true, stockReady: value.stockReady === true, reason: text(value.reason),
+    components: records(value.components).map((item) => ({ campaignItemId: text(item.campaignItemId), productId: text(item.productId),
+      sku: text(item.sku), name: text(item.name), requiredBundleQuantity: number(item.requiredBundleQuantity),
+      currentQuantity: number(item.currentQuantity), missingQuantity: number(item.missingQuantity), availableQuantity: nullableNumber(item.availableQuantity) })) };
+}
 function eligibilityReason(value: unknown): import("../types").CampaignPromoEligibilityReason {
   const allowed = new Set(["eligible", "below_threshold", "invalid_threshold", "missing_promo", "inactive_campaign", "outside_period", "outside_audience", "product_not_in_scope", "legacy_campaign"]);
   return typeof value === "string" && allowed.has(value) ? value as import("../types").CampaignPromoEligibilityReason : "legacy_campaign";

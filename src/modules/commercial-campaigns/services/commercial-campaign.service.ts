@@ -19,6 +19,9 @@ export class CommercialCampaignService {
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) throw new InvalidStateError("Campaign quantity is invalid.");
     return this.repository.addToCart({ companyId: await this.companyId(userId), campaignItemId, quantity, requestId });
   }
+  async completeBundle(userId: string, campaignId: string, requestId: string) {
+    return this.repository.completeBundle({ companyId: await this.companyId(userId), campaignId, requestId });
+  }
   async recordEngagement(userId: string, input: Omit<Parameters<CommercialCampaignRepository["recordEngagement"]>[0], "companyId">) {
     try { await this.repository.recordEngagement({ ...input, companyId: await this.companyId(userId) }); } catch { /* Analytics must not block buying. */ }
   }
@@ -57,7 +60,16 @@ function validateDraft(input: CampaignDraftInput): void {
   if (input.contractVersion !== "3" || !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(input.code) || input.name.trim().length < 3 || input.partnerTitle.trim().length < 3 || input.partnerDescription.trim().length < 10 || input.termsSummary.trim().length < 3 || !Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || !input.items.length || input.items.length > 50 || (input.audienceMode === "explicit_company" && !input.companyIds.length)) throw new InvalidStateError("Campaign input is invalid.");
   if (input.items.some((item) => item.minimumQuantity < 1 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < item.minimumQuantity)) throw new InvalidStateError("Campaign quantity limits are invalid.");
   if (input.items.some((item) => item.benefitType === "existing_price_profile" ? item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile must be PROMO.");
-  if (input.mechanicType === "quantity_threshold_promo") {
+  if (input.mechanicType !== "fixed_bundle_promo" && input.items.some((item) => item.requiredBundleQuantity != null)) throw new InvalidStateError("Bundle quantities require the fixed bundle mechanic.");
+  if (input.mechanicType === "fixed_bundle_promo") {
+    if (input.items.length < 2 || new Set(input.items.map((item) => item.productId)).size !== input.items.length
+      || input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef
+        || !Number.isInteger(item.requiredBundleQuantity) || Number(item.requiredBundleQuantity) < item.minimumQuantity
+        || Number(item.requiredBundleQuantity) > 9999 || item.promoThresholdQuantity !== null
+        || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.requiredBundleQuantity))) {
+      throw new InvalidStateError("Bundle → PROMO requires at least two distinct products with positive required quantities and governed PROMO.");
+    }
+  } else if (input.mechanicType === "quantity_threshold_promo") {
     if (input.items.some((item) => item.benefitType !== "existing_price_profile" || item.governedBenefitReference !== SPECIAL_OFFERS_PROMO_PROFILE.externalRef || !Number.isInteger(item.promoThresholdQuantity) || Number(item.promoThresholdQuantity) < 1 || Number(item.promoThresholdQuantity) > 9999 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < Number(item.promoThresholdQuantity))) throw new InvalidStateError("Quantity → PROMO requires a valid per-product threshold and governed PROMO price.");
   } else if (input.mechanicType !== "legacy_promo" || input.items.some((item) => item.promoThresholdQuantity !== null)) {
     throw new InvalidStateError("Campaign mechanic configuration is invalid.");

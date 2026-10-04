@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { useState, useTransition } from "react";
 import { formatPartnerMoney, secondaryCopy, usePartnerLocale } from "@/src/modules/partner-locale";
@@ -22,6 +23,7 @@ export function CampaignCartControl({
   promoThresholdQuantity: number | null;
   promoPrice: CampaignMoney | null;
 }) {
+  const router = useRouter();
   const locale = usePartnerLocale();
   const copy = secondaryCopy(locale);
   const [quantity, setQuantity] = useState(minimum);
@@ -74,7 +76,7 @@ export function CampaignCartControl({
                   : result.message
                 : copy.cartError,
             );
-            if (result.success) setRequestId(crypto.randomUUID());
+            if (result.success) { setRequestId(crypto.randomUUID()); if (mechanicType === "fixed_bundle_promo") router.refresh(); }
           })
         }
         type="button"

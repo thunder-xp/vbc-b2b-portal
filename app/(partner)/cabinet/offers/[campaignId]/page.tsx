@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPartnerCampaignAction } from "@/src/modules/commercial-campaigns/actions";
-import { CampaignCartControl, CampaignPriceStack } from "@/src/modules/commercial-campaigns/components";
+import { CampaignBundleProgress, CampaignCartControl, CampaignPriceStack } from "@/src/modules/commercial-campaigns/components";
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import {
   formatPartnerDate,
@@ -60,6 +60,7 @@ export default async function OfferDetailPage({
           </div>
         ) : null}
       </header>
+      {campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} locale={locale} /> : null}
       <section aria-labelledby="campaign-products">
         <h2 className="text-xl font-semibold" id="campaign-products">
           {copy.offerProducts}
@@ -113,7 +114,7 @@ export default async function OfferDetailPage({
                   </p>
                 ) : null}
                 <p className="mt-2 text-xs text-zinc-500">
-                  {copy.minimum}: {product.minimumQuantity} {copy.units}
+                  {campaign.mechanicType === "fixed_bundle_promo" ? `${locale === "ro" ? "Cantitate în set" : "Количество в комплекте"}: ${product.requiredBundleQuantity}` : `${copy.minimum}: ${product.minimumQuantity}`} {copy.units}
                   {product.maximumQuantityPerCompany
                     ? ` · ${copy.companyLimit}: ${product.maximumQuantityPerCompany} ${copy.units}`
                     : ""}
