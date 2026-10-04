@@ -21,7 +21,7 @@ export default async function SupportPage({
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" data-partner-page-header>
         <div>
           <p className="text-xs font-semibold uppercase text-emerald-700">
             {copy.eyebrow}

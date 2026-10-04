@@ -43,7 +43,7 @@ export default async function NewReservationRequestPage({
     );
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header className="border-b border-zinc-200 pb-5">
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header>
         <p className="text-xs font-semibold uppercase text-emerald-700">
           {copy.newRequest}
         </p>

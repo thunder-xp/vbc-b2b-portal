@@ -22,7 +22,7 @@ export default async function NewEstimatePage({
   const currencies = await listEstimateCurrenciesAction();
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
-      <header className="border-b border-zinc-200 pb-5">
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header>
         <Link
           className="text-sm font-semibold text-emerald-700"
           href="/cabinet/estimates"

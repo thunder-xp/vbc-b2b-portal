@@ -10,7 +10,7 @@ export default async function ComparePage() {
   const copy = workspaceCopy(locale);
   return (
     <section>
-      <h1 className="text-2xl font-semibold text-zinc-950">{copy.compareTitle}</h1>
+      <h1 className="sr-only">{copy.compareTitle}</h1>
       <p className="mt-2 text-sm text-zinc-600">{copy.compareIntro}</p>
       <div className="mt-6">
         {workspace.success && workspace.data.companyId ? (

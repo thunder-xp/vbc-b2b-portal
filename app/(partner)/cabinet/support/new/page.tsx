@@ -8,7 +8,7 @@ export default async function NewSupportTicketPage() {
   const copy = supportCopy(locale);
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <header>
+      <header data-partner-page-header>
         <Link
           className="text-sm font-medium text-emerald-700"
           href="/cabinet/support"

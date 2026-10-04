@@ -28,7 +28,7 @@ export default async function SupportDetailPage({
   const immutable = ["closed", "rejected", "cancelled"].includes(detail.status);
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header>
+      <header data-partner-page-header>
         <Link
           className="text-sm font-medium text-emerald-700"
           href="/cabinet/support"

@@ -66,9 +66,9 @@ export function KnowledgeArticleView({
         <p className="mt-5 text-xs font-semibold uppercase text-emerald-700">
           {knowledgeTypeLabel(locale, article.articleType)}
         </p>
-        <h1 className="mt-2 text-3xl font-semibold text-zinc-950">
+        <h2 className="mt-2 text-xl font-semibold text-zinc-950">
           {article.title}
-        </h1>
+        </h2>
         <p className="mt-3 text-lg text-zinc-600">{article.summary}</p>
         <p className="mt-4 text-xs text-zinc-500">
           {copy.knowledgeUpdated} {formatPartnerDate(article.updatedAt, locale)}

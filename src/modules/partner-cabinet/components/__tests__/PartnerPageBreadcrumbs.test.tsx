@@ -1,81 +1,58 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const navigationState = vi.hoisted(() => ({ pathname: "/cabinet/cart", filter: null as string | null, view: null as string | null }));
+const navigationState = vi.hoisted(() => ({ pathname: "/cabinet/finance", query: "" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => navigationState.pathname,
-  useSearchParams: () => new URLSearchParams([
-    navigationState.filter ? `filter=${navigationState.filter}` : "",
-    navigationState.view ? `view=${navigationState.view}` : "",
-  ].filter(Boolean).join("&")),
+  useSearchParams: () => new URLSearchParams(navigationState.query),
 }));
 
 import { PartnerPageBreadcrumbs } from "../PartnerPageBreadcrumbs";
 
 describe("PartnerPageBreadcrumbs", () => {
   beforeEach(() => {
-    navigationState.pathname = "/cabinet/cart";
-    navigationState.filter = null;
-    navigationState.view = null;
-  });
-
-  it("shows localized Cart context in the top-bar breadcrumb landmark", () => {
-    render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation", { name: "Хлебные крошки" })).toHaveTextContent(/Оформление заказа\s*\/\s*Корзина/);
-    expect(screen.getByText("Корзина")).toHaveAttribute("aria-current", "page");
-  });
-
-  it("shows the Favorites context for the saved-selection filter", () => {
-    navigationState.pathname = "/cabinet/purchasing-lists";
-    navigationState.filter = "favorites";
-    render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent(/Подборки\s*\/\s*Избранное/);
+    navigationState.pathname = "/cabinet/finance";
+    navigationState.query = "";
   });
 
   it.each([
-    ["ru", "/cabinet/purchasing-lists", null, "Мои комплекты"],
-    ["ru", "/cabinet/compare", null, "Сравнение"],
-    ["ro", "/cabinet/purchasing-lists", "favorites", "Favorite"],
-    ["ro", "/cabinet/purchasing-lists", null, "Seturile mele"],
-    ["ro", "/cabinet/compare", null, "Comparație"],
-  ] as const)("uses the collections hierarchy for %s %s %s", (locale, pathname, filter, title) => {
+    ["ru", "/cabinet/finance", "", "Кабинет/Финансы", "Финансы"],
+    ["ru", "/cabinet/estimates", "", "Продажи/Сметы и КП/Мои сметы", "Мои сметы"],
+    ["ru", "/cabinet/expertise/academy", "", "Поддержка/Экспертиза Novotech/Академия", "Академия"],
+    ["ru", "/cabinet/catalog", "view=all", "Закупки/Товары/Каталог товаров", "Каталог товаров"],
+    ["ru", "/cabinet/purchasing-lists", "filter=favorites", "Подборки/Избранное", "Избранное"],
+    ["ro", "/cabinet/expertise/academy", "", "Suport/Expertiza Novotech/Academia", "Academia"],
+    ["ro", "/cabinet/catalog", "view=all", "Achiziții/Produse/Catalog produse", "Catalog produse"],
+  ] as const)("renders the compact localized hierarchy for %s %s?%s", (locale, pathname, query, text, title) => {
     navigationState.pathname = pathname;
-    navigationState.filter = filter;
+    navigationState.query = query;
     render(<PartnerPageBreadcrumbs locale={locale} />);
-    const breadcrumb = screen.getByRole("navigation");
-    expect(breadcrumb.textContent).toBe(`${locale === "ro" ? "Colecții" : "Подборки"}/${title}`);
-    expect(breadcrumb.querySelectorAll("li")).toHaveLength(3);
-    expect(screen.getByRole("heading", { name: title })).toHaveAttribute("aria-current", "page");
-  });
 
-  it("localizes checkout context for Romanian partners", () => {
-    render(<PartnerPageBreadcrumbs locale="ro" />);
-    expect(screen.getByRole("navigation", { name: "Navigare ierarhică" })).toHaveTextContent(/Finalizarea comenzii\s*\/\s*Coș/);
+    const breadcrumb = screen.getByRole("navigation", {
+      name: locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки",
+    });
+    expect(breadcrumb.textContent).toBe(text);
+    expect(screen.getByRole("heading", { level: 1, name: title })).toHaveAttribute("aria-current", "page");
+    expect(breadcrumb).toHaveAttribute("data-partner-breadcrumb-header");
   });
 
   it.each([
-    ["/cabinet/quick-order", "Подбор товаров"],
-    ["/cabinet/opportunities", "Возможности для закупки"],
-    ["/cabinet/offers", "Специальные предложения"],
-  ])("shows purchasing context for %s", (route, title) => {
-    navigationState.pathname = route;
+    ["/cabinet/catalog/product-slug", "Закупки/Товары/Товар"],
+    ["/cabinet/orders/order-id", "Кабинет/Заказ"],
+    ["/cabinet/documents/document-id", "Кабинет/Документ"],
+    ["/cabinet/estimates/estimate-id/versions/version-id/preview", "Продажи/Сметы и КП/Предпросмотр КП"],
+    ["/cabinet/installation-marketplace", "Продажи/Монтаж и заявки/Статус монтажей"],
+    ["/cabinet/service/history/history-id", "Поддержка/Гарантия и техподдержка/История ремонта"],
+  ])("covers dynamic Partner Cabinet route %s", (pathname, text) => {
+    navigationState.pathname = pathname;
     render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent("Покупки");
-    expect(screen.getByRole("heading", { name: title })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("navigation").textContent).toBe(text);
   });
 
-  it("renders the governed B2B showcase hierarchy", () => {
-    navigationState.pathname = "/cabinet/catalog";
+  it("switches the installation breadcrumb from status to profile using the governed query", () => {
+    navigationState.pathname = "/cabinet/installation-marketplace";
+    navigationState.query = "view=profile";
     render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent(/ЗАКУПКИ\s*\/\s*ТОВАРЫ\s*\/\s*Витрина/);
-    expect(screen.getByRole("heading", { name: "Витрина" })).toHaveAttribute("aria-current", "page");
-  });
-
-  it("renders the governed full catalog hierarchy", () => {
-    navigationState.pathname = "/cabinet/catalog";
-    navigationState.view = "all";
-    render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent(/ЗАКУПКИ\s*\/\s*ТОВАРЫ\s*\/\s*Каталог товаров/);
-    expect(screen.getByRole("heading", { name: "Каталог товаров" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("navigation").textContent).toBe("Продажи/Монтаж и заявки/Профиль инсталлятора");
   });
 });

@@ -59,7 +59,7 @@ export default async function ServicePage({ searchParams }: { searchParams: Prom
 
   return (
     <main className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between" data-partner-page-header>
         <div><h1 className="text-2xl font-semibold">{copy.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{copy.subtitle}</p></div>
         <Link className="inline-flex min-h-11 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white" href="/cabinet/service/new">{copy.create}</Link>
       </header>

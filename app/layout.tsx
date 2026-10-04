@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { IBM_Plex_Sans } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 
-const partnerSidebarFont = Inter({
+const partnerCabinetFont = IBM_Plex_Sans({
   display: "swap",
   subsets: ["cyrillic", "latin"],
-  variable: "--font-partner-sidebar",
+  variable: "--font-partner-cabinet",
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default async function RootLayout({
   const locale = (await headers()).get("x-novotech-document-locale") === "ro" ? "ro" : "ru";
 
   return (
-    <html lang={locale} className={`${partnerSidebarFont.variable} h-full antialiased`}>
+    <html lang={locale} className={`${partnerCabinetFont.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

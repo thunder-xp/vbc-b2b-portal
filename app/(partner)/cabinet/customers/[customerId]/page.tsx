@@ -37,7 +37,7 @@ export default async function CustomerDetailPage({
   const customer = result.data;
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="border-b border-zinc-200 pb-5">
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header>
         <Link
           className="text-sm font-semibold text-emerald-700"
           href="/cabinet/customers"

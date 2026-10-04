@@ -12,7 +12,7 @@ export default async function NotificationSettingsPage() {
   const copy = notificationCopy(locale);
   return (
     <section className="mx-auto w-full max-w-4xl space-y-5">
-      <header>
+      <header data-partner-page-header>
         <Link className="text-sm font-medium text-emerald-700" href="/cabinet/notifications">← {copy.title}</Link>
         <h1 className="mt-2 text-2xl font-semibold text-zinc-950">{copy.settingsTitle}</h1>
         <p className="mt-2 text-sm text-zinc-600">{copy.settingsIntro}</p>

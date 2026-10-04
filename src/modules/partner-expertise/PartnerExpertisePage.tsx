@@ -23,7 +23,7 @@ export async function PartnerExpertisePage({ section }: { section: ExpertiseSect
   const videos = await getPartnerExpertiseService().listPartner(context.data.companyId, section, locale);
   const t = copy[section][locale];
   return <main className="mx-auto max-w-6xl space-y-6">
-    <header><p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{locale === "ro" ? "Expertiza Novotech" : "Экспертиза Novotech"}</p><h1 className="mt-2 text-2xl font-semibold sm:text-3xl">{t.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{t.subtitle}</p></header>
+    <header data-partner-page-header><p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">{locale === "ro" ? "Expertiza Novotech" : "Экспертиза Novotech"}</p><h1 className="mt-2 text-2xl font-semibold sm:text-3xl">{t.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{t.subtitle}</p></header>
     <PartnerExpertiseGrid empty={t.empty} locale={locale} videos={videos} />
   </main>;
 }

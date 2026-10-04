@@ -381,9 +381,8 @@ export function PartnerSidebar({
 
   return (
     <aside
-      className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 font-[family-name:var(--font-partner-sidebar)] text-white"
-      data-sidebar-font="Inter"
-      style={{ fontFeatureSettings: '"tnum" on' }}
+      className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white"
+      data-sidebar-font="IBM Plex Sans"
     >
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <p className="text-xs font-semibold uppercase text-emerald-300">Novotech</p>

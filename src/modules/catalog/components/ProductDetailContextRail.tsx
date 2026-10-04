@@ -44,12 +44,12 @@ export function ProductDetailContextRail({
         />
       </div>
       <div className="mt-4 min-w-0">
-        <h1
-          className="break-words text-xl font-semibold leading-7 text-zinc-950"
+        <h2
+          className="break-words text-lg font-semibold leading-6 text-zinc-950"
           id={titleId}
         >
           {product.name}
-        </h1>
+        </h2>
         <p className="mt-1 text-sm font-medium text-zinc-600">
           {copy.sku}: {product.sku}
         </p>

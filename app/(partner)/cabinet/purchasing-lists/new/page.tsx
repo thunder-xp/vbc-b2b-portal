@@ -7,7 +7,7 @@ export default async function NewPurchasingListPage() {
   const copy = procurementCopy(await getPartnerLocale());
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <header className="border-b border-zinc-200 pb-5">
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header>
         <Link
           className="text-sm font-semibold text-emerald-700"
           href="/cabinet/purchasing-lists"

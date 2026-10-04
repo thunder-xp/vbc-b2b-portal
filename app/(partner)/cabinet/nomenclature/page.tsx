@@ -18,7 +18,7 @@ export default async function NomenclaturePage({ searchParams }: { searchParams:
   const result = shared ? null : await listPartnerNomenclatureAction({ search: query.search, itemType, page: Number.parseInt(query.page ?? "1", 10) || 1 });
   return (
     <div className="min-w-0 space-y-5">
-      <header className="border-b border-zinc-200 pb-5"><p className="text-xs font-semibold uppercase text-emerald-700">{copy.estimates}</p><h1 className="mt-1 text-2xl font-semibold">{copy.nomenclatureTitle}</h1><p className="mt-1 text-sm text-zinc-500">{copy.nomenclatureIntro}</p></header>
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header><p className="text-xs font-semibold uppercase text-emerald-700">{copy.estimates}</p><h1 className="mt-1 text-2xl font-semibold">{copy.nomenclatureTitle}</h1><p className="mt-1 text-sm text-zinc-500">{copy.nomenclatureIntro}</p></header>
       <form className="grid min-w-0 gap-3 border-b border-zinc-200 pb-5 sm:grid-cols-[minmax(0,1fr)_14rem_auto]">
         <input name="scope" type="hidden" value={query.scope === "shared" ? "shared" : "own"} />
         <label className="relative min-w-0"><Search aria-hidden="true" className="absolute left-3 top-3.5 size-4 text-zinc-400" /><span className="sr-only">{copy.nomenclatureSearch}</span><input className="min-h-11 w-full min-w-0 rounded-md border border-zinc-300 pl-9 pr-3 text-sm" defaultValue={query.search} name="search" placeholder={copy.nomenclaturePlaceholder} /></label>

@@ -27,7 +27,7 @@ export default async function OfferDetailPage({
   const campaign = result.data;
   return (
     <div className="space-y-6">
-      <header className="grid overflow-hidden rounded-md border border-zinc-200 bg-white lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <header className="grid overflow-hidden rounded-md border border-zinc-200 bg-white lg:grid-cols-[minmax(0,1fr)_24rem]" data-partner-page-header>
         <div className="p-6">
           <Link
             className="text-sm font-semibold text-emerald-700"

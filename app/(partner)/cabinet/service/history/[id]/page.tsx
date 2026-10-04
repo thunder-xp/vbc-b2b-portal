@@ -23,7 +23,7 @@ export default async function ServiceHistoryDetailPage({
   if (!result.success || !result.data) notFound();
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header>
+      <header data-partner-page-header>
         <Link
           className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700"
           href={`/cabinet/service?view=${from}`}

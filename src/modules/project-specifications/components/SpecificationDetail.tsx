@@ -38,9 +38,9 @@ export function SpecificationDetail({
           >
             ← {copy.specificationsBack}
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold text-zinc-950">
+          <h2 className="mt-2 text-lg font-semibold text-zinc-950">
             {specification.projectName}
-          </h1>
+          </h2>
           <p className="mt-1 text-sm text-zinc-500">
             {specification.customerSiteName}
           </p>

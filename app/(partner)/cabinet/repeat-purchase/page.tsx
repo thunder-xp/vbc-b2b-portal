@@ -92,7 +92,7 @@ export default async function RepeatPurchasePage({ searchParams }: { searchParam
 
   return <div className="min-w-0 space-y-4" data-repeat-purchase-page>
     <BehaviorViewEvent dedupeKey={`repeat-purchase:${period}:${selectedCategoryIds.join(",") || "all"}:${search}:${page}`} eventName="catalog_viewed" resultCount={data.totalCount} route="/cabinet/repeat-purchase" searchQuery={search || undefined} sourceSurface="repeat_purchase_history" />
-    <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+    <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1" data-partner-page-header>
       <div className="flex min-w-0 flex-wrap items-center gap-x-4"><h1 className="text-2xl font-semibold text-zinc-950">{copy.title}</h1><RollingPeriodSelector activePeriod={periodState} hrefForPeriod={(target) => repeatPurchaseHref({ categoryIds: selectedCategoryIds, page: 1, period: target, search })} locale={locale} /></div>
       <p className="text-sm font-medium text-zinc-600" data-repeat-purchase-total><strong className="text-zinc-950">{data.totalCount}</strong> {copy.products}</p>
     </header>

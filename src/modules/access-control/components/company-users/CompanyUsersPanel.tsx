@@ -48,7 +48,7 @@ export function CompanyUsersPanel({
 
   return (
     <div className="space-y-6">
-      <header>
+      <header data-partner-page-header>
         <p className="text-sm font-semibold uppercase text-emerald-700">{isAdmin ? copy.adminCompany : copy.myCompany}</p>
         <h1 className="mt-2 text-2xl font-semibold text-zinc-950">{copy.employeesTitle}</h1>
         <p className="mt-2 text-sm text-zinc-600">{companyName}. {copy.employeesHint}</p>

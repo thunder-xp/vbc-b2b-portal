@@ -69,7 +69,7 @@ export default async function InstallationMarketplaceActivationPage({ searchPara
     getInstallationMarketplaceService().listPartner(context.data.companyId, view as "new" | "active" | "completed", locale),
   ]) : [[], []];
   return <main className="mx-auto max-w-6xl space-y-6">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold">{workspace.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{workspace.intro}</p></div><span className="rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold">{t.status}: {state.status}</span></header>
+    <header className="flex flex-wrap items-start justify-end gap-4" data-partner-page-header><div><h1 className="text-2xl font-semibold">{workspace.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{workspace.intro}</p></div><span className="rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold">{t.status}: {state.status}</span></header>
     {view !== "profile" ? <PartnerWorkspaceTabs activeKey={view} ariaLabel={workspace.title} tabs={operationalViews.map((entry) => ({ key: entry, label: workspace.tabs[entry], href: `/cabinet/installation-marketplace?view=${entry}` }))} /> : null}
     {query.result && <p role="status" className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">{query.result === "saved" ? t.saved : query.result === "submitted" ? t.submitted : t.enrolled}</p>}
     {view === "overview" ? <Overview locale={locale} state={state} workspace={workspace} /> : null}

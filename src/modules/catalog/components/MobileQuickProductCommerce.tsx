@@ -174,7 +174,7 @@ export function MobileQuickProductCommerce({
   return (
     <section className="mx-auto max-w-[90rem] space-y-4" data-search-request-count={requestCount}>
       <div className="mx-auto max-w-3xl space-y-1">
-        <h1 className="text-2xl font-semibold text-zinc-950">{copy.title}</h1>
+        <h1 className="sr-only">{copy.title}</h1>
         <nav aria-label={copy.title} className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold text-emerald-800 [&>a]:inline-flex [&>a]:min-h-11 [&>a]:items-center">
           <Link href="/cabinet/opportunities" prefetch={false}>{copy.recentlyPurchased}</Link>
           <Link href="/cabinet/purchasing-lists?filter=favorites" prefetch={false}>{copy.favorites}</Link>

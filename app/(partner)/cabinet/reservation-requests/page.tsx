@@ -54,7 +54,7 @@ export default async function PlannedShipmentsPage({
         route="/cabinet/reservation-requests"
         sourceSurface="planned_shipments"
       />
-      <header className="border-b border-zinc-200 pb-5">
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header>
         <p className="text-xs font-semibold uppercase text-emerald-700">
           {copy.reservationEyebrow}
         </p>

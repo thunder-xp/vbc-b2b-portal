@@ -108,7 +108,7 @@ export function PurchasingListEditor({
       <Link className="inline-flex min-h-11 items-center text-sm font-semibold text-emerald-700" href={initial.isSystemFavorites ? "/cabinet/purchasing-lists?filter=favorites" : "/cabinet/purchasing-lists"}>← {initial.isSystemFavorites ? copy.selection : kitCopy.title}</Link>
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <h1 className="break-words text-2xl font-semibold">{initial.isSystemFavorites ? copy.favorites : initial.name}</h1>
+          <h2 className="break-words text-lg font-semibold">{initial.isSystemFavorites ? copy.favorites : initial.name}</h2>
           {!initial.isSystemFavorites || initial.archivedAt ? <p className="mt-1 text-xs text-zinc-500" data-list-metadata>{initial.archivedAt ? copy.archive : initial.visibility === "private" ? copy.private : copy.company}</p> : null}
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center" data-page-actions>

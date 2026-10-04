@@ -105,7 +105,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   </div>;
 
   return <div className="mx-auto w-full max-w-7xl space-y-5 overflow-x-clip">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">{copy.resultStep}</p><h1 className="mt-1 text-2xl font-semibold">{copy.reviewConfiguration}</h1><p className="mt-1 max-w-3xl text-sm text-zinc-600">{copy.reviewHint}</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />{copy.changeParameters}</button></header>
+    <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">{copy.resultStep}</p><h2 className="mt-1 text-lg font-semibold">{copy.reviewConfiguration}</h2><p className="mt-1 max-w-3xl text-sm text-zinc-600">{copy.reviewHint}</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />{copy.changeParameters}</button></header>
     {mode === "quick_calculation" && compatibility && <CctvCompatibilitySummary copy={copy} hasUnverifiedRecorderReplacement={unverifiedRecorderReplacement} requirements={requirements} value={compatibility} />}
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
       <ProposalGeneratorReview currencyCode={currencyCode} incompatibleLineIds={incompatibleLineIds} onChange={setRequirements} requirements={requirements} />
@@ -175,7 +175,7 @@ function ModeChoice({ onChoose, copy }: { onChoose: (mode: GeneratorMode) => voi
   </div></div>;
 }
 function GeneratorHeader({ title, description, copy }: { title: string; description: string; copy: ProposalGeneratorCopy }) {
-  return <header><p className="text-sm font-semibold text-emerald-700">{copy.estimatesAndProposals}</p><h1 className="mt-1 text-2xl font-semibold text-zinc-950">{title}</h1><p className="mt-2 max-w-2xl text-sm text-zinc-600">{description}</p></header>;
+  return <header data-partner-page-header><p className="text-sm font-semibold text-emerald-700">{copy.estimatesAndProposals}</p><h1 className="mt-1 text-2xl font-semibold text-zinc-950">{title}</h1><p className="mt-2 max-w-2xl text-sm text-zinc-600">{description}</p></header>;
 }
 
 function GeneratorLoading() {

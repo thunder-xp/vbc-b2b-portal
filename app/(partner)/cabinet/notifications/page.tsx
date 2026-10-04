@@ -43,7 +43,7 @@ export default async function CabinetNotificationsPage({ searchParams }: { searc
 
   return (
     <section className="mx-auto w-full max-w-5xl space-y-5">
-      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end" data-partner-page-header>
         <div>
           <p className="text-sm font-medium text-emerald-700">{copy.workspace}</p>
           <h1 className="mt-1 text-2xl font-semibold text-zinc-950">{copy.title}</h1>

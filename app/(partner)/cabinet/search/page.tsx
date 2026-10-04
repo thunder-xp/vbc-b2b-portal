@@ -12,7 +12,7 @@ export default async function PartnerSearchPage({ searchParams }: { searchParams
   const result = query.length >= 2 ? await searchPartnerWorkspaceAction(query) : null;
   return (
     <div className="mx-auto max-w-5xl space-y-5">
-      <header className="border-b border-zinc-200 pb-4"><h1 className="text-2xl font-semibold text-zinc-950">{copy.searchTitle}</h1><p className="mt-1 text-sm text-zinc-600">{copy.searchIntro}</p></header>
+      <header className="border-b border-zinc-200 pb-4" data-partner-page-header><h1 className="text-2xl font-semibold text-zinc-950">{copy.searchTitle}</h1><p className="mt-1 text-sm text-zinc-600">{copy.searchIntro}</p></header>
       <form action="/cabinet/search" className="flex gap-2" role="search">
         <label className="sr-only" htmlFor="workspace-search-page-input">{copy.workspaceSearch}</label>
         <div className="relative min-w-0 flex-1"><Search aria-hidden="true" className="absolute left-3 top-3.5 size-4 text-zinc-400" /><input autoFocus className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-9 pr-3 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus-visible:ring-emerald-100" defaultValue={query} id="workspace-search-page-input" name="q" placeholder={copy.searchPlaceholder} type="search" /></div>

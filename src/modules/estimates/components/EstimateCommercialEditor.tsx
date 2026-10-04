@@ -779,12 +779,12 @@ export function EstimateCommercialEditor({
                 {dirty ? `● ${copy.unsaved}` : `✓ ${copy.saved}`}
               </span>
             </div>
-            <h1
-              className="mt-1 truncate text-xl font-semibold text-zinc-950"
+            <h2
+              className="mt-1 truncate text-base font-semibold text-zinc-950"
               title={draft.name}
             >
               {draft.name || copy.unnamed}
-            </h1>
+            </h2>
             <dl className="mt-1 hidden flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600 sm:flex">
               <Meta
                 label={copy.customer}

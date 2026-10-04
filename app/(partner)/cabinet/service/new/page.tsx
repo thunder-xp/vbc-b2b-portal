@@ -25,7 +25,7 @@ export default async function NewServiceCasePage({
   const verified = verification?.success ? verification.data : null;
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <header>
+      <header data-partner-page-header>
         <Link
           className="text-sm font-medium text-emerald-700"
           href="/cabinet/service"

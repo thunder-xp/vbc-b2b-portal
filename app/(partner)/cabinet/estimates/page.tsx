@@ -66,7 +66,7 @@ export default async function EstimatesPage({
         route="/cabinet/estimates"
         sourceSurface="estimate_list"
       />
-      <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-4 border-b border-zinc-200 pb-5 sm:flex-row sm:items-end sm:justify-between" data-partner-page-header>
         <div>
           <h1 className="text-2xl font-semibold text-zinc-950">{copy.title}</h1>
           <p className="mt-1 text-sm text-zinc-500">{copy.subtitle}</p>

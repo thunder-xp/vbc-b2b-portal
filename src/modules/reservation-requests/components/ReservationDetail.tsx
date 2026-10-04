@@ -39,7 +39,7 @@ export function ReservationDetail({
           >
             ← {copy.reservationRequests}
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold">{request.projectName}</h1>
+          <h2 className="mt-2 text-lg font-semibold">{request.projectName}</h2>
           <p className="mt-1 text-sm text-zinc-500">
             {request.customerSiteName}
           </p>

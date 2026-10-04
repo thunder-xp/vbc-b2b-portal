@@ -8,7 +8,7 @@ import { CompanyLogoForm } from "./CompanyLogoForm";
 export function CompanyCard({ context, locale = "ru" }: { context: PartnerWorkspaceContext; locale?: PartnerLocale }) {
   const copy = companyCopy(locale);
   return <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-    <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-sm font-medium uppercase text-emerald-700">{copy.partnerCompany}</p><h1 className="mt-2 text-2xl font-semibold text-zinc-950">{context.companyName}</h1></div><StatusBadge label={context.companyStatus === "active" ? copy.activeFeminine : context.companyStatus ?? copy.unknown} tone="green" /></div>
+    <div className="flex flex-wrap items-start justify-between gap-4"><h2 className="text-lg font-semibold text-zinc-950">{context.companyName}</h2><StatusBadge label={context.companyStatus === "active" ? copy.activeFeminine : context.companyStatus ?? copy.unknown} tone="green" /></div>
     <dl className="mt-6 grid gap-4 text-sm sm:grid-cols-3">
       <Info label={copy.portalStatus} value={context.companyStatus === "active" ? copy.activeFeminine : context.companyStatus ?? copy.unknown} />
       <Info label={copy.yourRole} value={context.membershipRole ?? copy.unknownFeminine} />

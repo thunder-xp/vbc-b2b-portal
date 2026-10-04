@@ -70,7 +70,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         route="/cabinet/orders"
         sourceSurface="order_history"
       />
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" data-partner-page-header>
         <div>
           <h1 className="text-2xl font-semibold">{copy.title}</h1>
           <p className="mt-0.5 text-xs text-zinc-500">

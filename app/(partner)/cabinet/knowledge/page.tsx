@@ -29,7 +29,7 @@ export default async function KnowledgePage({
     );
   return (
     <div className="space-y-6">
-      <header>
+      <header data-partner-page-header>
         <p className="flex items-center gap-2 text-xs font-semibold uppercase text-emerald-700">
           <BookOpen className="size-4" />
           {copy.knowledgeEyebrow}

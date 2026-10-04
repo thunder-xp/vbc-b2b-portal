@@ -30,7 +30,7 @@ export default async function ServiceDetailPage({
   const detail = result.data;
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <header>
+      <header data-partner-page-header>
         <Link
           className="inline-flex min-h-11 items-center text-sm font-medium text-emerald-700"
           href={`/cabinet/service?view=${from}`}

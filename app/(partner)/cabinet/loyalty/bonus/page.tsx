@@ -6,7 +6,7 @@ export default async function BonusProgramPage() {
   const copy = secondaryCopy(await getPartnerLocale());
   return (
     <main className="mx-auto max-w-4xl space-y-5">
-      <header className="border-b border-zinc-200 pb-5">
+      <header className="border-b border-zinc-200 pb-5" data-partner-page-header>
         <p className="text-xs font-semibold uppercase text-emerald-700">
           {copy.loyaltyEyebrow}
         </p>
