@@ -21,7 +21,7 @@ export function CampaignPerformance({ summary: s }: { summary: CampaignPerforman
   ];
   return <section className="min-w-0 space-y-4" aria-label="Результаты предложения">
     <p className="text-sm text-zinc-600">{CAMPAIGN_MECHANIC_LABELS[s.mechanicType] ?? s.mechanicType} · {s.publicationVersion ? `Публикация ${s.publicationVersion}` : "Все публикации"} · Аудитория выбранной / текущей версии: {s.audienceCompanies} компаний</p>
-    <p className="text-xs text-zinc-500">{date(s.period.from)} — {date(s.period.to)} · UTC. Данные отражают атрибуцию, а не причинность или дополнительную выручку.</p>
+    <p className="text-xs text-zinc-500">{date(s.period.from)} — {date(s.period.to, true)} · UTC. Данные отражают атрибуцию, а не причинность или дополнительную выручку.</p>
     <p className="rounded border border-zinc-200 bg-zinc-50 p-3 text-sm">{s.viewsStartedAt ? `Учёт просмотров доступен с ${date(s.viewsStartedAt)}.` : "Учёт просмотров ещё не активирован."} {!s.viewCoverageComplete ? "Историческая часть периода не покрыта: просмотры не восстановлены из покупок." : "Период покрыт учётом просмотров."}</p>
     <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">{counts.map(([label, value]) => <div className="min-w-0 border-b pb-2" key={label}><dt className="text-xs text-zinc-500">{label}</dt><dd className="mt-1 text-lg font-semibold">{value ?? "Нет данных"}</dd></div>)}</dl>
     <div className="space-y-2 text-sm"><p>Просмотр → действие в наблюдаемой группе: <b>{observedRate(s.viewedInteractingCompanies, s.viewingCompanies)}</b> · Просмотр → наблюдаемая квалификация: <b>{observedRate(s.viewedQualifiedCompanies, s.viewingCompanies)}</b></p><p className="text-xs text-zinc-500">Действие / квалификация после первого зафиксированного просмотра в выбранном периоде. Причинный эффект не утверждается. Квалификация подтверждается успешным действием с выполненным условием или сохранённой PROMO-строкой заказа. Изменения корзины без такого действия не являются полным переписным учётом.</p></div>
@@ -43,4 +43,7 @@ export function CampaignResultsComparison({ summaries }: { summaries: CampaignPe
 function Money({ label, values }: { label: string; values: CampaignPerformanceSummary["attributedOrderValue"] }) {
   return <div className="min-w-0"><dt className="text-xs text-zinc-500">{label}</dt><dd className="break-words font-semibold">{values.length ? values.map(v => `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(v.amount)} ${v.currency}`).join(" · ") : "Нет атрибутированных сумм"}</dd></div>;
 }
-function date(value: string) { return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeZone: "UTC" }).format(new Date(value)); }
+function date(value: string, exclusiveEnd = false) {
+  return new Intl.DateTimeFormat("ru-RU", { dateStyle: "short", timeZone: "UTC" })
+    .format(new Date(new Date(value).getTime() - (exclusiveEnd ? 1 : 0)));
+}

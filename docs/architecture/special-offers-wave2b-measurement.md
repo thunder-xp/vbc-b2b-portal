@@ -55,3 +55,13 @@ Cost impact: one asynchronous server action plus one lightweight view RPC per ac
 - Representative aggregate: 100,000 events (10,000 selected campaign, 90,000 outside scope), 1,001 attributed orders. Initial aggregate averages 41.68–49.90 ms; final temporal-cohort aggregate under concurrent build load averaged 101.56 ms, with EXPLAIN ANALYZE/BUFFERS 104.54 ms. Event and attribution campaign/date indexes are used; no full engagement-history scan. Final timing may vary by shared-host load.
 - Resolver, 20 calls per fixture: 20 lines / 10 campaigns 78.55 → 82.14 ms; 50 lines / 10 campaigns 120.04 → 129.50 ms. Discovery remains one statement per cart; no new pricing SQL/events. These small shared-host variations are below the accepted Wave 2A 106.69/167.29 ms reference.
 - Local Results observed at 390/768/1440 without page or internal horizontal overflow; period/publication filter works; no console/hydration errors. Actual local Partner detail plus two refreshes persists exactly one view/company and Admin reads it. Production evidence is required after canonical deployment before task completion.
+
+## Production release evidence
+
+Migration `20261004230000_special_offers_2_wave2b_measurement.sql` was applied only after its exact file reached canonical main (`b8a5c755`). Linked production parity is 548/548, with no pending migrations or ledger repair. Canonical Vercel deployment `dpl_9CPiwUXMUSXX3MbkEgEarPRPEBwm` became READY for nsd.md/www.nsd.md. View coverage was activated once at `2026-10-04 21:18:35.606808 UTC`.
+
+The legitimate production Admin session loads Results; lifetime, seven-day and publication-5 filters work. A custom period ending before coverage reports unavailable views rather than fabricated zero. Production currently has zero strong campaign-priced order attributions; no pilot campaigns/orders/payments were created to populate metrics. Production RLS/grants and empty search_path match the isolated acceptance contract.
+
+Acceptance found one presentation correction: the inclusive custom calendar period displayed its exclusive SQL upper-bound date. The follow-up changes only the displayed final day and adds its focused regression test. This justifies one additional UI build/deployment; the measurement SQL, pricing and order behavior remain unchanged. The same SHA is never redeployed.
+
+Security advisor additions are expected: two authenticated SECURITY DEFINER entry points with explicit internal/company authorization, and the private coverage table's deliberate no-policy/default-deny RLS. Existing unrelated advisor findings are unchanged.

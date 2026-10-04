@@ -42,6 +42,12 @@ describe("campaign evidence presentation", () => {
     expect(screen.getByLabelText("Публикация")).toHaveValue("2");
     expect(screen.getByLabelText("Период")).toHaveValue("30");
   });
+  it("displays the selected inclusive last calendar day, not the SQL exclusive boundary", () => {
+    const period = campaignPerformancePeriod({ period: "custom", from: "2026-09-26", to: "2026-09-30" });
+    render(<CampaignPerformance summary={{ ...summary, period: { from: period.from!, to: period.to! } }} />);
+    expect(screen.getByText(/26\.09\.2026 — 30\.09\.2026 · UTC/)).toBeVisible();
+    expect(screen.queryByText(/01\.10\.2026 · UTC/)).not.toBeInTheDocument();
+  });
 });
 
 describe("bounded descriptive reporting", () => {
