@@ -88,23 +88,29 @@ describe("Partner workspace shell", () => {
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
     expect(screen.getByRole("link", { name: "Рабочий стол" })).toHaveAttribute("href", "/cabinet");
-    expect(screen.getByRole("link", { name: "Каталог товаров" })).toHaveAttribute("href", "/cabinet/catalog");
+    expect(screen.getByRole("link", { name: "Каталог" })).toHaveAttribute("href", "/cabinet/catalog");
 
-    const topLevelLabels = Array.from(document.querySelectorAll("nav > div > a, nav > div > span, nav > div > div > button"))
-      .map((item) => item.querySelector(":scope > span.flex-1")?.textContent?.trim() ?? item.textContent?.trim());
-    expect(topLevelLabels).toEqual([
-      "Рабочий стол",
-      "Каталог товаров",
-      "Покупки",
-      "Подборки",
-      "Сметы и КП",
-      "Заказы и финансы",
-      "Экспертиза Novotech",
-      "Монтаж и заявки",
-      "Программы лояльности",
-      "Проектная защита",
-      "Гарантия и техподдержка",
+    const sections = Array.from(document.querySelectorAll<HTMLElement>("[data-sidebar-section]"));
+    expect(sections.map((section) => section.dataset.sidebarSection)).toEqual([
+      "business",
+      "products",
+      "sales",
+      "support",
     ]);
+    expect(sections.map((section) => within(section).getByRole("heading", { level: 2 }).textContent)).toEqual([
+      "БИЗНЕС",
+      "ТОВАРЫ",
+      "ПРОДАЖИ",
+      "ПОДДЕРЖКА",
+    ]);
+
+    const topLevelLabels = (section: HTMLElement) => Array.from(section.querySelectorAll<HTMLElement>('[data-sidebar-top-level="true"]'))
+      .map((item) => item.querySelector(":scope > span.flex-1")?.textContent?.trim() ?? item.textContent?.trim());
+    expect(topLevelLabels(sections[0]!)).toEqual(["Рабочий стол", "Заказы и финансы"]);
+    expect(topLevelLabels(sections[1]!)).toEqual(["Каталог", "Покупки", "Подборки"]);
+    expect(topLevelLabels(sections[2]!)).toEqual(["Сметы и КП", "Монтаж и заявки", "Проектная защита"]);
+    expect(topLevelLabels(sections[3]!)).toEqual(["Экспертиза Novotech", "Программы лояльности", "Гарантия и техподдержка"]);
+    expect(document.querySelector('[data-sidebar-font="Inter"]')).toHaveStyle({ fontFeatureSettings: '"tnum" on' });
 
     await user.click(screen.getByRole("button", { name: "Экспертиза Novotech" }));
     const expertiseGroup = within(document.getElementById("expertise-navigation")!);
@@ -120,12 +126,14 @@ describe("Partner workspace shell", () => {
     await user.click(selectionButton);
     const purchases = within(document.getElementById("purchases-navigation")!);
     expect(purchases.getAllByRole("link").map((link) => link.textContent)).toEqual(["Подбор товаров", "Возможности для закупки", "Специальные предложения"]);
+    expect(purchases.getAllByRole("link").every((link) => link.dataset.sidebarSubmenuItem === "true")).toBe(true);
     const collectionsButton = screen.getByRole("button", { name: "Подборки" });
     await user.click(collectionsButton);
     const selectionGroup = within(document.getElementById("collections-navigation")!);
     expect(selectionGroup.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists?filter=favorites");
     expect(selectionGroup.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
     expect(selectionGroup.getByRole("link", { name: "Сравнение" })).toHaveAttribute("href", "/cabinet/compare");
+    expect(selectionGroup.getAllByRole("link").every((link) => link.dataset.sidebarSubmenuItem === "true")).toBe(true);
 
     const projectButton = screen.getByRole("button", { name: "Проектная защита" });
     await user.click(projectButton);

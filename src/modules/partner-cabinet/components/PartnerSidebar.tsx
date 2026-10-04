@@ -68,7 +68,8 @@ const icons = {
   company: Building2,
 } satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
-const primaryNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard", "catalog"];
+const dashboardNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard"];
+const catalogNavigationOrder: readonly WorkspaceCapabilityKey[] = ["catalog"];
 const businessNavigationOrder: readonly WorkspaceCapabilityKey[] = ["opportunities", "offers"];
 const supportNavigationOrder: readonly WorkspaceCapabilityKey[] = ["warranty", "support", "knowledge_base"];
 
@@ -87,6 +88,34 @@ const commercialNavigationOrder: readonly WorkspaceCapabilityKey[] = ["orders", 
 const expertiseNavigationOrder: readonly WorkspaceCapabilityKey[] = ["expertise_lab", "expertise_academy"];
 const installationNavigationOrder: readonly WorkspaceCapabilityKey[] = ["installation_marketplace", "installation_profile"];
 const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affiliate", "loyalty_bonus"];
+
+function SidebarSection({
+  children,
+  id,
+  title,
+}: {
+  children: ReactNode;
+  id: string;
+  title: string;
+}) {
+  const titleId = `${id}-title`;
+
+  return (
+    <section
+      aria-labelledby={titleId}
+      className="border border-white/10 px-1 py-2"
+      data-sidebar-section={id}
+    >
+      <h2
+        className="px-2 pb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500"
+        id={titleId}
+      >
+        {title}
+      </h2>
+      <div className="space-y-0.5">{children}</div>
+    </section>
+  );
+}
 
 function NavigationItem({
   expanded = true,
@@ -109,7 +138,14 @@ function NavigationItem({
   const Icon = icons[item.icon];
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
   const active = enabled && activeKey === item.key;
-  const spacing = submenu ? "min-h-11 py-2 pl-3 pr-2" : "min-h-11 px-3 py-2";
+  const spacing = submenu
+    ? "relative min-h-8 py-1.5 pl-3 pr-2 text-[11px] before:absolute before:-left-2 before:top-1/2 before:h-px before:w-2 before:-translate-y-px"
+    : "min-h-9 px-2.5 py-1.5 text-xs";
+  const connectorColor = submenu
+    ? active
+      ? "before:bg-emerald-400/60"
+      : "before:bg-white/20"
+    : "";
 
   useEffect(() => () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -131,7 +167,11 @@ function NavigationItem({
 
   if (!enabled) {
     return (
-      <span className={`flex items-center gap-3 rounded-md text-sm text-zinc-500 ${spacing}`}>
+      <span
+        className={`flex items-center gap-2.5 rounded-md font-normal text-zinc-500 ${spacing} ${connectorColor}`}
+        data-sidebar-submenu-item={submenu ? "true" : undefined}
+        data-sidebar-top-level={submenu ? undefined : "true"}
+      >
         <Icon aria-hidden="true" className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
         <span className="shrink-0 text-[10px] font-semibold uppercase">{t("common.comingSoon")}</span>
@@ -142,12 +182,14 @@ function NavigationItem({
   return (
     <Link
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-3 rounded-md text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${
+      className={`flex items-center gap-2.5 rounded-md font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${connectorColor} ${
         active
           ? "bg-emerald-500/15 text-emerald-200"
           : "text-zinc-300 hover:bg-white/10 hover:text-white"
       }`}
       href={item.href!}
+      data-sidebar-submenu-item={submenu ? "true" : undefined}
+      data-sidebar-top-level={submenu ? undefined : "true"}
       onClick={onNavigate}
       onFocus={() => setIntentPrefetch(true)}
       onMouseEnter={startHoverPrefetch}
@@ -197,10 +239,11 @@ function ExpandableNavigationGroup({
       <button
         aria-controls={id}
         aria-expanded={expanded}
-        className={`flex min-h-11 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+        className={`flex min-h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           routeActive ? "text-emerald-200" : "text-zinc-300 hover:bg-white/10 hover:text-white"
         }`}
         onClick={onToggle}
+        data-sidebar-top-level="true"
         type="button"
       >
         <Icon aria-hidden="true" className={`size-4 shrink-0 ${routeActive ? "text-emerald-300" : ""}`} />
@@ -215,7 +258,7 @@ function ExpandableNavigationGroup({
         id={id}
       >
         <div className="overflow-hidden">
-          <div className="ml-5 space-y-0.5 border-l border-white/10 py-1 pl-2">
+          <div className="ml-[18px] space-y-0.5 border-l border-white/15 py-1 pl-2">
             {children}
             {items.map((item) => (
               <NavigationItem
@@ -256,9 +299,13 @@ export function PartnerSidebar({
   const locale = usePartnerLocale();
   const t = usePartnerText();
   const navigationByKey = new Map(navigation.map((item) => [item.key, { ...item, label: partnerNavigationLabel(locale, item.key) }]));
-  const primaryNavigation = primaryNavigationOrder.flatMap((key) => {
+  const dashboardNavigation = dashboardNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
     return item ? [item] : [];
+  });
+  const catalogNavigation = catalogNavigationOrder.flatMap((key) => {
+    const item = navigationByKey.get(key);
+    return item ? [{ ...item, label: t("nav.sidebar.catalog") }] : [];
   });
   const businessNavigation = businessNavigationOrder.flatMap((key) => {
     const item = navigationByKey.get(key);
@@ -319,20 +366,37 @@ export function PartnerSidebar({
     expanded: openGroupId === id,
     onToggle: () => setOpenGroupId((current) => current === id ? (activeGroupId === id ? id : null) : id),
   });
+  const hasBusinessSection = dashboardNavigation.length > 0 || commercialNavigation.length > 0;
+  const hasProductsSection = catalogNavigation.length > 0 || canSelectProducts || businessNavigation.length > 0 || selectionNavigation.length > 0;
+  const hasSalesSection = estimatesNavigation.length > 0 || installationNavigation.length > 0 || projectNavigation.length > 0;
+  const hasSupportSection = expertiseNavigation.length > 0 || loyaltyNavigation.length > 0 || supportNavigation.length > 0;
 
   return (
-    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white">
+    <aside
+      className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 font-[family-name:var(--font-partner-sidebar)] text-white"
+      data-sidebar-font="Inter"
+      style={{ fontFeatureSettings: '"tnum" on' }}
+    >
       <div className="shrink-0 border-b border-white/10 px-4 py-4">
         <p className="text-xs font-semibold uppercase text-emerald-300">Novotech</p>
         <p className="mt-1 text-base font-semibold">{t("shell.partnerCabinet")}</p>
         <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? t("shell.companyNotSelected")}</p>
       </div>
 
-      <nav aria-label={t("shell.workspaceNavigation")} className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
-        <div className="space-y-1">
-          {primaryNavigation.map((item) => (
-            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
-          ))}
+      <nav aria-label={t("shell.workspaceNavigation")} className="min-h-0 flex-1 overflow-y-auto px-2 py-2.5">
+        <div className="space-y-2">
+          {hasBusinessSection && <SidebarSection id="business" title={t("nav.section.business")}>
+            {dashboardNavigation.map((item) => (
+              <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
+            ))}
+
+            <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
+          </SidebarSection>}
+
+          {hasProductsSection && <SidebarSection id="products" title={t("nav.section.products")}>
+            {catalogNavigation.map((item) => (
+              <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
+            ))}
 
           {(canSelectProducts || businessNavigation.length > 0) && <ExpandableNavigationGroup
             {...groupProps("purchases-navigation")}
@@ -365,7 +429,9 @@ export function PartnerSidebar({
             onNavigate={onNavigate}
             activeKey={activeKey}
           />
+          </SidebarSection>}
 
+          {hasSalesSection && <SidebarSection id="sales" title={t("nav.section.sales")}>
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}
             icon={Calculator}
@@ -376,16 +442,19 @@ export function PartnerSidebar({
             activeKey={activeKey}
             {...groupProps("estimates-navigation")}
           />
-          <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
-
-          <ExpandableNavigationGroup {...groupProps("expertise-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={GraduationCap} id="expertise-navigation" items={expertiseNavigation} label={t("nav.group.expertise")} onNavigate={onNavigate} activeKey={activeKey} />
 
           <ExpandableNavigationGroup {...groupProps("installation-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Wrench} id="installation-navigation" items={installationNavigation} label={t("nav.group.installationWorkspace")} onNavigate={onNavigate} activeKey={activeKey} />
 
+          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} activeKey={activeKey} />
+          </SidebarSection>}
+
+          {hasSupportSection && <SidebarSection id="support" title={t("nav.section.support")}>
+          <ExpandableNavigationGroup {...groupProps("expertise-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={GraduationCap} id="expertise-navigation" items={expertiseNavigation} label={t("nav.group.expertise")} onNavigate={onNavigate} activeKey={activeKey} />
+
           <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} activeKey={activeKey} />
 
-          <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} activeKey={activeKey} />
           <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label={t("nav.group.support")} onNavigate={onNavigate} activeKey={activeKey} />
+          </SidebarSection>}
         </div>
       </nav>
 
