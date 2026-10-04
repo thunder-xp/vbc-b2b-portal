@@ -37,6 +37,21 @@ describe("Special Offers workspace", () => {
     expect(screen.getByText("Выбранные товары")).toBeInTheDocument();
     expect(screen.getAllByText(/800147 · DH-C4K-P/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Выбрано: 1\/50\./)).toBeInTheDocument();
+    expect(screen.getByTestId("selected-campaign-product")).toHaveClass("rounded-md");
+    expect(screen.getByTestId("selected-campaign-product").querySelector('[data-product-thumbnail="sm"]')).toBeInTheDocument();
+  });
+
+  it("refreshes bounded quick-search results and keeps add/remove friction low", async () => {
+    const user = userEvent.setup();
+    searchProducts.mockResolvedValue({ success: true, data: { items: [camera], totalCount: 1, page: 1, totalPages: 1 }, message: "ok" });
+    render(<CampaignBuilder options={{ ...options, products: [] }} />);
+    await user.click(screen.getByRole("button", { name: "2. Товары" }));
+    await user.type(screen.getByRole("searchbox", { name: "Быстрый поиск товара" }), "800147");
+    expect(await screen.findByRole("button", { name: /800147.*Добавить/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /800147.*Добавить/ }));
+    expect(screen.getByTestId("selected-campaign-product")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Удалить" }));
+    expect(screen.queryByTestId("selected-campaign-product")).not.toBeInTheDocument();
   });
 
   it("keeps a datetime-local input change in the draft preview", async () => {

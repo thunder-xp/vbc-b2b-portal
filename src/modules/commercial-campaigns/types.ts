@@ -13,6 +13,10 @@ export type CampaignProduct = {
   minimumQuantity: number;
   maximumQuantityPerCompany: number | null;
   partnerMessage: string | null;
+  msrpPrice: CampaignMoney | null;
+  partnerPrice: CampaignMoney | null;
+  specialPrice: CampaignMoney | null;
+  /** Compatibility price used by the existing cart presentation path. */
   price: CampaignMoney | null;
   availableQuantity: number | null;
   expectedArrivalDate: string | null;

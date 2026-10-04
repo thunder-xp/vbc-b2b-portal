@@ -25,11 +25,11 @@ export function CampaignCard({
   ).length;
   return (
     <article className="grid min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm sm:grid-cols-[11rem_1fr]">
-      <div className="relative aspect-[16/9] bg-zinc-100 sm:aspect-auto sm:min-h-48">
+      <div className="relative aspect-[16/9] bg-zinc-100 p-3 sm:aspect-auto sm:min-h-48">
         {campaign.imageAssetPath ? (
           <Image
             alt=""
-            className="object-cover"
+            className="object-contain p-3"
             fill
             sizes="(max-width:640px) 100vw,176px"
             src={campaign.imageAssetPath}

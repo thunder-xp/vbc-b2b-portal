@@ -4,11 +4,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPartnerCampaignAction } from "@/src/modules/commercial-campaigns/actions";
-import { CampaignCartControl } from "@/src/modules/commercial-campaigns/components";
+import { CampaignCartControl, CampaignPriceStack } from "@/src/modules/commercial-campaigns/components";
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import {
   formatPartnerDate,
-  formatPartnerMoney,
   secondaryCopy,
 } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -49,10 +48,10 @@ export default async function OfferDetailPage({
           </p>
         </div>
         {campaign.imageAssetPath ? (
-          <div className="relative min-h-56 bg-zinc-100">
+          <div className="relative min-h-56 bg-zinc-100 p-4 sm:min-h-64">
             <Image
               alt=""
-              className="object-cover"
+              className="object-contain p-4"
               fill
               priority
               sizes="(max-width:1024px) 100vw,384px"
@@ -71,7 +70,7 @@ export default async function OfferDetailPage({
               className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 sm:grid-cols-[7rem_1fr]"
               key={product.itemId}
             >
-              <div className="relative aspect-square overflow-hidden rounded bg-zinc-50">
+              <div className="relative aspect-square overflow-hidden rounded border border-zinc-100 bg-zinc-50">
                 <ProductThumbnail
                   alt={product.name}
                   className="object-contain p-2"
@@ -91,20 +90,7 @@ export default async function OfferDetailPage({
                 >
                   {product.name}
                 </Link>
-                {product.price ? (
-                  <p className="mt-3 text-lg font-semibold">
-                    {copy.yourPrice}:{" "}
-                    {formatPartnerMoney(
-                      product.price.amount,
-                      product.price.currency,
-                      locale,
-                    )}
-                  </p>
-                ) : (
-                  <p className="mt-3 text-sm font-medium text-zinc-600">
-                    {copy.pricePending}
-                  </p>
-                )}
+                <CampaignPriceStack locale={locale} product={product} />
                 <p className="mt-2 flex items-center gap-1.5 text-sm">
                   {(product.availableQuantity ?? 0) > 0 ? (
                     <>
