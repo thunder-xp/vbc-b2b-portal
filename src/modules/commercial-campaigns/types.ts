@@ -45,13 +45,53 @@ export type AdminCampaignSummary = {
   itemCount: number;
   audienceCount: number;
   createdAt: string;
+  updatedAt: string;
 };
 export type AdminCampaignPage = { items: AdminCampaignSummary[]; totalCount: number };
+export type AdminCampaignFilter = {
+  status?: CampaignStatus | "all";
+  search?: string;
+  campaignType?: CampaignType | "all";
+  dateFrom?: string;
+  dateTo?: string;
+  page?: number;
+  pageSize?: number;
+};
+export type CampaignProductOption = {
+  id: string;
+  sku: string;
+  model: string | null;
+  name: string;
+  imageUrl: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  brandId: string | null;
+  brandName: string | null;
+  availableQuantity: number | null;
+  currentPrice: CampaignMoney | null;
+};
+export type CampaignProductSearch = {
+  items: CampaignProductOption[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+};
+export type CampaignCompanyOption = { id: string; name: string; status: string };
+export type CampaignCompanySearch = { items: CampaignCompanyOption[]; totalCount: number };
+export type CampaignPriceProfile = { reference: string; code: string | null; name: string; currency: string | null };
+export type CampaignAssetOption = { path: string; label: string };
 export type CampaignBuilderOptions = {
-  products: Array<{ id: string; sku: string; name: string; imageUrl: string | null }>;
-  companies: Array<{ id: string; name: string; status: string }>;
+  products: CampaignProductOption[];
+  productTotalCount: number;
+  categories: Array<{ id: string; parentId: string | null; name: string }>;
+  brands: Array<{ id: string; name: string }>;
+  companies: CampaignCompanyOption[];
+  priceProfiles: CampaignPriceProfile[];
+  assets: CampaignAssetOption[];
 };
 export type CampaignDraftInput = {
+  contractVersion: "2";
+  requestId: string;
   code: string;
   name: string;
   partnerTitle: string;
@@ -74,6 +114,30 @@ export type CampaignDraftInput = {
     governedBenefitReference: string | null;
     partnerMessage: string | null;
   }>;
+};
+export type CampaignDraftUpdateInput = CampaignDraftInput & {
+  campaignId: string;
+  expectedRevision: number;
+};
+export type CampaignDraftSeed = {
+  campaignId: string;
+  revision: number;
+  values: {
+    code: string;
+    name: string;
+    title: string;
+    description: string;
+    internalNote: string;
+    terms: string;
+    type: CampaignType;
+    startsAt: string;
+    endsAt: string;
+    priority: number;
+    image: string;
+  };
+  audienceMode: CampaignDraftInput["audienceMode"];
+  companyIds: string[];
+  items: Array<CampaignDraftInput["items"][number] & { product: CampaignProductOption }>;
 };
 export type AdminCampaignDetail = {
   campaign: Record<string, unknown>;

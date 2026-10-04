@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
-import { requireAdminPermission } from "../../admin/services";
-import type { CampaignDraftInput, CampaignFilter, PartnerCampaign, PartnerCampaignPage } from "../types";
+import { requireAdminPermission, requireAnyAdminPermission } from "../../admin/services";
+import type { CampaignCompanySearch, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter, CampaignProductSearch, PartnerCampaign, PartnerCampaignPage } from "../types";
 import type { CampaignActionResult } from "./result";
 import { campaignFailure, campaignSuccess } from "./result";
 import { createCommercialCampaignService } from "./service-factory";
@@ -51,6 +51,49 @@ export async function createCampaignDraftAction(input: CampaignDraftInput): Prom
   } catch (error) {
     return fail(error, "Не удалось создать кампанию. Проверьте обязательные поля.", "campaign_create_failed");
   }
+}
+
+export async function updateCampaignDraftAction(input: CampaignDraftUpdateInput): Promise<CampaignActionResult<{ revision: number }>> {
+  await requireAdminPermission("campaigns.edit");
+  try {
+    const data = await createCommercialCampaignService().updateDraft(input);
+    revalidatePath("/admin/commercial/campaigns");
+    revalidatePath(`/admin/commercial/campaigns/${input.campaignId}`);
+    return campaignSuccess(data, "Изменения сохранены.");
+  } catch (error) {
+    const conflict = error instanceof Error && /CAMPAIGN_DRAFT_CONFLICT/i.test(error.message);
+    return fail(error, conflict ? "Черновик уже изменён другим администратором. Обновите страницу перед повторным сохранением." : "Не удалось сохранить черновик. Проверьте отмеченные поля.", conflict ? "campaign_update_conflict" : "campaign_update_failed");
+  }
+}
+
+export async function searchCampaignProductsAction(input: { search?: string; categoryId?: string; brandId?: string; inStockOnly?: boolean; page?: number }): Promise<CampaignActionResult<CampaignProductSearch>> {
+  await requireAnyAdminPermission(["campaigns.create", "campaigns.edit"]);
+  try { return campaignSuccess(await createCommercialCampaignService().searchProducts(input), "Товары загружены."); }
+  catch (error) { return fail(error, "Не удалось загрузить товары.", "campaign_product_search_failed"); }
+}
+
+export async function searchCampaignCompaniesAction(search = "", offset = 0): Promise<CampaignActionResult<CampaignCompanySearch>> {
+  await requireAnyAdminPermission(["campaigns.create", "campaigns.edit"]);
+  try { return campaignSuccess(await createCommercialCampaignService().searchCompanies(search, offset), "Компании загружены."); }
+  catch (error) { return fail(error, "Не удалось загрузить компании.", "campaign_company_search_failed"); }
+}
+
+export async function duplicateCampaignAction(campaignId: string, requestId: string): Promise<CampaignActionResult<{ id: string }>> {
+  await requireAdminPermission("campaigns.create");
+  try { const id = await createCommercialCampaignService().duplicate(campaignId, requestId); revalidatePath("/admin/commercial/campaigns"); return campaignSuccess({ id }, "Копия создана как новый черновик."); }
+  catch (error) { return fail(error, "Не удалось создать копию.", "campaign_duplicate_failed"); }
+}
+
+export async function archiveCampaignAction(campaignId: string, reason: string): Promise<CampaignActionResult<boolean>> {
+  await requireAdminPermission("campaigns.edit");
+  try { await createCommercialCampaignService().archive(campaignId, reason); revalidatePath("/admin/commercial/campaigns"); revalidatePath(`/admin/commercial/campaigns/${campaignId}`); return campaignSuccess(true, "Предложение перемещено в архив."); }
+  catch (error) { return fail(error, "Не удалось архивировать предложение.", "campaign_archive_failed"); }
+}
+
+export async function resumeCampaignAction(campaignId: string, reason: string): Promise<CampaignActionResult<boolean>> {
+  await requireAdminPermission("campaigns.pause");
+  try { await createCommercialCampaignService().resume(campaignId, reason); revalidatePath("/admin/commercial/campaigns"); revalidatePath(`/admin/commercial/campaigns/${campaignId}`); return campaignSuccess(true, "Показ предложения возобновлён."); }
+  catch (error) { return fail(error, "Не удалось возобновить предложение.", "campaign_resume_failed"); }
 }
 
 export async function publishCampaignAction(campaignId: string, requestId: string): Promise<CampaignActionResult<{ status: string; version: number; audienceCount: number }>> {

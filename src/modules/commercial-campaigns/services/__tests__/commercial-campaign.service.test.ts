@@ -25,12 +25,30 @@ describe("CommercialCampaignService", () => {
     await expect(service.recordEngagement("user-1", { campaignId: "campaign-1", eventType: "impression", requestId: "request-1" })).resolves.toBeUndefined();
   });
 
-  it("rejects arbitrary price ownership in draft input", () => {
+  it("rejects invalid quantity limits before draft mutation", () => {
     const service = new CommercialCampaignService(stubRepository(), workspace() as never);
     expect(() => service.createDraft({ ...validDraft(), items: [{ ...validDraft().items[0], minimumQuantity: 3, maximumQuantityPerCompany: 2 }] })).toThrow("Campaign quantity limits are invalid");
+  });
+
+  it("accepts only a governed reference for an existing price profile", async () => {
+    const repository = stubRepository();
+    const service = new CommercialCampaignService(repository, workspace() as never);
+    expect(() => service.createDraft({ ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile", governedBenefitReference: null }] })).toThrow("Campaign price profile is invalid");
+    const governed = { ...validDraft(), items: [{ ...validDraft().items[0], benefitType: "existing_price_profile" as const, governedBenefitReference: "one-c-profile-ref" }] };
+    await service.createDraft(governed);
+    expect(repository.createDraft).toHaveBeenCalledWith(governed);
+  });
+
+  it("keeps catalog and company discovery bounded on the server", async () => {
+    const repository = stubRepository();
+    const service = new CommercialCampaignService(repository, workspace() as never);
+    await service.searchProducts({ search: " 800147 ", page: 2, pageSize: 500, inStockOnly: true });
+    await service.searchCompanies(" Partner ", -10);
+    expect(repository.searchProducts).toHaveBeenCalledWith({ search: "800147", categoryId: undefined, brandId: undefined, inStockOnly: true, limit: 50, offset: 50 });
+    expect(repository.searchCompanies).toHaveBeenCalledWith({ search: "Partner", limit: 25, offset: 0 });
   });
 });
 
 function workspace() { return { getWorkspaceContext: vi.fn().mockResolvedValue({ accessState: "active", companyId: "company-1" }) }; }
-function validDraft() { return { code: "TEST_1", name: "Test campaign", partnerTitle: "Partner offer", partnerDescription: "Long partner campaign description", campaignType: "product_offer" as const, startsAt: "2026-07-31T10:00:00Z", endsAt: "2026-08-31T10:00:00Z", priority: 100, termsSummary: "Current price applies", audienceMode: "explicit_company" as const, companyIds: ["company-1"], items: [{ productId: "product-1", sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only" as const, governedBenefitReference: null, partnerMessage: null }] }; }
-function stubRepository(): CommercialCampaignRepository { return { listPartner: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }), getPartner: vi.fn(), addToCart: vi.fn(), recordEngagement: vi.fn(), listAdmin: vi.fn(), getAdmin: vi.fn(), getBuilderOptions: vi.fn(), createDraft: vi.fn(), publish: vi.fn(), pause: vi.fn() }; }
+function validDraft() { return { contractVersion: "2" as const, requestId: "10000000-0000-4000-8000-000000000001", code: "TEST_1", name: "Test campaign", partnerTitle: "Partner offer", partnerDescription: "Long partner campaign description", campaignType: "product_offer" as const, startsAt: "2026-07-31T10:00:00Z", endsAt: "2026-08-31T10:00:00Z", priority: 100, termsSummary: "Current price applies", audienceMode: "explicit_company" as const, companyIds: ["company-1"], items: [{ productId: "product-1", sortOrder: 1, minimumQuantity: 1, maximumQuantityPerCompany: null, benefitType: "informational_only" as const, governedBenefitReference: null, partnerMessage: null }] }; }
+function stubRepository(): CommercialCampaignRepository { return { listPartner: vi.fn().mockResolvedValue({ items: [], totalCount: 0 }), getPartner: vi.fn(), addToCart: vi.fn(), recordEngagement: vi.fn(), listAdmin: vi.fn(), getAdmin: vi.fn(), getBuilderOptions: vi.fn(), searchProducts: vi.fn(), searchCompanies: vi.fn(), createDraft: vi.fn(), updateDraft: vi.fn(), duplicate: vi.fn(), archive: vi.fn(), resume: vi.fn(), publish: vi.fn(), pause: vi.fn() }; }

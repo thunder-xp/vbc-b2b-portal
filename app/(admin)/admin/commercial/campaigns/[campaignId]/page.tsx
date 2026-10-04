@@ -1,20 +1,58 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { AdminPageHeader } from "@/src/modules/admin/components";
 import { requireAdminPagePermission } from "@/src/modules/admin/services";
 import { createCommercialCampaignService } from "@/src/modules/commercial-campaigns/actions";
-import { CampaignAdminActions } from "@/src/modules/commercial-campaigns/components";
+import { CampaignAdminActions, CampaignBuilder } from "@/src/modules/commercial-campaigns/components";
+import type { AdminCampaignDetail, CampaignBuilderOptions, CampaignDraftInput, CampaignDraftSeed, CampaignProductOption, CampaignType } from "@/src/modules/commercial-campaigns/types";
 
-export default async function AdminCampaignDetailPage({ params }: { params: Promise<{ campaignId: string }> }) {
+export default async function AdminCampaignDetailPage({ params, searchParams }: { params: Promise<{ campaignId: string }>; searchParams: Promise<{ preview?: string }> }) {
   const context = await requireAdminPagePermission("campaigns.view");
   const { campaignId } = await params;
-  const detail = await createCommercialCampaignService().getAdmin(campaignId);
+  const preview = (await searchParams).preview === "1";
+  const service = createCommercialCampaignService();
+  const detail = await service.getAdmin(campaignId);
   if (!detail) notFound();
   const campaign = detail.campaign;
   const status = String(campaign.status ?? "");
-  return <div className="space-y-6"><AdminPageHeader description={String(campaign.partner_description ?? "")} eyebrow={String(campaign.code ?? "Кампания")} title={String(campaign.name ?? "Коммерческая кампания")} /><CampaignAdminActions campaignId={campaignId} canPause={context.permissions.includes("campaigns.pause")} canPublish={context.permissions.includes("campaigns.publish")} status={status} />
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">{Object.entries({ Статус: status, Версия: campaign.current_version, Товаров: detail.items.length, Аудитория: detail.audience.filter((row) => row.included).length, Заказов: detail.analytics.orders }).map(([label,value]) => <div className="border border-zinc-200 bg-white p-4" key={label}><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-xl font-semibold">{String(value)}</p></div>)}</section>
-    <section><h2 className="text-lg font-semibold">Товары</h2><div className="mt-3 overflow-x-auto border border-zinc-200 bg-white"><table className="w-full min-w-[680px] text-sm"><thead><tr><th className="p-3 text-left">SKU</th><th className="p-3 text-left">Товар</th><th className="p-3">Минимум</th><th className="p-3">Лимит компании</th><th className="p-3">Условие</th></tr></thead><tbody>{detail.items.map((item) => <tr className="border-t" key={String(item.id)}><td className="p-3">{String(item.sku)}</td><td className="p-3">{String(item.productName)}</td><td className="p-3 text-center">{String(item.minimum_quantity)}</td><td className="p-3 text-center">{item.maximum_quantity_per_company ? String(item.maximum_quantity_per_company) : "Нет"}</td><td className="p-3">Текущая цена</td></tr>)}</tbody></table></div></section>
+  const permissions = new Set(context.permissions);
+  const canEdit = status === "draft" && permissions.has("campaigns.edit");
+  const options = canEdit ? await service.getBuilderOptions() : null;
+  return <div className="space-y-6"><AdminPageHeader description={String(campaign.partner_description ?? "")} eyebrow={String(campaign.code ?? "Предложение")} title={String(campaign.name ?? "Специальное предложение")} />
+    <CampaignAdminActions campaignId={campaignId} canCreate={permissions.has("campaigns.create")} canEdit={permissions.has("campaigns.edit")} canPause={permissions.has("campaigns.pause")} canPublish={permissions.has("campaigns.publish")} status={status} />
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">{Object.entries({ Статус: statusLabel(status), Версия: campaign.current_version, Ревизия: campaign.draft_revision ?? 0, Товаров: detail.items.length, Аудитория: detail.audience.filter((row) => row.included).length || "Правило", Заказов: detail.analytics.orders }).map(([label, value]) => <div className="border border-zinc-200 bg-white p-4" key={label}><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-xl font-semibold">{String(value)}</p></div>)}</section>
+    {preview ? canEdit && options ? <CampaignBuilder initial={seed(campaignId, detail)} options={withSelectedCompanies(options, detail.rules)} preview /> : <DefinitionPreview detail={detail} /> : canEdit && options ? <CampaignBuilder initial={seed(campaignId, detail)} options={withSelectedCompanies(options, detail.rules)} /> : <ReadOnlyDefinition detail={detail} />}
     <section><h2 className="text-lg font-semibold">Аналитика</h2><p className="mt-2 text-sm text-zinc-600">Показы: {detail.analytics.impressions} · Открытия: {detail.analytics.opens} · Корзины: {detail.analytics.carts} · Заказы: {detail.analytics.orders} · Количество: {detail.analytics.attributedQuantity}. Атрибуция портальная и не доказывает причинность.</p></section>
   </div>;
 }
+function seed(campaignId: string, detail: AdminCampaignDetail): CampaignDraftSeed {
+  if (!detail) throw new Error("Campaign detail missing");
+  const campaign = detail.campaign;
+  const rules = detail.rules;
+  const explicit = rules.filter((rule) => rule.rule_type === "explicit_company");
+  const rule = rules[0];
+  const criterion = record(rule?.criterion) ? rule.criterion : {};
+  let audienceMode: CampaignDraftInput["audienceMode"] = "explicit_company";
+  if (rule?.rule_type === "all_active_partners") audienceMode = "all_active_partners";
+  if (rule?.rule_type === "commercial_mode") audienceMode = criterion.mode === "full" ? "commercial_mode_full" : "commercial_mode_retail_only";
+  if (rule?.rule_type === "momentum_status") audienceMode = Array.isArray(criterion.statuses) && criterion.statuses.includes("slowing") ? "momentum_slowing" : "momentum_attention";
+  return {
+    campaignId, revision: number(campaign.draft_revision),
+    values: { code: text(campaign.code), name: text(campaign.name), title: text(campaign.partner_title), description: text(campaign.partner_description), internalNote: text(campaign.internal_note), terms: text(campaign.terms_summary), type: text(campaign.campaign_type) as CampaignType, startsAt: localDate(text(campaign.starts_at)), endsAt: localDate(text(campaign.ends_at)), priority: number(campaign.priority), image: text(campaign.image_asset_path) },
+    audienceMode,
+    companyIds: explicit.flatMap((entry) => record(entry.criterion) && typeof entry.criterion.companyId === "string" ? [entry.criterion.companyId] : []),
+    items: detail.items.map((item, index) => ({ productId: text(item.product_id), sortOrder: number(item.sort_order) || index + 1, minimumQuantity: number(item.minimum_quantity) || 1, maximumQuantityPerCompany: nullableNumber(item.maximum_quantity_per_company), benefitType: text(item.benefit_type) === "existing_price_profile" ? "existing_price_profile" : "informational_only", governedBenefitReference: nullableText(item.governed_benefit_reference), partnerMessage: nullableText(item.partner_message), product: product(item) })),
+  };
+}
+function product(item: Record<string, unknown>): CampaignProductOption { const price = record(item.currentPrice) ? item.currentPrice : null; return { id: text(item.product_id), sku: text(item.sku), model: nullableText(item.model), name: text(item.productName), imageUrl: nullableText(item.imageUrl), categoryId: nullableText(item.categoryId), categoryName: nullableText(item.categoryName), brandId: nullableText(item.brandId), brandName: nullableText(item.brandName), availableQuantity: nullableNumber(item.availableQuantity), currentPrice: price ? { amount: number(price.amount), currency: text(price.currency) } : null }; }
+function withSelectedCompanies(options: CampaignBuilderOptions, rules: Array<Record<string, unknown>>): CampaignBuilderOptions { const known = new Set(options.companies.map((company) => company.id)); const selected = rules.flatMap((rule) => { const criterion = record(rule.criterion) ? rule.criterion : {}; return rule.rule_type === "explicit_company" && typeof criterion.companyId === "string" && typeof rule.companyName === "string" && !known.has(criterion.companyId) ? [{ id: criterion.companyId, name: rule.companyName, status: "active" }] : []; }); return { ...options, companies: [...selected, ...options.companies] }; }
+function DefinitionPreview({ detail }: { detail: AdminCampaignDetail }) { const campaign = detail.campaign; const image = nullableText(campaign.image_asset_path); return <section className="overflow-hidden rounded-md border border-zinc-200 bg-white"><div className="relative min-h-40 bg-zinc-100">{image ? <Image alt="" className="object-cover" fill sizes="900px" src={image} /> : null}</div><div className="p-5"><p className="text-xs font-semibold uppercase text-emerald-700">Специальное предложение</p><h2 className="mt-1 text-2xl font-semibold">{text(campaign.partner_title)}</h2><p className="mt-2 text-sm text-zinc-600">{text(campaign.partner_description)}</p><p className="mt-3 text-sm">{localDate(text(campaign.starts_at))} — {localDate(text(campaign.ends_at))}</p><div className="mt-4 grid gap-2 sm:grid-cols-2">{detail.items.map((item) => { const price = record(item.currentPrice) ? item.currentPrice : null; return <div className="rounded border p-3" key={String(item.id)}><b>{text(item.sku)} · {text(item.model) || text(item.productName)}</b><p className="text-sm text-zinc-600">{price ? `${number(price.amount)} ${text(price.currency)}` : "Цена определяется управляемым профилем"} · остаток {nullableNumber(item.availableQuantity) ?? "—"}</p><p className="text-xs">Мин. {number(item.minimum_quantity)}{item.maximum_quantity_per_company ? ` · лимит ${number(item.maximum_quantity_per_company)}` : ""}</p></div>; })}</div><p className="mt-4 text-sm">{text(campaign.terms_summary)}</p></div></section>; }
+function ReadOnlyDefinition({ detail }: { detail: AdminCampaignDetail }) { return <section><h2 className="text-lg font-semibold">Опубликованное определение</h2><div className="mt-3 overflow-x-auto border border-zinc-200 bg-white"><table className="w-full min-w-[760px] text-sm"><thead><tr><th className="p-3 text-left">SKU</th><th className="p-3 text-left">Товар</th><th className="p-3">Минимум</th><th className="p-3">Лимит</th><th className="p-3">Условие</th></tr></thead><tbody>{detail.items.map((item) => <tr className="border-t" key={String(item.id)}><td className="p-3">{String(item.sku)}</td><td className="p-3">{String(item.productName)}</td><td className="p-3 text-center">{String(item.minimum_quantity)}</td><td className="p-3 text-center">{item.maximum_quantity_per_company ? String(item.maximum_quantity_per_company) : "Нет"}</td><td className="p-3">{item.benefit_type === "existing_price_profile" ? "Профиль 1С" : "Текущая цена"}</td></tr>)}</tbody></table></div></section>; }
+function localDate(value: string) { const date = new Date(value); return Number.isNaN(date.valueOf()) ? "" : new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16); }
+function statusLabel(value: string) { return ({ draft: "Черновик", scheduled: "Запланировано", active: "Активно", paused: "Приостановлено", completed: "Завершено", archived: "Архив" } as Record<string, string>)[value] ?? value; }
+function record(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+function text(value: unknown) { return typeof value === "string" ? value : ""; }
+function nullableText(value: unknown) { return typeof value === "string" ? value : null; }
+function number(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : 0; }
+function nullableNumber(value: unknown) { return value === null || value === undefined ? null : number(value); }

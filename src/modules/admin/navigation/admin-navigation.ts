@@ -71,7 +71,7 @@ export const ADMIN_NAVIGATION: readonly AdminNavigationGroup[] = [
       { label: "Неудовлетворённый спрос", href: "/admin/commercial/unmet-demand", permission: "admin.external_demand.view" },
       { label: "Номенклатура партнёров", href: "/admin/commercial/nomenclature", permission: "admin.external_nomenclature.view" },
       { label: "Генератор КП", href: "/admin/commercial/proposal-generator", permission: "admin.estimates.view" },
-      { label: "Коммерческие кампании", href: "/admin/commercial/campaigns", permission: "campaigns.view" },
+      { label: "Специальные предложения", href: "/admin/commercial/campaigns", permission: "campaigns.view" },
       { label: "Динамика партнёров", href: "/admin/commercial/partner-momentum", permission: "partner_momentum.view_assigned" },
       { label: "Цены", href: "/admin/commercial/prices", permission: "admin.prices.view" },
       { label: "Остатки", href: "/admin/commercial/stock", permission: "admin.stock.view" },

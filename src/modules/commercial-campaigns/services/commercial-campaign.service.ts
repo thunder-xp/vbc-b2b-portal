@@ -1,7 +1,7 @@
 import { InvalidStateError } from "../../access-control/services";
 import type { PartnerWorkspaceContextService } from "../../partner-cabinet/services";
 import type { CommercialCampaignRepository } from "../repositories";
-import type { CampaignDraftInput, CampaignFilter } from "../types";
+import type { AdminCampaignFilter, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter } from "../types";
 
 export class CommercialCampaignService {
   constructor(private readonly repository: CommercialCampaignRepository, private readonly workspaceContext: PartnerWorkspaceContextService) {}
@@ -21,10 +21,24 @@ export class CommercialCampaignService {
   async recordEngagement(userId: string, input: Omit<Parameters<CommercialCampaignRepository["recordEngagement"]>[0], "companyId">) {
     try { await this.repository.recordEngagement({ ...input, companyId: await this.companyId(userId) }); } catch { /* Analytics must not block buying. */ }
   }
-  listAdmin(page = 1) { const normalized = Math.max(1, Math.trunc(page)); return this.repository.listAdmin(50, (normalized - 1) * 50); }
+  listAdmin(input: AdminCampaignFilter = {}) {
+    const page = Math.max(1, Math.trunc(input.page ?? 1));
+    const pageSize = Math.min(50, Math.max(1, Math.trunc(input.pageSize ?? 20)));
+    return this.repository.listAdmin({ status: input.status, search: input.search?.trim().slice(0, 100), campaignType: input.campaignType, dateFrom: input.dateFrom, dateTo: input.dateTo, pageSize, offset: (page - 1) * pageSize });
+  }
   getAdmin(campaignId: string) { return this.repository.getAdmin(campaignId); }
   getBuilderOptions(search?: string) { return this.repository.getBuilderOptions(search?.trim().slice(0, 100)); }
+  searchProducts(input: { search?: string; categoryId?: string; brandId?: string; inStockOnly?: boolean; page?: number; pageSize?: number }) {
+    const page = Math.max(1, Math.trunc(input.page ?? 1));
+    const limit = Math.min(50, Math.max(1, Math.trunc(input.pageSize ?? 25)));
+    return this.repository.searchProducts({ search: input.search?.trim().slice(0, 100) ?? "", categoryId: input.categoryId || undefined, brandId: input.brandId || undefined, inStockOnly: input.inStockOnly === true, limit, offset: (page - 1) * limit });
+  }
+  searchCompanies(search = "", offset = 0) { return this.repository.searchCompanies({ search: search.trim().slice(0, 100), limit: 25, offset: Math.max(0, Math.trunc(offset)) }); }
   createDraft(input: CampaignDraftInput) { validateDraft(input); return this.repository.createDraft(input); }
+  updateDraft(input: CampaignDraftUpdateInput) { validateDraft(input); if (!Number.isInteger(input.expectedRevision) || input.expectedRevision < 0) throw new InvalidStateError("Campaign revision is invalid."); return this.repository.updateDraft(input); }
+  duplicate(campaignId: string, requestId: string) { return this.repository.duplicate(campaignId, requestId); }
+  archive(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign archive reason is required."); return this.repository.archive(campaignId, reason.trim()); }
+  resume(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign resume reason is required."); return this.repository.resume(campaignId, reason.trim()); }
   publish(campaignId: string, requestId: string) { return this.repository.publish(campaignId, requestId); }
   pause(campaignId: string, reason: string) { if (reason.trim().length < 3) throw new InvalidStateError("Campaign pause reason is required."); return this.repository.pause(campaignId, reason.trim()); }
 
@@ -39,4 +53,5 @@ function validateDraft(input: CampaignDraftInput): void {
   const starts = Date.parse(input.startsAt); const ends = Date.parse(input.endsAt);
   if (!/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(input.code) || input.name.trim().length < 3 || input.partnerTitle.trim().length < 3 || input.partnerDescription.trim().length < 10 || input.termsSummary.trim().length < 3 || !Number.isFinite(starts) || !Number.isFinite(ends) || ends <= starts || !input.items.length || input.items.length > 50 || (input.audienceMode === "explicit_company" && !input.companyIds.length)) throw new InvalidStateError("Campaign input is invalid.");
   if (input.items.some((item) => item.minimumQuantity < 1 || item.maximumQuantityPerCompany !== null && item.maximumQuantityPerCompany < item.minimumQuantity)) throw new InvalidStateError("Campaign quantity limits are invalid.");
+  if (input.items.some((item) => item.benefitType === "existing_price_profile" ? !item.governedBenefitReference : item.governedBenefitReference !== null)) throw new InvalidStateError("Campaign price profile is invalid.");
 }
