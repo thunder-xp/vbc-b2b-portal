@@ -3,7 +3,7 @@ import type { CatalogFacetDto } from "../services";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
 import { CatalogFilterLink } from "./CatalogFilterLink";
 import { CatalogFilterShell } from "./CatalogFilterShell";
-import { CatalogFilterGroup, CatalogFilterPanel } from "./CatalogFilterPanel";
+import { catalogFilterOptionClassName, CatalogFilterGroup, CatalogFilterPanel } from "./CatalogFilterPanel";
 import { catalogFacetQueryFields } from "../services/catalog-facet-state";
 import { CatalogTechnicalFacetGroups } from "./CatalogTechnicalFacetGroups";
 import type { CatalogCollection } from "../types";
@@ -18,21 +18,21 @@ export function CatalogFilters(props: Props) {
   const attributeFilters = props.attributeFilters ?? {};
   const availability = props.availability ?? "all";
   const selectedCount = Object.values(attributeFilters).reduce((sum, values) => sum + values.length, (availability === "all" ? 0 : 1) + (props.collection || props.merchandisingLabel ? 1 : 0));
-  const content = <CatalogFilterPanel clearAction={<CatalogFilterLink className="text-xs font-medium text-emerald-700" href={catalogHref(clearParams(props))}>{copy.clearAll}</CatalogFilterLink>} selectedCount={selectedCount} selectedLabel={copy.selected} title={copy.filters}>
-    <CatalogFilterGroup title={copy.availability}>
+  const content = <CatalogFilterPanel clearAction={<CatalogFilterLink className="text-[11px] font-medium leading-[1.35] text-emerald-700" href={catalogHref(clearParams(props))}>{copy.clearAll}</CatalogFilterLink>} compact selectedCount={selectedCount} selectedLabel={copy.selected} title={copy.filters}>
+    <CatalogFilterGroup compact title={copy.availability}>
       {([
         ["in_stock", copy.inStock],
         ["expected", copy.expected],
         ["all", copy.all],
-      ] as const).map(([value, label]) => <CatalogFilterLink className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50" href={catalogHref({ ...persistentParams(props), availability: value === "all" ? undefined : value, ...attributeParams(attributeFilters) })} key={value}><span>{label}</span>{availability === value && <Check aria-label={copy.selected} className="size-4 text-emerald-700" />}</CatalogFilterLink>)}
+      ] as const).map(([value, label]) => <CatalogFilterLink className={`${catalogFilterOptionClassName(availability === value, true)} justify-between`} href={catalogHref({ ...persistentParams(props), availability: value === "all" ? undefined : value, ...attributeParams(attributeFilters) })} key={value}><span>{label}</span>{availability === value && <Check aria-label={copy.selected} className="size-4 shrink-0 self-center text-emerald-700" />}</CatalogFilterLink>)}
     </CatalogFilterGroup>
-    <CatalogFilterGroup title={copy.selections}>
+    <CatalogFilterGroup compact title={copy.selections}>
       {([
         ["TOP", copy.popular],
         ["NEW", copy.newItems],
         ["HOT", copy.hotPrice],
-      ] as const).map(([value, label]) => <CatalogFilterLink className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50" href={catalogHref({ ...selectionBaseParams(props), label: props.merchandisingLabel === value ? undefined : value, ...attributeParams(attributeFilters) })} key={value}><span>{label}</span>{props.merchandisingLabel === value && <Check aria-label={copy.selected} className="size-4 text-emerald-700" />}</CatalogFilterLink>)}
-      <CatalogFilterLink className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-zinc-50" href={catalogHref({ ...selectionBaseParams(props), collection: props.collection ? undefined : "replenishment", ...attributeParams(attributeFilters) })}><span>{copy.replenishment}</span>{props.collection === "replenishment" && <Check aria-label={copy.selected} className="size-4 text-emerald-700" />}</CatalogFilterLink>
+      ] as const).map(([value, label]) => <CatalogFilterLink className={`${catalogFilterOptionClassName(props.merchandisingLabel === value, true)} justify-between`} href={catalogHref({ ...selectionBaseParams(props), label: props.merchandisingLabel === value ? undefined : value, ...attributeParams(attributeFilters) })} key={value}><span>{label}</span>{props.merchandisingLabel === value && <Check aria-label={copy.selected} className="size-4 shrink-0 self-center text-emerald-700" />}</CatalogFilterLink>)}
+      <CatalogFilterLink className={`${catalogFilterOptionClassName(props.collection === "replenishment", true)} justify-between`} href={catalogHref({ ...selectionBaseParams(props), collection: props.collection ? undefined : "replenishment", ...attributeParams(attributeFilters) })}><span>{copy.replenishment}</span>{props.collection === "replenishment" && <Check aria-label={copy.selected} className="size-4 shrink-0 self-center text-emerald-700" />}</CatalogFilterLink>
     </CatalogFilterGroup>
     <CatalogTechnicalFacetGroups facets={props.facets ?? []} hrefForSelection={(selection) => catalogHref({ ...baseParams(props), ...catalogFacetQueryFields(selection) })} selection={attributeFilters} />
   </CatalogFilterPanel>;
