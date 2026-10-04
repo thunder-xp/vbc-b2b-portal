@@ -298,7 +298,7 @@ export function PartnerSidebar({
     return item ? [item] : [];
   });
   const activeGroupId = [
-    ["purchases-navigation", [...selectionNavigation, ...businessNavigation, { key: "product_selection" }]],
+    ["purchases-navigation", [...businessNavigation, { key: "product_selection" }]],
     ["project-protection-navigation", projectNavigation],
     ["estimates-navigation", estimatesNavigation],
     ["orders-finance-navigation", commercialNavigation],
@@ -333,7 +333,7 @@ export function PartnerSidebar({
             <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
           ))}
 
-          {(canSelectProducts || selectionNavigation.length > 0 || businessNavigation.length > 0) && <ExpandableNavigationGroup
+          {(canSelectProducts || businessNavigation.length > 0) && <ExpandableNavigationGroup
             {...groupProps("purchases-navigation")}
             hasWorkspaceAccess={hasWorkspaceAccess}
             icon={ShoppingCart}
@@ -352,10 +352,11 @@ export function PartnerSidebar({
               activeKey={activeKey}
               submenu
             />}
-            {selectionNavigation.length > 0 && <div id="product-selection-navigation" className="ml-5 space-y-0.5 border-l border-white/10 pl-2">
-              {selectionNavigation.map((item) => <NavigationItem expanded={openGroupId === "purchases-navigation"} hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} submenu />)}
-            </div>}
           </ExpandableNavigationGroup>}
+
+          {selectionNavigation.map((item) => (
+            <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
+          ))}
 
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}

@@ -25,7 +25,23 @@ describe("PartnerPageBreadcrumbs", () => {
     navigationState.pathname = "/cabinet/purchasing-lists";
     navigationState.filter = "favorites";
     render(<PartnerPageBreadcrumbs locale="ru" />);
-    expect(screen.getByRole("navigation")).toHaveTextContent(/Подбор товаров\s*\/\s*Избранное/);
+    expect(screen.getByRole("navigation")).toHaveTextContent(/^Избранное$/);
+  });
+
+  it.each([
+    ["ru", "/cabinet/purchasing-lists", null, "Мои комплекты"],
+    ["ru", "/cabinet/compare", null, "Сравнение"],
+    ["ro", "/cabinet/purchasing-lists", "favorites", "Favorite"],
+    ["ro", "/cabinet/purchasing-lists", null, "Seturile mele"],
+    ["ro", "/cabinet/compare", null, "Comparație"],
+  ] as const)("uses a compact top-level identity for %s %s %s", (locale, pathname, filter, title) => {
+    navigationState.pathname = pathname;
+    navigationState.filter = filter;
+    render(<PartnerPageBreadcrumbs locale={locale} />);
+    const breadcrumb = screen.getByRole("navigation");
+    expect(breadcrumb.textContent).toBe(title);
+    expect(breadcrumb.querySelectorAll("li")).toHaveLength(1);
+    expect(screen.getByRole("heading", { name: title })).toHaveAttribute("aria-current", "page");
   });
 
   it("localizes checkout context for Romanian partners", () => {

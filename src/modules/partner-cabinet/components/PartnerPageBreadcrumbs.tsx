@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 
 import type { PartnerLocale } from "../../partner-locale";
 
-type PageContext = Readonly<{ section: string; title: string }>;
+type PageContext = Readonly<{ section?: string; title: string }>;
 
 const PAGE_CONTEXT: Record<string, Record<PartnerLocale, PageContext>> = {
   "/cabinet/cart": {
@@ -28,8 +28,12 @@ const PAGE_CONTEXT: Record<string, Record<PartnerLocale, PageContext>> = {
     ro: { section: "Achiziții", title: "Oportunități de achiziție" },
   },
   "/cabinet/purchasing-lists": {
-    ru: { section: "Подбор товаров", title: "Мои комплекты" },
-    ro: { section: "Selectarea produselor", title: "Seturile mele" },
+    ru: { title: "Мои комплекты" },
+    ro: { title: "Seturile mele" },
+  },
+  "/cabinet/compare": {
+    ru: { title: "Сравнение" },
+    ro: { title: "Comparație" },
   },
   "/cabinet/specifications": {
     ru: { section: "Проектная защита", title: "Проектные спецификации" },
@@ -51,8 +55,10 @@ export function PartnerPageBreadcrumbs({ locale }: { locale: PartnerLocale }) {
   return (
     <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="col-span-2 row-start-3 min-w-0 border-t border-zinc-100 pt-2 text-xs sm:text-sm lg:col-span-3 lg:row-start-2">
       <ol className="flex min-w-0 items-center gap-2 overflow-hidden">
-        <li className="shrink-0 truncate text-zinc-500">{section}</li>
-        <li aria-hidden="true" className="shrink-0 text-zinc-300">/</li>
+        {section && <>
+          <li className="shrink-0 truncate text-zinc-500">{section}</li>
+          <li aria-hidden="true" className="shrink-0 text-zinc-300">/</li>
+        </>}
         <li className="min-w-0 truncate"><h1 aria-current="page" className="truncate font-medium text-zinc-800">{title}</h1></li>
       </ol>
     </nav>

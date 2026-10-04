@@ -96,6 +96,9 @@ describe("Partner workspace shell", () => {
       "Рабочий стол",
       "Каталог товаров",
       "Покупки",
+      "Избранное",
+      "Мои комплекты",
+      "Сравнение",
       "Сметы и КП",
       "Заказы и финансы",
       "Экспертиза Novotech",
@@ -117,7 +120,9 @@ describe("Partner workspace shell", () => {
 
     const selectionButton = screen.getByRole("button", { name: "Покупки" });
     await user.click(selectionButton);
-    const selectionGroup = within(document.getElementById("product-selection-navigation")!);
+    const selectionGroup = within(screen.getByRole("navigation", { name: "Рабочие разделы" }));
+    const purchases = within(document.getElementById("purchases-navigation")!);
+    expect(purchases.getAllByRole("link").map((link) => link.textContent)).toEqual(["Подбор товаров", "Возможности для закупки", "Специальные предложения"]);
     expect(selectionGroup.getByRole("link", { name: "Избранное" })).toHaveAttribute("href", "/cabinet/purchasing-lists?filter=favorites");
     expect(selectionGroup.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("href", "/cabinet/purchasing-lists");
     expect(selectionGroup.getByRole("link", { name: "Сравнение" })).toHaveAttribute("href", "/cabinet/compare");
@@ -366,7 +371,7 @@ describe("Partner workspace shell", () => {
 
     pathname = "/cabinet/purchasing-lists/kit-1";
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("link", { name: "Мои комплекты" })).toHaveAttribute("aria-current", "page");
   });
 
@@ -380,13 +385,21 @@ describe("Partner workspace shell", () => {
     pathname = path;
     query = search;
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    const selected = document.querySelectorAll('#product-selection-navigation a[aria-current="page"]');
+    const selected = document.querySelectorAll('nav > div > a[aria-current="page"]');
     expect(selected).toHaveLength(1);
     expect(selected[0]).toHaveTextContent(label);
     expect(selected[0]).toHaveClass("bg-emerald-500/15");
     for (const other of ["Избранное", "Мои комплекты", "Сравнение"].filter((name) => name !== label)) {
       expect(screen.getByRole("link", { name: other })).not.toHaveAttribute("aria-current");
       expect(screen.getByRole("link", { name: other })).not.toHaveClass("bg-emerald-500/15");
+    }
+    expect(screen.getByRole("button", { name: "Покупки" })).toHaveAttribute("aria-expanded", "false");
+    for (const [name, icon] of [["Избранное", "star"], ["Мои комплекты", "layers"], ["Сравнение", "columns-3"]]) {
+      const link = screen.getByRole("link", { name });
+      expect(link.parentElement?.parentElement?.tagName).toBe("NAV");
+      expect(screen.getAllByRole("link", { name })).toHaveLength(1);
+      expect(link.querySelector("svg")).toHaveClass("lucide-" + icon);
+      expect(document.getElementById("purchases-navigation")).not.toContainElement(link);
     }
     const star = screen.getByRole("link", { name: "Избранное" }).querySelector("svg");
     expect(star).toHaveClass("lucide-star", "size-4", "shrink-0");
