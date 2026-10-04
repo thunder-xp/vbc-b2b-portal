@@ -29,6 +29,13 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
     return progress;
   }
   async recordEngagement(input: Parameters<CommercialCampaignRepository["recordEngagement"]>[0]): Promise<void> {
+    if (input.eventType === "detail_opened" && input.sessionId) {
+      const { error } = await (await createClient()).rpc("record_commercial_campaign_view_v1", {
+        p_company_id: input.companyId, p_campaign_id: input.campaignId, p_session_id: input.sessionId, p_request_id: input.requestId,
+      });
+      if (error) throw new CommercialCampaignRepositoryError(error.code);
+      return;
+    }
     const { error } = await (await createClient()).rpc("record_commercial_campaign_engagement", { p_company_id: input.companyId, p_campaign_id: input.campaignId, p_campaign_item_id: input.campaignItemId ?? null, p_event_type: input.eventType, p_quantity: input.quantity ?? null, p_request_id: input.requestId });
     if (error) throw new CommercialCampaignRepositoryError(error.code);
   }
@@ -51,6 +58,13 @@ export class SupabaseCommercialCampaignRepository implements CommercialCampaignR
     if (!record(data) || !record(data.campaign)) return null;
     const analytics = record(data.analytics) ? data.analytics : {};
     return { campaign: data.campaign, items: records(data.items), rules: records(data.rules), audience: records(data.audience), analytics: { impressions: number(analytics.impressions), opens: number(analytics.opens), carts: number(analytics.carts), orders: number(analytics.orders), attributedQuantity: number(analytics.attributedQuantity) } };
+  }
+  async getPerformance(campaignIds: string[], period: import("../performance").CampaignPerformancePeriod) {
+    const { data, error } = await (await createClient()).rpc("get_admin_campaign_performance_v1", {
+      p_campaign_ids: campaignIds, p_from: period.from, p_to: period.to, p_version: period.version,
+    });
+    if (error || !Array.isArray(data)) throw new CommercialCampaignRepositoryError(error?.code ?? null);
+    return data as import("../performance").CampaignPerformanceSummary[];
   }
   async getBuilderOptions(search = ""): Promise<CampaignBuilderOptions> {
     const { data, error } = await (await createClient()).rpc("get_commercial_campaign_builder_options_v2", { p_search: search });

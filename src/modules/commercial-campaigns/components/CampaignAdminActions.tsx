@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Copy, Eye, ExternalLink, Pencil, Play, Rocket, Square, Trash2 } from "lucide-react";
+import { Archive, ChartNoAxesColumn, Copy, Eye, ExternalLink, Pencil, Play, Rocket, Square, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
@@ -42,6 +42,7 @@ export function CampaignAdminActions({ campaignId, status, canCreate = false, ca
   return <div>
     <div className="flex flex-wrap items-center gap-1.5">
       <Action compact={compact} href={`/admin/commercial/campaigns/${campaignId}`} icon={<ExternalLink />} label="Открыть" />
+      <Action compact={compact} href={`/admin/commercial/campaigns/${campaignId}/results`} icon={<ChartNoAxesColumn />} label="Результаты" />
       {status === "draft" && canEdit ? <Action compact={compact} href={`/admin/commercial/campaigns/${campaignId}`} icon={<Pencil />} label="Редактировать" /> : null}
       <Action compact={compact} href={`/admin/commercial/campaigns/${campaignId}?preview=1`} icon={<Eye />} label="Предпросмотр" />
       {canCreate ? <Action compact={compact} disabled={pending} icon={<Copy />} label="Дублировать" onClick={() => run(() => duplicateCampaignAction(campaignId, crypto.randomUUID()), (data) => `/admin/commercial/campaigns/${(data as { id: string }).id}`)} /> : null}

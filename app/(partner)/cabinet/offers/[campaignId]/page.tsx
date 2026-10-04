@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPartnerCampaignAction } from "@/src/modules/commercial-campaigns/actions";
+import { CampaignViewEvidence } from "@/src/modules/commercial-campaigns/components/CampaignViewEvidence";
 import { CampaignSpendProgress, CampaignAttachProgress, CampaignBundleProgress, CampaignCartControl, CampaignPriceStack } from "@/src/modules/commercial-campaigns/components";
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import {
@@ -27,6 +28,7 @@ export default async function OfferDetailPage({
   const campaign = result.data;
   return (
     <div className="space-y-6">
+      <CampaignViewEvidence campaignId={campaign.id} />
       <header className="grid overflow-hidden rounded-md border border-zinc-200 bg-white lg:grid-cols-[minmax(0,1fr)_24rem]" data-partner-page-header>
         <div className="p-6">
           <Link

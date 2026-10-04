@@ -14,7 +14,7 @@ import type {
   SafeBehaviorMetadata,
 } from "../types";
 
-const SESSION_KEY = "novotech-behavior-session";
+import { getBehaviorSessionId as getSessionId } from "../client/behavior-session";
 
 export function BehaviorViewEvent({
   additionalEvents = [],
@@ -191,12 +191,4 @@ export function recordBehaviorInteraction(input: BehaviorInteractionInput): void
 export function scheduleBehaviorInteraction(input: BehaviorInteractionInput): void {
   const record = () => recordBehaviorInteraction(input);
   setTimeout(record, 30_000);
-}
-
-function getSessionId(): string {
-  const existing = sessionStorage.getItem(SESSION_KEY);
-  if (existing) return existing;
-  const created = crypto.randomUUID();
-  sessionStorage.setItem(SESSION_KEY, created);
-  return created;
 }

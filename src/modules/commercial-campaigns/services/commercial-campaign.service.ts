@@ -33,6 +33,11 @@ export class CommercialCampaignService {
     return this.repository.listAdmin({ status: input.status, search: input.search?.trim().slice(0, 100), campaignType: input.campaignType, dateFrom: input.dateFrom, dateTo: input.dateTo, pageSize, offset: (page - 1) * pageSize });
   }
   getAdmin(campaignId: string) { return this.repository.getAdmin(campaignId); }
+  getPerformance(campaignIds: string[], period: import("../performance").CampaignPerformancePeriod) {
+    if (!campaignIds.length) return Promise.resolve([]);
+    if (campaignIds.length > 50) throw new InvalidStateError("Reporting scope is too large.");
+    return this.repository.getPerformance(campaignIds, period);
+  }
   getBuilderOptions(search?: string) { return this.repository.getBuilderOptions(search?.trim().slice(0, 100)); }
   searchProducts(input: { search?: string; categoryId?: string; brandId?: string; inStockOnly?: boolean; page?: number; pageSize?: number }) {
     const page = Math.max(1, Math.trunc(input.page ?? 1));

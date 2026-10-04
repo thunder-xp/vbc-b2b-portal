@@ -49,7 +49,7 @@ export async function completeCampaignBundleAction(input: { campaignId: string; 
   }
 }
 
-export async function recordCampaignEngagementAction(input: { campaignId: string; campaignItemId?: string; eventType: "impression" | "detail_opened" | "product_opened"; requestId: string }) {
+export async function recordCampaignEngagementAction(input: { campaignId: string; campaignItemId?: string; eventType: "impression" | "detail_opened" | "product_opened"; requestId: string; sessionId?: string }) {
   try {
     await createCommercialCampaignService().recordEngagement(await getAuthenticatedUserId(), input);
   } catch { /* Measurement never blocks the partner flow. */ }

@@ -5,7 +5,8 @@ export interface CommercialCampaignRepository {
   getPartner(companyId: string, campaignId: string): Promise<PartnerCampaign | null>;
   addToCart(input: { companyId: string; campaignItemId: string; quantity: number; requestId: string }): Promise<{ cartItemId: string; quantity: number; mechanicType: CampaignMechanicType; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: CampaignPromoEligibilityReason }>;
   completeBundle(input: { companyId: string; campaignId: string; requestId: string }): Promise<import("../types").CampaignBundleState>;
-  recordEngagement(input: { companyId: string; campaignId: string; campaignItemId?: string; eventType: "impression" | "detail_opened" | "product_opened"; quantity?: number; requestId: string }): Promise<void>;
+  recordEngagement(input: { companyId: string; campaignId: string; campaignItemId?: string; eventType: "impression" | "detail_opened" | "product_opened"; quantity?: number; requestId: string; sessionId?: string }): Promise<void>;
+  getPerformance(campaignIds: string[], period: import("../performance").CampaignPerformancePeriod): Promise<import("../performance").CampaignPerformanceSummary[]>;
   listAdmin(input: Required<Pick<AdminCampaignFilter, "pageSize">> & Omit<AdminCampaignFilter, "page" | "pageSize"> & { offset: number }): Promise<AdminCampaignPage>;
   getAdmin(campaignId: string): Promise<AdminCampaignDetail | null>;
   getBuilderOptions(search?: string): Promise<CampaignBuilderOptions>;

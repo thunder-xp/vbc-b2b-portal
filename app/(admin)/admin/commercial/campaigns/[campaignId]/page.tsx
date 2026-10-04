@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
@@ -15,7 +16,9 @@ export default async function AdminCampaignDetailPage({ params, searchParams }: 
   const { campaignId } = await params;
   const preview = (await searchParams).preview === "1";
   const service = createCommercialCampaignService();
-  const detail = await service.getAdmin(campaignId);
+  const [detail, performance] = await Promise.all([
+    service.getAdmin(campaignId), service.getPerformance([campaignId], { from: null, to: null, version: null }),
+  ]);
   if (!detail) notFound();
   const campaign = detail.campaign;
   const status = String(campaign.status ?? "");
@@ -24,9 +27,9 @@ export default async function AdminCampaignDetailPage({ params, searchParams }: 
   const options = canEdit ? await service.getBuilderOptions() : null;
   return <div className="min-w-0 space-y-6"><AdminPageHeader description={readableCampaignText(campaign.partner_description, "Описание предложения недоступно.")} eyebrow={readableCampaignText(campaign.code, "Предложение")} title={readableCampaignText(campaign.name, "Специальное предложение")} />
     <CampaignAdminActions campaignId={campaignId} canCreate={permissions.has("campaigns.create")} canEdit={permissions.has("campaigns.edit")} canPause={permissions.has("campaigns.pause")} canPublish={permissions.has("campaigns.publish")} status={status} />
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">{Object.entries({ Статус: statusLabel(status), Версия: campaign.current_version, Ревизия: campaign.draft_revision ?? 0, Товаров: detail.items.length, Аудитория: detail.audience.filter((row) => row.included).length || "Правило", Заказов: detail.analytics.orders }).map(([label, value]) => <div className="border border-zinc-200 bg-white p-4" key={label}><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-xl font-semibold">{String(value)}</p></div>)}</section>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">{Object.entries({ Статус: statusLabel(status), Версия: campaign.current_version, Ревизия: campaign.draft_revision ?? 0, Товаров: detail.items.length, Аудитория: detail.audience.filter((row) => row.included).length || "Правило", "Заказов с PROMO": performance[0]?.attributedOrders ?? 0 }).map(([label, value]) => <div className="border border-zinc-200 bg-white p-4" key={label}><p className="text-xs text-zinc-500">{label}</p><p className="mt-1 text-xl font-semibold">{String(value)}</p></div>)}</section>
     {preview ? canEdit && options ? <CampaignBuilder initial={seed(campaignId, detail)} options={withSelectedCompanies(options, detail.rules)} preview /> : <DefinitionPreview detail={detail} /> : canEdit && options ? <CampaignBuilder initial={seed(campaignId, detail)} options={withSelectedCompanies(options, detail.rules)} /> : <ReadOnlyDefinition detail={detail} />}
-    <section><h2 className="text-lg font-semibold">Аналитика</h2><p className="mt-2 text-sm text-zinc-600">Показы: {detail.analytics.impressions} · Открытия: {detail.analytics.opens} · Корзины: {detail.analytics.carts} · Заказы: {detail.analytics.orders} · Количество: {detail.analytics.attributedQuantity}. Атрибуция портальная и не доказывает причинность.</p></section>
+    <Link className="inline-flex min-h-10 items-center rounded border px-3 text-sm font-semibold text-emerald-800" href={`/admin/commercial/campaigns/${campaignId}/results`}>Результаты предложения</Link>
   </div>;
 }
 function seed(campaignId: string, detail: AdminCampaignDetail): CampaignDraftSeed {
