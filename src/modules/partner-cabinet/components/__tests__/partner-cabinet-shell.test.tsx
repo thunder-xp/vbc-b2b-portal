@@ -311,6 +311,37 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("button", { name: "Заказы и финансы" })).not.toHaveAttribute("aria-current");
   });
 
+  it("applies the compact sidebar typography hierarchy", () => {
+    pathname = "/cabinet/catalog";
+    render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
+
+    for (const heading of document.querySelectorAll<HTMLElement>("[data-sidebar-section] h2")) {
+      expect(heading).toHaveClass(
+        "text-[10px]",
+        "font-medium",
+        "uppercase",
+        "tracking-[0.16em]",
+      );
+    }
+
+    expect(document.querySelector('[data-sidebar-top-level="true"][href="/cabinet"]')).toHaveClass(
+      "min-h-9",
+      "text-xs",
+      "font-semibold",
+    );
+    expect(document.querySelector('button[data-sidebar-top-level="true"][aria-controls="products-navigation"]')).toHaveClass(
+      "min-h-9",
+      "text-xs",
+      "font-semibold",
+    );
+
+    const activeChild = document.querySelector('#products-navigation a[aria-current="page"]');
+    const inactiveChild = document.querySelector('#products-navigation a[href="/cabinet/catalog?view=all"]');
+    expect(activeChild).toHaveClass("min-h-8", "text-[11px]", "font-semibold");
+    expect(inactiveChild).toHaveClass("min-h-8", "text-[11px]", "font-medium");
+    expect(inactiveChild).not.toHaveClass("font-semibold");
+  });
+
   it("supports keyboard expansion and collapse", async () => {
     const user = userEvent.setup();
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);

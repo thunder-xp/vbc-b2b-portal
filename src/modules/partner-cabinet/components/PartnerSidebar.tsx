@@ -148,6 +148,11 @@ function NavigationItem({
       ? "before:bg-emerald-400/60"
       : "before:bg-white/20"
     : "";
+  const fontWeight = submenu
+    ? active
+      ? "font-semibold"
+      : "font-medium"
+    : "font-semibold";
 
   useEffect(() => () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -184,7 +189,7 @@ function NavigationItem({
   return (
     <Link
       aria-current={active ? "page" : undefined}
-      className={`flex items-center gap-2.5 rounded-md font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${connectorColor} ${
+      className={`flex items-center gap-2.5 rounded-md ${fontWeight} outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${connectorColor} ${
         active
           ? "bg-emerald-500/15 text-emerald-200"
           : "text-zinc-300 hover:bg-white/10 hover:text-white"
@@ -241,7 +246,7 @@ function ExpandableNavigationGroup({
       <button
         aria-controls={id}
         aria-expanded={expanded}
-        className={`flex min-h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+        className={`flex min-h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
           routeActive ? "text-emerald-200" : "text-zinc-300 hover:bg-white/10 hover:text-white"
         }`}
         onClick={onToggle}
