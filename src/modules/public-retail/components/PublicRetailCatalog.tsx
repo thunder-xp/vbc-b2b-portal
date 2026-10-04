@@ -32,10 +32,10 @@ export function PublicRetailCatalog({ blogArticles = [], breadcrumbs, categories
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
     {categoryContent && breadcrumbs ? <PublicBreadcrumbs items={breadcrumbs} label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} /> : null}
     {categoryContent ? <div className="mt-4" data-content-source={categoryContent.source}>
-      <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />
+      <CatalogResultsHeader action={state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="NOVOTECH SYSTEMS · DISTRIBUTION" eyebrowTone="retail" title={pageTitle} />
       <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600">{categoryContent.intro}</p>
       <CategoryTaxonomyLinks content={categoryContent} locale={locale} />
-    </div> : <CatalogResultsHeader action={state.mode === "popular" || state.mode === "new" || state.mode === "hot" ? <RollingPeriodSelector activePeriod={state.periodState ?? null} hrefForPeriod={(period) => `/catalog?lang=${locale}&view=${state.mode}&period=${period}`} locale={locale} tone="retail" /> : state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="Novotech Retail" eyebrowTone="retail" title={pageTitle} />}
+    </div> : <CatalogResultsHeader action={state.mode === "popular" || state.mode === "new" || state.mode === "hot" ? <RollingPeriodSelector activePeriod={state.periodState ?? null} hrefForPeriod={(period) => `/catalog?lang=${locale}&view=${state.mode}&period=${period}`} locale={locale} tone="retail" /> : state.mode ? undefined : <SortForm locale={locale} state={state} />} eyebrow="NOVOTECH SYSTEMS · DISTRIBUTION" eyebrowTone="retail" title={pageTitle} />}
     <div className="mt-5">
       <CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={visibleCategories.map(publicRetailMenuCategory)} locale={locale} />

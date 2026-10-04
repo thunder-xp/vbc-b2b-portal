@@ -25,6 +25,7 @@ describe("Agent Cabinet V1 contract", () => {
   it("gates all child routes before operational content is rendered", () => {
     expect(layout).toContain('agent.accessMode === "OPERATIONAL"');
     expect(layout).toContain("<StatusGate context={agent} locale={locale}/>");
+    expect(layout).toContain("NOVOTECH · {copy.cabinet}");
     expect(layout).not.toContain("/cabinet");
   });
 

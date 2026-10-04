@@ -141,7 +141,10 @@ export function AdminShell({
             <span className="flex h-9 w-9 items-center justify-center rounded-md bg-emerald-700 text-white">
               <ShieldCheck aria-hidden className="h-5 w-5" />
             </span>
-            <span>Панель администратора</span>
+            <span className="leading-tight">
+              <span className="block text-xs font-semibold text-emerald-700">NOVOTECH</span>
+              <span className="block text-sm">Панель администратора</span>
+            </span>
           </Link>
           <button
             aria-label="Закрыть навигацию"

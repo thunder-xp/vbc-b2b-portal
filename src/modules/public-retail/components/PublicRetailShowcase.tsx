@@ -13,7 +13,7 @@ import { RollingPeriodSelector, type RollingPeriod, type RollingPeriodState } fr
 export function PublicRetailShowcase({ categories, locale, periods = { popular: null, new: null, hot: null }, showcase }: { categories: PublicRetailCategoryDto[]; locale: PublicRetailLocale; periods?: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState }; showcase: PublicRetailShowcaseDto }) {
   const copy = retailCopy[locale];
   return <div className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
-    <CatalogResultsHeader eyebrow="Novotech Retail" eyebrowTone="retail" title={copy.showcase} />
+    <CatalogResultsHeader eyebrow="NOVOTECH SYSTEMS · DISTRIBUTION" eyebrowTone="retail" title={copy.showcase} />
     <div className="mt-5"><CatalogToolbarFrame>
         <PublicRetailCategoryMenu categories={publicRetailVisibleCategories(categories).map((category) => ({ id: category.id, name: category.name, parentId: category.parentId, slug: category.slug }))} locale={locale} />
         <PublicRetailSearchForm id="showcase" locale={locale} />

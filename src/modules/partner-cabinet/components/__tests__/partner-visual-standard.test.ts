@@ -45,15 +45,18 @@ describe("Partner Cabinet visual standard", () => {
     expect(css).toContain("[data-partner-page-header] p");
   });
 
-  it("inherits the global Inter font and tabular numerals in the Partner Cabinet", () => {
+  it("inherits the global system UI font and tabular numerals in the Partner Cabinet", () => {
     const rootLayout = read("app/layout.tsx");
     const partnerLayout = read("src/modules/partner-cabinet/components/PartnerLayout.tsx");
     const globalCss = read("app/globals.css");
-    expect(rootLayout).toContain("Inter");
-    expect(rootLayout).toContain('subsets: ["cyrillic", "latin"]');
-    expect(rootLayout).not.toContain("IBM_Plex_Sans");
+    expect(rootLayout).toContain('data-app-font="System UI"');
+    expect(rootLayout).not.toContain("next/font");
+    expect(rootLayout).not.toMatch(/Inter(?:_Tight)?|IBM_Plex_Sans|Onest/i);
     expect(partnerLayout).not.toContain("font-partner-cabinet");
     expect(partnerLayout).not.toContain("data-partner-font");
+    expect(globalCss).toContain(
+      '--font-app-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;',
+    );
     expect(globalCss).toContain("font-variant-numeric: tabular-nums");
   });
 

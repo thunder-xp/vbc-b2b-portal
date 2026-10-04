@@ -131,7 +131,9 @@ in-memory candidate scans remain scale WATCH items. Domain, Resolver and
 Performance remain WATCH; there is no REFACTOR NOW correctness blocker.
 
 There is no new cron, polling, infrastructure service, remote render call or
-per-row success logging. Only one canonical Git deployment is required. Normal
-request invocation count is unchanged; measured local compute cost is above.
+per-row success logging. A concurrent typography release superseded the initial
+Wave 2A deployment, requiring a merged-SHA Git deployment that preserves both
+changes. No SHA is deployed twice. Normal request invocation count is unchanged;
+measured local compute cost is above.
 Production migration parity, advisor delta, READY deployment and final SHA are
 verified and reported separately at release acceptance.
