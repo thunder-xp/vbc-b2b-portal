@@ -59,6 +59,7 @@ describe("AdminShell", () => {
   it("keeps navigation in the sidebar and header controls distinct", () => {
     render(<AdminShell context={context} notificationCenter={notificationCenter}>Content</AdminShell>);
 
+    expect(screen.getByText("NOVOTECH")).toBeInTheDocument();
     expect(screen.getAllByText("Панель администратора").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Заявки на доступ").length).toBeGreaterThan(0);
     expect(screen.getByText("Development")).toBeInTheDocument();

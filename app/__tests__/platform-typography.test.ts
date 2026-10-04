@@ -15,7 +15,7 @@ function collectSourceFiles(directory: string): string[] {
 }
 
 describe("platform typography standard", () => {
-  it("registers Inter once at the application root with required subsets and weights", () => {
+  it("registers Inter Tight once at the application root with required subsets and weights", () => {
     const layout = read("app/layout.tsx");
     const fontRegistrations = [path.join(root, "app"), path.join(root, "src")]
       .flatMap(collectSourceFiles)
@@ -23,25 +23,28 @@ describe("platform typography standard", () => {
       .map((file) => path.relative(root, file).replaceAll(path.sep, "/"));
 
     expect(fontRegistrations).toEqual(["app/layout.tsx"]);
-    expect(layout).toContain('import { Inter } from "next/font/google"');
+    expect(layout).toContain('import { Inter_Tight } from "next/font/google"');
     expect(layout).toContain('subsets: ["cyrillic", "latin"]');
     expect(layout).toContain('weight: ["400", "500", "600", "700"]');
-    expect(layout).toContain('variable: "--font-inter"');
-    expect(layout).toContain('data-app-font="Inter"');
+    expect(layout).toContain('variable: "--font-inter-tight"');
+    expect(layout).toContain('data-app-font="Inter Tight"');
     expect(layout).not.toContain("IBM_Plex_Sans");
+    expect(layout).not.toContain("Onest");
   });
 
-  it("makes public and authenticated UI inherit Inter with safe fallbacks", () => {
+  it("makes public and authenticated UI inherit Inter Tight with safe fallbacks", () => {
     const css = read("app/globals.css");
     const partnerLayout = read("src/modules/partner-cabinet/components/PartnerLayout.tsx");
 
-    expect(css).toContain("--font-app-sans: var(--font-inter), Inter, system-ui, sans-serif;");
+    expect(css).toContain('--font-app-sans: var(--font-inter-tight), "Inter Tight", system-ui, sans-serif;');
     expect(css).toContain("font-family: var(--font-app-sans);");
+    expect(css).toContain("font-size: 14px;");
+    expect(css).toContain("line-height: 1.4;");
     expect(partnerLayout).not.toContain("font-[family-name:");
     expect(partnerLayout).not.toContain("font-partner-cabinet");
   });
 
-  it("uses Inter tabular numerals globally without replacing document-specific fonts", () => {
+  it("uses Inter Tight tabular numerals globally without replacing document-specific fonts", () => {
     const css = read("app/globals.css");
 
     expect(css).toContain("font-variant-numeric: tabular-nums;");

@@ -30,7 +30,7 @@ export default async function PublicRetailCartPage({ searchParams }: { searchPar
     <main className="min-h-[calc(100vh-4rem)] bg-zinc-50" lang={locale}>
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         <header className="flex flex-wrap items-end justify-between gap-4 border-b border-zinc-200 pb-6">
-          <div><p className="text-xs font-semibold uppercase text-blue-700">Novotech Retail</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
+          <div><p className="text-xs font-semibold uppercase text-blue-700">NOVOTECH SYSTEMS · DISTRIBUTION</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{locale === "ro" ? "Coș" : "Корзина"}</h1></div>
           {quantity > 0 ? <p className="text-sm text-zinc-600">{locale === "ro" ? `${quantity} bucăți` : `${quantity} шт.`}</p> : null}
         </header>
         {!cart || cart.items.length === 0 ? <EmptyCart locale={locale} /> : <CartContent cart={cart} checkoutAccess={checkoutAccess} locale={locale} offer={offer} />}

@@ -45,11 +45,11 @@ describe("Partner Cabinet visual standard", () => {
     expect(css).toContain("[data-partner-page-header] p");
   });
 
-  it("inherits the global Inter font and tabular numerals in the Partner Cabinet", () => {
+  it("inherits the global Inter Tight font and tabular numerals in the Partner Cabinet", () => {
     const rootLayout = read("app/layout.tsx");
     const partnerLayout = read("src/modules/partner-cabinet/components/PartnerLayout.tsx");
     const globalCss = read("app/globals.css");
-    expect(rootLayout).toContain("Inter");
+    expect(rootLayout).toContain("Inter_Tight");
     expect(rootLayout).toContain('subsets: ["cyrillic", "latin"]');
     expect(rootLayout).not.toContain("IBM_Plex_Sans");
     expect(partnerLayout).not.toContain("font-partner-cabinet");
