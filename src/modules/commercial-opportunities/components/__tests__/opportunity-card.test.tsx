@@ -64,6 +64,7 @@ describe("OpportunityCard", () => {
     expect(card).toHaveClass("lg:grid-cols-[6.5rem_minmax(0,1fr)_12.5rem]");
     const actions = container.querySelector("[data-opportunity-actions]");
     expect(actions).not.toBeNull();
+    expect(actions).toHaveClass("gap-1.5");
     expect(within(actions as HTMLElement).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim())).toEqual([
       "Добавить в избранное",
       "Добавить в смету",

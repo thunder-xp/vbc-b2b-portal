@@ -252,7 +252,7 @@ function ProductOpportunityCard({
           </div>
         ) : null}
         {alreadyInCart ? <p className="mt-2 text-[11px] font-semibold text-emerald-800">{locale === "ro" ? "Deja în coș" : "Уже в корзине"}</p> : null}
-        <div className="mt-2 flex flex-wrap items-center gap-2" data-opportunity-actions>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5" data-opportunity-actions>
           {canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={false} productId={product.id} /> : null}
           {canAddToSpecification ? <ProductSpecificationAction compact productId={product.id} /> : null}
           {companyId && userId ? <ProductComparisonAction categoryId={null} companyId={companyId} compact productId={product.id} userId={userId} /> : null}
