@@ -61,7 +61,7 @@ function FinancePeriodContent({
       <p className={`flex items-start gap-2 text-xs font-semibold ${guidance.state === "overdue" ? "text-amber-800" : guidance.state === "unavailable" ? "text-zinc-600" : "text-emerald-800"}`}>{guidance.state === "overdue" ? <AlertTriangle aria-hidden="true" className="size-4 shrink-0" /> : null}{partnerText(locale, financeStateKey(guidance.state))}</p>
       <p className="mt-1 text-xs text-zinc-500">{partnerText(locale, "dashboard.balanceSnapshot")}{synchronizedAt ? ` · ${partnerText(locale, "dashboard.updated")}: ${formatDate(synchronizedAt, locale)}` : ""}</p>
     </div>
-    <div className="mt-2" data-analytics-summary>
+    <div className="mt-3" data-analytics-summary>
       <div className="grid gap-3 sm:grid-cols-2" data-finance-totals>
         {guidance.totals.map((total) => <dl className="grid min-w-0 grid-cols-2 gap-3 rounded-md bg-zinc-50 p-2.5" data-finance-currency={total.currency} key={total.currency}>
           <div><dt className="text-xs font-medium text-zinc-600">{partnerText(locale, "dashboard.financeOverdue")} · {total.currency}</dt><dd className="mt-1 break-words text-lg font-semibold tabular-nums text-amber-800">{formatPartnerMoney(total.overdue, total.currency, locale)}</dd></div>
@@ -81,7 +81,7 @@ function PaymentGraph({ guidance, locale }: { guidance: FinanceGuidancePeriodDto
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentCalendar")}</h3>
         <a className="inline-flex min-h-8 items-center rounded text-xs font-semibold text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" href="/cabinet/finance#payment-calendar">{partnerText(locale, "dashboard.fullCalendar")}</a>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <p className="text-xs font-medium tabular-nums text-zinc-500" data-payment-calendar-range>
           {formatDate(guidance.calendar.startDate, locale)} — {formatDate(guidance.calendar.endDate, locale)}
         </p>
