@@ -84,6 +84,53 @@ describe("purchasing list UI", () => {
     expect(actions.addPurchasingListToCartAction).not.toHaveBeenCalled();
   });
 
+  it.each([4, 5])("hides the row review warning when quantity %s is covered by known stock", (quantity) => {
+    const initial = reviewRequiredDetail();
+    initial.lines[0].quantity = quantity;
+    initial.lines[0].availableStock = 5;
+    render(<PurchasingListEditor initial={initial} />);
+    expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
+  });
+
+  it("shows the row review warning when quantity exceeds known stock", () => {
+    const initial = reviewRequiredDetail();
+    initial.lines[0].quantity = 6;
+    initial.lines[0].availableStock = 5;
+    render(<PurchasingListEditor initial={initial} />);
+    expect(screen.getByText("Требует проверки")).toBeInTheDocument();
+  });
+
+  it("keeps the row review warning when stock is unknown", () => {
+    const initial = reviewRequiredDetail();
+    initial.lines[0].availableStock = null;
+    render(<PurchasingListEditor initial={initial} />);
+    expect(screen.getByText("Требует проверки")).toBeInTheDocument();
+    expect(screen.getByText("Уточняется")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeEnabled();
+  });
+
+  it("updates the row warning across the stock threshold without changing review metadata", () => {
+    const initial = reviewRequiredDetail();
+    render(<PurchasingListEditor initial={initial} />);
+    const quantity = screen.getByRole("spinbutton", { name: "Количество" });
+    expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
+    fireEvent.change(quantity, { target: { value: "6" } });
+    expect(screen.getByText("Требует проверки")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ })).toBeDisabled();
+    fireEvent.change(quantity, { target: { value: "5" } });
+    expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeEnabled();
+    expect(initial.lines[0]).toMatchObject({ state: "requires_review", stateLabel: "Требует проверки", canConvert: false });
+  });
+
+  it("keeps row warning presentation separate from final-cart stock admission", () => {
+    const initial = reviewRequiredDetail();
+    initial.lines[0].existingCartQuantity = 4;
+    render(<PurchasingListEditor initial={initial} />);
+    expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ })).toBeDisabled();
+  });
+
   it("disables the row action when final quantity exceeds known stock and exposes the reason", () => {
     const initial = detail();
     initial.lines[0].existingCartQuantity = 4;
@@ -272,3 +319,11 @@ describe("purchasing list UI", () => {
 });
 
 function detail(): PurchasingListDetailDto { return { id: "33333333-3333-4333-8333-333333333333", companyId: "company-1", name: "Install kit", description: null, visibility: "private", createdBy: "user-1", updatedBy: "user-1", revision: 1, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", archivedAt: null, ownerName: "Partner", canManage: true, lines: [{ id: "44444444-4444-4444-8444-444444444444", listId: "33333333-3333-4333-8333-333333333333", productId: "55555555-5555-4555-8555-555555555555", quantity: 2, position: 1, note: null, sourceType: "manual", sourceReferenceId: null, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", sku: "400691", productName: "Very long camera product name that must wrap on mobile layouts", slug: "camera", imageUrl: null, currentPartnerPrice: "$10.00", currentPartnerPriceAmount: 10, currentPartnerCurrencyCode: "USD", currentRetailPrice: "1 000 MDL", currentRetailPriceAmount: 1000, currentRetailCurrencyCode: "MDL", availableStock: 5, existingCartQuantity: 0, canAddToCart: true, cartAdmissionBlocker: null, expectedArrivalDate: "2026-07-25", expectedArrivalQuantity: 10, state: "available", stateLabel: "Доступно", canConvert: true }] }; }
+
+function reviewRequiredDetail(): PurchasingListDetailDto {
+  const initial = detail();
+  initial.lines[0].state = "requires_review";
+  initial.lines[0].stateLabel = "Требует проверки";
+  initial.lines[0].canConvert = false;
+  return initial;
+}

@@ -28,6 +28,8 @@ export function PurchasingListProductRow({ line, locale, editable, selected, fir
 }) {
   const copy = procurementCopy(locale);
   const editorCopy = purchasingListEditorCopy(locale);
+  const showStateWarning = line.state !== "available"
+    && (line.availableStock === null || line.quantity > line.availableStock);
   return <li className="grid grid-cols-[44px_52px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-3 xl:grid-cols-[44px_52px_minmax(0,1fr)_112px_136px_120px_132px] xl:gap-x-3" data-product-row>
     <label className="inline-flex size-11 cursor-pointer items-center justify-center self-start xl:self-center">
       <input aria-label={`${copy.select}: ${line.productName}`} checked={selected} className="size-4 accent-emerald-700" onChange={(event) => onSelect(event.target.checked)} type="checkbox" />
@@ -38,7 +40,7 @@ export function PurchasingListProductRow({ line, locale, editable, selected, fir
     <div className="min-w-0" data-row-identity>
       <Link className="block break-words text-sm font-semibold leading-5 text-zinc-950 hover:text-emerald-700" href={line.slug ? `/cabinet/catalog/${line.slug}` : "/cabinet/catalog"}>{line.productName}</Link>
       <p className="mt-0.5 text-xs text-zinc-500">{line.sku}</p>
-      {line.state !== "available" ? <p className="mt-0.5 text-xs font-medium text-amber-700">{procurementProductStateLabel(locale, line.state)}</p> : null}
+      {showStateWarning ? <p className="mt-0.5 text-xs font-medium text-amber-700">{procurementProductStateLabel(locale, line.state)}</p> : null}
     </div>
     <label className="col-span-2 row-start-3 text-xs text-zinc-500 xl:col-span-1 xl:row-start-auto xl:self-start" data-row-quantity>
       {copy.quantity}
