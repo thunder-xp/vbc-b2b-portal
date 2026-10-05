@@ -13,7 +13,7 @@
   }
 
   .dashboard [data-analytics-summary] {
-    min-height: 184px;
+    min-height: 200px;
   }
 
   .dashboard [data-analytics-chart-header] {

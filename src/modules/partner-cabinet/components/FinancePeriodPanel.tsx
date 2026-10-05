@@ -81,15 +81,17 @@ function PaymentGraph({ guidance, locale }: { guidance: FinanceGuidancePeriodDto
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentCalendar")}</h3>
         <a className="inline-flex min-h-8 items-center rounded text-xs font-semibold text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" href="/cabinet/finance#payment-calendar">{partnerText(locale, "dashboard.fullCalendar")}</a>
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <p className="text-xs font-medium tabular-nums text-zinc-500" data-payment-calendar-range>
+          {formatDate(guidance.calendar.startDate, locale)} — {formatDate(guidance.calendar.endDate, locale)}
+        </p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
           <GraphLegend className="bg-rose-500" label={partnerText(locale, "dashboard.paymentOverdue")} />
           <GraphLegend className="bg-amber-500" label={partnerText(locale, "dashboard.paymentToday")} />
           <GraphLegend className="bg-emerald-600" label={partnerText(locale, "dashboard.paymentUpcoming")} />
           <GraphLegend className="bg-zinc-400" label={partnerText(locale, "dashboard.paymentPaid")} />
+        </div>
       </div>
-      <p className="mt-1.5 text-xs font-medium tabular-nums text-zinc-500" data-payment-calendar-range>
-        {formatDate(guidance.calendar.startDate, locale)} — {formatDate(guidance.calendar.endDate, locale)}
-      </p>
       <p className="sr-only">{partnerText(locale, "dashboard.paymentEntries")}: {guidance.paymentGraph.length}. {partnerText(locale, "dashboard.paymentPlanContext")}</p>
       {(guidance.paymentGraph.length ? [...new Set(guidance.paymentGraph.map((payment) => payment.currency))] : [""]).map((currency) => <PaymentCurrencyGraph currency={currency} guidance={guidance} key={currency} locale={locale} />)}
     </div>
