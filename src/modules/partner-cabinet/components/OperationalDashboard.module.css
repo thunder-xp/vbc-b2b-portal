@@ -1,0 +1,22 @@
+.dashboard :is([class~="border"], [class~="border-x"], [class~="rounded"], [class~="rounded-sm"], [class~="rounded-md"], button, input:not([type="radio"]), select):not([class~="rounded-full"]):not([data-partner-radius="semantic"]) {
+  /* Override the shell's square geometry only inside the dashboard. */
+  border-radius: 6px !important;
+}
+
+.dashboard [class~="rounded-full"] {
+  border-radius: 9999px !important;
+}
+
+@media (min-width: 1280px) {
+  .dashboard [data-analytics-context] {
+    min-height: 52px;
+  }
+
+  .dashboard [data-analytics-summary] {
+    min-height: 228px;
+  }
+
+  .dashboard [data-analytics-chart-header] {
+    min-height: 40px;
+  }
+}

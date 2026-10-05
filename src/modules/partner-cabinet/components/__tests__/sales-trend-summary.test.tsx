@@ -10,8 +10,8 @@ import { SalesTrendSummary } from "../SalesTrendSummary";
 
 describe("SalesTrendSummary", () => {
   it.each([
-    ["ru", "Период анализа продаж", "30 дн.", "к аналогичному периоду 2025 г."],
-    ["ro", "Perioada analizei vânzărilor", "30 zile", "față de perioada similară din 2025"],
+    ["ru", "Период анализа закупок", "30 дн.", "к аналогичному периоду 2025 г."],
+    ["ro", "Perioada analizei achizițiilor", "30 zile", "față de perioada similară din 2025"],
   ] as const)("renders one active default and complete %s copy", (locale, groupName, defaultLabel, comparisonCopy) => {
     render(<SalesTrendSummary locale={locale} series={series()} />);
 

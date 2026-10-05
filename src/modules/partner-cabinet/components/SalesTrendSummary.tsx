@@ -27,7 +27,7 @@ export function SalesTrendSummary({
 }) {
   return (
     <fieldset className="min-w-0" data-sales-trend-summary>
-      <legend className="sr-only">{partnerText(locale, "dashboard.salesPeriodSelector")}</legend>
+      <legend className="mb-2 text-xs font-medium text-zinc-600">{partnerText(locale, "dashboard.salesPeriodSelector")}</legend>
       {PERIODS.map((days) => (
         <input
           aria-label={partnerText(locale, "dashboard.salesDays").replace("{count}", String(days))}
@@ -62,10 +62,11 @@ export function SalesTrendSummary({
         if (!selectedRange) return null;
         return (
           <div className="sales-trend-period-panel mt-2" data-sales-period-panel={days} key={days}>
-            <p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-period>
+            <div data-analytics-context><p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-period>
               {formatPeriodDate(selectedRange.currentStart, locale)} — {formatPeriodDate(selectedRange.currentEnd, locale)}
             </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2" data-sales-metrics>
+            <p className="mt-1 text-xs text-zinc-600">{partnerText(locale, "dashboard.procurementSource")}</p></div>
+            <div className="mt-3 grid content-start gap-2 sm:grid-cols-2" data-analytics-summary data-sales-metrics>
               {series.map((currencySeries) => {
                 const comparison = currencySeries.comparisons.find((candidate) => candidate.days === days);
                 if (!comparison) return null;

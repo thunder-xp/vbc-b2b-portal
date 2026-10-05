@@ -48,7 +48,7 @@ describe("Partner Workspace operational home", () => {
 
     expect(screen.queryByRole("heading", { name: /Partner/ })).not.toBeInTheDocument();
     expect(screen.getByText("Требует внимания")).toBeInTheDocument();
-    expect(screen.getByText("Всё в порядке. Срочных действий нет.")).toBeInTheDocument();
+    expect(screen.getByText("Нет задач, требующих внимания")).toBeInTheDocument();
     expect(screen.getByText("Заказы")).toBeInTheDocument();
     expect(screen.getByText("Ближайшие отгрузки")).toBeInTheDocument();
     expect(screen.getByText("У компании пока нет заказов.")).toBeInTheDocument();
@@ -74,6 +74,54 @@ describe("Partner Workspace operational home", () => {
     const positions = markers.map((marker) => dashboard.indexOf(marker));
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
+  });
+
+  it("uses a neutral compact no-task row and exposes the task count", async () => {
+    const { container } = render(await CabinetPage());
+    expect(container.querySelector("[data-attention-count]")).toHaveTextContent("0");
+    expect(container.querySelector("[data-attention-empty]")).not.toHaveClass("border", "bg-emerald-50");
+    expect(container.querySelectorAll("[data-attention-card]")).toHaveLength(0);
+  });
+
+  it("shows ordinary order context and deadlines without reordering governed tasks", async () => {
+    const attention = ["NS-2", "NS-1"].map((number, index) => ({
+      id: number, kind: "shipment_overdue", title: `Отгрузка ${number}`, consequence: "Уточните дату", href: `/cabinet/orders/${number}`,
+      occurredAt: "2026-09-01T00:00:00Z", sourceFingerprint: number, dismissPolicy: "until_source_change", severity: "warning", orderNumber: number,
+      plannedDate: index ? "2026-09-03" : "2026-09-01", isTest: false, ctaLabel: "Открыть заказ",
+    }));
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), attentionItems: attention } });
+    const { container } = render(await CabinetPage());
+    const rows = [...container.querySelectorAll("[data-attention-card]")];
+    expect(rows[0]).toHaveTextContent("NS-2");
+    expect(rows[1]).toHaveTextContent("NS-1");
+    expect(rows[0]).toHaveTextContent(/до 1 сент/);
+    expect(container.querySelector("[data-attention-count]")).toHaveTextContent("2");
+    expect(screen.getAllByRole("link", { name: "Открыть заказ" })[0]).toHaveAttribute("href", "/cabinet/orders/NS-2");
+  });
+
+  it("keeps financial snapshots separate from period turnover and renders a bounded payment list", async () => {
+    const payment = { id: "planned-mdl", eventDate: "2026-09-08", orderNumber: "NS-1", amount: 100, currency: "MDL", timing: "upcoming", relativeHeight: 50, positionPercent: 50, stackIndex: 0, stackCount: 1 };
+    const guidance = { ...financeGuidanceData(), paymentGraph: [payment, { ...payment, id: "paid-eur", currency: "EUR", amount: 75, timing: "paid" }] };
+    const before = JSON.stringify(guidance);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), financeGuidance: guidance } });
+    const { container } = render(await CabinetPage());
+    expect(screen.getByText("Остаток обязательств на дату обновления")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-payment-currency]")).toHaveLength(2);
+    expect(container.querySelector('[data-payment-currency="MDL"] [data-payment-bar]')).toHaveAttribute("data-payment-state", "upcoming");
+    expect(container.querySelector('[data-payment-currency="EUR"] [data-payment-bar]')).toHaveAttribute("data-payment-state", "paid");
+    expect(container.querySelectorAll("[data-dashboard-payment-row]")).toHaveLength(2);
+    expect(container.querySelectorAll("[data-dashboard-payment-row]")[1]).toHaveTextContent("Дата оплаты");
+    expect(screen.getByRole("link", { name: "Полный календарь" })).toHaveAttribute("href", "/cabinet/finance#payment-calendar");
+    expect(JSON.stringify(guidance)).toBe(before);
+  });
+
+  it("does not invent a payment deadline or expose an unavailable order summary", async () => {
+    const guidance = { ...financeGuidanceData(), nextDueDate: null };
+    const data = workspaceData();
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...data, capabilities: { ...data.capabilities, navigation: [] }, financeGuidance: guidance } });
+    render(await CabinetPage());
+    expect(screen.getByText("Срок не указан")).toBeInTheDocument();
+    expect(screen.queryByText("Текущие заказы")).not.toBeInTheDocument();
   });
 
   it("renders governed special offers between analytics and fulfilment with the orange badge", async () => {
@@ -143,7 +191,7 @@ describe("Partner Workspace operational home", () => {
 
     render(await CabinetPage());
     expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
-    expect(screen.getByText(overdue, { selector: "span" })).toBeInTheDocument();
+    expect(screen.getAllByText(overdue, { selector: "span" })[0]).toBeInTheDocument();
     expect(screen.getAllByText(today, { selector: "span" })).toHaveLength(2);
     expect(screen.getByText(upcoming, { selector: "span" })).toBeInTheDocument();
     expect(screen.getByRole("separator", { name: new RegExp(today) })).toHaveAttribute("data-payment-today-marker");
@@ -184,8 +232,8 @@ describe("Partner Workspace operational home", () => {
   });
 
   it.each([
-    ["ru", "Финансы", "Продажи", "Открыть финансы", "Открыть продажи", "Динамика продаж"],
-    ["ro", "Finanțe", "Vânzări", "Deschide finanțele", "Deschide vânzările", "Dinamica vânzărilor"],
+    ["ru", "Финансы", "Закупки", "Открыть финансы", "Открыть заказы", "Динамика закупок"],
+    ["ro", "Finanțe", "Achiziții", "Deschide finanțele", "Deschide comenzile", "Dinamica achizițiilor"],
   ])("renders aligned Finance bars and Sales lines with complete %s copy", async (locale, finance, sales, openFinance, openSales, dynamics) => {
     mocks.getPartnerLocale.mockResolvedValue(locale);
     mocks.getWorkspaceHomeAction.mockResolvedValue({
@@ -233,8 +281,8 @@ describe("Partner Workspace operational home", () => {
   });
 
   it.each([
-    ["ru", "За этот период подтверждённых продаж нет."],
-    ["ro", "Nu există vânzări confirmate în această perioadă."],
+    ["ru", "За этот период проведённых заказов у Novotech нет."],
+    ["ro", "Nu există comenzi validate la Novotech în această perioadă."],
   ])("renders a truthful Sales empty state in %s", async (locale, message) => {
     mocks.getPartnerLocale.mockResolvedValue(locale);
     mocks.getWorkspaceHomeAction.mockResolvedValue({
@@ -244,7 +292,7 @@ describe("Partner Workspace operational home", () => {
 
     render(await CabinetPage());
     expect(screen.getByText(message)).toHaveAttribute("data-sales-empty");
-    expect(screen.queryByRole("img", { name: /Динамика продаж|Dinamica vânzărilor/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Динамика закупок|Dinamica achizițiilor/ })).not.toBeInTheDocument();
   });
 
   it("renders canonical attention without a dismiss control", async () => {

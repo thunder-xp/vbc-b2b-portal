@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleDollarSign } from "lucide-react";
+import { AlertTriangle, CircleDollarSign } from "lucide-react";
 import { useState } from "react";
 
 import { formatPartnerDate, formatPartnerMoney, partnerText, type PartnerLocale } from "../../partner-locale";
@@ -25,6 +25,7 @@ export function FinancePeriodPanel({
 
   return (
     <div className="min-w-0" data-finance-period-summary>
+      <p className="mb-2 text-xs font-medium text-zinc-600">{partnerText(locale, "dashboard.financePeriodSelector")}</p>
       <div aria-label={partnerText(locale, "dashboard.financePeriodSelector")} className="grid grid-cols-4 gap-1 rounded-md bg-zinc-100 p-1" role="group">
         {PERIODS.map((days) => (
           <button
@@ -56,20 +57,28 @@ function FinancePeriodContent({
   synchronizedAt: string | null;
 }) {
   return <>
-    <p className={`mb-3 text-sm font-semibold ${guidance.state === "overdue" ? "text-amber-800" : guidance.state === "unavailable" ? "text-zinc-600" : "text-emerald-800"}`}>{partnerText(locale, financeStateKey(guidance.state))}</p>
-    {synchronizedAt ? <p className="mb-3 text-xs text-zinc-500">{partnerText(locale, "dashboard.updated")}: {formatDate(synchronizedAt, locale)}</p> : null}
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {guidance.totals.map((total) => <div className="bg-zinc-50 p-3" key={total.currency}><p className="text-xs font-semibold text-zinc-500">{total.currency}</p><p className="mt-2 text-sm text-zinc-700">{partnerText(locale, "dashboard.amountDue")}: <strong className="text-zinc-950">{formatPartnerMoney(total.outstanding, total.currency, locale)}</strong></p><p className="mt-1 text-sm text-zinc-700">{partnerText(locale, "dashboard.financeOverdue")}: <strong className="text-amber-800">{formatPartnerMoney(total.overdue, total.currency, locale)}</strong></p></div>)}
-      <div className="flex items-center gap-3 bg-zinc-50 p-3"><CircleDollarSign aria-hidden="true" className="size-6 text-emerald-700" /><div><p className="text-xs text-zinc-500">{partnerText(locale, "dashboard.financeNext")}</p><p className="font-semibold text-zinc-950">{guidance.nextDueDate ? formatDate(guidance.nextDueDate, locale) : "—"}</p></div></div>
+    <div data-analytics-context>
+      <p className={`flex items-start gap-2 text-xs font-semibold ${guidance.state === "overdue" ? "text-amber-800" : guidance.state === "unavailable" ? "text-zinc-600" : "text-emerald-800"}`}>{guidance.state === "overdue" ? <AlertTriangle aria-hidden="true" className="size-4 shrink-0" /> : null}{partnerText(locale, financeStateKey(guidance.state))}</p>
+      <p className="mt-1 text-xs text-zinc-500">{partnerText(locale, "dashboard.balanceSnapshot")}{synchronizedAt ? ` · ${partnerText(locale, "dashboard.updated")}: ${formatDate(synchronizedAt, locale)}` : ""}</p>
+    </div>
+    <div className="mt-3" data-analytics-summary>
+      <div className="grid gap-3 sm:grid-cols-2" data-finance-totals>
+        {guidance.totals.map((total) => <dl className="min-w-0 rounded-md bg-zinc-50 p-3" data-finance-currency={total.currency} key={total.currency}>
+          <div><dt className="text-xs font-medium text-zinc-600">{partnerText(locale, "dashboard.financeOverdue")} · {total.currency}</dt><dd className="mt-1 break-words text-lg font-semibold tabular-nums text-amber-800">{formatPartnerMoney(total.overdue, total.currency, locale)}</dd></div>
+          <div className="mt-3"><dt className="text-xs font-medium text-zinc-600">{partnerText(locale, "dashboard.amountDue")} · {total.currency}</dt><dd className="mt-1 break-words text-lg font-semibold tabular-nums text-zinc-950">{formatPartnerMoney(total.outstanding, total.currency, locale)}</dd></div>
+        </dl>)}
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-sm"><CircleDollarSign aria-hidden="true" className="size-4 shrink-0 text-emerald-700" /><span className="text-zinc-600">{partnerText(locale, "dashboard.financeNext")}:</span><strong className="tabular-nums text-zinc-950">{guidance.nextDueDate ? formatDate(guidance.nextDueDate, locale) : partnerText(locale, "dashboard.deadlineMissing")}</strong></div>
     </div>
     <PaymentGraph guidance={guidance} locale={locale} />
+    <PaymentList guidance={guidance} locale={locale} />
   </>;
 }
 
 function PaymentGraph({ guidance, locale }: { guidance: FinanceGuidancePeriodDto; locale: PartnerLocale }) {
   return (
     <div className="mt-4 border-t border-zinc-200 pt-4" data-payment-calendar>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2" data-analytics-chart-header>
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentCalendar")}</h3>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
           <GraphLegend className="bg-rose-500" label={partnerText(locale, "dashboard.paymentOverdue")} />
@@ -81,14 +90,25 @@ function PaymentGraph({ guidance, locale }: { guidance: FinanceGuidancePeriodDto
       <p className="mt-2 text-xs font-medium tabular-nums text-zinc-500" data-payment-calendar-range>
         {formatDate(guidance.calendar.startDate, locale)} — {formatDate(guidance.calendar.endDate, locale)}
       </p>
+      <p className="sr-only">{partnerText(locale, "dashboard.paymentEntries")}: {guidance.paymentGraph.length}. {partnerText(locale, "dashboard.paymentPlanContext")}</p>
+      {(guidance.paymentGraph.length ? [...new Set(guidance.paymentGraph.map((payment) => payment.currency))] : [""]).map((currency) => <PaymentCurrencyGraph currency={currency} guidance={guidance} key={currency} locale={locale} />)}
+    </div>
+  );
+}
+
+function PaymentCurrencyGraph({ currency, guidance, locale }: { currency: string; guidance: FinanceGuidancePeriodDto; locale: PartnerLocale }) {
+  const payments = guidance.paymentGraph.filter((payment) => payment.currency === currency);
+  return <div className="mt-2 min-w-0">
       <div
-        aria-label={`${partnerText(locale, "dashboard.paymentCalendar")}: ${formatDate(guidance.calendar.startDate, locale)} — ${formatDate(guidance.calendar.endDate, locale)}`}
-        className="relative mt-2 overflow-hidden border border-zinc-200 bg-white shadow-sm"
+        aria-label={`${partnerText(locale, "dashboard.paymentCalendar")}${currency ? ` · ${currency}` : ""}: ${formatDate(guidance.calendar.startDate, locale)} — ${formatDate(guidance.calendar.endDate, locale)}`}
+        className="relative overflow-hidden border border-zinc-200 bg-white shadow-sm"
         data-payment-scale-maximum={guidance.calendar.amountScaleMaximum}
         data-dashboard-chart-type="bar-timeline"
+        data-payment-currency={currency}
         role="img"
       >
-        <div className="relative h-24 overflow-hidden bg-zinc-50/70" data-payment-plot>
+        {currency ? <p className="border-b border-zinc-200 bg-white px-2 py-1.5 text-xs font-semibold text-zinc-600">{currency}</p> : null}
+        <div className="relative mx-6 h-24 bg-zinc-50/70" data-payment-plot>
           <div aria-hidden="true" className="absolute inset-0 grid grid-cols-6 divide-x divide-zinc-200/60 sm:grid-cols-12" />
           <div
             aria-label={`${partnerText(locale, "dashboard.paymentToday")}: ${formatDate(guidance.calendar.today, locale)}`}
@@ -102,24 +122,40 @@ function PaymentGraph({ guidance, locale }: { guidance: FinanceGuidancePeriodDto
               {partnerText(locale, "dashboard.paymentToday")}
             </span>
           </div>
-          {guidance.paymentGraph.length ? guidance.paymentGraph.map((payment) => {
+          {payments.length ? payments.map((payment) => {
             const state = partnerText(locale, payment.timing === "overdue" ? "dashboard.paymentOverdue" : payment.timing === "today" ? "dashboard.paymentToday" : payment.timing === "paid" ? "dashboard.paymentPaid" : "dashboard.paymentUpcoming");
             const label = `${payment.orderNumber} · ${formatDate(payment.eventDate, locale)} · ${formatPartnerMoney(payment.amount, payment.currency, locale)} · ${state}`;
             const stackOffset = (payment.stackIndex - (payment.stackCount - 1) / 2) * 8;
-            return <button aria-label={label} className="absolute bottom-0 z-10 flex h-[4.75rem] w-6 items-end justify-center outline-none focus-visible:ring-2 focus-visible:ring-zinc-700" data-payment-bar data-payment-height={payment.relativeHeight} data-payment-state={payment.timing} key={payment.id} style={{ left: `${payment.positionPercent}%`, transform: `translateX(calc(-50% + ${stackOffset}px))` }} title={label} type="button">
+            return <button aria-label={label} className="absolute bottom-0 z-10 flex h-[4.75rem] w-11 items-end justify-center outline-none focus-visible:ring-2 focus-visible:ring-zinc-700" data-payment-bar data-payment-height={payment.relativeHeight} data-payment-state={payment.timing} key={payment.id} style={{ left: `${payment.positionPercent}%`, transform: `translateX(calc(-50% + ${stackOffset}px))` }} title={label} type="button">
               <span className="sr-only">{label}</span>
               <span aria-hidden="true" className={`min-h-5 w-3 rounded-t-[3px] shadow-sm sm:w-4 ${payment.timing === "overdue" ? "bg-rose-600" : payment.timing === "today" ? "bg-amber-600" : payment.timing === "paid" ? "bg-zinc-400" : "bg-emerald-700"}`} style={{ height: `${payment.relativeHeight}%` }} />
             </button>;
           }) : <p className="absolute inset-x-3 bottom-3 z-10 text-sm text-zinc-600">{partnerText(locale, "dashboard.paymentGraphEmpty")}</p>}
         </div>
-        <div aria-hidden="true" className="relative h-10 border-t border-zinc-200 bg-white" data-payment-axis>
+        <div aria-hidden="true" className="relative mx-6 h-10 border-t border-zinc-200 bg-white" data-payment-axis>
           {guidance.calendar.axisLabels.map((label) => <span className={`absolute whitespace-nowrap text-[10px] font-medium leading-4 tabular-nums ${label.showOnMobile ? "" : "hidden sm:block"} ${label.kind === "today" ? "text-amber-800" : "text-zinc-500"} ${label.align === "start" ? "" : label.align === "end" ? "-translate-x-full" : "-translate-x-1/2"}`} data-payment-axis-date={label.date} data-payment-axis-kind={label.kind} key={`${label.kind}-${label.date}`} style={{ left: `${label.positionPercent}%`, top: label.track === 0 ? "0.25rem" : "1.25rem" }}>
             {formatAxisDate(label.date, locale)}
           </span>)}
         </div>
       </div>
+    </div>;
+}
+
+function PaymentList({ guidance, locale }: { guidance: FinanceGuidancePeriodDto; locale: PartnerLocale }) {
+  if (!guidance.paymentGraph.length) return null;
+  return <div className="mt-4" data-dashboard-payment-list>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentEntries")}</h3>
+      <a className="inline-flex min-h-11 items-center rounded-md text-xs font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" href="/cabinet/finance#payment-calendar">{partnerText(locale, "dashboard.fullCalendar")}</a>
     </div>
-  );
+    <p className="mb-2 text-xs text-zinc-600">{partnerText(locale, "dashboard.paymentPlanContext")}</p>
+    <ul className="max-h-72 overflow-y-auto bg-white p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" aria-label={partnerText(locale, "dashboard.paymentEntries")} tabIndex={0}>
+      {guidance.paymentGraph.map((payment) => <li className="grid gap-2 border-b border-zinc-100 px-2 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]" data-dashboard-payment-row key={payment.id}>
+        <div className="min-w-0"><p className="break-words text-sm font-semibold text-zinc-950">{payment.orderNumber}</p><p className="mt-1 text-xs text-zinc-600">{partnerText(locale, payment.timing === "paid" ? "dashboard.paidDate" : "dashboard.paymentDeadline")}: {payment.eventDate ? formatDate(payment.eventDate, locale) : partnerText(locale, "dashboard.deadlineMissing")}</p></div>
+        <div className="min-w-0 sm:text-right"><p className="break-words text-sm font-semibold tabular-nums text-zinc-950">{formatPartnerMoney(payment.amount, payment.currency, locale)}</p><p className={`mt-1 inline-flex items-center gap-1 text-xs font-medium ${payment.timing === "overdue" ? "text-rose-700" : payment.timing === "today" ? "text-amber-800" : "text-zinc-600"}`}>{payment.timing === "overdue" ? <AlertTriangle aria-hidden="true" className="size-3 shrink-0" /> : null}{partnerText(locale, payment.timing === "overdue" ? "dashboard.paymentOverdue" : payment.timing === "today" ? "dashboard.paymentToday" : payment.timing === "paid" ? "dashboard.paymentPaid" : "dashboard.paymentUpcoming")}</p></div>
+      </li>)}
+    </ul>
+  </div>;
 }
 
 function GraphLegend({ className, label }: { className: string; label: string }) {

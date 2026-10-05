@@ -18,6 +18,7 @@ import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partn
 import { SalesTrendSummary } from "./SalesTrendSummary";
 import { FinancePeriodPanel } from "./FinancePeriodPanel";
 import { RollingPeriodSelector, type RollingPeriod, type RollingPeriodState } from "../../commerce-period";
+import styles from "./OperationalDashboard.module.css";
 
 export function OperationalDashboard({
   locale,
@@ -29,7 +30,7 @@ export function OperationalDashboard({
   workspace: WorkspaceHomeDto;
 }) {
   return (
-    <div className="space-y-5">
+    <div className={`${styles.dashboard} space-y-5`} data-operational-dashboard>
       <RepeatPurchaseSection
         analyticsSurface="dashboard_reorder"
         eligibleCount={workspace.reorderProductTotalCount}
@@ -45,6 +46,7 @@ export function OperationalDashboard({
           <AttentionSection items={workspace.attentionItems} locale={locale} />
           <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
         </div>
+        <OperationalSnapshot locale={locale} workspace={workspace} />
         <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       </div>
       <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
@@ -190,7 +192,7 @@ function AttentionSection({
 }) {
   return (
     <section aria-labelledby="dashboard-attention" className="h-full min-w-0">
-      <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} />
+      <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} titleAccessory={<span className="text-xs font-medium tabular-nums text-zinc-600" data-attention-count>{items.length}</span>} />
       {items.length ? (
         <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
           {items.map((item) => {
@@ -201,11 +203,11 @@ function AttentionSection({
               data-attention-card
               key={`${item.kind}:${item.id}`}
             >
-              <span className="flex size-5 items-center justify-center text-amber-700">
-                <AlertTriangle aria-hidden="true" className="size-5" />
+              <span className={`flex size-5 items-center justify-center ${item.severity === "warning" ? "text-amber-700" : "text-zinc-500"}`}>
+                {item.severity === "warning" ? <AlertTriangle aria-hidden="true" className="size-5" /> : <Clock3 aria-hidden="true" className="size-5" />}
               </span>
               <div className="min-w-0">
-                {item.isTest ? (
+                {item.orderNumber || item.plannedDate ? (
                   <p className="mb-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
                     {item.orderNumber ? <span>{item.orderNumber}</span> : null}
                     {item.plannedDate ? <span>{partnerText(locale, "dashboard.until")} {formatDate(item.plannedDate, locale)}</span> : null}
@@ -231,13 +233,33 @@ function AttentionSection({
           })}
         </ul>
       ) : (
-        <div className="mt-3 flex items-center gap-3 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div className="mt-1 flex items-center gap-2 text-sm text-zinc-600" data-attention-empty>
           <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
           {partnerText(locale, "dashboard.allWell")}
         </div>
       )}
     </section>
   );
+}
+
+function OperationalSnapshot({ locale, workspace }: { locale: PartnerLocale; workspace: WorkspaceHomeDto }) {
+  const canViewOrders = workspace.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
+  if (!workspace.financeGuidance && !canViewOrders) return null;
+  const nextShipment = workspace.shipmentSummary.items[0];
+  return <dl className="grid gap-3 sm:grid-cols-3" data-dashboard-operational-summary>
+    {workspace.financeGuidance ? <div className="min-w-0">
+      <dt className="text-xs font-medium text-zinc-500">{partnerText(locale, "dashboard.finance")}</dt>
+      <dd><DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_finance_opened" href="/cabinet/finance#payment-calendar" sourceSurface="dashboard_summary">{partnerText(locale, workspace.financeGuidance.state === "unavailable" ? "dashboard.financeState.unavailable" : workspace.financeGuidance.state === "overdue" ? "dashboard.financeOverdue" : workspace.financeGuidance.state === "due_soon" ? "dashboard.financeNext" : "dashboard.financeState.healthy")}<ArrowRight aria-hidden="true" className="size-4 shrink-0" /></DashboardTrackedLink></dd>
+    </div> : null}
+    {canViewOrders ? <div className="min-w-0">
+      <dt className="text-xs font-medium text-zinc-500">{partnerText(locale, "dashboard.currentOrders")}</dt>
+      <dd><DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold tabular-nums text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_order_opened" href="/cabinet/orders" sourceSurface="dashboard_summary">{workspace.orderSummary.active}<ArrowRight aria-hidden="true" className="size-4" /></DashboardTrackedLink></dd>
+    </div> : null}
+    {canViewOrders ? <div className="min-w-0">
+      <dt className="text-xs font-medium text-zinc-500">{partnerText(locale, "dashboard.nearestShipment")}</dt>
+      <dd>{nextShipment ? <DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold tabular-nums text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_shipment_opened" href={nextShipment.href} sourceSurface="dashboard_summary">{partnerText(locale, "dashboard.plannedDate")}: {formatDate(nextShipment.plannedDate, locale)}<ArrowRight aria-hidden="true" className="size-4 shrink-0" /></DashboardTrackedLink> : <span className="inline-flex min-h-11 items-center text-sm text-zinc-600">{partnerText(locale, "dashboard.notScheduled")}</span>}</dd>
+    </div> : null}
+  </dl>;
 }
 
 function OrdersSection({
@@ -266,7 +288,7 @@ function OrdersSection({
           {summary.recent.map((order) => (
             <li className="p-4" key={order.id}>
               <DashboardTrackedLink
-                className="flex min-h-11 items-start justify-between gap-3 rounded-sm focus-visible:ring-2 focus-visible:ring-emerald-500"
+                className="grid min-h-11 gap-3 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                 eventName="dashboard_order_opened"
                 href={order.href}
                 sourceSurface="dashboard_orders"
@@ -277,19 +299,18 @@ function OrdersSection({
                   </span>
                   {order.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">{partnerText(locale, "dashboard.test")}</span> : null}
                   <span className="mt-1 block text-xs text-zinc-500">
-                    {formatDate(order.date, locale)} · {order.positionCount} {partnerText(locale, "dashboard.positionsShort")}
-                    {order.plannedDate
-                      ? ` · ${partnerText(locale, "dashboard.shipment")} ${formatDate(order.plannedDate, locale)}`
-                      : ""}
+                    {partnerText(locale, "dashboard.orderDate")}: {formatDate(order.date, locale)} · {order.positionCount} {partnerText(locale, "dashboard.positionsShort")}
                   </span>
+                  <span className="mt-1 block text-xs text-zinc-600">{partnerText(locale, "dashboard.plannedShipment")}: {order.plannedDate ? formatDate(order.plannedDate, locale) : partnerText(locale, "dashboard.datePending")}</span>
                 </span>
-                <span className="shrink-0 text-right text-xs font-semibold text-zinc-600">
+                <span className="min-w-0 text-xs font-semibold text-zinc-600 sm:text-right">
                   {order.statusLabel}
                   {order.formattedTotal ? (
                     <span className="mt-1 block text-zinc-950">
                       {order.formattedTotal}
                     </span>
                   ) : null}
+                  <span className="mt-2 inline-flex items-center gap-1 text-sm text-emerald-700">{partnerText(locale, "dashboard.details")}<ArrowRight aria-hidden="true" className="size-4" /></span>
                 </span>
               </DashboardTrackedLink>
             </li>
@@ -332,7 +353,7 @@ function ShipmentsSection({
           {summary.items.map((shipment) => (
             <li className="p-4" key={shipment.id}>
               <DashboardTrackedLink
-                className="flex min-h-11 items-start justify-between gap-3 rounded-sm focus-visible:ring-2 focus-visible:ring-emerald-500"
+                className="grid min-h-11 gap-3 rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
                 eventName="dashboard_shipment_opened"
                 href={shipment.href}
                 sourceSurface="dashboard_shipments"
@@ -342,15 +363,18 @@ function ShipmentsSection({
                     {shipment.orderNumber}
                   </span>
                   {shipment.isTest ? <span className="ml-2 inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-semibold text-amber-900">{partnerText(locale, "dashboard.test")}</span> : null}
+                  <span className="mt-1 block text-xs font-medium text-zinc-700">{shipment.statusLabel}</span>
                   <span className="mt-1 block text-xs text-zinc-500">
                     {shipment.positionCount} {partnerText(locale, "dashboard.positionsShort")} · {shipment.totalUnits} {partnerText(locale, "dashboard.unitsShort")}
                     {shipment.pendingDateChange ? ` · ${partnerText(locale, "dashboard.dateChangePending")}` : ""}
                   </span>
                 </span>
-                <span className="shrink-0 text-right">
+                <span className="min-w-0 sm:text-right">
+                  <span className="block text-xs text-zinc-500">{partnerText(locale, "dashboard.plannedDate")}</span>
                   <span className="block text-sm font-semibold text-zinc-950">
                     {formatDate(shipment.plannedDate, locale)}
                   </span>
+                  <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700">{partnerText(locale, "dashboard.details")}<ArrowRight aria-hidden="true" className="size-4" /></span>
                   <span className="mt-1 block text-xs text-zinc-500">
                     {shipmentDistance(shipment.plannedDate, locale)}
                   </span>
@@ -529,12 +553,13 @@ function SalesLineCharts({
 }) {
   return (
     <div className="mt-4 border-t border-zinc-200 pt-4" data-dashboard-chart-type="line">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2" data-analytics-chart-header>
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.salesDynamics")}</h3>
-        <p className="text-xs font-medium tabular-nums text-zinc-500" data-sales-context-period>
+        <p className="text-xs text-zinc-600">{partnerText(locale, "dashboard.procurementSource")}</p>
+      </div>
+        <p className="mt-2 text-xs font-medium tabular-nums text-zinc-500" data-sales-context-period>
           {formatDate(analytics.periodStart, locale)} — {formatDate(analytics.periodEnd, locale)}
         </p>
-      </div>
       <div className="mt-2 space-y-3">
         {analytics.series.map((series) => (
           <div className="min-w-0 border border-zinc-200 bg-zinc-50/70" data-sales-line-chart={series.currency} key={series.currency}>
@@ -542,8 +567,9 @@ function SalesLineCharts({
               <span className="font-semibold text-zinc-700">{series.currency}</span>
               <span className="tabular-nums text-zinc-500">{series.orderCount} · {formatAmount(series.total, series.currency, locale)}</span>
             </div>
+            <p className="sr-only" id={`dashboard-procurement-summary-${series.currency}`}>{partnerText(locale, "dashboard.salesForPeriod")}: {formatAmount(series.total, series.currency, locale)} · {series.orderCount} {partnerText(locale, "dashboard.salesOrders")} · {formatDate(analytics.periodStart, locale)} — {formatDate(analytics.periodEnd, locale)}</p>
             <div className="relative h-24">
-              <svg aria-label={`${partnerText(locale, "dashboard.salesDynamics")}: ${series.currency}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="none" role="img" viewBox="0 0 100 100">
+              <svg aria-describedby={`dashboard-procurement-summary-${series.currency}`} aria-label={`${partnerText(locale, "dashboard.salesDynamics")}: ${series.currency}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="none" role="img" viewBox="0 0 100 100">
                 {[20, 55, 90].map((y) => <line key={y} stroke="rgb(228 228 231)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" x1="0" x2="100" y1={y} y2={y} />)}
                 <polyline
                   fill="none"
