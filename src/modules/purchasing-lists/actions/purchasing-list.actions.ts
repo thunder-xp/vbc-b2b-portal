@@ -149,9 +149,9 @@ export async function duplicatePurchasingListAction(listId: string, name?: strin
   catch (error) { return failureFromError(error); }
 }
 
-export async function addPurchasingListToCartAction(input: { listId: string; requestKey: string; selections?: Array<{ itemId: string }> }) {
+export async function addPurchasingListToCartAction(input: { listId: string; requestKey: string; selections?: Array<{ itemId: string; quantity?: number }> }) {
   const parsed = z.object({ listId: uuid, requestKey: uuid, selections: selectionSchema.optional() }).safeParse(input); if (!parsed.success) return invalidInput("Проверьте выбранные позиции.");
-  try { const result = await createPurchasingListService().addToCart(await getAuthenticatedUserId(), { listId: parsed.data.listId, requestKey: parsed.data.requestKey, itemIds: parsed.data.selections?.map((item) => item.itemId) }); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet", "layout"); return success(result.repeated ? "Результат предыдущей попытки восстановлен." : "Товары добавлены в корзину.", result); }
+  try { const result = await createPurchasingListService().addToCart(await getAuthenticatedUserId(), { listId: parsed.data.listId, requestKey: parsed.data.requestKey, selections: parsed.data.selections }); revalidatePath("/cabinet/cart"); revalidatePath("/cabinet", "layout"); return success(result.repeated ? "Результат предыдущей попытки восстановлен." : "Товары добавлены в корзину.", result); }
   catch (error) { return failureFromError(error); }
 }
 

@@ -2,6 +2,9 @@ import { definePartnerCopy } from "./define-copy";
 
 export const purchasingListEditorCopy = definePartnerCopy({
   cart: "В корзину",
+  addItemToCart: "Добавить в корзину",
+  itemAddedToCart: "Товар добавлен в корзину.",
+  itemAddFailed: "Не удалось добавить товар в корзину.",
   estimate: "Создать КП",
   addToSelection: "Добавить в подборку",
   selected: "Выбрано",
@@ -14,6 +17,9 @@ export const purchasingListEditorCopy = definePartnerCopy({
   selectionAdded: "Товары добавлены в подборку.",
 }, {
   cart: "În coș",
+  addItemToCart: "Adaugă în coș",
+  itemAddedToCart: "Produsul a fost adăugat în coș.",
+  itemAddFailed: "Produsul nu a putut fi adăugat în coș.",
   estimate: "Creează ofertă",
   addToSelection: "Adaugă în selecție",
   selected: "Selectate",

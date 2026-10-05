@@ -227,7 +227,17 @@ describe("PurchasingListService", () => {
   it("marks a changed source price while keeping the current price eligible", async () => { vi.mocked(repository.findById).mockResolvedValue(record({ items: [{ ...record().items[0], sourceUnitPrice: 9, sourceCurrencyCode: "USD" }] })); const result = await service.getDetail(USER, LIST); expect(result.lines[0]).toMatchObject({ state: "price_changed", canConvert: true, currentPartnerPriceAmount: 10 }); });
   it("requires review for stale current pricing and excludes it from conversion", async () => { vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{ ...commercial(), partnerPrice: { ...commercial().partnerPrice!, lastUpdatedAt: "2020-01-01T00:00:00Z" } }]); const result = await service.addToCart(USER, { listId: LIST, requestKey: REQUEST }); expect(result.skipped).toBe(1); expect(repository.mergeIntoCart).not.toHaveBeenCalled(); });
 
-  it("adds selected valid products through one idempotent cart mutation", async () => { const result = await service.addToCart(USER, { listId: LIST, requestKey: REQUEST, itemIds: [ITEM] }); expect(repository.mergeIntoCart).toHaveBeenCalledOnce(); expect(result.added).toBe(1); });
+  it("adds selected valid products through one idempotent cart mutation", async () => { const result = await service.addToCart(USER, { listId: LIST, requestKey: REQUEST, selections: [{ itemId: ITEM }] }); expect(repository.mergeIntoCart).toHaveBeenCalledOnce(); expect(result.added).toBe(1); });
+  it("uses a row quantity override without mutating the saved kit", async () => {
+    const source = record();
+    vi.mocked(repository.findById).mockResolvedValue(source);
+    await service.addToCart(USER, { listId: LIST, requestKey: REQUEST, selections: [{ itemId: ITEM, quantity: 60 }] });
+    expect(repository.mergeIntoCart).toHaveBeenCalledWith(expect.objectContaining({
+      items: [{ itemId: ITEM, productId: PRODUCT, quantity: 60 }],
+    }));
+    expect(source.items[0].quantity).toBe(2);
+    expect(repository.updateItems).not.toHaveBeenCalled();
+  });
   it("returns the prior idempotent cart result", async () => { vi.mocked(repository.mergeIntoCart).mockResolvedValue({ cartId: ORDER, repeated: true }); const result = await service.addToCart(USER, { listId: LIST, requestKey: REQUEST }); expect(result.repeated).toBe(true); });
   it("allows a deliberate second add with a new operation key", async () => { await service.addToCart(USER, { listId: LIST, requestKey: REQUEST }); await service.addToCart(USER, { listId: LIST, requestKey: "99999999-9999-4999-8999-999999999998" }); expect(repository.mergeIntoCart).toHaveBeenCalledTimes(2); });
   it("skips missing-price products without trusting client prices", async () => { vi.mocked(pricing.getProductCommercialViews).mockResolvedValue([{ ...commercial(), partnerPrice: null }]); const result = await service.addToCart(USER, { listId: LIST, requestKey: REQUEST }); expect(result.missingPrice).toBe(1); expect(repository.mergeIntoCart).not.toHaveBeenCalled(); });

@@ -44,6 +44,7 @@ export function PurchasingListEditor({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
+  const [rowCartFeedback, setRowCartFeedback] = useState<{ itemId: string; state: "pending" | "success" | "error" } | null>(null);
   const [lines, setLines] = useState(initial.lines);
   const [selected, setSelected] = useState(new Set<string>());
   const [cartRequestKey, setCartRequestKey] = useState(() =>
@@ -92,6 +93,22 @@ export function PurchasingListEditor({
       ...(selectedOnly ? { selections } : {}),
     }), undefined, () => setCartRequestKey(crypto.randomUUID()),
   );
+  const addLineToCart = (line: PurchasingListDetailDto["lines"][number]) => {
+    setRowCartFeedback({ itemId: line.id, state: "pending" });
+    startTransition(async () => {
+      const result = await addPurchasingListToCartAction({
+        listId: initial.id,
+        requestKey: cartRequestKey,
+        selections: [{ itemId: line.id, quantity: line.quantity }],
+      });
+      const added = result.success && result.data.added > 0 && Boolean(result.data.destinationId);
+      setRowCartFeedback({ itemId: line.id, state: added ? "success" : "error" });
+      if (added) {
+        setCartRequestKey(crypto.randomUUID());
+        router.refresh();
+      }
+    });
+  };
   const estimate = (selectedOnly: boolean) => mutate(
     () => createEstimateFromPurchasingListAction({
       listId: initial.id,
@@ -161,9 +178,10 @@ export function PurchasingListEditor({
       <h2 className="font-semibold">{initial.isSystemFavorites ? copy.favoritesEmpty : copy.emptyList}</h2>
       <Link className={`${listPrimaryButton} mt-3`} href="/cabinet/catalog">{copy.addProducts}</Link>
     </section> : <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white">
-      {lines.map((line, index) => <PurchasingListProductRow editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
+      {lines.map((line, index) => <PurchasingListProductRow cartAvailable={!initial.archivedAt} cartDisabled={pending || !line.canConvert} cartState={rowCartFeedback?.itemId === line.id ? rowCartFeedback.state : "idle"} editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
+        onAddToCart={() => addLineToCart(line)}
         onMove={(direction) => move(index, direction)}
-        onQuantity={(quantity) => setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity } : item))}
+        onQuantity={(quantity) => { setRowCartFeedback((current) => current?.itemId === line.id ? null : current); setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity } : item)); }}
         onSelect={(checked) => setSelected((current) => { const next = new Set(current); if (checked) next.add(line.id); else next.delete(line.id); return next; })}
         selected={selected.has(line.id)} />)}
     </ul>}

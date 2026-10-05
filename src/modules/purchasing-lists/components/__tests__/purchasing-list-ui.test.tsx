@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +12,7 @@ const push = vi.fn(); const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh }) }));
 vi.mock("../../actions", () => ({
   createPurchasingListAction: vi.fn().mockResolvedValue({ success: true, data: { id: "list-1" }, message: "Создано" }),
-  addPurchasingListToCartAction: vi.fn().mockResolvedValue({ success: true, data: { destinationId: "cart-1" }, message: "Добавлено" }),
+  addPurchasingListToCartAction: vi.fn().mockResolvedValue({ success: true, data: { destinationId: "cart-1", added: 1 }, message: "Добавлено" }),
   createEstimateFromPurchasingListAction: vi.fn().mockResolvedValue({ success: true, data: { estimateId: "estimate-1" }, message: "Создано" }),
   removePurchasingListItemsAction: vi.fn().mockResolvedValue({ success: true, data: {}, message: "Удалено" }),
   updatePurchasingListItemsAction: vi.fn().mockResolvedValue({ success: true, data: {}, message: "Сохранено" }),
@@ -43,6 +43,37 @@ describe("purchasing list UI", () => {
     expect(screen.getAllByRole("button", { name: "В корзину" })).toHaveLength(1);
   });
 
+  it("adds one kit row with its current quantity through the existing list-to-cart action", async () => {
+    const initial = detail();
+    render(<PurchasingListEditor initial={initial} />);
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Количество" }), { target: { value: "60" } });
+    const rowAction = screen.getByRole("button", { name: "Добавить в корзину" });
+    expect(rowAction).toHaveClass("size-11");
+    expect(rowAction).toHaveAttribute("data-cart-state", "idle");
+    expect(screen.getByRole("tooltip", { name: "Добавить в корзину" })).toHaveClass("hidden", "group-hover/icon-action-tooltip:block", "group-focus-within/icon-action-tooltip:block");
+
+    await userEvent.click(rowAction);
+    await waitFor(() => expect(actions.addPurchasingListToCartAction).toHaveBeenCalledExactlyOnceWith({
+      listId: initial.id,
+      requestKey: expect.any(String),
+      selections: [{ itemId: initial.lines[0].id, quantity: 60 }],
+    }));
+    expect(initial.lines[0].quantity).toBe(2);
+    expect(actions.updatePurchasingListItemsAction).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Добавить в корзину" })).toHaveAttribute("data-cart-state", "success"));
+    expect(screen.getByText("Товар добавлен в корзину.")).toHaveClass("sr-only");
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("keeps an unavailable row visible but governed by the existing conversion state", () => {
+    const initial = detail();
+    initial.lines[0].canConvert = false;
+    initial.lines[0].state = "requires_review";
+    render(<PurchasingListEditor initial={initial} />);
+    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeDisabled();
+    expect(actions.addPurchasingListToCartAction).not.toHaveBeenCalled();
+  });
+
   it("keeps archived lists immutable and removes conversion controls", () => {
     render(<PurchasingListEditor initial={{ ...detail(), archivedAt: "2026-07-20T12:00:00Z" }} />);
     expect(screen.queryByRole("textbox", { name: "Название" })).not.toBeInTheDocument();
@@ -66,7 +97,7 @@ describe("purchasing list UI", () => {
 
   it.each([false, true])("keeps the default editor quiet and notes absent (favorites=%s)", (favorites) => {
     const { container } = render(<PurchasingListEditor initial={{ ...detail(), isSystemFavorites: favorites, canManage: !favorites }} />);
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getAllByRole("heading")).toHaveLength(1);
     if (favorites) expect(screen.getAllByText("Избранное")).toHaveLength(1);
     expect(screen.queryByText(/Системный список|коммерческих витрин/)).not.toBeInTheDocument();
     expect(screen.queryByText("Примечание")).not.toBeInTheDocument();
@@ -98,7 +129,7 @@ describe("purchasing list UI", () => {
     const { container } = render(<PurchasingListEditor initial={initial} />);
     const input = screen.getAllByRole("spinbutton")[0];
     fireEvent.change(input, { target: { value: "4" } });
-    expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeEnabled());
     fireEvent.change(input, { target: { value: "2" } });
     expect(screen.queryByRole("button", { name: "Сохранить изменения" })).toBeNull();
     await userEvent.click(screen.getAllByRole("button", { name: "Переместить вниз" })[0]);
@@ -153,7 +184,7 @@ describe("purchasing list UI", () => {
     await userEvent.click(screen.getByRole("button", { name: "В корзину" }));
     expect(refresh).not.toHaveBeenCalled();
     expect(screen.getByRole("spinbutton")).toHaveValue(3);
-    expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeEnabled());
     await userEvent.click(screen.getByRole("button", { name: "В корзину" }));
     const calls = vi.mocked(actions.addPurchasingListToCartAction).mock.calls;
     expect(calls[0][0].requestKey).toBe(calls[1][0].requestKey);
@@ -201,14 +232,19 @@ describe("purchasing list UI", () => {
   it.each(["ru", "ro"] as const)("uses canonical copy/icons and one row geometry contract in %s", (locale) => {
     const { container } = render(<PartnerLocaleProvider locale={locale}><PurchasingListEditor initial={detail()} /></PartnerLocaleProvider>);
     const row = container.querySelector('[data-product-row]')!;
-    expect(row).toHaveClass("xl:grid-cols-[44px_52px_minmax(0,1fr)_112px_136px_120px_88px]");
+    expect(row).toHaveClass("xl:grid-cols-[44px_52px_minmax(0,1fr)_112px_136px_120px_132px]");
     expect(row.querySelector('[data-row-image]')).toHaveClass("size-[52px]");
     expect(row.querySelector('input[type="checkbox"]')?.parentElement).toHaveClass("size-11");
     expect(screen.getByRole("spinbutton")).toHaveClass("h-11");
     for (const button of container.querySelectorAll("[data-row-actions] button")) {
       expect(button).toHaveClass("size-11");
-      expect(button.getAttribute("title")).toBe(button.getAttribute("aria-label"));
+      if (button.hasAttribute("data-row-cart-action")) {
+        expect(button).toHaveAttribute("aria-describedby");
+      } else {
+        expect(button.getAttribute("title")).toBe(button.getAttribute("aria-label"));
+      }
     }
+    expect(screen.getByRole("button", { name: locale === "ru" ? "Добавить в корзину" : "Adaugă în coș" }).querySelector(".lucide-shopping-cart")).not.toBeNull();
     expect(screen.getByRole("button", { name: locale === "ru" ? "В корзину" : "În coș" })).toHaveClass("min-h-11");
     expect(screen.getByRole("button", { name: locale === "ru" ? "Создать КП" : "Creează ofertă" }).querySelector(".lucide-calculator")).not.toBeNull();
     expect(screen.getByRole("link", { name: locale === "ru" ? "Использовать комплект" : "Folosește setul" })).toHaveAttribute("href", expect.stringContaining("/cabinet/quick-order?kit="));

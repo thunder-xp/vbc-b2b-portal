@@ -1,24 +1,33 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, LoaderCircle, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 
 import { CatalogCardImage } from "../../catalog/components/CatalogCardImage";
 import { formatPartnerDate, procurementCopy, procurementProductStateLabel, type PartnerLocale } from "../../partner-locale";
+import { purchasingListEditorCopy } from "../../partner-locale/purchasing-list-editor-copy";
+import { IconActionTooltip } from "../../platform-ui";
 import type { PurchasingListLineDto } from "../types";
 import { listIconButton, listInput } from "./purchasing-list-presentation";
 
-export function PurchasingListProductRow({ line, locale, editable, selected, first, last, onSelect, onQuantity, onMove }: {
+type RowCartState = "idle" | "pending" | "success" | "error";
+
+export function PurchasingListProductRow({ line, locale, editable, selected, first, last, cartAvailable, cartDisabled, cartState, onAddToCart, onSelect, onQuantity, onMove }: {
   line: PurchasingListLineDto;
   locale: PartnerLocale;
   editable: boolean;
   selected: boolean;
   first: boolean;
   last: boolean;
+  cartAvailable: boolean;
+  cartDisabled: boolean;
+  cartState: RowCartState;
+  onAddToCart: () => void;
   onSelect: (checked: boolean) => void;
   onQuantity: (quantity: number) => void;
   onMove: (direction: -1 | 1) => void;
 }) {
   const copy = procurementCopy(locale);
-  return <li className="grid grid-cols-[44px_52px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-3 xl:grid-cols-[44px_52px_minmax(0,1fr)_112px_136px_120px_88px] xl:gap-x-3" data-product-row>
+  const editorCopy = purchasingListEditorCopy(locale);
+  return <li className="grid grid-cols-[44px_52px_minmax(0,1fr)] items-center gap-x-2 gap-y-2 p-3 xl:grid-cols-[44px_52px_minmax(0,1fr)_112px_136px_120px_132px] xl:gap-x-3" data-product-row>
     <label className="inline-flex size-11 cursor-pointer items-center justify-center self-start xl:self-center">
       <input aria-label={`${copy.select}: ${line.productName}`} checked={selected} className="size-4 accent-emerald-700" onChange={(event) => onSelect(event.target.checked)} type="checkbox" />
     </label>
@@ -44,6 +53,29 @@ export function PurchasingListProductRow({ line, locale, editable, selected, fir
       {line.expectedArrivalDate ? <p className="text-xs text-zinc-500">{copy.arrival}: {formatPartnerDate(line.expectedArrivalDate, locale)}</p> : null}
     </div>
     <div className="col-start-3 row-start-3 flex justify-end self-end xl:col-start-auto xl:row-start-auto xl:self-center" data-row-actions>
+      {cartAvailable ? <>
+        <IconActionTooltip align="end" label={editorCopy.addItemToCart}>
+          <button
+            aria-busy={cartState === "pending"}
+            aria-label={editorCopy.addItemToCart}
+            className={`${listIconButton} ${cartState === "success" ? "bg-emerald-50 text-emerald-700" : cartState === "error" ? "bg-rose-50 text-rose-700" : ""}`}
+            data-cart-state={cartState}
+            data-row-cart-action
+            disabled={cartDisabled}
+            onClick={onAddToCart}
+            type="button"
+          >
+            {cartState === "pending"
+              ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
+              : cartState === "success"
+                ? <Check aria-hidden="true" className="size-4" />
+                : <ShoppingCart aria-hidden="true" className="size-4" />}
+          </button>
+        </IconActionTooltip>
+        <span aria-live="polite" className="sr-only" data-row-cart-feedback>
+          {cartState === "success" ? editorCopy.itemAddedToCart : cartState === "error" ? editorCopy.itemAddFailed : ""}
+        </span>
+      </> : null}
       {editable ? <>
         <button aria-label={copy.moveUp} className={listIconButton} disabled={first} onClick={() => onMove(-1)} title={copy.moveUp} type="button"><ArrowUp aria-hidden="true" className="size-4" /></button>
         <button aria-label={copy.moveDown} className={listIconButton} disabled={last} onClick={() => onMove(1)} title={copy.moveDown} type="button"><ArrowDown aria-hidden="true" className="size-4" /></button>

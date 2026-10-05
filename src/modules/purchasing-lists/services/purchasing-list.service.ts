@@ -354,16 +354,19 @@ export class PurchasingListService {
     return this.repository.duplicate({ listId: detail.id, name: normalizeRequired(name ?? `${detail.name} — копия`, 120) });
   }
 
-  async addToCart(userId: string, input: { listId: string; requestKey: string; itemIds?: string[] }): Promise<PurchasingListConversionResultDto> {
+  async addToCart(userId: string, input: { listId: string; requestKey: string; selections?: Array<{ itemId: string; quantity?: number }> }): Promise<PurchasingListConversionResultDto> {
     const detail = await this.getDetail(userId, input.listId);
     if (detail.archivedAt) throw new InvalidStateError("Archived list cannot be added to cart.");
-    const selected = input.itemIds?.length ? new Set(input.itemIds.map(requireUuid)) : null;
+    const selected = input.selections?.length ? new Map(input.selections.map((selection) => [
+      requireUuid(selection.itemId),
+      selection.quantity === undefined ? undefined : normalizeQuantity(selection.quantity),
+    ])) : null;
     const lines = detail.lines.filter((line) => !selected || selected.has(line.id));
     if (!lines.length) throw new InvalidStateError("Select at least one product.");
     const valid = lines.filter((line) => line.canConvert);
     const summary = summarize(lines);
     if (!valid.length) return { repeated: false, destinationId: null, added: 0, ...summary };
-    const items = valid.map((line) => ({ itemId: line.id, productId: line.productId, quantity: line.quantity }));
+    const items = valid.map((line) => ({ itemId: line.id, productId: line.productId, quantity: selected?.get(line.id) ?? line.quantity }));
     const mutation = await this.repository.mergeIntoCart({ listId: detail.id, requestKey: requireUuid(input.requestKey), requestFingerprint: fingerprint(detail.id, items), items, summary });
     return { repeated: mutation.repeated, destinationId: mutation.cartId, added: items.length, ...summary };
   }
