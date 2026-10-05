@@ -5,9 +5,9 @@ import type { WorkspaceQuickActionDto } from "../services";
 import type { NotificationSummary } from "../../notifications";
 import { PartnerHeader } from "./PartnerHeader";
 import { PartnerMobileNavigation } from "./PartnerMobileNavigation";
-import { PartnerSidebar } from "./PartnerSidebar";
 import { PartnerLocaleProvider, type PartnerLocale } from "../../partner-locale";
 import { LiveCommerceSelectionProvider } from "../../catalog/components/LiveCommerceSelectionProvider";
+import { PartnerDesktopSidebar } from "./PartnerDesktopSidebar";
 
 export type PartnerWorkspaceShellContext = {
   locale: PartnerLocale;
@@ -26,6 +26,7 @@ export type PartnerWorkspaceShellContext = {
   canAddSelectionToCart?: boolean;
   canCreateEstimateFromSelection?: boolean;
   canManagePurchasingLists?: boolean;
+  sidebarCollapsed?: boolean;
 };
 
 export function PartnerLayout({
@@ -40,11 +41,14 @@ export function PartnerLayout({
   return (
     <PartnerLocaleProvider locale={context.locale}>
     <LiveCommerceSelectionProvider canAddToCart={Boolean(context.canAddSelectionToCart)} canCreateEstimate={Boolean(context.canCreateEstimateFromSelection)} canSaveAsKit={Boolean(context.canManagePurchasingLists)}>
-    <div className="min-h-screen overflow-x-clip bg-zinc-50 text-zinc-950" data-partner-portal lang={context.locale}>
-      <div className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:block lg:w-72">
-        <PartnerSidebar companyName={context.companyName} hasWorkspaceAccess={hasWorkspaceAccess} navigation={context.navigation} />
-      </div>
-      <div className="lg:pl-72">
+    <div className="group min-h-screen overflow-x-clip bg-zinc-50 text-zinc-950" data-partner-portal data-sidebar-collapsed={context.sidebarCollapsed ? "true" : "false"} lang={context.locale}>
+      <PartnerDesktopSidebar
+        companyName={context.companyName}
+        hasWorkspaceAccess={hasWorkspaceAccess}
+        initialCollapsed={Boolean(context.sidebarCollapsed)}
+        navigation={context.navigation}
+      />
+      <div className="transition-[padding] duration-150 lg:pl-72 lg:group-data-[sidebar-collapsed=true]:pl-20" data-partner-main-shell>
         <PartnerHeader
           context={context}
           mobileNavigation={(

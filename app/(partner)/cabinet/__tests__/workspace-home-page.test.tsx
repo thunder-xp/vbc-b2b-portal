@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +21,7 @@ vi.mock("@/src/modules/partner-locale/server", () => ({
 }));
 vi.mock("@/src/modules/behavior-analytics/components/BehaviorViewEvent", () => ({
   BehaviorViewEvent: () => null,
+  BehaviorTrackedLink: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => <a href={href} {...props}>{children}</a>,
   recordBehaviorInteraction: vi.fn(),
 }));
 vi.mock("@/src/modules/service-center/actions", () => ({
@@ -66,11 +68,30 @@ describe("Partner Workspace operational home", () => {
       'data-dashboard-section="priority-work"',
       "<OpportunitySection",
       "<FinanceSection",
+      "<SpecialOffersSection",
       'data-dashboard-section="fulfilment"',
     ];
     const positions = markers.map((marker) => dashboard.indexOf(marker));
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
+  });
+
+  it("renders governed special offers between analytics and fulfilment with the orange badge", async () => {
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: {
+      ...workspaceData(),
+      specialOfferProducts: [{ product: {
+        id: "promo-1", sku: "PROMO-1", name: "Акционный товар", slug: "promo-1",
+        shortDescription: null, imageUrl: null, brand: null, category: null,
+        keyCharacteristics: [], datasheet: null, merchandisingLabels: ["SPECIAL_OFFER"],
+      } }],
+    } });
+
+    const { container } = render(await CabinetPage());
+    const offers = container.querySelector('[data-dashboard-section="special-offers"]');
+    const fulfilment = container.querySelector('[data-dashboard-section="fulfilment"]');
+    expect(screen.getByRole("heading", { name: "Спецпредложения" })).toBeInTheDocument();
+    expect(screen.getByText("СПЕЦПРЕДЛОЖЕНИЕ")).toHaveClass("bg-orange-500", "text-white");
+    expect(offers?.compareDocumentPosition(fulfilment!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("keeps quick actions out of the dashboard body and shows no invented metrics", async () => {
@@ -188,6 +209,27 @@ describe("Partner Workspace operational home", () => {
     expect(container.querySelector('[data-dashboard-chart-type="line"] svg polyline')).toBeInTheDocument();
     expect(container.querySelector('[data-sales-currency-summary="MDL"]')?.textContent).toMatch(locale === "ro" ? /75\.000,00\sMDL/ : /75\s000,00\sMDL/);
     expect(container.querySelectorAll("[data-sales-month]")).toHaveLength(5);
+  });
+
+  it("switches the Finance graph through 30 / 60 / 90 / 180 day projections", async () => {
+    const base = financeGuidanceData();
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: {
+      ...workspaceData(),
+      financeGuidance: {
+        ...base,
+        periods: [30, 60, 90, 180].map((days) => ({
+          ...base,
+          days,
+          calendar: { ...base.calendar, startDate: `2026-${days === 30 ? "08-09" : days === 60 ? "07-10" : days === 90 ? "06-10" : "03-12"}` },
+        })),
+      },
+    } });
+    const user = userEvent.setup();
+    const { container } = render(await CabinetPage());
+    expect(container.querySelector('[data-finance-period-panel="30"]')).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "60 дн." }));
+    expect(container.querySelector('[data-finance-period-panel="60"]')).toBeInTheDocument();
+    expect(screen.getByText(/10 июл. 2026 г./)).toBeInTheDocument();
   });
 
   it.each([
@@ -365,6 +407,7 @@ function workspaceData() {
     continuationItems: [],
     reorderProducts: [],
     discoveryProducts: [],
+    specialOfferProducts: [],
     opportunities: [],
     campaigns: [],
     recentDocuments: [],

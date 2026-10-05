@@ -21,8 +21,8 @@ export function PartnerHeader({ context, mobileNavigation }: { context: PartnerW
   );
 
   return (
-    <header className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2 lg:grid-cols-[minmax(10rem,1fr)_minmax(18rem,36rem)_auto] lg:px-6">
-      <div className="flex min-w-0 items-center gap-3">{mobileNavigation}</div>
+    <header className="grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-zinc-200 bg-white px-4 py-2 lg:grid-cols-[minmax(18rem,36rem)_auto] lg:justify-end lg:px-6">
+      <div className="flex min-w-0 items-center gap-3 lg:hidden">{mobileNavigation}</div>
       {quickProductAvailable ? <Link className="order-3 col-span-2 flex h-11 min-w-0 items-center gap-2 rounded-md border border-emerald-700 bg-emerald-50 px-3 text-sm font-semibold text-emerald-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 lg:hidden" href="/cabinet/quick-order" prefetch={false}><Search aria-hidden="true" className="size-4" />{quickProductCopy.entry}</Link> : null}
       <form action="/cabinet/search" className={`${quickProductAvailable ? "hidden lg:flex" : "flex"} order-3 col-span-2 min-w-0 lg:order-none lg:col-span-1`} role="search">
         <label className="sr-only" htmlFor="partner-global-search">{t("shell.globalSearch")}</label>

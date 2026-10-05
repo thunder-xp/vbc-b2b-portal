@@ -10,22 +10,22 @@ import { ProductPricingBlock } from "./ProductPricingBlock";
 import { ProductAvailabilityBlock } from "./ProductAvailabilityBlock";
 import { ProductComparisonAction } from "./ProductComparisonAction";
 import { ProductSpecificationAction } from "./ProductSpecificationAction";
-import { MerchandisingBadge, MerchandisingBadgeOverlay, MerchandisingBadges } from "./MerchandisingBadges";
+import { MerchandisingBadge, MerchandisingBadgeOverlay, MerchandisingBadges, type MerchandisingBadgeVariant } from "./MerchandisingBadges";
 import { CatalogProductCardFrame } from "./CatalogProductCardFrame";
 import { BehaviorTrackedLink } from "../../behavior-analytics/components/BehaviorViewEvent";
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 import { getCatalogCopy, type PartnerLocale } from "../../partner-locale";
 import { toLiveCommerceSelectionProduct } from "../services/live-commerce-selection";
 
-type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextBadge?: string; contextLine?: string; detailHref?: string; favorite?: boolean; imagePriority?: boolean; locale?: PartnerLocale; userId?: string | null; variant?: "default" | "cobuy" };
+type ProductCardProps = { product: CatalogProductCardDto; analyticsEventName?: BehaviorEventName; analyticsSurface?: string; cartSuccessEventName?: BehaviorEventName; commercialView?: ProductCommercialViewDto; capabilities: ProductCardCapabilityModel; companyId?: string | null; contextBadge?: string; contextBadgeVariant?: MerchandisingBadgeVariant; contextLine?: string; detailHref?: string; favorite?: boolean; imagePriority?: boolean; locale?: PartnerLocale; userId?: string | null; variant?: "default" | "cobuy" };
 
-export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextBadge, contextLine, detailHref, favorite = false, imagePriority = false, locale = "ru", product, userId = null, variant = "default" }: ProductCardProps) {
+export function ProductCard({ analyticsEventName, analyticsSurface, cartSuccessEventName, capabilities, commercialView, companyId = null, contextBadge, contextBadgeVariant = "REPLENISHMENT", contextLine, detailHref, favorite = false, imagePriority = false, locale = "ru", product, userId = null, variant = "default" }: ProductCardProps) {
   const copy = getCatalogCopy(locale);
   const productHref = detailHref ?? `/cabinet/catalog/${product.slug}`;
   const image = <>
     <CatalogCardImage alt={product.name} priority={imagePriority} sizes="(max-width: 639px) calc(100vw - 2rem), (max-width: 1023px) 50vw, (max-width: 1279px) 33vw, (max-width: 1535px) 25vw, 20vw" src={product.imageUrl} />
     {contextBadge || product.merchandisingLabels?.length ? <MerchandisingBadgeOverlay>
-      {contextBadge ? <MerchandisingBadge label={contextBadge} variant="REPLENISHMENT" /> : <MerchandisingBadges labelOverrides={{ HOT: copy.hot, NEW: copy.new, SPECIAL_OFFER: copy.special, TOP: copy.top }} labels={product.merchandisingLabels ?? []} productCollectionsLabel={copy.productCollections} />}
+      {contextBadge ? <MerchandisingBadge label={contextBadge} variant={contextBadgeVariant} /> : <MerchandisingBadges labelOverrides={{ HOT: copy.hot, NEW: copy.new, SPECIAL_OFFER: copy.special, TOP: copy.top }} labels={product.merchandisingLabels ?? []} productCollectionsLabel={copy.productCollections} />}
     </MerchandisingBadgeOverlay> : null}
   </>;
 

@@ -23,6 +23,8 @@ import {
   UserRound,
   Lightbulb,
   Megaphone,
+  PanelLeftClose,
+  PanelLeftOpen,
   SearchCheck,
   ShieldCheck,
   ShoppingCart,
@@ -93,10 +95,12 @@ type SidebarNavigationItem = Omit<WorkspaceNavigationItem, "key"> & { key: strin
 
 function SidebarSection({
   children,
+  collapsed = false,
   id,
   title,
 }: {
   children: ReactNode;
+  collapsed?: boolean;
   id: string;
   title: string;
 }) {
@@ -105,11 +109,11 @@ function SidebarSection({
   return (
     <section
       aria-labelledby={titleId}
-      className="border border-white/10 px-1 py-2"
+      className={`border border-white/10 px-1 py-2 ${collapsed ? "border-x-0" : ""}`}
       data-sidebar-section={id}
     >
       <h2
-        className="px-2 pb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500"
+        className={collapsed ? "sr-only" : "px-2 pb-1.5 text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500"}
         id={titleId}
       >
         {title}
@@ -125,6 +129,7 @@ function NavigationItem({
   item,
   onNavigate,
   activeKey,
+  sidebarCollapsed = false,
   submenu = false,
 }: {
   expanded?: boolean;
@@ -132,6 +137,7 @@ function NavigationItem({
   item: SidebarNavigationItem;
   onNavigate?: () => void;
   activeKey: string | undefined;
+  sidebarCollapsed?: boolean;
   submenu?: boolean;
 }) {
   const t = usePartnerText();
@@ -140,7 +146,9 @@ function NavigationItem({
   const Icon = icons[item.icon];
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
   const active = enabled && activeKey === item.key;
-  const spacing = submenu
+  const spacing = sidebarCollapsed
+    ? "min-h-10 justify-center px-2 py-2"
+    : submenu
     ? "relative min-h-8 py-1.5 pl-3 pr-2 text-[11px] before:absolute before:-left-2 before:top-1/2 before:h-px before:w-2 before:-translate-y-px"
     : "min-h-9 px-2.5 py-1.5 text-xs";
   const connectorColor = submenu
@@ -175,13 +183,14 @@ function NavigationItem({
   if (!enabled) {
     return (
       <span
+        aria-label={sidebarCollapsed ? item.label : undefined}
         className={`flex items-center gap-2.5 rounded-md font-normal text-zinc-500 ${spacing} ${connectorColor}`}
         data-sidebar-submenu-item={submenu ? "true" : undefined}
         data-sidebar-top-level={submenu ? undefined : "true"}
       >
         <Icon aria-hidden="true" className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
-        <span className="shrink-0 text-[10px] font-semibold uppercase">{t("common.comingSoon")}</span>
+        <span className={sidebarCollapsed ? "sr-only" : "min-w-0 flex-1 whitespace-nowrap"}>{item.label}</span>
+        {sidebarCollapsed ? null : <span className="shrink-0 text-[10px] font-semibold uppercase">{t("common.comingSoon")}</span>}
       </span>
     );
   }
@@ -189,6 +198,7 @@ function NavigationItem({
   return (
     <Link
       aria-current={active ? "page" : undefined}
+      aria-label={sidebarCollapsed ? item.label : undefined}
       className={`flex items-center gap-2.5 rounded-md ${fontWeight} outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${connectorColor} ${
         active
           ? "bg-emerald-500/15 text-emerald-200"
@@ -203,9 +213,10 @@ function NavigationItem({
       onMouseLeave={cancelHoverPrefetch}
       prefetch={intentPrefetch}
       tabIndex={expanded ? undefined : -1}
+      title={sidebarCollapsed ? item.label : undefined}
     >
       <Icon aria-hidden="true" className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
+      <span className={sidebarCollapsed ? "sr-only" : "min-w-0 flex-1 whitespace-nowrap"}>{item.label}</span>
       <NavigationPendingIndicator />
     </Link>
   );
@@ -221,11 +232,15 @@ function ExpandableNavigationGroup({
   onNavigate,
   onToggle,
   activeKey,
+  activeChildLabel,
   children,
   routeActiveOverride,
+  sidebarCollapsed = false,
 }: {
   children?: ReactNode;
   routeActiveOverride?: boolean;
+  activeChildLabel?: string;
+  sidebarCollapsed?: boolean;
   icon: typeof Gauge;
   expanded: boolean;
   hasWorkspaceAccess: boolean;
@@ -237,7 +252,10 @@ function ExpandableNavigationGroup({
   activeKey: string | undefined;
 }) {
   const routeActive = routeActiveOverride ?? items.some((item) => activeKey === item.key);
-  const Chevron = expanded ? ChevronDown : ChevronRight;
+  const visualExpanded = expanded && !sidebarCollapsed;
+  const Chevron = visualExpanded ? ChevronDown : ChevronRight;
+  const activeChild = activeChildLabel ?? items.find((item) => activeKey === item.key)?.label;
+  const accessibleLabel = sidebarCollapsed && activeChild ? `${label}: ${activeChild}` : label;
 
   if (items.length === 0 && !children) return null;
 
@@ -245,22 +263,24 @@ function ExpandableNavigationGroup({
     <div>
       <button
         aria-controls={id}
-        aria-expanded={expanded}
-        className={`flex min-h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${
+        aria-expanded={visualExpanded}
+        aria-label={sidebarCollapsed ? accessibleLabel : undefined}
+        className={`flex w-full items-center gap-2.5 rounded-md text-left text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${sidebarCollapsed ? "min-h-10 justify-center px-2 py-2" : "min-h-9 px-2.5 py-1.5"} ${
           routeActive ? "text-emerald-200" : "text-zinc-300 hover:bg-white/10 hover:text-white"
         }`}
         onClick={onToggle}
         data-sidebar-top-level="true"
         type="button"
+        title={sidebarCollapsed ? accessibleLabel : undefined}
       >
         <Icon aria-hidden="true" className={`size-4 shrink-0 ${routeActive ? "text-emerald-300" : ""}`} />
-        <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
-        <Chevron aria-hidden="true" className="size-4 shrink-0" />
+        <span className={sidebarCollapsed ? "sr-only" : "min-w-0 flex-1 whitespace-nowrap"}>{label}</span>
+        {sidebarCollapsed ? null : <Chevron aria-hidden="true" className="size-4 shrink-0" />}
       </button>
       <div
-        aria-hidden={!expanded}
+        aria-hidden={!visualExpanded}
         className={`grid transition-[grid-template-rows,opacity] duration-150 ease-out ${
-          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          visualExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         }`}
         id={id}
       >
@@ -269,7 +289,7 @@ function ExpandableNavigationGroup({
             {children}
             {items.map((item) => (
               <NavigationItem
-                expanded={expanded}
+                expanded={visualExpanded}
                 hasWorkspaceAccess={hasWorkspaceAccess}
                 item={item}
                 key={item.key}
@@ -286,14 +306,18 @@ function ExpandableNavigationGroup({
 }
 
 export function PartnerSidebar({
+  collapsed = false,
   companyName,
   hasWorkspaceAccess = true,
   navigation,
+  onCollapsedChange,
   onNavigate,
 }: {
+  collapsed?: boolean;
   companyName?: string | null;
   hasWorkspaceAccess?: boolean;
   navigation: WorkspaceNavigationItem[];
+  onCollapsedChange?: (collapsed: boolean) => void;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -377,7 +401,15 @@ export function PartnerSidebar({
 
   const groupProps = (id: string) => ({
     expanded: openGroupId === id,
-    onToggle: () => setOpenGroupId((current) => current === id ? (activeGroupId === id ? id : null) : id),
+    onToggle: () => {
+      if (collapsed) {
+        onCollapsedChange?.(false);
+        setOpenGroupId(id);
+        return;
+      }
+      setOpenGroupId((current) => current === id ? (activeGroupId === id ? id : null) : id);
+    },
+    sidebarCollapsed: collapsed,
   });
   const hasBusinessSection = dashboardNavigation.length > 0 || commercialNavigation.length > 0;
   const hasProductsSection = productNavigation.length > 0 || canSelectProducts || businessNavigation.length > 0 || selectionNavigation.length > 0;
@@ -388,23 +420,39 @@ export function PartnerSidebar({
     <aside
       className="flex h-full min-h-0 flex-col overflow-hidden border-r border-zinc-200 bg-zinc-950 text-white"
     >
-      <div className="shrink-0 border-b border-white/10 px-4 py-4">
-        <p className="text-xs font-semibold uppercase text-emerald-300">NOVOTECH</p>
-        <p className="mt-1 text-base font-semibold">{t("shell.partnerCabinet")}</p>
-        <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? t("shell.companyNotSelected")}</p>
+      <div className={`shrink-0 border-b border-white/10 ${collapsed ? "px-2 py-3 text-center" : "px-4 py-4"}`}>
+        <div className={`flex ${collapsed ? "flex-col items-center gap-2" : "items-start justify-between gap-3"}`}>
+          <div className="min-w-0">
+            <p className={`${collapsed ? "text-[10px] tracking-[0.08em]" : "text-xs"} font-semibold uppercase text-emerald-300`}>NOVOTECH</p>
+            {collapsed ? null : <>
+              <p className="mt-1 text-base font-semibold">{t("shell.partnerCabinet")}</p>
+              <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? t("shell.companyNotSelected")}</p>
+            </>}
+          </div>
+          {onCollapsedChange ? <button
+            aria-label={t(collapsed ? "shell.expandNavigation" : "shell.collapseNavigation")}
+            className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-zinc-300 outline-none hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-emerald-400"
+            data-sidebar-collapse-toggle
+            onClick={() => onCollapsedChange(!collapsed)}
+            title={t(collapsed ? "shell.expandNavigation" : "shell.collapseNavigation")}
+            type="button"
+          >
+            {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4" /> : <PanelLeftClose aria-hidden="true" className="size-4" />}
+          </button> : null}
+        </div>
       </div>
 
-      <nav aria-label={t("shell.workspaceNavigation")} className="min-h-0 flex-1 overflow-y-auto px-2 py-2.5">
+      <nav aria-label={t("shell.workspaceNavigation")} className={`min-h-0 flex-1 overflow-y-auto py-2.5 ${collapsed ? "px-1.5" : "px-2"}`}>
         <div className="space-y-2">
-          {hasBusinessSection && <SidebarSection id="business" title={t("nav.section.business")}>
+          {hasBusinessSection && <SidebarSection collapsed={collapsed} id="business" title={t("nav.section.business")}>
             {dashboardNavigation.map((item) => (
-              <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} />
+              <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} sidebarCollapsed={collapsed} />
             ))}
 
             <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
           </SidebarSection>}
 
-          {hasProductsSection && <SidebarSection id="products" title={t("nav.section.products")}>
+          {hasProductsSection && <SidebarSection collapsed={collapsed} id="products" title={t("nav.section.products")}>
             <ExpandableNavigationGroup
               {...groupProps("products-navigation")}
               hasWorkspaceAccess={hasWorkspaceAccess}
@@ -426,9 +474,10 @@ export function PartnerSidebar({
             onNavigate={onNavigate}
             activeKey={activeKey}
             routeActiveOverride={activeGroupId === "purchases-navigation"}
+            activeChildLabel={activeKey === "product_selection" ? t("nav.group.productSelection") : undefined}
           >
             {canSelectProducts && <NavigationItem
-              expanded={openGroupId === "purchases-navigation"}
+              expanded={openGroupId === "purchases-navigation" && !collapsed}
               hasWorkspaceAccess={hasWorkspaceAccess}
               item={{ ...navigationByKey.get("catalog")!, key: "product_selection", label: t("nav.group.productSelection"), href: "/cabinet/quick-order", icon: "solution_selection" }}
               onNavigate={onNavigate}
@@ -449,7 +498,7 @@ export function PartnerSidebar({
           />
           </SidebarSection>}
 
-          {hasSalesSection && <SidebarSection id="sales" title={t("nav.section.sales")}>
+          {hasSalesSection && <SidebarSection collapsed={collapsed} id="sales" title={t("nav.section.sales")}>
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}
             icon={Calculator}
@@ -466,7 +515,7 @@ export function PartnerSidebar({
           <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} activeKey={activeKey} />
           </SidebarSection>}
 
-          {hasSupportSection && <SidebarSection id="support" title={t("nav.section.support")}>
+          {hasSupportSection && <SidebarSection collapsed={collapsed} id="support" title={t("nav.section.support")}>
           <ExpandableNavigationGroup {...groupProps("expertise-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={GraduationCap} id="expertise-navigation" items={expertiseNavigation} label={t("nav.group.expertise")} onNavigate={onNavigate} activeKey={activeKey} />
 
           <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} activeKey={activeKey} />

@@ -19,7 +19,7 @@ const LABELS: Record<
   },
   SPECIAL_OFFER: {
     label: "Спецпредложения",
-    className: "border-amber-200 bg-amber-50 text-amber-900",
+    className: "border-orange-600 bg-orange-500 text-white",
   },
 };
 

@@ -11,7 +11,7 @@ export function PartnerPageBreadcrumbs({ locale }: { locale: PartnerLocale }) {
   const breadcrumbs = resolvePartnerBreadcrumbs(pathname, searchParams, locale);
 
   return (
-    <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="col-span-2 row-start-3 min-w-0 border-t border-zinc-100 pt-2 text-xs lg:col-span-3 lg:row-start-2" data-partner-breadcrumb-header>
+    <nav aria-label={locale === "ro" ? "Navigare ierarhică" : "Хлебные крошки"} className="col-span-2 row-start-3 min-w-0 border-t border-zinc-100 pt-2 text-xs lg:row-start-2" data-partner-breadcrumb-header>
       <ol className="flex min-w-0 items-center gap-1.5 overflow-hidden">
         {breadcrumbs.map((item, index) => {
           const current = index === breadcrumbs.length - 1;

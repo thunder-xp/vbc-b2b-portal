@@ -103,6 +103,43 @@ export type WorkspaceProductDto = {
 
 export type DashboardDiscoverySignal = "HOT" | "NEW" | "TOP" | "ARRIVAL";
 
+export type DashboardAnalyticsPeriod = 30 | 60 | 90 | 180;
+
+export type FinanceGuidancePeriodDto = {
+  days: DashboardAnalyticsPeriod | 120;
+  state: "overdue" | "due_soon" | "healthy" | "unavailable";
+  totals: Array<{ currency: string; outstanding: number; overdue: number }>;
+  nextDueDate: string | null;
+  fresh: boolean;
+  calendar: {
+    startDate: string;
+    endDate: string;
+    today: string;
+    todayPosition: number;
+    amountScaleMaximum: number;
+    axisLabels: Array<{
+      date: string;
+      kind: "start" | "today" | "payment" | "end";
+      positionPercent: number;
+      track: 0 | 1;
+      showOnMobile: boolean;
+      align: "start" | "center" | "end";
+    }>;
+  };
+  paymentGraph: Array<{
+    id: string;
+    eventDate: string;
+    orderNumber: string;
+    amount: number;
+    currency: string;
+    timing: "overdue" | "today" | "upcoming" | "paid";
+    relativeHeight: number;
+    positionPercent: number;
+    stackIndex: number;
+    stackCount: number;
+  }>;
+};
+
 export type WorkspaceHomeDto = {
   viewer?: { companyId: string; userId: string };
   identity: {
@@ -135,6 +172,7 @@ export type WorkspaceHomeDto = {
   reorderProducts: WorkspaceProductDto[];
   reorderProductTotalCount: number;
   discoveryProducts: WorkspaceProductDto[];
+  specialOfferProducts: WorkspaceProductDto[];
   opportunities: CommercialOpportunity[];
   recentDocuments: PartnerDocumentListItem[];
   financeSummary: null | {
@@ -147,39 +185,7 @@ export type WorkspaceHomeDto = {
     lastSuccessfulAt: string | null;
     stale: boolean;
   };
-  financeGuidance: null | {
-    state: "overdue" | "due_soon" | "healthy" | "unavailable";
-    totals: Array<{ currency: string; outstanding: number; overdue: number }>;
-    nextDueDate: string | null;
-    fresh: boolean;
-    calendar: {
-      startDate: string;
-      endDate: string;
-      today: string;
-      todayPosition: number;
-      amountScaleMaximum: number;
-      axisLabels: Array<{
-        date: string;
-        kind: "start" | "today" | "payment" | "end";
-        positionPercent: number;
-        track: 0 | 1;
-        showOnMobile: boolean;
-        align: "start" | "center" | "end";
-      }>;
-    };
-    paymentGraph: Array<{
-      id: string;
-      eventDate: string;
-      orderNumber: string;
-      amount: number;
-      currency: string;
-      timing: "overdue" | "today" | "upcoming" | "paid";
-      relativeHeight: number;
-      positionPercent: number;
-      stackIndex: number;
-      stackCount: number;
-    }>;
-  };
+  financeGuidance: null | (FinanceGuidancePeriodDto & { periods: FinanceGuidancePeriodDto[] });
   salesAnalytics: null | {
     businessDate: string;
     periodStart: string;
@@ -223,7 +229,7 @@ export type WorkspaceHomeDto = {
   estimateSalesOpportunities?: PartnerEstimateSalesOpportunity[];
 };
 
-export type SalesTrendPeriod = 30 | 60 | 90 | 180;
+export type SalesTrendPeriod = DashboardAnalyticsPeriod;
 
 export type SalesTrendState =
   | "INCREASE"
@@ -262,7 +268,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     private readonly pricingInventoryService: PricingInventoryService,
     private readonly notificationRepository?: NotificationRepository,
     private readonly opportunityRepository?: CommercialOpportunityRepository,
-    _campaignRepository?: CommercialCampaignRepository,
+    private readonly campaignRepository?: CommercialCampaignRepository,
     private readonly documentRepository?: DocumentRepository,
     private readonly productReferenceService?: ProductReferenceService,
     private readonly momentumRepository?: PartnerMomentumRepository,
@@ -303,7 +309,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
 
     const canViewFinance = context.capabilities.navigation.some((item) => item.key === "finance" && item.availability === "available");
     const canViewSales = context.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
-    const [freshness, dashboard, selections, opportunityPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
+    const [freshness, dashboard, selections, campaignPage, opportunityPage, supportTickets, estimateSalesOpportunities, financeData] = await Promise.all([
       timedDashboardRead("commercial_freshness", () => this.commercialFreshnessReadModel.getFreshness()),
       timedDashboardRead("dashboard_aggregate", () => this.dashboardRepository.getDashboard(companyId)),
       timedDashboardRead("product_selections", () => this.dashboardRepository.getProductSelections?.(userId, companyId, loginGeneration, {
@@ -312,6 +318,8 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
         new: 365,
         hot: 365,
       }) ?? Promise.resolve(null)),
+      timedDashboardRead("special_offers", () => this.campaignRepository?.listPartner({ companyId, filter: "active", limit: 12, offset: 0 })
+        ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("opportunities", () => this.opportunityRepository?.list({ companyId, filter: "all", limit: 12, offset: 0 })
         ?? Promise.resolve({ items: [], totalCount: 0 })),
       timedDashboardRead("support_tickets", () => this.supportRepository?.dashboard(companyId) ?? Promise.resolve([])),
@@ -334,6 +342,11 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const popularCandidates = selections?.popularProducts ?? [];
     const newCandidates = selections?.newProducts ?? [];
     const hotCandidates = selections?.hotProducts ?? [];
+    const specialOfferCandidates = sessionOrder(
+      campaignProductCandidates(campaignPage.items),
+      loginGeneration,
+      "special-offers",
+    ).slice(0, 5);
     const arrivalCandidates = selections?.arrivalProducts
       ?? merchandisingCandidates.filter((candidate) => candidate.sourceCodes?.includes("ARRIVAL"));
     const discoveryCandidates = mixDashboardDiscoveryCandidates({
@@ -350,6 +363,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
     const candidates = uniqueCandidates([
       ...reorderCandidates,
       ...discoveryCandidates.map((item) => item.candidate),
+      ...specialOfferCandidates,
     ]);
     const opportunityProductIds = opportunityProductReferenceIds(opportunityCandidates);
     const referenceProductIds = [...new Set([
@@ -402,10 +416,21 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       sourceCodes: candidate.sourceCodes,
       primaryDiscoverySignal: signal,
     }));
+    const specialOfferProducts = specialOfferCandidates.flatMap((candidate) => {
+      const commercialView = commercialByProduct.get(candidate.id);
+      return isCurrentlySellable(commercialView)
+        ? [{
+            product: toProduct(candidate, referenceByProduct.get(candidate.id), ["SPECIAL_OFFER"]),
+            commercialView,
+            sourceCodes: candidate.sourceCodes,
+          }]
+        : [];
+    });
 
     logDashboardShortage("previous_purchases", reorderProducts.length, 5);
     logDashboardShortage("opportunities", opportunities.length, 4);
     logDashboardShortage("discovery", discoveryProducts.length, 6);
+    logDashboardShortage("special_offers", specialOfferProducts.length, 5);
 
     return {
       viewer: { companyId, userId },
@@ -457,6 +482,7 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       reorderProducts,
       reorderProductTotalCount: selections?.previousCandidateCount ?? reorderProducts.length,
       discoveryProducts,
+      specialOfferProducts,
       opportunities,
       recentDocuments: [],
       financeSummary: dashboard.financeSummary,
@@ -547,8 +573,20 @@ export function buildFinanceGuidance(
   obligations: Awaited<ReturnType<FinanceRepository["getOverviewData"]>>["obligations"],
   synchronizedAt: string | null,
 ): NonNullable<WorkspaceHomeDto["financeGuidance"]> {
+  const current = buildFinanceGuidancePeriod(obligations, synchronizedAt, 120);
+  const periods = ([30, 60, 90, 180] satisfies DashboardAnalyticsPeriod[]).map((days) =>
+    buildFinanceGuidancePeriod(obligations, synchronizedAt, days),
+  );
+  return { ...current, periods };
+}
+
+function buildFinanceGuidancePeriod(
+  obligations: Awaited<ReturnType<FinanceRepository["getOverviewData"]>>["obligations"],
+  synchronizedAt: string | null,
+  days: DashboardAnalyticsPeriod | 120,
+): FinanceGuidancePeriodDto {
   const today = financeBusinessDate(new Date());
-  const calendarWindow = getPaymentCalendarWindow(obligations, today);
+  const calendarWindow = getPaymentCalendarWindow(obligations, today, days);
   const current = obligations.filter((row) => row.reconciliationStatus === "READY" && row.paymentStatus !== "SETTLED" && Number(row.remainingAmount) > 0);
   const recentlyPaid = obligations.filter((row) => {
     const settledDate = row.settlementLastPaymentAt?.slice(0, 10);
@@ -595,6 +633,7 @@ export function buildFinanceGuidance(
     today,
   );
   return {
+    days,
     state: !fresh ? "unavailable" : [...totals.values()].some((row) => row.overdue > 0)
       ? "overdue" : nextDueDate && nextDueDate <= addDays(today, 7) ? "due_soon" : "healthy",
     totals: [...totals.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([currency, value]) => ({ currency, ...value })),
@@ -630,6 +669,7 @@ export function buildFinanceGuidance(
 export function getPaymentCalendarWindow(
   payments: Awaited<ReturnType<FinanceRepository["getOverviewData"]>>["obligations"],
   today: string,
+  days = 120,
 ): {
   rangeStart: string;
   rangeEnd: string;
@@ -648,7 +688,7 @@ export function getPaymentCalendarWindow(
   const rangeEnd = latestRelevantPaymentDate && latestRelevantPaymentDate > today
     ? latestRelevantPaymentDate
     : today;
-  const nominalRangeStart = addDays(rangeEnd, -120);
+  const nominalRangeStart = addDays(rangeEnd, -days);
 
   return {
     rangeStart: nominalRangeStart > today ? today : nominalRangeStart,
@@ -947,7 +987,7 @@ export function buildQuickActions(
 function toProduct(
   candidate: WorkspaceDashboardProductCandidate,
   reference?: ProductReferenceDto,
-  merchandisingLabels = candidate.labelCodes,
+  merchandisingLabels: CatalogProductCardDto["merchandisingLabels"] = candidate.labelCodes,
 ): CatalogProductCardDto {
   return {
     id: candidate.id,
@@ -970,6 +1010,22 @@ function toProduct(
     datasheet: null,
     merchandisingLabels,
   };
+}
+
+function campaignProductCandidates(
+  campaigns: Awaited<ReturnType<CommercialCampaignRepository["listPartner"]>>["items"],
+): WorkspaceDashboardProductCandidate[] {
+  const candidates = campaigns.flatMap((campaign) => campaign.products.map((product) => ({
+    id: product.productId,
+    sku: product.sku,
+    name: product.name,
+    slug: product.slug,
+    imageUrl: product.imageUrl,
+    categoryId: null,
+    categoryName: null,
+    labelCodes: [],
+  })));
+  return uniqueCandidates(candidates);
 }
 
 export function mixDashboardDiscoveryCandidates(

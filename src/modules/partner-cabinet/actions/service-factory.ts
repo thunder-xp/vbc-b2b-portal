@@ -15,6 +15,7 @@ import { createPartnerWorkspaceContextService } from "./workspace-context.factor
 import { PartnerSalesWorkspaceService, SupabaseEstimateSalesOpportunityRepository } from "../../partner-sales-workspace";
 import { SupabaseFinanceRepository } from "../../finance/repositories";
 import { SupabaseWarehouseArrivalRepository } from "../../warehouse-arrivals/repositories";
+import { SupabaseCommercialCampaignRepository } from "../../commercial-campaigns";
 
 export { createPartnerWorkspaceContextService } from "./workspace-context.factory";
 
@@ -30,7 +31,7 @@ export function createWorkspaceHomeService(): DefaultWorkspaceHomeService {
     createPricingInventoryService(),
     undefined,
     new SupabaseCommercialOpportunityRepository(),
-    undefined,
+    new SupabaseCommercialCampaignRepository(),
     undefined,
     catalogService,
     undefined,

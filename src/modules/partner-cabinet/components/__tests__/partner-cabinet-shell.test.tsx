@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PartnerHeader } from "../PartnerHeader";
 import { PartnerMobileNavigation } from "../PartnerMobileNavigation";
 import { PartnerSidebar } from "../PartnerSidebar";
+import { PartnerDesktopSidebar } from "../PartnerDesktopSidebar";
 import { CompanyCard } from "../CompanyCard";
 import { resolveWorkspaceCapabilities } from "../../services";
 
@@ -40,6 +41,7 @@ describe("Partner workspace shell", () => {
   beforeEach(() => {
     pathname = "/cabinet";
     query = "";
+    document.cookie = "partner_sidebar_collapsed=; Path=/; Max-Age=0";
   });
 
   it("renders business identity without raw role IDs", async () => {
@@ -188,6 +190,36 @@ describe("Partner workspace shell", () => {
 
     const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
     for (const href of hrefs) expect(hrefs.filter((candidate) => candidate === href)).toHaveLength(1);
+  });
+
+  it("keeps one accessible navigation model in the collapsed icon rail", async () => {
+    pathname = "/cabinet/offers";
+    const onCollapsedChange = vi.fn();
+    const user = userEvent.setup();
+    render(<PartnerSidebar collapsed hasWorkspaceAccess navigation={navigation} onCollapsedChange={onCollapsedChange} />);
+
+    expect(screen.getByText("NOVOTECH")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Развернуть главное меню" })).toBeInTheDocument();
+    const purchases = screen.getByRole("button", { name: "Покупки: Специальные предложения" });
+    expect(purchases).toHaveClass("text-emerald-200");
+    expect(purchases).toHaveAttribute("aria-expanded", "false");
+    await user.click(purchases);
+    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+  });
+
+  it("persists desktop sidebar collapse without replacing the navigation tree", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <div data-partner-portal data-sidebar-collapsed="false">
+        <PartnerDesktopSidebar companyName={context.companyName} hasWorkspaceAccess initialCollapsed={false} navigation={navigation} />
+      </div>,
+    );
+    expect(container.querySelector("[data-partner-sidebar-shell]")).toHaveAttribute("data-sidebar-collapsed", "false");
+    await user.click(screen.getByRole("button", { name: "Свернуть главное меню" }));
+    expect(container.querySelector("[data-partner-sidebar-shell]")).toHaveAttribute("data-sidebar-collapsed", "true");
+    expect(container.querySelector("[data-partner-portal]")).toHaveAttribute("data-sidebar-collapsed", "true");
+    expect(document.cookie).toContain("partner_sidebar_collapsed=1");
+    expect(screen.getAllByRole("navigation", { name: "Рабочие разделы" })).toHaveLength(1);
   });
 
   it("moves cart and sign out into the operational header", async () => {

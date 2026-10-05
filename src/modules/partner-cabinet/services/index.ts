@@ -2,6 +2,8 @@ export {
   DefaultWorkspaceHomeService,
   type WorkspaceHomeDto,
   type WorkspaceHomeService,
+  type DashboardAnalyticsPeriod,
+  type FinanceGuidancePeriodDto,
   type SalesTrendComparisonDto,
   type SalesTrendPeriod,
   type SalesTrendState,

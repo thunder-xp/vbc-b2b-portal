@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
@@ -14,7 +15,7 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function CabinetLayout({ children }: { children: ReactNode }) {
-  const [result, locale] = await Promise.all([getPartnerWorkspaceContextAction(), getPartnerLocale()]);
+  const [result, locale, cookieStore] = await Promise.all([getPartnerWorkspaceContextAction(), getPartnerLocale(), cookies()]);
 
   if (!result.success) {
     if (result.errorCode === "AUTH_REQUIRED") redirect("/auth/sign-in");
@@ -51,6 +52,7 @@ export default async function CabinetLayout({ children }: { children: ReactNode 
     canAddSelectionToCart: context.capabilities.productCard.canAddToOrder,
     canCreateEstimateFromSelection: context.capabilities.canCreateCommercialProposal,
     canManagePurchasingLists: context.capabilities.productCard.canManagePurchasingLists,
+    sidebarCollapsed: cookieStore.get("partner_sidebar_collapsed")?.value === "1",
   };
 
   if (context.accessState === "suspended") {

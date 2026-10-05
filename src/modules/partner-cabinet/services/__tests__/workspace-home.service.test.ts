@@ -482,7 +482,7 @@ describe("DefaultWorkspaceHomeService", () => {
       previousProducts: candidates,
       popularProducts: candidates.slice(0, 5),
       newProducts: candidates.slice(5),
-      hotProducts: [],
+      hotProducts: candidates,
       merchandisingProducts: [],
       previousSourceFingerprint: "orders-v1",
       offerSourceFingerprint: "offers-v1",
@@ -497,6 +497,12 @@ describe("DefaultWorkspaceHomeService", () => {
       }),
       dismiss: vi.fn(),
     };
+    const campaignRepository = {
+      listPartner: vi.fn().mockResolvedValue({
+        totalCount: 1,
+        items: [{ ...campaign("promo", "product_offer", 1), products: candidates.map(campaignProduct) }],
+      }),
+    };
     const service = new DefaultWorkspaceHomeService(
       fakeContextService(),
       fakeFreshness(),
@@ -504,6 +510,7 @@ describe("DefaultWorkspaceHomeService", () => {
       fakePricingInventoryService(),
       undefined,
       opportunityRepository as never,
+      campaignRepository as never,
     );
 
     const first = await service.getWorkspaceHome("partner-1", "login-a");
@@ -512,15 +519,20 @@ describe("DefaultWorkspaceHomeService", () => {
     const ids = (workspace: typeof first) => workspace.reorderProducts.map((item) => item.product.id);
     const discoveryIds = (workspace: typeof first) => workspace.discoveryProducts.map((item) => item.product.id);
     const opportunityIds = (workspace: typeof first) => workspace.opportunities.map((item) => item.id);
+    const specialOfferIds = (workspace: typeof first) => workspace.specialOfferProducts.map((item) => item.product.id);
 
     expect(ids(same)).toEqual(ids(first));
     expect(discoveryIds(same)).toEqual(discoveryIds(first));
     expect(opportunityIds(same)).toEqual(opportunityIds(first));
+    expect(specialOfferIds(same)).toEqual(specialOfferIds(first));
     expect(ids(next)).not.toEqual(ids(first));
     expect(opportunityIds(next)).not.toEqual(opportunityIds(first));
+    expect(specialOfferIds(next)).not.toEqual(specialOfferIds(first));
     expect(first.reorderProducts).toHaveLength(5);
     expect(first.opportunities).toHaveLength(4);
     expect(first.discoveryProducts).toHaveLength(6);
+    expect(first.specialOfferProducts).toHaveLength(5);
+    expect(first.specialOfferProducts.every((item) => item.product.merchandisingLabels?.includes("SPECIAL_OFFER"))).toBe(true);
     expect(new Set(first.discoveryProducts.map((item) => item.product.id)).size).toBe(6);
     expect(opportunityRepository.list).toHaveBeenCalledWith({
       companyId: "company-1",
@@ -588,12 +600,12 @@ describe("DefaultWorkspaceHomeService", () => {
     expect(workspace.opportunities.map((item) => item.priority)).toEqual([10, 30, 40, 50]);
   });
 
-  it("removes the campaign request from Dashboard composition", async () => {
+  it("uses only active governed campaign products for Dashboard special offers", async () => {
     const campaignRepository = {
       listPartner: vi.fn().mockResolvedValue({
         totalCount: 3,
         items: [
-          campaign("hot", "product_offer", 1),
+          { ...campaign("hot", "product_offer", 1), products: [campaignProduct(dashboardProduct(1))] },
           campaign("popular", "category_campaign", 2),
           campaign("arrival", "arrival_promotion", 3),
         ],
@@ -610,7 +622,9 @@ describe("DefaultWorkspaceHomeService", () => {
       campaignRepository as never,
     ).getWorkspaceHome("partner-1");
 
-    expect(campaignRepository.listPartner).not.toHaveBeenCalled();
+    expect(campaignRepository.listPartner).toHaveBeenCalledWith({ companyId: "company-1", filter: "active", limit: 12, offset: 0 });
+    expect(workspace.specialOfferProducts).toHaveLength(1);
+    expect(workspace.specialOfferProducts[0].product).toMatchObject({ id: "product-1", merchandisingLabels: ["SPECIAL_OFFER"] });
     expect(workspace.discoveryProducts).toEqual([]);
   });
 
@@ -879,7 +893,30 @@ function campaign(id: string, type: "product_offer" | "category_campaign" | "arr
     priority,
     imageAssetPath: null,
     termsSummary: "Test terms",
+    mechanicType: "legacy_promo" as const,
     products: [],
+  };
+}
+
+function campaignProduct(candidate: ReturnType<typeof dashboardProduct>) {
+  return {
+    itemId: `campaign-item-${candidate.id}`,
+    productId: candidate.id,
+    sku: candidate.sku,
+    name: candidate.name,
+    slug: candidate.slug,
+    imageUrl: candidate.imageUrl,
+    minimumQuantity: 1,
+    maximumQuantityPerCompany: null,
+    partnerMessage: null,
+    mechanicType: "legacy_promo" as const,
+    promoThresholdQuantity: null,
+    msrpPrice: null,
+    partnerPrice: null,
+    specialPrice: { amount: 90, currency: "MDL" },
+    price: { amount: 90, currency: "MDL" },
+    availableQuantity: 2,
+    expectedArrivalDate: null,
   };
 }
 
