@@ -63,15 +63,21 @@ Same disposable dataset, warmed once, ten calls per model/context, milliseconds 
 
 STANDARD and mixed work became more bounded. The 20-line campaign measurement was ~2% slower; there is no claim of universal speedup. Earlier same-size campaign samples varied up to ~206 ms. No new polling, cron, log stream, infrastructure project, per-item network call or recurring invocation was added; cart indicator is server-rendered.
 
-## N–O: production release gate and Git
+## N?O: canonical release preparation
 
-- Official linked migration-history verifier: **548 remote versions**, no remote-only version; pending **20261005000000 only**.
-- Official linked production dry-run: proposes only `20261005000000_campaign_intent_cart.sql`; no seeds or roles, no migration applied.
-- Canonical Vercel identity verified: project `prj_VrGa1zrCDn9BS0nmAvfsTY1FySeA`, team `team_GC8w4bvuJjCLVzwIS4cApsHZ`, `vbc-b2b-portal`, domains `nsd.md` / `www.nsd.md`. No new/relinked Vercel project.
-- Current origin/main and task base: `eecfa4d5113bdaf4c66fc51a6da5b5d2d6abe205`.
-- Current READY production: `a4ac5ca027082c279c01054b28d8a7da203363a1`, deployment `dpl_3dfGydEGNaFzHpvTko7ZJKJWuYbU`, from the existing dashboard-hotfix branch. It contains four commits absent from canonical main: `c821ee13`, `93b0ffb8`, `dd970dfb`, `a4ac5ca0`.
-- Owner decision requested before promoting those unrelated existing production commits into main. Releasing the older base would undo accepted production UI changes. Production feature migration/push/deployment therefore remain pending.
-- Same feature worktree/branch retained; no unrelated user files, secrets, generated builds, protected browser artifacts or CURRENT_TASK are staged.
+Owner approved exact production lineage repair on 2026-10-05. See [full commit/parent/file evidence](campaign-intent-production-lineage-20261005.md). All four existing production UI commits are now canonical on main, ending at a4ac5ca027082c279c01054b28d8a7da203363a1; original commit identities preserved. No migration or Campaign Intent changes were mixed into UI promotion.
+
+Original task 5aa5d09674f8ad776d5d80003c18d3c11e518870 rebased without conflicts to 18b560fa494ff7d9c2c2c467de94637fd8efe28c. Task migration patch is identical before/after rebase.
+
+Rebased acceptance: clean disposable replay **549 migrations PASS**; five mechanics, reviewed invalidation, exact-line mutations, immutable orders, qualified/unqualified provenance and 1C payload parity PASS; authenticated REST forgery/cross-company/publication/idempotency/measurement PASS; concurrent publication and expiry/PROMO/audience invalidation PASS. TypeScript PASS, focused ESLint **0 errors / 3 pre-existing fixture warnings**, build PASS, **55 focused suites / 529 tests PASS** (54 / 506 plus exact cart service suite / 23). Diff check PASS.
+
+Rebased real Partner UI: Catalog **STANDARD 166**, Offer **CAMPAIGN 149** with badge, mixed **2 STANDARD ? 166 + 1 CAMPAIGN ? 149 = 481**. Responsive settled row widths 742 / 719 / 341 at 1440 / 768 / 390; scroll widths 1440 / 753 / 375. No settled collision or horizontal overflow; console warning/error list empty. Existing desktop-sidebar breakpoint transition briefly retains its previous width while client viewport state updates; settled responsive UI verified.
+
+Disposable Pay Now remained disabled by existing configuration/freshness guards; the fixture cannot reach a real payment provider. A stale fixture freshness warning appeared during the multi-minute UI flow; price/FX and payment guards were not bypassed. Service/checkout/rate/payment regressions and actual isolated order/ERP parity passed. No production order, payment, campaign or cart mutation is part of this acceptance.
+
+Rebased paired performance, ten warm calls, same fixture / transaction, ms: STANDARD 20 **93.405 ? 40.344**, CAMPAIGN 20 **89.587 ? 92.932**, mixed 20 **108.741 ? 64.927**; STANDARD 50 **215.454 ? 179.148**, CAMPAIGN 50 **551.294 ? 179.125**, mixed 50 **178.474 ? 139.346**. Concurrent local build/replay introduces timing variance; campaign-20 ~3.7% slower, no universal-speedup claim. Still no per-item network calls, cron, polling or success log stream.
+
+Canonical project verified: Vercel prj_VrGa1zrCDn9BS0nmAvfsTY1FySeA / team_GC8w4bvuJjCLVzwIS4cApsHZ / vbc-b2b-portal; Supabase psfbmdfezgyruscqbqbn; nsd.md and www.nsd.md. Pre-release official verifier: **548 remote versions**, pending **20261005000000 only**. Linked dry-run proposes only this migration, no seeds or roles. Production release must use this exact file in canonical main, repeat verifier/dry-run, apply once, then deploy the canonical UI+feature superset. Final live deployment/SHA/ledger evidence is returned in the release report.
 
 ## Local incident disposition and safeguard
 
