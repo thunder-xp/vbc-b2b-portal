@@ -10,7 +10,7 @@ import { listIconButton, listInput } from "./purchasing-list-presentation";
 
 type RowCartState = "idle" | "pending" | "success" | "error";
 
-export function PurchasingListProductRow({ line, locale, editable, selected, first, last, cartAvailable, cartDisabled, cartState, onAddToCart, onSelect, onQuantity, onMove }: {
+export function PurchasingListProductRow({ line, locale, editable, selected, first, last, cartAvailable, cartDisabled, cartDisabledReason, cartState, onAddToCart, onSelect, onQuantity, onMove }: {
   line: PurchasingListLineDto;
   locale: PartnerLocale;
   editable: boolean;
@@ -19,6 +19,7 @@ export function PurchasingListProductRow({ line, locale, editable, selected, fir
   last: boolean;
   cartAvailable: boolean;
   cartDisabled: boolean;
+  cartDisabledReason: string | null;
   cartState: RowCartState;
   onAddToCart: () => void;
   onSelect: (checked: boolean) => void;
@@ -54,10 +55,10 @@ export function PurchasingListProductRow({ line, locale, editable, selected, fir
     </div>
     <div className="col-start-3 row-start-3 flex justify-end self-end xl:col-start-auto xl:row-start-auto xl:self-center" data-row-actions>
       {cartAvailable ? <>
-        <IconActionTooltip align="end" label={editorCopy.addItemToCart}>
+        <IconActionTooltip align="end" label={cartDisabledReason ?? editorCopy.addItemToCart}>
           <button
             aria-busy={cartState === "pending"}
-            aria-label={editorCopy.addItemToCart}
+            aria-label={cartDisabledReason ? `${editorCopy.addItemToCart}. ${cartDisabledReason}` : editorCopy.addItemToCart}
             className={`${listIconButton} ${cartState === "success" ? "bg-emerald-50 text-emerald-700" : cartState === "error" ? "bg-rose-50 text-rose-700" : ""}`}
             data-cart-state={cartState}
             data-row-cart-action

@@ -58,7 +58,13 @@ export class SupabasePurchasingListRepository implements PurchasingListRepositor
   async mergeIntoCart(input: Parameters<PurchasingListRepository["mergeIntoCart"]>[0]) {
     const { data, error } = await (await createClient()).rpc("merge_purchasing_list_into_cart", { target_list_id: input.listId, target_request_key: input.requestKey, target_request_fingerprint: input.requestFingerprint, target_items: input.items.map((item) => ({ item_id: item.itemId, product_id: item.productId, quantity: item.quantity })), target_summary: input.summary });
     if (error || !isRecord(data)) throw new PurchasingListRepositoryError(error?.code ?? null);
-    return { cartId: text(data.cart_id), repeated: data.repeated === true };
+    return {
+      cartId: text(data.cart_id),
+      repeated: data.repeated === true,
+      added: Number(data.added ?? 0),
+      skipped: Number(data.skipped ?? 0),
+      insufficientStock: Number(data.insufficient_stock ?? 0),
+    };
   }
 
   private async rpcList(name: string, args: Record<string, unknown>): Promise<PurchasingList> {

@@ -120,6 +120,7 @@ export interface CartService {
     intentVersion: number;
   }>;
   getItemCount(userId: string): Promise<number>;
+  getQuickOrderState(userId: string): Promise<QuickOrderCartStateDto>;
   addItem(userId: string, productId: string, quantity: number): Promise<number>;
   addItems(userId: string, selections: LiveSelectionCartInput[]): Promise<LiveSelectionCartResult>;
   updateQuantity(userId: string, itemId: string, quantity: number): Promise<number>;

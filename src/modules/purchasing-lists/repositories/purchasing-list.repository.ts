@@ -16,7 +16,7 @@ export interface PurchasingListRepository {
   removeItems(input: { listId: string; expectedRevision: number; itemIds: string[] }): Promise<PurchasingList>;
   setArchived(input: { listId: string; expectedRevision: number; archived: boolean }): Promise<PurchasingList>;
   duplicate(input: { listId: string; name: string }): Promise<PurchasingList>;
-  mergeIntoCart(input: { listId: string; requestKey: string; requestFingerprint: string; items: Array<{ itemId: string; productId: string; quantity: number }>; summary: Record<string, number> }): Promise<{ cartId: string; repeated: boolean }>;
+  mergeIntoCart(input: { listId: string; requestKey: string; requestFingerprint: string; items: Array<{ itemId: string; productId: string; quantity: number }>; summary: Record<string, number> }): Promise<{ cartId: string; repeated: boolean; added: number; skipped: number; insufficientStock: number }>;
 }
 
 export class PurchasingListRepositoryError extends Error {

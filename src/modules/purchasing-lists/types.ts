@@ -25,11 +25,14 @@ export type PurchasingListLineDto = Omit<
   expectedArrivalQuantity: number | null;
   state: CommercialProductState;
   stateLabel: string;
+  existingCartQuantity: number;
+  canAddToCart: boolean;
+  cartAdmissionBlocker: "INSUFFICIENT_KNOWN_STOCK" | "PRODUCT_UNAVAILABLE" | null;
   canConvert: boolean;
 };
 export type PurchasingListDetailDto = PurchasingList & { ownerName: string; canManage: boolean; lines: PurchasingListLineDto[] };
 export type PurchasingListPageDto = { records: PurchasingListSummaryDto[]; page: number; totalPages: number; totalCount: number };
-export type PurchasingListConversionResultDto = { repeated: boolean; destinationId: string | null; added: number; skipped: number; missingPrice: number; inactive: number; unavailable: number };
+export type PurchasingListConversionResultDto = { repeated: boolean; destinationId: string | null; added: number; skipped: number; insufficientStock: number; missingPrice: number; inactive: number; unavailable: number };
 
 export type LiveCommerceKitSummaryDto = {
   id: string;

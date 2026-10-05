@@ -45,8 +45,9 @@ describe("purchasing list UI", () => {
 
   it("adds one kit row with its current quantity through the existing list-to-cart action", async () => {
     const initial = detail();
+    initial.lines[0].availableStock = 10;
     render(<PurchasingListEditor initial={initial} />);
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Количество" }), { target: { value: "60" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Количество" }), { target: { value: "5" } });
     const rowAction = screen.getByRole("button", { name: "Добавить в корзину" });
     expect(rowAction).toHaveClass("size-11");
     expect(rowAction).toHaveAttribute("data-cart-state", "idle");
@@ -56,7 +57,7 @@ describe("purchasing list UI", () => {
     await waitFor(() => expect(actions.addPurchasingListToCartAction).toHaveBeenCalledExactlyOnceWith({
       listId: initial.id,
       requestKey: expect.any(String),
-      selections: [{ itemId: initial.lines[0].id, quantity: 60 }],
+      selections: [{ itemId: initial.lines[0].id, quantity: 5 }],
     }));
     expect(initial.lines[0].quantity).toBe(2);
     expect(actions.updatePurchasingListItemsAction).not.toHaveBeenCalled();
@@ -65,13 +66,31 @@ describe("purchasing list UI", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("keeps an unavailable row visible but governed by the existing conversion state", () => {
+  it("updates the local final-quantity decision after a successful row add", async () => {
+    const initial = detail();
+    render(<PurchasingListEditor initial={initial} />);
+    await userEvent.click(screen.getByRole("button", { name: "Добавить в корзину" }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Количество" }), { target: { value: "4" } });
+    expect(screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ })).toBeDisabled();
+  });
+
+  it("keeps review-required rows enabled when stock admission passes", () => {
     const initial = detail();
     initial.lines[0].canConvert = false;
     initial.lines[0].state = "requires_review";
     render(<PurchasingListEditor initial={initial} />);
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeEnabled();
     expect(actions.addPurchasingListToCartAction).not.toHaveBeenCalled();
+  });
+
+  it("disables the row action when final quantity exceeds known stock and exposes the reason", () => {
+    const initial = detail();
+    initial.lines[0].existingCartQuantity = 4;
+    render(<PurchasingListEditor initial={initial} />);
+    const action = screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ });
+    expect(action).toBeDisabled();
+    expect(screen.getByRole("tooltip", { name: /Недостаточно товара на складе/ })).toBeInTheDocument();
   });
 
   it("keeps archived lists immutable and removes conversion controls", () => {
@@ -252,4 +271,4 @@ describe("purchasing list UI", () => {
   });
 });
 
-function detail(): PurchasingListDetailDto { return { id: "33333333-3333-4333-8333-333333333333", companyId: "company-1", name: "Install kit", description: null, visibility: "private", createdBy: "user-1", updatedBy: "user-1", revision: 1, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", archivedAt: null, ownerName: "Partner", canManage: true, lines: [{ id: "44444444-4444-4444-8444-444444444444", listId: "33333333-3333-4333-8333-333333333333", productId: "55555555-5555-4555-8555-555555555555", quantity: 2, position: 1, note: null, sourceType: "manual", sourceReferenceId: null, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", sku: "400691", productName: "Very long camera product name that must wrap on mobile layouts", slug: "camera", imageUrl: null, currentPartnerPrice: "$10.00", currentPartnerPriceAmount: 10, currentPartnerCurrencyCode: "USD", currentRetailPrice: "1 000 MDL", currentRetailPriceAmount: 1000, currentRetailCurrencyCode: "MDL", availableStock: 5, expectedArrivalDate: "2026-07-25", expectedArrivalQuantity: 10, state: "available", stateLabel: "Доступно", canConvert: true }] }; }
+function detail(): PurchasingListDetailDto { return { id: "33333333-3333-4333-8333-333333333333", companyId: "company-1", name: "Install kit", description: null, visibility: "private", createdBy: "user-1", updatedBy: "user-1", revision: 1, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", archivedAt: null, ownerName: "Partner", canManage: true, lines: [{ id: "44444444-4444-4444-8444-444444444444", listId: "33333333-3333-4333-8333-333333333333", productId: "55555555-5555-4555-8555-555555555555", quantity: 2, position: 1, note: null, sourceType: "manual", sourceReferenceId: null, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", sku: "400691", productName: "Very long camera product name that must wrap on mobile layouts", slug: "camera", imageUrl: null, currentPartnerPrice: "$10.00", currentPartnerPriceAmount: 10, currentPartnerCurrencyCode: "USD", currentRetailPrice: "1 000 MDL", currentRetailPriceAmount: 1000, currentRetailCurrencyCode: "MDL", availableStock: 5, existingCartQuantity: 0, canAddToCart: true, cartAdmissionBlocker: null, expectedArrivalDate: "2026-07-25", expectedArrivalQuantity: 10, state: "available", stateLabel: "Доступно", canConvert: true }] }; }

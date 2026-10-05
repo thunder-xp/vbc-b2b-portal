@@ -103,8 +103,11 @@ export function PurchasingListEditor({
       });
       const added = result.success && result.data.added > 0 && Boolean(result.data.destinationId);
       setRowCartFeedback({ itemId: line.id, state: added ? "success" : "error" });
+      setCartRequestKey(crypto.randomUUID());
       if (added) {
-        setCartRequestKey(crypto.randomUUID());
+        setLines((current) => current.map((item) => item.id === line.id
+          ? { ...item, existingCartQuantity: item.existingCartQuantity + line.quantity }
+          : item));
         router.refresh();
       }
     });
@@ -178,12 +181,16 @@ export function PurchasingListEditor({
       <h2 className="font-semibold">{initial.isSystemFavorites ? copy.favoritesEmpty : copy.emptyList}</h2>
       <Link className={`${listPrimaryButton} mt-3`} href="/cabinet/catalog">{copy.addProducts}</Link>
     </section> : <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white">
-      {lines.map((line, index) => <PurchasingListProductRow cartAvailable={!initial.archivedAt} cartDisabled={pending || !line.canConvert} cartState={rowCartFeedback?.itemId === line.id ? rowCartFeedback.state : "idle"} editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
+      {lines.map((line, index) => {
+        const insufficientStock = line.availableStock !== null && line.existingCartQuantity + line.quantity > line.availableStock;
+        const cartDisabledReason = insufficientStock ? editorCopy.insufficientStock : line.cartAdmissionBlocker === "PRODUCT_UNAVAILABLE" ? line.stateLabel : null;
+        return <PurchasingListProductRow cartAvailable={!initial.archivedAt} cartDisabled={pending || Boolean(cartDisabledReason)} cartDisabledReason={cartDisabledReason} cartState={rowCartFeedback?.itemId === line.id ? rowCartFeedback.state : "idle"} editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
         onAddToCart={() => addLineToCart(line)}
         onMove={(direction) => move(index, direction)}
         onQuantity={(quantity) => { setRowCartFeedback((current) => current?.itemId === line.id ? null : current); setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity } : item)); }}
         onSelect={(checked) => setSelected((current) => { const next = new Set(current); if (checked) next.add(line.id); else next.delete(line.id); return next; })}
-        selected={selected.has(line.id)} />)}
+        selected={selected.has(line.id)} />;
+      })}
     </ul>}
   </div>;
 }

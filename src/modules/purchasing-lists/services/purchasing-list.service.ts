@@ -218,10 +218,11 @@ export class PurchasingListService {
     const record = await this.repository.findById(requireUuid(listId));
     if (!record || record.companyId !== companyId) throw new NotFoundError("Purchasing list was not found.");
     const productIds = record.items.map((item) => item.productId);
-    const [products, commercial, canManage] = await Promise.all([
+    const [products, commercial, canManage, cartState] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
       this.pricingInventoryService.getProductCommercialViews(userId, productIds),
       this.permissionService.hasPermission(userId, companyId, MANAGE_PERMISSION),
+      this.cartService?.getQuickOrderState(userId) ?? Promise.resolve({ productQuantities: {} as Record<string, number>, totalUnitCount: 0 }),
     ]);
     const productById = new Map(products.map((product) => [product.id, product]));
     const commercialById = new Map(commercial.map((view) => [view.productId, view]));
@@ -231,6 +232,8 @@ export class PurchasingListService {
       lines: record.items.map((item) => {
         const product = productById.get(item.productId);
         const view = commercialById.get(item.productId);
+        const availableStock = view?.stock?.exactAvailableQuantity ?? null;
+        const existingCartQuantity = cartState.productQuantities[item.productId] ?? 0;
         const state = view?.partnerPrice
           ? classifyCommercialProductState({
               productExists: Boolean(product),
@@ -262,11 +265,18 @@ export class PurchasingListService {
           currentRetailPrice: view?.retailPrice?.formattedAmount ?? null,
           currentRetailPriceAmount: view?.retailPrice?.amount ?? null,
           currentRetailCurrencyCode: view?.retailPrice?.currencyCode ?? null,
-          availableStock: view?.stock?.exactAvailableQuantity ?? null,
+          availableStock,
           expectedArrivalDate: view?.stock?.expectedArrival?.expectedDate ?? null,
           expectedArrivalQuantity: view?.stock?.expectedArrival?.expectedQuantity ?? null,
           state,
           stateLabel: commercialProductStateLabels[state],
+          existingCartQuantity,
+          canAddToCart: Boolean(product && (availableStock === null || existingCartQuantity + item.quantity <= availableStock)),
+          cartAdmissionBlocker: !product
+            ? "PRODUCT_UNAVAILABLE"
+            : availableStock !== null && existingCartQuantity + item.quantity > availableStock
+              ? "INSUFFICIENT_KNOWN_STOCK"
+              : null,
           canConvert: Boolean(product && !(["inactive", "missing_price", "requires_review"] as const).includes(state as never)),
         };
       }),
@@ -363,12 +373,12 @@ export class PurchasingListService {
     ])) : null;
     const lines = detail.lines.filter((line) => !selected || selected.has(line.id));
     if (!lines.length) throw new InvalidStateError("Select at least one product.");
-    const valid = lines.filter((line) => line.canConvert);
+    const valid = lines.filter((line) => line.cartAdmissionBlocker !== "PRODUCT_UNAVAILABLE");
     const summary = summarize(lines);
-    if (!valid.length) return { repeated: false, destinationId: null, added: 0, ...summary };
+    if (!valid.length) return { repeated: false, destinationId: null, added: 0, skipped: lines.length, insufficientStock: 0, ...summary };
     const items = valid.map((line) => ({ itemId: line.id, productId: line.productId, quantity: selected?.get(line.id) ?? line.quantity }));
     const mutation = await this.repository.mergeIntoCart({ listId: detail.id, requestKey: requireUuid(input.requestKey), requestFingerprint: fingerprint(detail.id, items), items, summary });
-    return { repeated: mutation.repeated, destinationId: mutation.cartId, added: items.length, ...summary };
+    return { repeated: mutation.repeated, destinationId: mutation.cartId, added: mutation.added, skipped: mutation.skipped + (lines.length - valid.length), insufficientStock: mutation.insufficientStock, ...summary };
   }
 
   async createEstimate(userId: string, input: { listId: string; name: string; requestKey: string; itemIds?: string[] }) {
@@ -445,7 +455,7 @@ async function listMutation<T>(operation: () => Promise<T>) {
   }
 }
 
-function summarize(lines: PurchasingListDetailDto["lines"]) { return { skipped: lines.filter((line) => line.state === "requires_review").length, missingPrice: lines.filter((line) => line.state === "missing_price").length, inactive: lines.filter((line) => line.state === "inactive").length, unavailable: lines.filter((line) => line.state === "temporarily_unavailable").length }; }
+function summarize(lines: PurchasingListDetailDto["lines"]) { return { missingPrice: lines.filter((line) => line.state === "missing_price").length, inactive: lines.filter((line) => line.state === "inactive").length, unavailable: lines.filter((line) => line.state === "temporarily_unavailable").length }; }
 function fingerprint(listId: string, items: Array<{ itemId: string; quantity: number }>) { return createHash("sha256").update(`${listId}|${items.slice().sort((a, b) => a.itemId.localeCompare(b.itemId)).map((item) => `${item.itemId}:${item.quantity}`).join("|")}`).digest("hex"); }
 function withoutProductIds<T extends { productIds: unknown }>(record: T): Omit<T, "productIds"> { const { productIds, ...rest } = record; void productIds; return rest; }
 function withoutItems<T extends { items: unknown }>(record: T): Omit<T, "items"> { const { items, ...rest } = record; void items; return rest; }
