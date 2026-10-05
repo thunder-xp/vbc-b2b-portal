@@ -54,20 +54,23 @@ describe("OpportunityCard", () => {
     expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
   });
 
-  it("classifies lane geometry from content and keeps the wide-card action order", () => {
+  it("renders the product-backed Variant 2 card as three ordered horizontal zones", () => {
     expect(opportunityPresentationVariant(base)).toBe("wide");
     expect(opportunityPresentationVariant({ ...base, product: null, template: { id: "kit-1", name: "Kit" } })).toBe("compact");
     const { container } = render(<OpportunityCard companyId="company-1" opportunity={base} userId="user-1" />);
+    const card = container.querySelector('[data-opportunity-card]');
+    expect(card).toHaveAttribute("data-opportunity-layout", "horizontal-v2");
+    expect(Array.from(card?.querySelectorAll(":scope > [data-opportunity-zone]") ?? []).map((zone) => zone.getAttribute("data-opportunity-zone"))).toEqual(["image", "information", "commercial"]);
+    expect(card).toHaveClass("lg:grid-cols-[6.5rem_minmax(0,1fr)_11.5rem]");
     const actions = container.querySelector("[data-opportunity-actions]");
     expect(actions).not.toBeNull();
-    expect(actions).toHaveClass("flex-wrap", "sm:flex-nowrap");
-    expect(actions?.firstElementChild).toHaveClass("w-full", "sm:flex-1");
     expect(within(actions as HTMLElement).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim())).toEqual([
-      "В набор",
       "Добавить в избранное",
       "Добавить в смету",
       "В сравнение",
+      "Не показывать: Camera",
     ]);
+    expect(screen.getByRole("button", { name: "В набор" })).toBeInTheDocument();
   });
 
   it("renders only the permitted price serialized by the server", () => {
@@ -92,7 +95,7 @@ describe("OpportunityCard", () => {
     expect(screen.getByText("Дополнение к DH-IPC-HFW2531SP-S-0280B-S2 · 4 подтверждённых закупок.")).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(1);
     expect(screen.queryByText("Ваша цена")).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Партнёрская цена/)).toHaveClass("text-lg", "font-bold", "text-emerald-700");
+    expect(screen.getByLabelText(/Партнёрская цена/)).toHaveClass("text-base", "font-semibold", "tabular-nums", "text-emerald-700");
     expect(screen.queryByText("Розничная цена")).not.toBeInTheDocument();
   });
 
@@ -153,9 +156,23 @@ describe("OpportunityCard", () => {
   });
 
   it("renders confirmed arrival without relying on color", () => {
-    render(<OpportunityCard opportunity={{ ...base, type: "relevant_product_arrival_confirmed", reasonCode: "confirmed_arrival", reasonMetadata: { expectedDate: "2026-08-17", expectedQuantity: 140 }, product: { ...base.product!, availableQuantity: 0, expectedArrivalDate: "2026-08-17", expectedArrivalQuantity: 140 } }} />);
+    const { container } = render(<OpportunityCard opportunity={{ ...base, type: "relevant_product_arrival_confirmed", reasonCode: "confirmed_arrival", reasonMetadata: { expectedDate: "2026-08-17", expectedQuantity: 140 }, secondaryReasons: ["repeat_purchase", "relevant_merchandising"], product: { ...base.product!, availableQuantity: 0, expectedArrivalDate: "2026-08-17", expectedArrivalQuantity: 140 } }} />);
     expect(screen.getByText(/Поступление 140 шт/)).toBeInTheDocument();
     expect(screen.getByText("Поступление")).toBeInTheDocument();
+    expect(container.querySelector('[data-opportunity-status]')).toHaveTextContent("Ожидается поступление");
+    expect(container.querySelector('[data-opportunity-identity]')).toHaveTextContent("SKU 400123 · Camera");
+    expect(container.querySelector('[data-opportunity-tags]')).toHaveTextContent("Покупали ранее");
+    expect(container.querySelector('[data-opportunity-tags]')).toHaveTextContent("Предложение Novotech");
+    expect(container.querySelector('[data-opportunity-price]')).toHaveTextContent("97,44 $");
+    expect(container.querySelector('[data-opportunity-availability]')).toHaveTextContent("17 августа 2026 г.");
+  });
+
+  it("leaves no tag placeholder and safely wraps a long product model", () => {
+    const longName = "DH-SDT3E410-8P-MB-A-PV1-VERY-LONG-COMMERCIAL-MODEL";
+    const { container } = render(<OpportunityCard opportunity={{ ...base, secondaryReasons: [], product: { ...base.product!, name: longName } }} />);
+    expect(container.querySelector('[data-opportunity-tags]')).toBeNull();
+    expect(screen.getByRole("link", { name: longName })).toHaveClass("[overflow-wrap:anywhere]");
+    expect(container.querySelector('[data-opportunity-identity]')?.textContent?.indexOf("SKU 400123")).toBeLessThan(container.querySelector('[data-opportunity-identity]')?.textContent?.indexOf(longName) ?? -1);
   });
 
   it("renders template readiness as a separate actionable opportunity", () => {

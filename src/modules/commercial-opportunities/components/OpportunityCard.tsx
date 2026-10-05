@@ -80,50 +80,34 @@ export function OpportunityCard({
     });
   }
 
+  if (product) {
+    return <ProductOpportunityCard
+      alreadyInCart={alreadyInCart}
+      canAddToOrder={canAddToOrder}
+      canAddToSpecification={canAddToSpecification}
+      canManagePurchasingLists={canManagePurchasingLists}
+      companyId={companyId}
+      dismiss={dismiss}
+      href={href}
+      locale={locale}
+      message={message}
+      opportunity={opportunity}
+      partnerPriceOnly={partnerPriceOnly}
+      pending={pending}
+      title={title}
+      userId={userId}
+    />;
+  }
+
   return (
-    <article className={`grid min-w-0 self-start gap-3 rounded-md border border-zinc-200 bg-white p-3 ${product ? "sm:grid-cols-[4rem_minmax(0,1fr)]" : ""}`} data-opportunity-card>
-      {product ? (
-        <Link
-          aria-label={`${locale === "ro" ? "Deschide produsul" : "Открыть товар"} ${product.name}`}
-          className="relative flex size-16 items-center justify-center overflow-hidden rounded-md bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-          href={href}
-          prefetch={false}
-        >
-          <CatalogCardImage
-            alt={`${product.name}, ${product.sku}`}
-            sizes="64px"
-            src={product.reference?.thumbnail ?? product.imageUrl}
-            variant="md"
-          />
-        </Link>
-      ) : null}
+    <article className="grid min-w-0 self-start gap-3 rounded-md border border-zinc-200 bg-white p-3" data-opportunity-card>
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase text-emerald-700">
               {opportunityLabel(opportunity.type, locale)}
             </p>
-            {product ? (
-              <p className="mt-1 text-xs text-zinc-500">
-                {locale === "ro" ? "Cod produs" : "Артикул"} {product.sku}
-              </p>
-            ) : null}
-            <h2
-              className="mt-1 line-clamp-2 font-semibold text-zinc-950"
-              title={title}
-            >
-              {product ? (
-                <Link
-                  className="rounded hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
-                  href={href}
-                  prefetch={false}
-                >
-                  {title}
-                </Link>
-              ) : (
-                title
-              )}
-            </h2>
+            <h2 className="mt-1 line-clamp-2 font-semibold text-zinc-950" title={title}>{title}</h2>
           </div>
           <button
             aria-label={`${locale === "ro" ? "Nu afișa" : "Не показывать"}: ${title}`}
@@ -153,69 +137,16 @@ export function OpportunityCard({
           </div>
         ) : null}
 
-        {product ? (
-          <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-md bg-zinc-50 text-sm">
-            <div className="min-w-0 px-2 py-1.5">{priceLabel(product, locale, partnerPriceOnly)}</div>
-            <div className="min-w-0 px-2 py-1.5">{availabilityLabel(product, locale)}</div>
-          </div>
-        ) : null}
-
         <div className="mt-3 flex flex-wrap items-center gap-2 sm:flex-nowrap" data-opportunity-actions>
-          {product && canAddToOrder && canAddProduct(opportunity) ? (
-            <div className="w-full flex-none sm:min-w-[11rem] sm:flex-1">
-              <CatalogQuantityCartAction
-                initialQuantity={suggestedQuantity(opportunity)}
-                productId={product.id}
-                selectionProduct={opportunitySelectionProduct(opportunity, locale)}
-                sourceSurface="opportunity_card"
-                successEventName="opportunity_added_to_cart"
-              />
-            </div>
-          ) : null}
-          {alreadyInCart ? (
-            <p className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-4 text-sm font-semibold text-emerald-800">
-              {locale === "ro" ? "Deja în coș" : "Уже в корзине"}
-            </p>
-          ) : null}
-          {product && canManagePurchasingLists ? (
-            <FavoriteProductButton
-              compact
-              initialSaved={false}
-              productId={product.id}
-            />
-          ) : null}
-          {product && canAddToSpecification ? (
-            <ProductSpecificationAction compact productId={product.id} />
-          ) : null}
-          {product && companyId && userId ? (
-            <ProductComparisonAction categoryId={null} companyId={companyId} compact productId={product.id} userId={userId} />
-          ) : null}
-          {!product ? (
-            <Link
-              className={actionClassName.primary}
-              href={href}
-              onClick={() =>
-                recordBehaviorInteraction({
-                  eventName: template
-                    ? "opportunity_template_opened"
-                    : "opportunity_repeat_started",
-                  metadataSafe: { opportunityType: opportunity.type },
-                  route: "/cabinet/opportunities",
-                  sourceSurface: "opportunity_card",
-                })
-              }
-              prefetch={false}
-            >
-              {template
-                ? locale === "ro"
-                  ? "Deschide seturile"
-                  : "Открыть комплекты"
-                : locale === "ro"
-                  ? "Repetă achiziția"
-                  : "Повторить закупку"}
-              <ArrowRight aria-hidden="true" className="size-4" />
-            </Link>
-          ) : null}
+          <Link
+            className={actionClassName.primary}
+            href={href}
+            onClick={() => recordBehaviorInteraction({ eventName: template ? "opportunity_template_opened" : "opportunity_repeat_started", metadataSafe: { opportunityType: opportunity.type }, route: "/cabinet/opportunities", sourceSurface: "opportunity_card" })}
+            prefetch={false}
+          >
+            {template ? locale === "ro" ? "Deschide seturile" : "Открыть комплекты" : locale === "ro" ? "Repetă achiziția" : "Повторить закупку"}
+            <ArrowRight aria-hidden="true" className="size-4" />
+          </Link>
         </div>
         {message ? (
           <p
@@ -225,6 +156,118 @@ export function OpportunityCard({
             {message}
           </p>
         ) : null}
+      </div>
+    </article>
+  );
+}
+
+function ProductOpportunityCard({
+  alreadyInCart,
+  canAddToOrder,
+  canAddToSpecification,
+  canManagePurchasingLists,
+  companyId,
+  dismiss,
+  href,
+  locale,
+  message,
+  opportunity,
+  partnerPriceOnly,
+  pending,
+  title,
+  userId,
+}: {
+  alreadyInCart?: boolean;
+  canAddToOrder: boolean;
+  canAddToSpecification: boolean;
+  canManagePurchasingLists: boolean;
+  companyId: string | null;
+  dismiss: () => void;
+  href: string;
+  locale: PartnerLocale;
+  message: string | null;
+  opportunity: CommercialOpportunity;
+  partnerPriceOnly: boolean;
+  pending: boolean;
+  title: string;
+  userId: string | null;
+}) {
+  const product = opportunity.product!;
+  return (
+    <article className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-md border border-zinc-200 bg-white p-3 transition-colors hover:border-zinc-300 hover:bg-zinc-50/30 lg:grid-cols-[6.5rem_minmax(0,1fr)_11.5rem]" data-opportunity-card data-opportunity-layout="horizontal-v2">
+      <Link
+        aria-label={`${locale === "ro" ? "Deschide produsul" : "Открыть товар"} ${product.name}`}
+        className="relative flex size-[5.5rem] items-center justify-center self-start overflow-hidden rounded-md bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 lg:size-[6.5rem]"
+        data-opportunity-zone="image"
+        href={href}
+        prefetch={false}
+      >
+        <CatalogCardImage
+          alt={`${product.name}, ${product.sku}`}
+          sizes="(min-width: 1024px) 104px, 88px"
+          src={product.reference?.thumbnail ?? product.imageUrl}
+          variant="md"
+        />
+      </Link>
+
+      <div className="min-w-0 self-start" data-opportunity-zone="information">
+        <p className="text-[11px] font-semibold uppercase leading-[1.35] text-emerald-700" data-opportunity-status>
+          {opportunityLabel(opportunity.type, locale)}
+        </p>
+        <p className="mt-1 min-w-0 text-[10px] font-medium leading-[1.35] text-zinc-500" data-opportunity-identity>
+          <span className="whitespace-nowrap">SKU {product.sku}</span>
+          <span aria-hidden="true"> · </span>
+          <Link className="text-[13px] font-semibold text-zinc-950 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 [overflow-wrap:anywhere]" href={href} prefetch={false}>
+            {title}
+          </Link>
+        </p>
+        <div className="mt-2 text-[11px] leading-[1.35] text-zinc-700" data-opportunity-reason>
+          {primaryReason(opportunity, locale)}
+        </div>
+        {opportunity.secondaryReasons.length ? (
+          <div className="mt-2 flex flex-wrap gap-1.5" data-opportunity-tags>
+            {opportunity.secondaryReasons.map((reason) => (
+              <span className={`rounded px-2 py-1 text-[10px] font-medium leading-none ${reason === "relevant_merchandising" ? "bg-sky-50 text-sky-800" : "bg-zinc-100 text-zinc-600"}`} key={reason}>
+                {secondaryReason(reason, locale)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="col-span-2 min-w-0 border-t border-zinc-200 pt-3 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-3 lg:pt-0" data-opportunity-zone="commercial">
+        <div className="grid grid-cols-2 gap-3 text-[11px] leading-[1.35] lg:grid-cols-1 lg:gap-2">
+          <div data-opportunity-price>{priceLabel(product, locale, partnerPriceOnly)}</div>
+          <div className="tabular-nums" data-opportunity-availability>{availabilityLabel(product, locale)}</div>
+        </div>
+        {canAddToOrder && canAddProduct(opportunity) ? (
+          <div className="mt-3" data-opportunity-primary-action>
+            <CatalogQuantityCartAction
+              initialQuantity={suggestedQuantity(opportunity)}
+              productId={product.id}
+              selectionProduct={opportunitySelectionProduct(opportunity, locale)}
+              sourceSurface="opportunity_card"
+              successEventName="opportunity_added_to_cart"
+            />
+          </div>
+        ) : null}
+        {alreadyInCart ? <p className="mt-2 text-[11px] font-semibold text-emerald-800">{locale === "ro" ? "Deja în coș" : "Уже в корзине"}</p> : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2" data-opportunity-actions>
+          {canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={false} productId={product.id} /> : null}
+          {canAddToSpecification ? <ProductSpecificationAction compact productId={product.id} /> : null}
+          {companyId && userId ? <ProductComparisonAction categoryId={null} companyId={companyId} compact productId={product.id} userId={userId} /> : null}
+          <button
+            aria-label={`${locale === "ro" ? "Nu afișa" : "Не показывать"}: ${title}`}
+            className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
+            disabled={pending}
+            onClick={dismiss}
+            title={locale === "ro" ? "Nu afișa" : "Не показывать"}
+            type="button"
+          >
+            <EyeOff aria-hidden="true" className="size-4" />
+          </button>
+        </div>
+        {message ? <p aria-live="polite" className="mt-2 text-[11px] font-medium text-emerald-700">{message}</p> : null}
       </div>
     </article>
   );
@@ -355,12 +398,12 @@ function priceLabel(
   const price = product.partnerPrice ?? (partnerOnly ? null : product.retailPrice);
   return price ? (
     <p>
-      {!product.partnerPrice ? <span className="block text-xs text-zinc-500">
+      {!product.partnerPrice ? <span className="block text-[10px] font-medium text-zinc-500">
         {locale === "ro"
             ? "Preț cu amănuntul"
             : "Розничная цена"}
       </span> : null}
-      <strong aria-label={`${product.partnerPrice ? locale === "ro" ? "Preț de partener" : "Партнёрская цена" : locale === "ro" ? "Preț cu amănuntul" : "Розничная цена"}: ${formatPartnerMoney(price.amount, price.currency, locale)}`} className={product.partnerPrice ? "text-lg font-bold text-emerald-700" : undefined}>
+      <strong aria-label={`${product.partnerPrice ? locale === "ro" ? "Preț de partener" : "Партнёрская цена" : locale === "ro" ? "Preț cu amănuntul" : "Розничная цена"}: ${formatPartnerMoney(price.amount, price.currency, locale)}`} className={`block text-base font-semibold tabular-nums ${product.partnerPrice ? "text-emerald-700" : "text-zinc-950"}`}>
         {formatPartnerMoney(price.amount, price.currency, locale)}
       </strong>
     </p>
@@ -377,7 +420,7 @@ function availabilityLabel(
   if ((product.availableQuantity ?? 0) > 0 && (product.availableQuantity ?? 0) <= 5)
     return (
       <p>
-        <span className="block text-xs text-zinc-500">
+        <span className="block text-[10px] font-medium text-zinc-500">
           {locale === "ro" ? "Disponibilitate" : "Наличие"}
         </span>
         <strong>
@@ -389,7 +432,7 @@ function availabilityLabel(
   if ((product.availableQuantity ?? 0) > 0)
     return (
       <p>
-        <span className="block text-xs text-zinc-500">
+        <span className="block text-[10px] font-medium text-zinc-500">
           {locale === "ro" ? "Disponibilitate" : "Наличие"}
         </span>
         <strong>
@@ -401,7 +444,7 @@ function availabilityLabel(
   if (product.expectedArrivalDate)
     return (
       <p>
-        <span className="block text-xs text-zinc-500">
+        <span className="block text-[10px] font-medium text-zinc-500">
           {locale === "ro" ? "Recepție" : "Поступление"}
         </span>
         <strong className="inline-flex items-center gap-1">
