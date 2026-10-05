@@ -41,14 +41,14 @@ export function PartnerLayout({
   return (
     <PartnerLocaleProvider locale={context.locale}>
     <LiveCommerceSelectionProvider canAddToCart={Boolean(context.canAddSelectionToCart)} canCreateEstimate={Boolean(context.canCreateEstimateFromSelection)} canSaveAsKit={Boolean(context.canManagePurchasingLists)}>
-    <div className="group min-h-screen overflow-x-clip bg-zinc-50 text-zinc-950" data-partner-portal data-sidebar-collapsed={context.sidebarCollapsed ? "true" : "false"} lang={context.locale}>
+    <div className="group/partner-shell min-h-screen overflow-x-clip bg-zinc-50 text-zinc-950" data-partner-portal data-sidebar-collapsed={context.sidebarCollapsed ? "true" : "false"} lang={context.locale}>
       <PartnerDesktopSidebar
         companyName={context.companyName}
         hasWorkspaceAccess={hasWorkspaceAccess}
         initialCollapsed={Boolean(context.sidebarCollapsed)}
         navigation={context.navigation}
       />
-      <div className="transition-[padding] duration-150 lg:pl-72 lg:group-data-[sidebar-collapsed=true]:pl-20" data-partner-main-shell>
+      <div className="transition-[padding] duration-150 lg:pl-72 lg:group-data-[sidebar-collapsed=true]/partner-shell:pl-20" data-partner-main-shell>
         <PartnerHeader
           context={context}
           mobileNavigation={(

@@ -93,6 +93,14 @@ const loyaltyNavigationOrder: readonly WorkspaceCapabilityKey[] = ["loyalty_affi
 
 type SidebarNavigationItem = Omit<WorkspaceNavigationItem, "key"> & { key: string };
 
+const COLLAPSED_TOP_LEVEL_CLASS = "min-h-10 w-full justify-center gap-0 px-2 py-2";
+
+function SidebarIconSlot({ active = false, icon: Icon }: { active?: boolean; icon: typeof Gauge }) {
+  return <span className={`inline-flex size-4 shrink-0 items-center justify-center ${active ? "text-emerald-300" : ""}`} data-sidebar-icon-slot>
+    <Icon aria-hidden="true" className="size-4 shrink-0" />
+  </span>;
+}
+
 function SidebarSection({
   children,
   collapsed = false,
@@ -147,10 +155,10 @@ function NavigationItem({
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
   const active = enabled && activeKey === item.key;
   const spacing = sidebarCollapsed
-    ? "min-h-10 justify-center px-2 py-2"
+    ? COLLAPSED_TOP_LEVEL_CLASS
     : submenu
-    ? "relative min-h-8 py-1.5 pl-3 pr-2 text-[11px] before:absolute before:-left-2 before:top-1/2 before:h-px before:w-2 before:-translate-y-px"
-    : "min-h-9 px-2.5 py-1.5 text-xs";
+    ? "relative min-h-8 gap-2.5 py-1.5 pl-3 pr-2 text-[11px] before:absolute before:-left-2 before:top-1/2 before:h-px before:w-2 before:-translate-y-px"
+    : "min-h-9 gap-2.5 px-2.5 py-1.5 text-xs";
   const connectorColor = submenu
     ? active
       ? "before:bg-emerald-400/60"
@@ -184,11 +192,11 @@ function NavigationItem({
     return (
       <span
         aria-label={sidebarCollapsed ? item.label : undefined}
-        className={`flex items-center gap-2.5 rounded-md font-normal text-zinc-500 ${spacing} ${connectorColor}`}
+        className={`flex items-center rounded-md font-normal text-zinc-500 ${spacing} ${connectorColor}`}
         data-sidebar-submenu-item={submenu ? "true" : undefined}
         data-sidebar-top-level={submenu ? undefined : "true"}
       >
-        <Icon aria-hidden="true" className="size-4 shrink-0" />
+        <SidebarIconSlot icon={Icon} />
         <span className={sidebarCollapsed ? "sr-only" : "min-w-0 flex-1 whitespace-nowrap"}>{item.label}</span>
         {sidebarCollapsed ? null : <span className="shrink-0 text-[10px] font-semibold uppercase">{t("common.comingSoon")}</span>}
       </span>
@@ -199,7 +207,7 @@ function NavigationItem({
     <Link
       aria-current={active ? "page" : undefined}
       aria-label={sidebarCollapsed ? item.label : undefined}
-      className={`flex items-center gap-2.5 rounded-md ${fontWeight} outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${connectorColor} ${
+      className={`flex items-center rounded-md ${fontWeight} outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${spacing} ${connectorColor} ${
         active
           ? "bg-emerald-500/15 text-emerald-200"
           : "text-zinc-300 hover:bg-white/10 hover:text-white"
@@ -215,9 +223,9 @@ function NavigationItem({
       tabIndex={expanded ? undefined : -1}
       title={sidebarCollapsed ? item.label : undefined}
     >
-      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      <SidebarIconSlot active={active} icon={Icon} />
       <span className={sidebarCollapsed ? "sr-only" : "min-w-0 flex-1 whitespace-nowrap"}>{item.label}</span>
-      <NavigationPendingIndicator />
+      {sidebarCollapsed ? null : <NavigationPendingIndicator />}
     </Link>
   );
 }
@@ -265,7 +273,7 @@ function ExpandableNavigationGroup({
         aria-controls={id}
         aria-expanded={visualExpanded}
         aria-label={sidebarCollapsed ? accessibleLabel : undefined}
-        className={`flex w-full items-center gap-2.5 rounded-md text-left text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${sidebarCollapsed ? "min-h-10 justify-center px-2 py-2" : "min-h-9 px-2.5 py-1.5"} ${
+        className={`flex w-full items-center rounded-md text-left text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 ${sidebarCollapsed ? COLLAPSED_TOP_LEVEL_CLASS : "min-h-9 gap-2.5 px-2.5 py-1.5"} ${
           routeActive ? "text-emerald-200" : "text-zinc-300 hover:bg-white/10 hover:text-white"
         }`}
         onClick={onToggle}
@@ -273,7 +281,7 @@ function ExpandableNavigationGroup({
         type="button"
         title={sidebarCollapsed ? accessibleLabel : undefined}
       >
-        <Icon aria-hidden="true" className={`size-4 shrink-0 ${routeActive ? "text-emerald-300" : ""}`} />
+        <SidebarIconSlot active={routeActive} icon={Icon} />
         <span className={sidebarCollapsed ? "sr-only" : "min-w-0 flex-1 whitespace-nowrap"}>{label}</span>
         {sidebarCollapsed ? null : <Chevron aria-hidden="true" className="size-4 shrink-0" />}
       </button>

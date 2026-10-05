@@ -17,6 +17,13 @@ describe("partner platform visual unification contract", () => {
     expect(read("src/modules/partner-cabinet/components/PartnerLayout.tsx")).toContain("data-partner-portal");
   });
 
+  it("isolates sidebar state from nested hover and focus helper groups", () => {
+    const layout = read("src/modules/partner-cabinet/components/PartnerLayout.tsx");
+    expect(layout).toContain("group/partner-shell");
+    expect(layout).toContain("group-data-[sidebar-collapsed=true]/partner-shell:pl-20");
+    expect(layout).not.toContain('className="group min-h-screen');
+  });
+
   it("keeps Orders controls in one compact desktop row without explanatory header copy", () => {
     const orders = read("app/(partner)/cabinet/orders/page.tsx");
     expect(orders).not.toContain("copy.eyebrow");

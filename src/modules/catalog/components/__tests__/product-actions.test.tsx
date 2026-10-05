@@ -31,6 +31,26 @@ beforeEach(() => {
 });
 
 describe("product secondary actions", () => {
+  it("does not render a compact product-action tooltip as a static overlay", () => {
+    render(
+      <ProductComparisonAction
+        categoryId="category-1"
+        companyId="company-1"
+        compact
+        productId="product-1"
+        userId="user-1"
+      />,
+    );
+
+    const tooltip = screen.getByRole("tooltip");
+    expect(tooltip).toHaveClass(
+      "hidden",
+      "group-hover/icon-action-tooltip:block",
+      "group-focus-within/icon-action-tooltip:block",
+    );
+    expect(tooltip).not.toHaveClass("block", "group-hover:block", "group-focus-within:block");
+  });
+
   it("stores one user-company comparison set and enforces the four-product limit", () => {
     const { rerender } = render(
       <ProductComparisonAction

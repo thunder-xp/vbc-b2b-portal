@@ -222,6 +222,23 @@ describe("Partner workspace shell", () => {
     expect(screen.getAllByRole("navigation", { name: "Рабочие разделы" })).toHaveLength(1);
   });
 
+  it("uses one alignment slot for every collapsed top-level icon", () => {
+    pathname = "/cabinet";
+    render(<PartnerSidebar collapsed hasWorkspaceAccess navigation={navigation} onCollapsedChange={vi.fn()} />);
+
+    const topLevelItems = Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-top-level="true"]'));
+    expect(topLevelItems.length).toBeGreaterThan(1);
+    for (const item of topLevelItems) {
+      expect(item).toHaveClass("min-h-10", "w-full", "justify-center", "gap-0", "px-2", "py-2");
+      expect(item.querySelector("[data-sidebar-icon-slot]")).toHaveClass("inline-flex", "size-4", "shrink-0", "items-center", "justify-center");
+    }
+
+    const dashboard = document.querySelector<HTMLElement>('[data-sidebar-top-level="true"][href="/cabinet"]');
+    expect(dashboard).toBeInTheDocument();
+    expect(dashboard?.querySelector("[data-sidebar-icon-slot]")).toBeInTheDocument();
+    expect(dashboard?.querySelector('[class*="animate-spin"]')).not.toBeInTheDocument();
+  });
+
   it("moves cart and sign out into the operational header", async () => {
     const user = userEvent.setup();
     render(<PartnerHeader context={{ ...context, cartItemCount: 125 }} />);
