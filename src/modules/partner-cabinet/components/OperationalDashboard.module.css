@@ -9,14 +9,14 @@
 
 @media (min-width: 1280px) {
   .dashboard [data-analytics-context] {
-    min-height: 52px;
+    min-height: 44px;
   }
 
   .dashboard [data-analytics-summary] {
-    min-height: 228px;
+    min-height: 184px;
   }
 
   .dashboard [data-analytics-chart-header] {
-    min-height: 40px;
+    min-height: 32px;
   }
 }

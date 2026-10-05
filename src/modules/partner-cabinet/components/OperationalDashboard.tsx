@@ -337,7 +337,7 @@ function FinanceSection({
         id="dashboard-finance"
         title={partnerText(locale, "dashboard.finance")}
       />
-      <div className="mt-3 flex-1 border border-zinc-200 bg-white p-4" data-finance-panel>
+      <div className="mt-3 flex-1 border border-zinc-200 bg-white p-3" data-analytics-card data-finance-panel>
         {guidance ? <FinancePeriodPanel guidance={guidance} locale={locale} synchronizedAt={summary?.lastSuccessfulAt ?? null} /> : summary ?
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {summary.totals.map((total) => (
@@ -393,7 +393,7 @@ function SalesSection({
         id="dashboard-sales"
         title={partnerText(locale, "dashboard.sales")}
       />
-      <div className="mt-3 flex-1 border border-zinc-200 bg-white p-4" data-sales-panel>
+      <div className="mt-3 flex-1 border border-zinc-200 bg-white p-3" data-analytics-card data-sales-panel>
         {analytics.series.length ? (
           <>
             <div>
@@ -419,7 +419,7 @@ function SalesLineCharts({
   locale: PartnerLocale;
 }) {
   return (
-    <div className="mt-4 border-t border-zinc-200 pt-4" data-dashboard-chart-type="line">
+    <div className="mt-3 border-t border-zinc-200 pt-3" data-dashboard-chart-type="line">
       <div className="flex flex-wrap items-center justify-between gap-2" data-analytics-chart-header>
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.salesDynamics")}</h3>
         <p className="text-xs text-zinc-600">{partnerText(locale, "dashboard.procurementSource")}</p>
@@ -430,12 +430,12 @@ function SalesLineCharts({
       <div className="mt-2 space-y-3">
         {analytics.series.map((series) => (
           <div className="min-w-0 border border-zinc-200 bg-zinc-50/70" data-sales-line-chart={series.currency} key={series.currency}>
-            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-2 py-1.5 text-xs">
+            <div className="flex items-center justify-between gap-2 border-b border-zinc-200 bg-white px-2 py-1 text-xs">
               <span className="font-semibold text-zinc-700">{series.currency}</span>
               <span className="tabular-nums text-zinc-500">{series.orderCount} · {formatAmount(series.total, series.currency, locale)}</span>
             </div>
             <p className="sr-only" id={`dashboard-procurement-summary-${series.currency}`}>{partnerText(locale, "dashboard.salesForPeriod")}: {formatAmount(series.total, series.currency, locale)} · {series.orderCount} {partnerText(locale, "dashboard.salesOrders")} · {formatDate(analytics.periodStart, locale)} — {formatDate(analytics.periodEnd, locale)}</p>
-            <div className="relative h-24">
+            <div className="relative h-20">
               <svg aria-describedby={`dashboard-procurement-summary-${series.currency}`} aria-label={`${partnerText(locale, "dashboard.salesDynamics")}: ${series.currency}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="none" role="img" viewBox="0 0 100 100">
                 {[20, 55, 90].map((y) => <line key={y} stroke="rgb(228 228 231)" strokeWidth="0.5" vectorEffect="non-scaling-stroke" x1="0" x2="100" y1={y} y2={y} />)}
                 <polyline
@@ -458,7 +458,7 @@ function SalesLineCharts({
                 />
               ))}
             </div>
-            <div aria-hidden="true" className="relative h-6 border-t border-zinc-200 bg-white" data-sales-axis>
+            <div aria-hidden="true" className="relative h-7 border-t border-zinc-200 bg-white" data-sales-axis>
               {series.points.filter((point) => point.showLabel).map((point) => (
                 <span
                   className={`absolute top-1 whitespace-nowrap text-[10px] font-medium text-zinc-500 ${point.showLabelOnMobile ? "" : "hidden sm:block"} ${point.labelAlign === "start" ? "" : point.labelAlign === "end" ? "-translate-x-full" : "-translate-x-1/2"}`}

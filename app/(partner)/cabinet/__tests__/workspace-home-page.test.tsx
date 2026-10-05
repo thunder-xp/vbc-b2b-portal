@@ -90,6 +90,13 @@ describe("Partner Workspace operational home", () => {
     expect(cards[1]).toHaveTextContent("Нет возможностей");
     expect(cards[2]).toHaveTextContent("Нет данных");
     expect(cards[4]).toHaveTextContent("Не запланирована");
+    const iconClasses = ["lucide-circle-alert", "lucide-file-text", "lucide-wallet-cards", "lucide-package", "lucide-truck"];
+    expect(cards.map((card, index) => {
+      const icon = card.querySelector("[data-overview-icon]");
+      expect(icon).toHaveAttribute("aria-hidden", "true");
+      expect(icon).toHaveClass("absolute", "right-3", "top-3", "size-4", iconClasses[index]);
+      return icon?.getAttribute("data-overview-icon");
+    })).toEqual(["attention", "sales", "finance", "orders", "shipment"]);
     expect(overview.querySelector("ul")).toBeNull();
     expect(container.querySelector("[data-dashboard-operational-summary]")).toBeNull();
     expect(container.querySelectorAll("[data-attention-card]")).toHaveLength(0);
@@ -112,7 +119,7 @@ describe("Partner Workspace operational home", () => {
     expect(JSON.stringify(attention)).toBe(before);
   });
 
-  it("keeps financial snapshots separate from period turnover and renders a bounded payment list", async () => {
+  it("keeps financial snapshots and chart while removing the dashboard-only payment detail list", async () => {
     const payment = { id: "planned-mdl", eventDate: "2026-09-08", orderNumber: "NS-1", amount: 100, currency: "MDL", timing: "upcoming", relativeHeight: 50, positionPercent: 50, stackIndex: 0, stackCount: 1 };
     const guidance = { ...financeGuidanceData(), paymentGraph: [payment, { ...payment, id: "paid-eur", currency: "EUR", amount: 75, timing: "paid" }] };
     const before = JSON.stringify(guidance);
@@ -122,9 +129,11 @@ describe("Partner Workspace operational home", () => {
     expect(container.querySelectorAll("[data-payment-currency]")).toHaveLength(2);
     expect(container.querySelector('[data-payment-currency="MDL"] [data-payment-bar]')).toHaveAttribute("data-payment-state", "upcoming");
     expect(container.querySelector('[data-payment-currency="EUR"] [data-payment-bar]')).toHaveAttribute("data-payment-state", "paid");
-    expect(container.querySelectorAll("[data-dashboard-payment-row]")).toHaveLength(2);
-    expect(container.querySelectorAll("[data-dashboard-payment-row]")[1]).toHaveTextContent("Дата оплаты");
+    expect(container.querySelector("[data-dashboard-payment-list]")).toBeNull();
+    expect(container.querySelectorAll("[data-dashboard-payment-row]")).toHaveLength(0);
     expect(screen.getByRole("link", { name: "Полный календарь" })).toHaveAttribute("href", "/cabinet/finance#payment-calendar");
+    const panel = container.querySelector("[data-finance-period-panel]");
+    expect(panel?.lastElementChild).toHaveAttribute("data-payment-calendar");
     expect(JSON.stringify(guidance)).toBe(before);
   });
 
@@ -335,6 +344,12 @@ describe("Partner Workspace operational home", () => {
     const { container } = render(await CabinetPage());
     const split = container.querySelector("[data-dashboard-finance-sales]");
     expect(split).toHaveClass("grid", "items-stretch", "xl:grid-cols-2");
+    const financePanel = split?.querySelector("[data-finance-panel]");
+    const salesPanel = split?.querySelector("[data-sales-panel]");
+    expect(financePanel).toHaveAttribute("data-analytics-card");
+    expect(salesPanel).toHaveAttribute("data-analytics-card");
+    expect(financePanel).toHaveClass("flex-1", "p-3");
+    expect(salesPanel).toHaveClass("flex-1", "p-3");
     expect(within(split as HTMLElement).getByRole("heading", { name: finance })).toBeInTheDocument();
     expect(within(split as HTMLElement).getByRole("heading", { name: sales })).toBeInTheDocument();
     expect(within(split as HTMLElement).getByRole("link", { name: new RegExp(openFinance) })).toHaveAttribute("href", "/cabinet/finance");
@@ -342,6 +357,11 @@ describe("Partner Workspace operational home", () => {
     expect(screen.getByRole("heading", { name: dynamics })).toBeInTheDocument();
     expect(container.querySelector('[data-dashboard-chart-type="bar-timeline"]')).toBeInTheDocument();
     expect(container.querySelector('[data-dashboard-chart-type="line"] svg polyline')).toBeInTheDocument();
+    expect(container.querySelector("[data-payment-plot]")).toHaveClass("h-20");
+    expect(container.querySelector('[data-dashboard-chart-type="line"] .h-20')).toBeInTheDocument();
+    expect(container.querySelector("[data-payment-axis]")).toHaveClass("h-7");
+    expect(container.querySelector("[data-sales-axis]")).toHaveClass("h-7");
+    expect(container.querySelector("[data-dashboard-payment-list]")).toBeNull();
     expect(container.querySelector('[data-sales-currency-summary="MDL"]')?.textContent).toMatch(locale === "ro" ? /75\.000,00\sMDL/ : /75\s000,00\sMDL/);
     expect(container.querySelectorAll("[data-sales-month]")).toHaveLength(5);
   });

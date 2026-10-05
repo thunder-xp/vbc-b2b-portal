@@ -1,10 +1,19 @@
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CircleAlert, FileText, Package, Truck, WalletCards } from "lucide-react";
 
 import { formatPartnerDate, formatPartnerMoney, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 
 type OverviewAction = Pick<Parameters<typeof DashboardTrackedLink>[0], "href" | "eventName" | "metadataSafe" | "sourceSurface"> & { label: string };
+type OverviewCardId = "attention" | "sales" | "finance" | "orders" | "shipment";
+
+const OVERVIEW_ICONS = {
+  attention: CircleAlert,
+  sales: FileText,
+  finance: WalletCards,
+  orders: Package,
+  shipment: Truck,
+} satisfies Record<OverviewCardId, typeof CircleAlert>;
 
 export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerLocale; workspace: WorkspaceHomeDto }) {
   const navigation = workspace.capabilities.navigation.filter((item) => item.availability === "available");
@@ -73,15 +82,17 @@ export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerL
 
 function OverviewCard({ action, id, locale, primary, secondary, title }: {
   action: OverviewAction | null;
-  id: string;
+  id: OverviewCardId;
   locale: PartnerLocale;
   primary: string;
   secondary?: string | null;
   title: string;
 }) {
+  const Icon = OVERVIEW_ICONS[id];
   const actionClassName = "inline-flex min-h-8 max-w-full items-center gap-1.5 rounded text-xs font-semibold text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500";
-  return <section aria-labelledby={`dashboard-overview-${id}`} className="flex h-full min-h-44 min-w-0 flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3" data-dashboard-overview-card={id}>
-    <h2 className="text-xs font-semibold leading-4 text-zinc-600" id={`dashboard-overview-${id}`}>{title}</h2>
+  return <section aria-labelledby={`dashboard-overview-${id}`} className="relative flex h-full min-h-44 min-w-0 flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3" data-dashboard-overview-card={id}>
+    <Icon aria-hidden="true" className="absolute right-3 top-3 size-4 text-zinc-400" data-overview-icon={id} />
+    <h2 className="pr-7 text-xs font-semibold leading-4 text-zinc-600" id={`dashboard-overview-${id}`}>{title}</h2>
     <p className="min-h-12 break-words text-lg font-semibold leading-6 tabular-nums text-zinc-950" data-overview-primary>{primary}</p>
     {secondary ? <p className="truncate text-xs leading-4 text-zinc-500" data-overview-secondary title={secondary}>{secondary}</p> : null}
     <div className="mt-auto">
