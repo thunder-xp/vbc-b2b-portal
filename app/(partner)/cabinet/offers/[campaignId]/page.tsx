@@ -125,6 +125,7 @@ export default async function OfferDetailPage({
                 </p>
                 {(campaign.mechanicType !== "conditional_attach_promo" || product.attachRole === "TRIGGER") && (campaign.mechanicType !== "spend_threshold_promo" || product.spendRole === "QUALIFYING_SPEND") ? <CampaignCartControl
                   itemId={product.itemId}
+                  publicationVersion={campaign.publicationVersion}
                   maximum={product.maximumQuantityPerCompany}
                   mechanicType={product.mechanicType}
                   minimum={product.minimumQuantity}

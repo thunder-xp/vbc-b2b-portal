@@ -24,7 +24,7 @@ import {
   type ProductStockBalance,
 } from "../../types";
 import { normalizeOneCCurrencyCode } from "@/src/lib/currency";
-import { EffectiveCommercialPriceChangedError, type EffectiveCartPrice, type EffectivePriceEvidence } from "../../types/effective-price";
+import { EffectiveCommercialPriceChangedError, type EffectiveCartPrice } from "../../types/effective-price";
 import {
   mapProductPriceRow,
   mapProductStockBalanceRow,
@@ -356,7 +356,7 @@ export class SupabasePricingInventoryRepository
     });
     if (error?.code === "PT409") throw new EffectiveCommercialPriceChangedError();
     if (error || !data || !Array.isArray(data.items)) throw new PricingInventoryRepositoryUnexpectedError();
-    return (data.items as Array<{ productId: string; quantity: number; price: ProductPriceRow | null; evidence: EffectivePriceEvidence | null }>).map((item) => ({
+    return (data.items as Array<Omit<import("../../types/effective-price").EffectiveCartPrice, "price"> & { price: ProductPriceRow | null }>).map((item) => ({
       ...item,
       price: item.price ? mapProductPriceRow(item.price) : null,
     }));

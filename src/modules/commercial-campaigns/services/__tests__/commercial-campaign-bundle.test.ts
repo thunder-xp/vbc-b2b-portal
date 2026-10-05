@@ -40,12 +40,12 @@ describe("governed fixed bundle service contract", () => {
     const mixed = draft(); mixed.items[0].promoThresholdQuantity = 4; expect(() => service.createDraft(mixed)).toThrow();
   });
   it("resolves company context server-side for complete-kit", async () => {
-    const { service, repository } = fixture(); await service.completeBundle("actor", "campaign", "request");
-    expect(repository.completeBundle).toHaveBeenCalledWith({ companyId: "trusted-company", campaignId: "campaign", requestId: "request" });
+    const { service, repository } = fixture(); await service.completeBundle("actor", "campaign", "request", 1);
+    expect(repository.completeBundle).toHaveBeenCalledWith({ companyId: "trusted-company", campaignId: "campaign", requestId: "request", publicationVersion: 1 });
   });
   it("denies an inactive workspace before complete-kit", async () => {
     const { service, repository } = fixture(false);
-    await expect(service.completeBundle("actor", "campaign", "request")).rejects.toThrow();
+    await expect(service.completeBundle("actor", "campaign", "request", 1)).rejects.toThrow();
     expect(repository.completeBundle).not.toHaveBeenCalled();
   });
 });

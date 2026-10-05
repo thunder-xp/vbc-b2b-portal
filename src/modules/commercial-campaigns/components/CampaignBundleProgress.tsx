@@ -30,7 +30,7 @@ export function CampaignBundleProgress({ progress, locale }: { progress: BundleP
       disabled={pending || !progress.conditionsReady || !progress.stockReady || progress.eligible}
       onClick={() => startTransition(async () => {
         requestId.current ??= crypto.randomUUID();
-        const result = await completeCampaignBundleAction({ campaignId: progress.campaignId, requestId: requestId.current });
+        const result = await completeCampaignBundleAction({ campaignId: progress.campaignId, publicationVersion: progress.publicationVersion, requestId: requestId.current });
         setMessage(result.success ? ro ? "Set adăugat în coș." : result.message : ro ? "Set indisponibil. Verificați condițiile." : result.message);
         if (result.success) { requestId.current = null; router.refresh(); }
       })} type="button">{pending ? ro ? "Se adaugă…" : "Добавляем…" : ro ? "Adaugă setul" : "Добавить комплект"}</button>

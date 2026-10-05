@@ -46,7 +46,7 @@ describe("conditional attach definition contract", () => {
     const cap = draft(); cap.items[0].maximumQuantityPerCompany = 3; expect(() => service.createDraft(cap)).toThrow();
   });
   it("uses the server workspace for reward intent", async () => {
-    const { service, repository } = fixture(); await service.addToCart("actor", "reward", 1, "request");
-    expect(repository.addToCart).toHaveBeenCalledWith({ companyId: "trusted-company", campaignItemId: "reward", quantity: 1, requestId: "request" });
+    const { service, repository } = fixture(); await service.addToCart("actor", "reward", 1, "request", 1);
+    expect(repository.addToCart).toHaveBeenCalledWith({ companyId: "trusted-company", campaignItemId: "reward", quantity: 1, requestId: "request", publicationVersion: 1 });
   });
 });

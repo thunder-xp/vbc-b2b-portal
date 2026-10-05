@@ -1,0 +1,16 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { createClient } from '@supabase/supabase-js';
+const proof=spawnSync(process.execPath,['scripts/campaign-intent-validation.mjs','assert'],{encoding:'utf8'});
+if(proof.status!==0)throw new Error('Isolation assertion failed');
+const statusBytes=readFileSync('.codex/intent-status.json');
+const status=JSON.parse(statusBytes.toString(statusBytes[0]===255?'utf16le':'utf8').replace(/^\uFEFF/,''));
+if(status.API_URL!=='http://127.0.0.1:55381')throw new Error('Non-isolated URL rejected');
+writeFileSync('.env.local',`NEXT_PUBLIC_SUPABASE_URL=${status.API_URL}\nNEXT_PUBLIC_SUPABASE_ANON_KEY=${status.ANON_KEY}\nSUPABASE_SERVICE_ROLE_KEY=${status.SERVICE_ROLE_KEY}\nNEXT_PUBLIC_SITE_URL=http://localhost:3108\nSITE_URL=http://localhost:3108\nRETAIL_CHECKOUT_ENABLED=false\n`);
+const password=randomBytes(24).toString('base64url');
+writeFileSync('.codex/intent-browser-login.json',JSON.stringify({email:'quantity-promo-partner@example.test',password}));
+const supabase=createClient(status.API_URL,status.SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
+const {error}=await supabase.auth.admin.updateUserById('aa500000-0000-4000-8000-000000000002',{password,email_confirm:true});
+if(error)throw new Error(`Fixture Auth update failed: ${error.code}`);
+console.log('Isolated Partner fixture prepared for normal public sign-in. Credentials stored locally only.');

@@ -26,9 +26,9 @@ export async function getPartnerCampaignAction(campaignId: string): Promise<Camp
   }
 }
 
-export async function addCampaignItemToCartAction(input: { campaignItemId: string; quantity: number; requestId: string }): Promise<CampaignActionResult<{ cartItemId: string; quantity: number; mechanicType: import("../types").CampaignMechanicType; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: string }>> {
+export async function addCampaignItemToCartAction(input: { campaignItemId: string; publicationVersion: number; quantity: number; requestId: string }): Promise<CampaignActionResult<{ cartItemId: string; quantity: number; mechanicType: import("../types").CampaignMechanicType; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: string }>> {
   try {
-    const data = await createCommercialCampaignService().addToCart(await getAuthenticatedUserId(), input.campaignItemId, input.quantity, input.requestId);
+    const data = await createCommercialCampaignService().addToCart(await getAuthenticatedUserId(), input.campaignItemId, input.quantity, input.requestId, input.publicationVersion);
     revalidatePath("/cabinet/cart");
     return campaignSuccess(data, `Добавлено в корзину: ${data.quantity} шт.`);
   } catch (error) {
@@ -36,9 +36,9 @@ export async function addCampaignItemToCartAction(input: { campaignItemId: strin
   }
 }
 
-export async function completeCampaignBundleAction(input: { campaignId: string; requestId: string }): Promise<CampaignActionResult<import("../types").CampaignBundleState>> {
+export async function completeCampaignBundleAction(input: { campaignId: string; publicationVersion: number; requestId: string }): Promise<CampaignActionResult<import("../types").CampaignBundleState>> {
   try {
-    const data = await createCommercialCampaignService().completeBundle(await getAuthenticatedUserId(), input.campaignId, input.requestId);
+    const data = await createCommercialCampaignService().completeBundle(await getAuthenticatedUserId(), input.campaignId, input.requestId, input.publicationVersion);
     revalidatePath("/cabinet/cart");
     revalidatePath("/cabinet/offers");
     revalidatePath(`/cabinet/offers/${input.campaignId}`);

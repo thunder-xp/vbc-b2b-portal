@@ -11,6 +11,7 @@ import { toPartnerCheckoutOptions, type PartnerCheckoutOptionsDto } from "./chec
 export type CartLineDto = {
   id: string;
   productId: string;
+  campaignContext?: import("../../pricing-inventory/types/effective-price").CartCampaignContext | null;
   slug: string;
   productName: string;
   sku: string;
@@ -187,11 +188,11 @@ export class DefaultCartService implements CartService {
       this.checkoutConfigurationRepository?.getByCompanyId(companyId) ?? null,
     ]);
     const productsById = new Map(products.map((product) => [product.id, product]));
-    const viewsById = new Map(views.map((view) => [view.productId, view]));
+    const viewsById = new Map(views.map((view) => [view.cartItemId ?? view.productId, view]));
     const lines = items.flatMap((item) => {
       const liveProduct = productsById.get(item.productId);
       const product = liveProduct ?? retainedProductCard(item.productId, item.retainedProduct);
-      return product ? [toLine(item.id, item.quantity, product, viewsById.get(item.productId), Boolean(liveProduct), visibility?.canViewPartnerTotals !== false)] : [];
+      return product ? [toLine(item.id, item.quantity, product, (viewsById.get(item.id) ?? viewsById.get(item.productId)), Boolean(liveProduct), visibility?.canViewPartnerTotals !== false)] : [];
     });
     const checkoutOptions = checkoutConfiguration
       ? toPartnerCheckoutOptions(checkoutConfiguration)
@@ -207,7 +208,7 @@ export class DefaultCartService implements CartService {
             total: calculateTotal(
               items.map((item) => ({
                 quantity: item.quantity,
-                view: viewsById.get(item.productId),
+                view: (viewsById.get(item.id) ?? viewsById.get(item.productId)),
               })),
               "partner",
             ),
@@ -216,17 +217,17 @@ export class DefaultCartService implements CartService {
       retailReferenceTotal: calculateTotal(
         items.map((item) => ({
           quantity: item.quantity,
-          view: viewsById.get(item.productId),
+          view: (viewsById.get(item.id) ?? viewsById.get(item.productId)),
         })),
         "retail",
       ),
       onlineTotal: visibility?.canViewPartnerTotals !== false ? calculateTotal(items.map((item) => ({
         quantity: item.quantity,
-        view: viewsById.get(item.productId),
+        view: (viewsById.get(item.id) ?? viewsById.get(item.productId)),
       })), "online") : null,
       onlineSavings: visibility?.canViewPartnerTotals !== false ? calculateSavings(items.map((item) => ({
         quantity: item.quantity,
-        view: viewsById.get(item.productId),
+        view: (viewsById.get(item.id) ?? viewsById.get(item.productId)),
       }))) : null,
       pricingMode: "rate_999_default",
       paymentIntent: "pay_later",
@@ -245,8 +246,8 @@ export class DefaultCartService implements CartService {
         && items.length > 0
         && checkoutOptions?.paymentMethods.some((method) => method.value === "cashless" && method.enabled) === true
         && items.every((item) => {
-          const price = checkoutPartnerPrice(viewsById.get(item.productId));
-          const onlinePrice = viewsById.get(item.productId)?.partnerPriceMdl;
+          const price = checkoutPartnerPrice((viewsById.get(item.id) ?? viewsById.get(item.productId)));
+          const onlinePrice = (viewsById.get(item.id) ?? viewsById.get(item.productId))?.partnerPriceMdl;
           const defaultEvidence = price?.conversionEvidence;
           const onlineEvidence = onlinePrice?.conversionEvidence;
           return price !== null && price !== undefined
@@ -287,7 +288,10 @@ export class DefaultCartService implements CartService {
     if (!cart) return { productQuantities: {}, totalUnitCount: 0 };
     const items = await this.repository.listItems(cart.id);
     return {
-      productQuantities: Object.fromEntries(items.map((item) => [item.productId, item.quantity])),
+      productQuantities: items.reduce<Record<string, number>>((quantities, item) => {
+        quantities[item.productId] = (quantities[item.productId] ?? 0) + item.quantity;
+        return quantities;
+      }, {}),
       totalUnitCount: items.reduce((sum, item) => sum + item.quantity, 0),
     };
   }
@@ -327,7 +331,7 @@ export class DefaultCartService implements CartService {
         : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
     ]);
     if (identities.length !== productIds.length) throw new NotFoundError("One or more catalog products were not found.");
-    const commercialById = new Map(commercialViews.map((view) => [view.productId, view]));
+    const commercialById = new Map(commercialViews.map((view) => [view.cartItemId ?? view.productId, view]));
     let priceChanged = 0;
     let missingPrice = 0;
     for (const item of items) {
@@ -382,7 +386,7 @@ export class DefaultCartService implements CartService {
         : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
     ]);
     const productById = new Map(products.map((product) => [product.id, product]));
-    const viewById = new Map(views.map((view) => [view.productId, view]));
+    const viewById = new Map(views.map((view) => [view.cartItemId ?? view.productId, view]));
     return {
       companyId,
       cartId: cart.id,
@@ -447,7 +451,7 @@ export class DefaultCartService implements CartService {
     ]);
     const productIds = new Set(products.map((product) => product.id));
     const productById = new Map(products.map((product) => [product.id, product]));
-    const viewById = new Map(views.map((view) => [view.productId, view]));
+    const viewById = new Map(views.map((view) => [view.cartItemId ?? view.productId, view]));
     return lines.map((line) => {
         const view = viewById.get(line.productId);
         const available = view?.stock?.exactAvailableQuantity ?? null;
@@ -531,6 +535,7 @@ function toLine(
     nearestArrivalQuantity: catalogVisible ? view?.stock?.expectedArrival?.expectedQuantity ?? null : null,
     availabilityGroup: catalogVisible ? resolveAvailabilityGroup(view) : "confirmation",
     catalogVisible,
+    campaignContext: view?.campaignContext ?? null,
   };
 }
 

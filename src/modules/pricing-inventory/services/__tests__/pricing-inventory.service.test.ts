@@ -25,6 +25,23 @@ import type { CommercialRate, ProductPrice, ProductStockBalance } from "../../ty
 import type { ProductSupplierArrival } from "../../repositories";
 
 describe("DefaultPricingInventoryService", () => {
+  it("keeps same-SKU STANDARD and CAMPAIGN prices separate with one resolver call", async () => {
+    const repository = new FakePricingInventoryRepository([], [], [], 17.6191, 18.041);
+    const resolveCartPrices = vi.fn().mockResolvedValue([
+      { cartItemId: "standard-line", productId: "product-1", quantity: 2, commercialSource: "STANDARD", campaignContext: null,
+        price: makePrice(null, 9.21, "BASE", "USD"), evidence: { priceSource: "PARTNER", commercialSource: "STANDARD" } },
+      { cartItemId: "campaign-line", productId: "product-1", quantity: 1, commercialSource: "CAMPAIGN",
+        campaignContext: { campaignId: "offer", publicationVersion: 1, eligible: true },
+        price: makePrice(null, 8.25, "PROMO", "USD"), evidence: { priceSource: "CAMPAIGN_PROMO", commercialSource: "CAMPAIGN" } },
+    ]);
+    const service = new DefaultPricingInventoryService(Object.assign(repository, { resolveCartPrices }), new FakeCompanyAccessService(), new FakePermissionService(["pricing.partner_price.view"]));
+    const views = await service.getCartCommercialViews("user-1", "cart-1", ["product-1"]);
+    expect(views).toHaveLength(2);
+    expect(views[0]).toMatchObject({ cartItemId: "standard-line", partnerPrice: { amount: 9.21 }, partnerCheckoutPriceMdl: { amount: 166 }, campaignContext: null });
+    expect(views[1]).toMatchObject({ cartItemId: "campaign-line", partnerPrice: { amount: 8.25 }, partnerCheckoutPriceMdl: { amount: 149 }, effectivePriceEvidence: { priceSource: "CAMPAIGN_PROMO" } });
+    expect(resolveCartPrices).toHaveBeenCalledOnce();
+    expect(repository.lastPriceInputs).toEqual([]);
+  });
   it("uses one effective cart resolver and the existing dual FX projections for cart and checkout", async () => {
     const repository = new FakePricingInventoryRepository([makePrice("company-1", 92, "BASE", "USD")], [], [], 17.5, 18);
     const evidence = { priceSource: "CAMPAIGN_PROMO" as const, priceTypeRef: "b9f5d585-dab1-11e9-8a58-000c29cf9dd4", priceId: "promo-price", sourceAmount: 84, sourceCurrency: "USD" as const, campaignId: "campaign", campaignItemId: "item", publicationVersion: 2, mechanicType: "quantity_threshold_promo" as const, thresholdQuantity: 5 };

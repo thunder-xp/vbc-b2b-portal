@@ -228,6 +228,7 @@ export class SupabasePartnerOrderRepository implements PartnerOrderRepository {
       target_request_fingerprint: input.requestFingerprint,
       target_payload: input.payloadSnapshot,
       target_items: input.items.map((item) => ({
+        cart_item_id: item.cartItemId,
         product_id: item.productId,
         external_product_ref: item.externalProductRef,
         external_characteristic_ref: item.externalCharacteristicRef,

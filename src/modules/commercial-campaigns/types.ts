@@ -57,6 +57,7 @@ export type CampaignProduct = {
 
 export type PartnerCampaign = {
   id: string;
+  publicationVersion: number;
   code: string;
   title: string;
   description: string;

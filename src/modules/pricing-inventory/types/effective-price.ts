@@ -2,6 +2,7 @@ import type { ProductPrice } from "./price";
 
 /** Source-price provenance; settlement/FX evidence uses the existing order columns. */
 export type EffectivePriceEvidence = {
+  commercialSource?: "STANDARD" | "CAMPAIGN";
   priceSource: "PARTNER" | "CAMPAIGN_PROMO";
   priceTypeRef: string;
   priceId: string;
@@ -10,7 +11,7 @@ export type EffectivePriceEvidence = {
   campaignId?: string;
   campaignItemId?: string;
   publicationVersion?: number;
-  mechanicType?: "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo" | "spend_threshold_promo";
+  mechanicType?: import("../../commercial-campaigns/types").CampaignMechanicType;
   spendRole?: "REWARD";
   spendConfig?: import("../../commercial-campaigns/types").SpendThresholdPromoConfig;
   qualifyingSpendUsd?: string;
@@ -21,10 +22,29 @@ export type EffectivePriceEvidence = {
 };
 
 export type EffectiveCartPrice = {
+  cartItemId: string;
+  commercialSource: "STANDARD" | "CAMPAIGN";
+  campaignContext: CartCampaignContext | null;
   productId: string;
   quantity: number;
   price: ProductPrice | null;
   evidence: EffectivePriceEvidence | null;
+};
+
+export type CartCampaignContext = {
+  campaignId: string;
+  campaignItemId: string;
+  publicationVersion: number;
+  mechanicType: import("../../commercial-campaigns/types").CampaignMechanicType;
+  eligible: boolean;
+  reason: string;
+  thresholdQuantity: number | null;
+  requestedQuantity: number;
+  progress: {
+    components?: Array<{ missingQuantity: number }>;
+    triggers?: Array<{ missingQuantity: number }>;
+    remainingSpendUsd?: string;
+  } | null;
 };
 
 export class EffectiveCommercialPriceChangedError extends Error {

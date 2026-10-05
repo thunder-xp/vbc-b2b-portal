@@ -27,7 +27,7 @@ describe("conditional attach presentation", () => {
     expect(screen.queryByText("PROMO активна")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Добавить товар по PROMO" }));
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
-    expect(add).toHaveBeenCalledWith({ campaignItemId: "c", quantity: 1, requestId: expect.any(String) });
+    expect(add).toHaveBeenCalledWith({ campaignItemId: "c", quantity: 1, requestId: expect.any(String), publicationVersion: 1 });
   });
   it("retains request identity after transport failure", async () => {
     add.mockResolvedValue({ success: false, message: "Unavailable" });

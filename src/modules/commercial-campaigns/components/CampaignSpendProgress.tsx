@@ -28,7 +28,7 @@ export function CampaignSpendProgress({ progress, locale }: { progress: Campaign
     {!progress.rewardStockReady && reward ? <p className="mt-2 text-xs text-amber-800">{ro ? "Disponibilitatea produsului cu PROMO necesită confirmare." : "Наличие товара с PROMO требует подтверждения."}</p> : null}
     {reward && progress.conditionsReady && progress.thresholdReached && !progress.rewardPresent ? <button className="mt-3 min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:bg-zinc-300" disabled={pending || !progress.rewardStockReady} onClick={() => startTransition(async () => {
       requestId.current ??= crypto.randomUUID();
-      const result = await addCampaignItemToCartAction({ campaignItemId: reward.campaignItemId, quantity: reward.minimumQuantity, requestId: requestId.current });
+      const result = await addCampaignItemToCartAction({ campaignItemId: reward.campaignItemId, publicationVersion: progress.publicationVersion, quantity: reward.minimumQuantity, requestId: requestId.current });
       setMessage(result.success ? ro ? "Produs adăugat în coș." : "Товар добавлен в корзину." : ro ? "Oferta nu este disponibilă." : result.message);
       if (result.success) { requestId.current = null; router.refresh(); }
     })} type="button">{pending ? ro ? "Se adaugă…" : "Добавляем…" : ro ? "Adaugă cu PROMO" : "Добавить по PROMO"}</button> : null}

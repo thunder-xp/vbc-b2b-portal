@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("../../actions", () => ({ addCampaignItemToCartAction: vi.fn() }));
 
 const product = { itemId: "item-1", productId: "product-1", sku: "400123", name: "Camera", slug: "camera", imageUrl: "/camera.webp", minimumQuantity: 2, maximumQuantityPerCompany: 10, partnerMessage: null, mechanicType: "legacy_promo" as const, promoThresholdQuantity: null, msrpPrice: { amount: 120, currency: "USD" }, partnerPrice: { amount: 100, currency: "USD" }, specialPrice: { amount: 90, currency: "USD" }, price: { amount: 100, currency: "USD" }, availableQuantity: 5, expectedArrivalDate: null };
-const campaign = { id: "campaign-1", code: "TEST", title: "Предложение для вашей компании", description: "Актуальное предложение Novotech", type: "product_offer" as const, startsAt: "2026-07-31T00:00:00Z", endsAt: "2026-08-10T00:00:00Z", priority: 1, imageAssetPath: "/offer.webp", termsSummary: "Текущая цена", mechanicType: "legacy_promo" as const, products: [product] };
+const campaign = { publicationVersion: 1, id: "campaign-1", code: "TEST", title: "Предложение для вашей компании", description: "Актуальное предложение Novotech", type: "product_offer" as const, startsAt: "2026-07-31T00:00:00Z", endsAt: "2026-08-10T00:00:00Z", priority: 1, imageAssetPath: "/offer.webp", termsSummary: "Текущая цена", mechanicType: "legacy_promo" as const, products: [product] };
 
 describe("commercial campaign UI", () => {
   it("renders partner-safe validity, availability and CTA", () => {
@@ -19,13 +19,13 @@ describe("commercial campaign UI", () => {
   });
 
   it("uses accessible 44px quantity and cart controls", () => {
-    render(<CampaignCartControl itemId="item-1" maximum={10} mechanicType="legacy_promo" minimum={2} promoPrice={product.specialPrice} promoThresholdQuantity={null} />);
+    render(<CampaignCartControl publicationVersion={1} itemId="item-1" maximum={10} mechanicType="legacy_promo" minimum={2} promoPrice={product.specialPrice} promoThresholdQuantity={null} />);
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(2);
     expect(screen.getByRole("button", { name: /Добавить в корзину/ })).toHaveClass("min-h-11");
   });
 
   it("explains progress to the governed per-product PROMO threshold", () => {
-    render(<CampaignCartControl itemId="item-1" maximum={10} mechanicType="quantity_threshold_promo" minimum={1} promoPrice={product.specialPrice} promoThresholdQuantity={5} />);
+    render(<CampaignCartControl publicationVersion={1} itemId="item-1" maximum={10} mechanicType="quantity_threshold_promo" minimum={1} promoPrice={product.specialPrice} promoThresholdQuantity={5} />);
     expect(screen.getByText("Добавьте ещё 4 шт., чтобы получить PROMO.")).toBeInTheDocument();
     expect(screen.getByTestId("campaign-promo-eligibility")).toHaveClass("text-zinc-600");
   });

@@ -69,6 +69,9 @@ export type CommercialOpportunityViewDto = {
 };
 
 export type ProductCommercialViewDto = {
+  cartItemId?: string;
+  commercialSource?: "STANDARD" | "CAMPAIGN";
+  campaignContext?: import("../types/effective-price").CartCampaignContext | null;
   productId: string;
   effectivePriceEvidence?: EffectivePriceEvidence | null;
   partnerPrice: ProductPriceViewDto | null;
@@ -313,10 +316,20 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       effectivePricesPromise,
     ]);
 
-    const evidenceByProduct = new Map(effectivePrices?.map((item) => [item.productId, item.evidence]));
-
-    const views = normalizedProductIds.map((productId) => {
-      const partnerPrice = canViewPartnerPrice
+    // Product data stays batched; commercial prices/evidence retain exact cart-line identity.
+    const pricingLines: Array<{ productId: string; effective?: import("../types/effective-price").EffectiveCartPrice }> = effectivePrices
+      ? effectivePrices.map((effective) => ({ productId: effective.productId, effective }))
+      : normalizedProductIds.map((productId) => ({ productId }));
+    const views = pricingLines.map((line) => {
+      const productId = line.productId;
+      const effectiveLine = line.effective;
+      const lineContext = effectiveLine ? {
+        cartItemId: effectiveLine.cartItemId,
+        commercialSource: effectiveLine.commercialSource,
+        campaignContext: effectiveLine.campaignContext,
+        effectivePriceEvidence: effectiveLine.evidence,
+      } : {};
+      const partnerPrice = effectiveLine ? effectiveLine.price : canViewPartnerPrice
         ? selectPriceForProduct(partnerPrices, productId, companyId)
         : null;
       const retailPrice = canViewRetailPrice
@@ -329,7 +342,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
         ? stockAvailabilityForProduct(stockBalances, supplierArrivals, productId)
         : null;
       const demoView =
-        !partnerPrice && !msrpPrice && !stock
+        !cartContext && !partnerPrice && !msrpPrice && !stock
           ? createDemoCommercialView(
               productId,
               canViewPartnerPrice,
@@ -358,7 +371,7 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       const retailPriceMdl = createRetailPriceMdlView(retailPrice);
       return {
         productId,
-        ...(effectivePrices ? { effectivePriceEvidence: evidenceByProduct.get(productId) ?? null } : {}),
+        ...lineContext,
         partnerPrice: partnerPrice ? toPriceView(partnerPrice) : null,
         partnerPriceMdl,
         partnerCheckoutPriceMdl,

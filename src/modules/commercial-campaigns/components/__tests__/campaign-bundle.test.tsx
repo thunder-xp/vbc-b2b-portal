@@ -31,8 +31,8 @@ describe("fixed bundle presentation", () => {
     render(<CampaignBundleProgress locale="ru" progress={progress} />);
     fireEvent.click(screen.getByRole("button", { name: "Добавить комплект" }));
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
-    expect(complete).toHaveBeenCalledWith({ campaignId: "bundle-1", requestId: expect.any(String) });
-    expect(Object.keys(complete.mock.calls[0][0]).sort()).toEqual(["campaignId", "requestId"]);
+    expect(complete).toHaveBeenCalledWith({ campaignId: "bundle-1", requestId: expect.any(String), publicationVersion: 1 });
+    expect(Object.keys(complete.mock.calls[0][0]).sort()).toEqual(["campaignId", "publicationVersion", "requestId"]);
   });
   it("keeps one retry identity after transport failure", async () => {
     complete.mockResolvedValue({ success: false, message: "Unavailable" });

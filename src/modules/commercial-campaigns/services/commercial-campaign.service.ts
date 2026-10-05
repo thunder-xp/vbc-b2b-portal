@@ -17,12 +17,12 @@ export class CommercialCampaignService {
     return { ...result, page, totalPages: Math.max(1, Math.ceil(result.totalCount / pageSize)) };
   }
   async getPartner(userId: string, campaignId: string) { return this.repository.getPartner(await this.companyId(userId), campaignId); }
-  async addToCart(userId: string, campaignItemId: string, quantity: number, requestId: string) {
+  async addToCart(userId: string, campaignItemId: string, quantity: number, requestId: string, publicationVersion: number) {
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) throw new InvalidStateError("Campaign quantity is invalid.");
-    return this.repository.addToCart({ companyId: await this.companyId(userId), campaignItemId, quantity, requestId });
+    return this.repository.addToCart({ companyId: await this.companyId(userId), campaignItemId, quantity, requestId, publicationVersion });
   }
-  async completeBundle(userId: string, campaignId: string, requestId: string) {
-    return this.repository.completeBundle({ companyId: await this.companyId(userId), campaignId, requestId });
+  async completeBundle(userId: string, campaignId: string, requestId: string, publicationVersion: number) {
+    return this.repository.completeBundle({ companyId: await this.companyId(userId), campaignId, requestId, publicationVersion });
   }
   async recordEngagement(userId: string, input: Omit<Parameters<CommercialCampaignRepository["recordEngagement"]>[0], "companyId">) {
     try { await this.repository.recordEngagement({ ...input, companyId: await this.companyId(userId) }); } catch { /* Analytics must not block buying. */ }

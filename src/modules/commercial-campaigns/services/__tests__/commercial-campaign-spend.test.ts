@@ -51,7 +51,7 @@ describe("scoped spend draft boundary", () => {
     expect(() => service.createDraft(input)).toThrow();
   });
   it("resolves company server-side; reward intent carries no spend or effective price", async () => {
-    const { service, repository } = fixture(); await service.addToCart("actor", "reward", 1, "request");
-    expect(repository.addToCart).toHaveBeenCalledWith({ companyId: "trusted-company", campaignItemId: "reward", quantity: 1, requestId: "request" });
+    const { service, repository } = fixture(); await service.addToCart("actor", "reward", 1, "request", 1);
+    expect(repository.addToCart).toHaveBeenCalledWith({ companyId: "trusted-company", campaignItemId: "reward", quantity: 1, requestId: "request", publicationVersion: 1 });
   });
 });

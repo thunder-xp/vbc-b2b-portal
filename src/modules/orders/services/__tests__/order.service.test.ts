@@ -11,6 +11,26 @@ import { EffectiveCommercialPriceChangedError } from "../../../pricing-inventory
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
 
 describe("DefaultPartnerOrderService", () => {
+  it("snapshots and exports both same-SKU contexts using the exact line price and evidence", async () => {
+    const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
+    const row = { id: "standard-line", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" };
+    dependencies.cartRepository.listItems.mockResolvedValue([row, { ...row, id: "campaign-line", quantity: 1 }]);
+    const campaignEvidence = { priceSource: "CAMPAIGN_PROMO" as const, commercialSource: "CAMPAIGN" as const, campaignId: "offer", campaignItemId: "offer-item", publicationVersion: 1, mechanicType: "legacy_promo" as const,
+      priceId: "promo", priceTypeRef: "PROMO", sourceAmount: 8.25, sourceCurrency: "USD" as const };
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([
+      { ...commercial("product-1", 9.21), cartItemId: "standard-line" },
+      { ...commercial("product-1", 8.25), cartItemId: "campaign-line", effectivePriceEvidence: campaignEvidence },
+    ]);
+    await dependencies.service.submit("user-1", input());
+    const snapshot = dependencies.orderRepository.beginSubmission.mock.calls[0]![0];
+    expect(snapshot.items).toHaveLength(2);
+    expect(snapshot.items[0]).toMatchObject({ cartItemId: "standard-line", quantity: 2, sourceUnitPrice: 9.21 });
+    expect(snapshot.items[1]).toMatchObject({ cartItemId: "campaign-line", quantity: 1, sourceUnitPrice: 8.25, effectivePriceEvidence: campaignEvidence });
+    const exported = dependencies.orderProvider.exportSalesOrder.mock.calls[0]![0];
+    expect(exported.items).toHaveLength(2);
+    expect(exported.items.map((item: { price: { amount: number } }) => item.price.amount)).toEqual(snapshot.items.map((item) => item.partnerUnitPrice));
+    expect(dependencies.pricingService.getAuthoritativeOrderPricing).toHaveBeenCalledOnce();
+  });
   it("persists governed PROMO source and provenance and exports the same explicit MDL line value", async () => {
     const dependencies = makeDependencies({ useLegacyMinimalOrderPayload: true });
     const view = { ...commercial("product-1", 84), effectivePriceEvidence: { priceSource: "CAMPAIGN_PROMO" as const, priceTypeRef: "b9f5d585-dab1-11e9-8a58-000c29cf9dd4", priceId: "governed-promo", sourceAmount: 84, sourceCurrency: "USD" as const, campaignId: "campaign-1", campaignItemId: "item-1", publicationVersion: 2, mechanicType: "quantity_threshold_promo" as const, thresholdQuantity: 5 } };

@@ -441,12 +441,13 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       await ensureCommercialRateFresh();
     }
     const identitiesById = new Map(identities.map((item) => [item.id, item]));
-    const initialViewsById = new Map(commercialViews.map((item) => [item.productId, item]));
-    const staleProductIds = productIds.filter((productId) => {
-      const updatedAt = initialViewsById.get(productId)?.partnerPrice?.lastUpdatedAt;
+    const initialViewsById = new Map(commercialViews.map((item) => [item.cartItemId ?? item.productId, item]));
+    const staleCartItems = cartItems.filter((item) => {
+      const updatedAt = (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.partnerPrice?.lastUpdatedAt;
       return !updatedAt || isStale(updatedAt, "price");
     });
-    if (staleProductIds.some((productId) => initialViewsById.get(productId)?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO")) {
+    const staleProductIds = [...new Set(staleCartItems.map((item) => item.productId))];
+    if (staleCartItems.some((item) => (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO")) {
       // Existing targeted refresh is scoped to the contract profile, not PROMO.
       // Fail closed rather than refreshing a different profile or accepting stale PROMO.
       throw new RecoverableOrderSubmissionError("The governed PROMO price must be refreshed before checkout.", "ORDER_PRICE_STALE");
@@ -478,9 +479,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           this.priceRefreshService ? "ORDER_PRICE_DATA_MISSING" : "ORDER_PRICE_REFRESH_REQUIRED",
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleProductIds.length });
       }
-      const beforePrices = new Map(staleProductIds.map((productId) => {
-        const price = initialViewsById.get(productId)?.partnerPrice;
-        return [productId, price ? `${price.currencyCode}:${price.amount}` : null] as const;
+      const beforePrices = new Map(staleCartItems.map((item) => {
+        const price = (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.partnerPrice;
+        return [item.id, price ? `${price.currencyCode}:${price.amount}` : null] as const;
       }));
       let refreshResult;
       try {
@@ -530,15 +531,15 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         throw error;
       }
       commercialViews = refreshedOrderPricing.views;
-      const refreshedViewsById = new Map(commercialViews.map((item) => [item.productId, item]));
-      const missingProductIds = staleProductIds.filter((productId) => !refreshedViewsById.get(productId)?.partnerPrice);
+      const refreshedViewsById = new Map(commercialViews.map((item) => [item.cartItemId ?? item.productId, item]));
+      const missingProductIds = staleCartItems.filter((item) => !(refreshedViewsById.get(item.id) ?? refreshedViewsById.get(item.productId))?.partnerPrice);
       if (missingProductIds.length) {
         failOrderSubmission("partner_price_refresh", new RecoverableOrderSubmissionError(
           "Authoritative partner price data is missing.", "ORDER_PRICE_DATA_MISSING",
         ), { cartId: cart.id, companyId: company.id, submissionKey, missingProductCount: missingProductIds.length });
       }
-      const stillStale = staleProductIds.filter((productId) => {
-        const updatedAt = refreshedViewsById.get(productId)?.partnerPrice?.lastUpdatedAt;
+      const stillStale = staleCartItems.filter((item) => {
+        const updatedAt = (refreshedViewsById.get(item.id) ?? refreshedViewsById.get(item.productId))?.partnerPrice?.lastUpdatedAt;
         return !updatedAt || isStale(updatedAt, "price");
       });
       if (stillStale.length) {
@@ -546,9 +547,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           "Authoritative partner prices remain stale.", "ORDER_PRICE_STALE",
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: stillStale.length });
       }
-      const changedProductIds = staleProductIds.filter((productId) => {
-        const price = refreshedViewsById.get(productId)?.partnerPrice;
-        return beforePrices.get(productId) !== (price ? `${price.currencyCode}:${price.amount}` : null);
+      const changedProductIds = staleCartItems.filter((item) => {
+        const price = (refreshedViewsById.get(item.id) ?? refreshedViewsById.get(item.productId))?.partnerPrice;
+        return beforePrices.get(item.id) !== (price ? `${price.currencyCode}:${price.amount}` : null);
       });
       console.info({
         event: "partner_order_price_refresh_completed",
@@ -614,10 +615,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       submissionKey,
     });
 
-    const viewsById = new Map(commercialViews.map((item) => [item.productId, item]));
+    const viewsById = new Map(commercialViews.map((item) => [item.cartItemId ?? item.productId, item]));
     const snapshots: OrderItemSnapshotInput[] = cartItems.map((item) => {
       const identity = identitiesById.get(item.productId);
-      const view = viewsById.get(item.productId);
+      const view = viewsById.get(item.id) ?? viewsById.get(item.productId);
       const sourcePrice = view?.partnerPrice;
       const price = pricingMode === "rate_113_online"
         ? view?.partnerPriceMdl
@@ -720,7 +721,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       }
       const lineTotal = money(price.amount).times(item.quantity).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
       return {
-        productId: item.productId, externalProductRef: trimmedExternal1cId,
+        cartItemId: item.id, productId: item.productId, externalProductRef: trimmedExternal1cId,
         externalCharacteristicRef: ZERO_CHARACTERISTIC_REF, externalUnitRef: DEFAULT_UNIT_REF,
         externalVatRateRef: DEFAULT_VAT_RATE_REF, productName: identity.name, sku: identity.sku,
         quantity: item.quantity, partnerUnitPrice: price.amount, currencyCode: "MDL",

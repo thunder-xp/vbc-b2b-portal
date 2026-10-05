@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
+import { CartCampaignIndicator } from "@/src/modules/orders/components/CartCampaignIndicator";
 import { CartCheckoutCoordinator } from "@/src/modules/orders/components/CartCheckoutCoordinator";
 import { CartLineValue, CartPricingPanel } from "@/src/modules/orders/components/CartPricingPanel";
 import { maibConfigurationSummary } from "@/src/modules/payments/server";
@@ -120,6 +121,7 @@ export default async function CartPage() {
                                       {line.productName}
                                     </Link>}
                               </div>
+                              <CartCampaignIndicator context={line.campaignContext} locale={locale} />
                               <p className="mt-1.5 text-sm">
                                 {cart.commercialMode === "full"
                                   ? copy.yourPrice

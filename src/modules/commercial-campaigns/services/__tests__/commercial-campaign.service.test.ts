@@ -15,7 +15,7 @@ describe("CommercialCampaignService", () => {
   it("rejects invalid cart quantity before repository mutation", async () => {
     const repository = stubRepository();
     const service = new CommercialCampaignService(repository, workspace() as never);
-    await expect(service.addToCart("user-1", "item-1", 0, "request-1")).rejects.toThrow("Campaign quantity is invalid");
+    await expect(service.addToCart("user-1", "item-1", 0, "request-1", 1)).rejects.toThrow("Campaign quantity is invalid");
     expect(repository.addToCart).not.toHaveBeenCalled();
   });
 

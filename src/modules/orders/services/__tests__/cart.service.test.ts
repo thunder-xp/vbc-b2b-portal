@@ -5,6 +5,27 @@ import type { CartRepository } from "../../repositories";
 import { DefaultCartService } from "../cart.service";
 
 describe("DefaultCartService", () => {
+  it("projects and totals same-SKU contexts by exact cart line without collapsing quantities", async () => {
+    const dependencies = makeDependencies();
+    const standard = { id: "standard-line", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" };
+    dependencies.repository.listItems.mockResolvedValue([standard, { ...standard, id: "campaign-line", quantity: 1 }]);
+    const view = (id: string, amount: number, context: object | null) => ({ cartItemId: id, productId: "product-1", campaignContext: context,
+      partnerPrice: { amount, currencyCode: "USD" }, partnerCheckoutPriceMdl: { amount: id === "standard-line" ? 166 : 149, currencyCode: "MDL" },
+      partnerPriceMdl: { amount: id === "standard-line" ? 162 : 145, currencyCode: "MDL" }, stock: { exactAvailableQuantity: 100 } });
+    dependencies.pricingService.getProductCommercialViews.mockResolvedValue([
+      view("standard-line", 9.21, null), view("campaign-line", 8.25, { campaignId: "offer", eligible: true }),
+    ]);
+    const cart = await dependencies.service.getCart("user-1");
+    expect(cart.lines).toHaveLength(2);
+    expect(cart.lines[0]).toMatchObject({ id: "standard-line", quantity: 2, campaignContext: null });
+    expect(cart.lines[1]).toMatchObject({ id: "campaign-line", quantity: 1, campaignContext: { campaignId: "offer" } });
+    expect(cart.lines[0]?.partnerLineTotal).toContain("332");
+    expect(cart.lines[1]?.partnerLineTotal).toContain("149");
+    expect(cart.total).toContain("481");
+    expect(cart.totalUnitCount).toBe(3);
+    expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
+    expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
+  });
   it("adds an accessible catalog product through the scoped repository", async () => {
     const dependencies = makeDependencies();
     await expect(dependencies.service.addItem("user-1", " product-1 ", 2)).resolves.toBe(2);

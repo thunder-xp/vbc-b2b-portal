@@ -10,6 +10,7 @@ import type { CampaignMechanicType, CampaignMoney } from "../types";
 
 export function CampaignCartControl({
   itemId,
+  publicationVersion,
   minimum,
   maximum,
   mechanicType,
@@ -17,6 +18,7 @@ export function CampaignCartControl({
   promoPrice,
 }: {
   itemId: string;
+  publicationVersion: number;
   minimum: number;
   maximum: number | null;
   mechanicType: CampaignMechanicType;
@@ -66,6 +68,7 @@ export function CampaignCartControl({
           startTransition(async () => {
             const result = await addCampaignItemToCartAction({
               campaignItemId: itemId,
+              publicationVersion,
               quantity,
               requestId,
             });

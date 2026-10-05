@@ -2,6 +2,7 @@ import type { Cart, CartItem, PartnerOrder, PartnerOrderItem, PartnerOrderStatus
 import type { CheckoutFulfillmentMethod, CheckoutPaymentMethod } from "./checkout-configuration.repository";
 
 export type OrderItemSnapshotInput = {
+  cartItemId: string;
   effectivePriceEvidence?: import("../../pricing-inventory/types/effective-price").EffectivePriceEvidence | null;
   productId: string;
   externalProductRef: string;

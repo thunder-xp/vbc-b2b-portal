@@ -32,7 +32,7 @@ export function CampaignAttachProgress({ progress, locale }: { progress: Campaig
       disabled={pending || !progress.triggerStockReady || !progress.rewardStockReady}
       onClick={() => startTransition(async () => {
         requestId.current ??= crypto.randomUUID();
-        const result = await addCampaignItemToCartAction({ campaignItemId: reward.campaignItemId, quantity: reward.minimumQuantity, requestId: requestId.current });
+        const result = await addCampaignItemToCartAction({ campaignItemId: reward.campaignItemId, publicationVersion: progress.publicationVersion, quantity: reward.minimumQuantity, requestId: requestId.current });
         setMessage(result.success ? ro ? "Produs adăugat în coș." : "Товар добавлен в корзину." : ro ? "Oferta nu este disponibilă." : result.message);
         if (result.success) { requestId.current = null; router.refresh(); }
       })} type="button">{pending ? ro ? "Se adaugă…" : "Добавляем…" : ro ? "Adaugă produsul cu PROMO" : "Добавить товар по PROMO"}</button> : null}

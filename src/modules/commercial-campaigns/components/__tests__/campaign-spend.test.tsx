@@ -71,7 +71,7 @@ describe("spend editor and server progress", () => {
     render(<CampaignSpendProgress locale="ru" progress={{ ...progress, thresholdReached: true }} />);
     await userEvent.click(screen.getByRole("button", { name: "Добавить по PROMO" }));
     await waitFor(() => expect(actions.add).toHaveBeenCalledTimes(1));
-    expect(actions.add.mock.calls[0][0]).toEqual({ campaignItemId: "reward", quantity: 1, requestId: expect.any(String) });
+    expect(actions.add.mock.calls[0][0]).toEqual({ campaignItemId: "reward", quantity: 1, requestId: expect.any(String), publicationVersion: 1 });
     expect(actions.refresh).toHaveBeenCalledOnce();
   });
   it("disables unlocked reward CTA when authoritative stock is insufficient", () => {
