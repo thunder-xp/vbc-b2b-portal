@@ -24,6 +24,22 @@ describe("partner platform visual unification contract", () => {
     expect(layout).not.toContain('className="group min-h-screen');
   });
 
+  it("aligns header search and breadcrumbs with the content gutter in both sidebar states", () => {
+    const layout = read("src/modules/partner-cabinet/components/PartnerLayout.tsx");
+    const header = read("src/modules/partner-cabinet/components/PartnerHeader.tsx");
+    const breadcrumbs = read("src/modules/partner-cabinet/components/PartnerPageBreadcrumbs.tsx");
+
+    expect(layout).toContain("lg:pl-72");
+    expect(layout).toContain("group-data-[sidebar-collapsed=true]/partner-shell:pl-20");
+    expect(layout).toContain('className="px-4 py-4 lg:px-8" data-partner-content');
+    expect(header).toContain("px-4 py-2 lg:px-8");
+    expect(header).toContain("lg:max-w-xl");
+    expect(header).not.toContain("lg:justify-end");
+    expect(header).not.toContain("lg:grid-cols-[minmax(18rem,36rem)_auto]");
+    expect(breadcrumbs).toContain("col-span-2");
+    expect(breadcrumbs).not.toMatch(/(?:^|\s)(?:ml-|pl-|px-)\d/);
+  });
+
   it("keeps Orders controls in one compact desktop row without explanatory header copy", () => {
     const orders = read("app/(partner)/cabinet/orders/page.tsx");
     expect(orders).not.toContain("copy.eyebrow");
