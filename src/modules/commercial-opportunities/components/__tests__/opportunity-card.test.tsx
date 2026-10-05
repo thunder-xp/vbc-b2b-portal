@@ -61,7 +61,7 @@ describe("OpportunityCard", () => {
     const card = container.querySelector('[data-opportunity-card]');
     expect(card).toHaveAttribute("data-opportunity-layout", "horizontal-v2");
     expect(Array.from(card?.querySelectorAll(":scope > [data-opportunity-zone]") ?? []).map((zone) => zone.getAttribute("data-opportunity-zone"))).toEqual(["image", "information", "commercial"]);
-    expect(card).toHaveClass("lg:grid-cols-[6.5rem_minmax(0,1fr)_12.5rem]");
+    expect(card).toHaveClass("lg:grid-cols-[6.5rem_minmax(0,1fr)_13rem]");
     const actions = container.querySelector("[data-opportunity-actions]");
     expect(actions).not.toBeNull();
     expect(actions).toHaveClass("gap-1.5");
