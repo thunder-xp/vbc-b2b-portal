@@ -194,7 +194,7 @@ function ProductOpportunityCard({
 }) {
   const product = opportunity.product!;
   return (
-    <article className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-md border border-zinc-200 bg-white p-3 transition-colors hover:border-zinc-300 hover:bg-zinc-50/30 lg:grid-cols-[6.5rem_minmax(0,1fr)_11.5rem]" data-opportunity-card data-opportunity-layout="horizontal-v2">
+    <article className="grid min-w-0 grid-cols-[5.5rem_minmax(0,1fr)] gap-3 rounded-md border border-zinc-200 bg-white p-3 transition-colors hover:border-zinc-300 hover:bg-zinc-50/30 lg:grid-cols-[6.5rem_minmax(0,1fr)_12.5rem]" data-opportunity-card data-opportunity-layout="horizontal-v2">
       <Link
         aria-label={`${locale === "ro" ? "Deschide produsul" : "Открыть товар"} ${product.name}`}
         className="relative flex size-[5.5rem] items-center justify-center self-start overflow-hidden rounded-md bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 lg:size-[6.5rem]"
