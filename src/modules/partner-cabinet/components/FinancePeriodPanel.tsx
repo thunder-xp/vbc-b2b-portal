@@ -81,11 +81,11 @@ function PaymentGraph({ guidance, locale }: { guidance: FinanceGuidancePeriodDto
         <h3 className="text-sm font-semibold text-zinc-950">{partnerText(locale, "dashboard.paymentCalendar")}</h3>
         <a className="inline-flex min-h-8 items-center rounded text-xs font-semibold text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500" href="/cabinet/finance#payment-calendar">{partnerText(locale, "dashboard.fullCalendar")}</a>
       </div>
-      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <p className="text-xs font-medium tabular-nums text-zinc-500" data-payment-calendar-range>
           {formatDate(guidance.calendar.startDate, locale)} — {formatDate(guidance.calendar.endDate, locale)}
         </p>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
+        <div className="flex flex-wrap gap-x-2 gap-y-1 text-[10px] font-medium leading-4 text-zinc-600" aria-label={partnerText(locale, "dashboard.paymentLegend")}>
           <GraphLegend className="bg-rose-500" label={partnerText(locale, "dashboard.paymentOverdue")} />
           <GraphLegend className="bg-amber-500" label={partnerText(locale, "dashboard.paymentToday")} />
           <GraphLegend className="bg-emerald-600" label={partnerText(locale, "dashboard.paymentUpcoming")} />
@@ -144,7 +144,7 @@ function PaymentCurrencyGraph({ currency, guidance, locale }: { currency: string
 }
 
 function GraphLegend({ className, label }: { className: string; label: string }) {
-  return <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className={`size-1.5 rounded-sm ${className}`} />{label}</span>;
+  return <span className="inline-flex items-center gap-1"><span aria-hidden="true" className={`size-1.5 rounded-sm ${className}`} />{label}</span>;
 }
 
 function financeStateKey(state: FinanceGuidancePeriodDto["state"]) {
