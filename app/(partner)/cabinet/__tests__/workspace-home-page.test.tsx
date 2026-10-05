@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -48,7 +48,7 @@ describe("Partner Workspace operational home", () => {
 
     expect(screen.queryByRole("heading", { name: /Partner/ })).not.toBeInTheDocument();
     expect(screen.getByText("Требует внимания")).toBeInTheDocument();
-    expect(screen.getByText("Нет задач, требующих внимания")).toBeInTheDocument();
+    expect(screen.getByText("Нет задач")).toBeInTheDocument();
     expect(screen.getByText("Заказы")).toBeInTheDocument();
     expect(screen.getByText("Ближайшие отгрузки")).toBeInTheDocument();
     expect(screen.getByText("У компании пока нет заказов.")).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("Partner Workspace operational home", () => {
     const source = readFileSync(join(process.cwd(), "src/modules/partner-cabinet/components/OperationalDashboard.tsx"), "utf8");
     const dashboard = source.slice(
       source.indexOf("export function OperationalDashboard"),
-      source.indexOf("export function EstimateSalesSection"),
+      source.indexOf("function DiscoverySection"),
     );
     const markers = [
       "<RepeatPurchaseSection",
@@ -76,27 +76,40 @@ describe("Partner Workspace operational home", () => {
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
   });
 
-  it("uses a neutral compact no-task row and exposes the task count", async () => {
+  it("renders exactly five compact overview cards, including honest empty states", async () => {
     const { container } = render(await CabinetPage());
-    expect(container.querySelector("[data-attention-count]")).toHaveTextContent("0");
-    expect(container.querySelector("[data-attention-empty]")).not.toHaveClass("border", "bg-emerald-50");
+    const overview = container.querySelector("[data-dashboard-overview]")!;
+    const cards = [...overview.querySelectorAll("[data-dashboard-overview-card]")];
+    expect(cards.map((card) => within(card as HTMLElement).getByRole("heading").textContent)).toEqual([
+      "Требует внимания", "Возможности продаж", "Финансы", "Текущие заказы", "Ближайшая отгрузка",
+    ]);
+    expect(cards.every((card) => card.querySelectorAll("a").length === 1)).toBe(true);
+    expect(cards[0].querySelector("[data-overview-primary]")).toHaveTextContent("0");
+    expect(cards[0]).toHaveTextContent("Нет задач");
+    expect(cards[0]).not.toHaveClass("bg-emerald-50");
+    expect(cards[1]).toHaveTextContent("Нет возможностей");
+    expect(cards[2]).toHaveTextContent("Нет данных");
+    expect(cards[4]).toHaveTextContent("Не запланирована");
+    expect(overview.querySelector("ul")).toBeNull();
+    expect(container.querySelector("[data-dashboard-operational-summary]")).toBeNull();
     expect(container.querySelectorAll("[data-attention-card]")).toHaveLength(0);
   });
 
-  it("shows ordinary order context and deadlines without reordering governed tasks", async () => {
+  it("uses the first governed attention destination without changing task ordering or metadata", async () => {
     const attention = ["NS-2", "NS-1"].map((number, index) => ({
       id: number, kind: "shipment_overdue", title: `Отгрузка ${number}`, consequence: "Уточните дату", href: `/cabinet/orders/${number}`,
       occurredAt: "2026-09-01T00:00:00Z", sourceFingerprint: number, dismissPolicy: "until_source_change", severity: "warning", orderNumber: number,
       plannedDate: index ? "2026-09-03" : "2026-09-01", isTest: false, ctaLabel: "Открыть заказ",
     }));
     mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), attentionItems: attention } });
+    const before = JSON.stringify(attention);
     const { container } = render(await CabinetPage());
-    const rows = [...container.querySelectorAll("[data-attention-card]")];
-    expect(rows[0]).toHaveTextContent("NS-2");
-    expect(rows[1]).toHaveTextContent("NS-1");
-    expect(rows[0]).toHaveTextContent(/до 1 сент/);
-    expect(container.querySelector("[data-attention-count]")).toHaveTextContent("2");
-    expect(screen.getAllByRole("link", { name: "Открыть заказ" })[0]).toHaveAttribute("href", "/cabinet/orders/NS-2");
+    const card = container.querySelector('[data-dashboard-overview-card="attention"]')!;
+    expect(card.querySelector("[data-overview-primary]")).toHaveTextContent("2");
+    expect(card.querySelector("[data-overview-secondary]")).toHaveTextContent("NS-2");
+    expect(card).not.toHaveTextContent("NS-1");
+    expect(within(card as HTMLElement).getByRole("link")).toHaveAttribute("href", "/cabinet/orders/NS-2");
+    expect(JSON.stringify(attention)).toBe(before);
   });
 
   it("keeps financial snapshots separate from period turnover and renders a bounded payment list", async () => {
@@ -115,13 +128,87 @@ describe("Partner Workspace operational home", () => {
     expect(JSON.stringify(guidance)).toBe(before);
   });
 
+  it("shows one existing finance metric without adding currencies together", async () => {
+    const guidance = { ...financeGuidanceData(), state: "overdue", totals: [
+      { currency: "MDL", outstanding: 500, overdue: 100 },
+      { currency: "EUR", outstanding: 300, overdue: 200 },
+    ] };
+    const before = JSON.stringify(guidance);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), financeGuidance: guidance } });
+    const { container } = render(await CabinetPage());
+    const card = container.querySelector('[data-dashboard-overview-card="finance"]')!;
+    expect(card.querySelector("[data-overview-primary]")).toHaveTextContent(/100,00\sMDL/);
+    expect(card.querySelector("[data-overview-secondary]")).toHaveTextContent("Просрочено");
+    expect(card.querySelector("a")).toHaveAttribute("href", "/cabinet/finance");
+    expect(card).not.toHaveTextContent("EUR");
+    expect(JSON.stringify(guidance)).toBe(before);
+  });
+
+  it.each([
+    ["healthy", /500,00\sMDL/, "К оплате"],
+    ["unavailable", /Нет актуальных данных/, null],
+  ])("keeps the overview finance snapshot truthful for %s data", async (state, primary, secondary) => {
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), financeGuidance: {
+      ...financeGuidanceData(), state, totals: [{ currency: "MDL", outstanding: 500, overdue: 100 }],
+    } } });
+    const { container } = render(await CabinetPage());
+    const card = container.querySelector('[data-dashboard-overview-card="finance"]')!;
+    expect(card.querySelector("[data-overview-primary]")).toHaveTextContent(primary as RegExp);
+    if (secondary) expect(card.querySelector("[data-overview-secondary]")).toHaveTextContent(secondary as string);
+    else expect(card.querySelector("[data-overview-secondary]")).toBeNull();
+  });
+
+  it("uses the current ready KP, active orders and governed first planned shipment unchanged", async () => {
+    const data = { ...workspaceData(), orderSummary: { ...workspaceData().orderSummary, active: 25 },
+      estimateSalesOpportunities: ["KP-2", "KP-1"].map((number) => ({
+        id: number, type: "ready_to_send", customerName: "Customer", proposalName: "Proposal", estimateNumber: number,
+        amount: 100, currency: "MDL", projectName: null, waitingSince: "2026-09-07", href: `/cabinet/estimates/${number}`, action: "open_and_send",
+      })),
+      shipmentSummary: { ...workspaceData().shipmentSummary, items: ["2026-10-08", "2026-10-07"].map((date, index) => ({
+        id: `shipment-${index}`, orderNumber: `NS-${index}`, plannedDate: date, statusLabel: "Открыт", positionCount: 1, totalUnits: 5,
+        pendingDateChange: false, href: `/cabinet/orders/shipment-${index}`, isTest: false,
+      })) },
+    };
+    const before = JSON.stringify(data);
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data });
+    const { container } = render(await CabinetPage());
+    const sales = container.querySelector('[data-dashboard-overview-card="sales"]')!;
+    const orders = container.querySelector('[data-dashboard-overview-card="orders"]')!;
+    const shipment = container.querySelector('[data-dashboard-overview-card="shipment"]')!;
+    expect(sales).toHaveTextContent("КП готово к отправке");
+    expect(sales.querySelector("[data-overview-secondary]")).toHaveTextContent("KP-2");
+    expect(within(sales as HTMLElement).getByRole("link", { name: "Открыть и отправить" })).toHaveAttribute("href", "/cabinet/estimates/KP-2");
+    expect(orders.querySelector("[data-overview-primary]")).toHaveTextContent("25");
+    expect(orders.querySelector("a")).toHaveAttribute("href", "/cabinet/orders");
+    expect(shipment.querySelector("[data-overview-primary]")).toHaveTextContent(/8 окт\. 2026 г\./);
+    expect(shipment.querySelector("[data-overview-secondary]")).toHaveTextContent("Плановая дата · NS-0");
+    expect(shipment.querySelector("a")).toHaveAttribute("href", "/cabinet/orders/shipment-0");
+    expect(JSON.stringify(data)).toBe(before);
+  });
+
+  it("localizes all five overview titles and their empty states in Romanian", async () => {
+    mocks.getPartnerLocale.mockResolvedValue("ro");
+    const { container } = render(await CabinetPage());
+    const overview = container.querySelector("[data-dashboard-overview]")!;
+    expect(within(overview as HTMLElement).getAllByRole("heading").map((heading) => heading.textContent)).toEqual([
+      "Necesită atenție", "Oportunități de vânzare", "Finanțe", "Comenzi curente", "Următoarea livrare",
+    ]);
+    expect(overview).toHaveTextContent("Nicio sarcină");
+    expect(overview).toHaveTextContent("Nicio oportunitate");
+    expect(overview.textContent).not.toMatch(/[\u0400-\u04ff]|�/u);
+  });
+
   it("does not invent a payment deadline or expose an unavailable order summary", async () => {
     const guidance = { ...financeGuidanceData(), nextDueDate: null };
     const data = workspaceData();
     mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...data, capabilities: { ...data.capabilities, navigation: [] }, financeGuidance: guidance } });
-    render(await CabinetPage());
+    const { container } = render(await CabinetPage());
     expect(screen.getByText("Срок не указан")).toBeInTheDocument();
-    expect(screen.queryByText("Текущие заказы")).not.toBeInTheDocument();
+    const overview = container.querySelector("[data-dashboard-overview]")!;
+    expect(overview.querySelectorAll("[data-dashboard-overview-card]")).toHaveLength(5);
+    expect(overview.querySelector('[data-dashboard-overview-card="orders"]')).toHaveTextContent("Недоступно");
+    expect(overview.querySelectorAll("a")).toHaveLength(0);
+    expect([...overview.querySelectorAll("button")].every((button) => button.disabled)).toBe(true);
   });
 
   it("renders governed special offers between analytics and fulfilment with the orange badge", async () => {
@@ -147,7 +234,7 @@ describe("Partner Workspace operational home", () => {
 
     expect(screen.queryByText("Весь каталог")).not.toBeInTheDocument();
     expect(screen.queryByText("Мои заказы")).not.toBeInTheDocument();
-    expect(screen.queryByText("Финансы")).not.toBeInTheDocument();
+    expect(container.querySelector('[data-dashboard-overview-card="finance"] [data-overview-primary]')).toHaveTextContent("Нет данных");
     expect(screen.queryByText("Моя компания")).not.toBeInTheDocument();
     expect(container.textContent).not.toMatch(/1C integration|f7df2069|33333333/);
   });
@@ -248,10 +335,10 @@ describe("Partner Workspace operational home", () => {
     const { container } = render(await CabinetPage());
     const split = container.querySelector("[data-dashboard-finance-sales]");
     expect(split).toHaveClass("grid", "items-stretch", "xl:grid-cols-2");
-    expect(screen.getByRole("heading", { name: finance })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: sales })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: new RegExp(openFinance) })).toHaveAttribute("href", "/cabinet/finance");
-    expect(screen.getByRole("link", { name: new RegExp(openSales) })).toHaveAttribute("href", "/cabinet/orders");
+    expect(within(split as HTMLElement).getByRole("heading", { name: finance })).toBeInTheDocument();
+    expect(within(split as HTMLElement).getByRole("heading", { name: sales })).toBeInTheDocument();
+    expect(within(split as HTMLElement).getByRole("link", { name: new RegExp(openFinance) })).toHaveAttribute("href", "/cabinet/finance");
+    expect(within(split as HTMLElement).getByRole("link", { name: new RegExp(openSales) })).toHaveAttribute("href", "/cabinet/orders");
     expect(screen.getByRole("heading", { name: dynamics })).toBeInTheDocument();
     expect(container.querySelector('[data-dashboard-chart-type="bar-timeline"]')).toBeInTheDocument();
     expect(container.querySelector('[data-dashboard-chart-type="line"] svg polyline')).toBeInTheDocument();
@@ -321,11 +408,12 @@ describe("Partner Workspace operational home", () => {
     });
 
     render(await CabinetPage());
-    expect(screen.getByText("Отгрузка заказа NSUU-1 просрочена")).toBeInTheDocument();
+    expect(screen.getByText("NSUU-1")).toBeInTheDocument();
+    expect(screen.queryByText("Откройте заказ и уточните дату.")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Скрыть сообщение" })).not.toBeInTheDocument();
   });
 
-  it("gives attention and sales columns the same heading and first-row baseline contract", async () => {
+  it("uses one current sales opportunity and shared compact card geometry", async () => {
     mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: {
       ...workspaceData(),
       attentionItems: [{
@@ -341,10 +429,14 @@ describe("Partner Workspace operational home", () => {
     } });
 
     const { container } = render(await CabinetPage());
-    const headings = container.querySelectorAll('[data-dashboard-priority-work] [data-dashboard-section-heading]');
-    expect(headings).toHaveLength(2);
-    expect([...headings].every((heading) => heading.classList.contains("min-h-11"))).toBe(true);
-    expect(container.querySelectorAll('[data-dashboard-priority-work] ul.mt-2')).toHaveLength(2);
+    const cards = [...container.querySelectorAll("[data-dashboard-overview-card]")];
+    expect(cards).toHaveLength(5);
+    expect(cards.every((card) => card.className === cards[0].className)).toBe(true);
+    expect(cards[1]).toHaveTextContent("Предложение ещё не открыто");
+    expect(cards[1].querySelector("[data-overview-secondary]")).toHaveTextContent("KP-1");
+    expect(cards[1].querySelector("a")).toHaveAttribute("href", "/cabinet/estimates/estimate-1");
+    expect(cards[1]).not.toHaveTextContent("Customer");
+    expect(cards[1]).not.toHaveTextContent("100");
   });
 
   it("renders governed attention in Romanian without persisted mojibake", async () => {
@@ -388,11 +480,12 @@ describe("Partner Workspace operational home", () => {
       orderNumber: "TEST-1", plannedDate: "2026-06-30", isTest: true, ctaLabel: "Open",
     }] } });
     const { container } = render(await CabinetPage());
-    const card = container.querySelector('[data-attention-card]');
-    expect(card).toHaveClass("px-3", "py-2", "grid-cols-[20px_minmax(0,1fr)]", "sm:grid-cols-[20px_minmax(0,1fr)_auto]");
-    expect(screen.getAllByText(locale === "ru" ? "Тестовый период завершён" : "Perioada de testare s-a încheiat")).toHaveLength(1);
+    const card = container.querySelector('[data-dashboard-overview-card="attention"]');
+    expect(card?.querySelector("[data-overview-primary]")).toHaveTextContent("1");
+    expect(card?.querySelector("[data-overview-secondary]")).toHaveTextContent("TEST-1");
+    expect(card).not.toHaveTextContent("Old body");
     expect(screen.queryByText(locale === "ru" ? "Тестовый" : "Test", { exact: true })).toBeNull();
-    expect(card?.querySelector('a')).toHaveClass("min-h-11");
+    expect(card?.querySelector('a')).toHaveAttribute("href", "/cabinet/orders/test-order");
     expect(card?.querySelector("form")).toBeNull();
     expect(card?.querySelector("button")).toBeNull();
   });
@@ -424,6 +517,8 @@ function workspaceData() {
       navigation: [
         { key: "catalog", label: "Каталог", href: "/cabinet/catalog", icon: "catalog", availability: "available" },
         { key: "orders", label: "Заказы", href: "/cabinet/orders", icon: "orders", availability: "available" },
+        { key: "finance", label: "Финансы", href: "/cabinet/finance", icon: "finance", availability: "available" },
+        { key: "proposals", label: "Сметы и КП", href: "/cabinet/estimates", icon: "proposals", availability: "available" },
       ],
       productCard: {
         showPrice: true,

@@ -1,8 +1,6 @@
 import {
-  AlertTriangle,
   ArrowRight,
   CalendarClock,
-  CheckCircle2,
   CircleDollarSign,
   Clock3,
   PackageCheck,
@@ -12,9 +10,10 @@ import type { ReactNode } from "react";
 import { ProductCard } from "../../catalog/components/ProductCard";
 import type { WorkspaceHomeDto } from "../services";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
+import { DashboardOverviewCards } from "./DashboardOverviewCards";
 import { OpportunityCard } from "../../commercial-opportunities/components/OpportunityCard";
 import { SupportDashboardBlock } from "../../partner-support";
-import { formatPartnerDate, formatPartnerMoney, formatPartnerRelativeDate, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
+import { formatPartnerDate, formatPartnerMoney, partnerText, type PartnerLocale } from "../../partner-locale";
 import { SalesTrendSummary } from "./SalesTrendSummary";
 import { FinancePeriodPanel } from "./FinancePeriodPanel";
 import { RollingPeriodSelector, type RollingPeriod, type RollingPeriodState } from "../../commerce-period";
@@ -42,11 +41,7 @@ export function OperationalDashboard({
       />
       <DiscoverySection locale={locale} products={workspace.discoveryProducts} workspace={workspace} />
       <div className="space-y-4" data-dashboard-section="priority-work">
-        <div className={`grid items-stretch gap-4 ${workspace.attentionItems.length && workspace.estimateSalesOpportunities?.length ? "xl:grid-cols-2" : ""}`} data-dashboard-priority-work>
-          <AttentionSection items={workspace.attentionItems} locale={locale} />
-          <EstimateSalesSection items={workspace.estimateSalesOpportunities} locale={locale} />
-        </div>
-        <OperationalSnapshot locale={locale} workspace={workspace} />
+        <DashboardOverviewCards locale={locale} workspace={workspace} />
         <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       </div>
       <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
@@ -61,55 +56,6 @@ export function OperationalDashboard({
       </div>
     </div>
   );
-}
-
-export function EstimateSalesSection({ items = [], locale }: { items: WorkspaceHomeDto["estimateSalesOpportunities"]; locale: PartnerLocale }) {
-  if (!items.length) return null;
-  return <section aria-labelledby="dashboard-estimate-sales" className="h-full min-w-0">
-    <SectionHeading actionHref="/cabinet/estimates" actionLabel={partnerText(locale, "dashboard.allEstimates")} id="dashboard-estimate-sales" title={partnerText(locale, "dashboard.salesOpportunities")} />
-    <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
-      {items.map((item) => <li className="grid gap-2 px-3 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center" key={item.id}>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1"><p className="font-semibold text-zinc-950">{item.customerName || item.proposalName}</p><span className="text-xs text-zinc-500">{item.estimateNumber}</span></div>
-          <p className="mt-1 text-sm font-medium text-emerald-800">{partnerText(locale, opportunityStateKey(item))}{item.type === "awaiting_customer" ? ` · ${partnerText(locale, opportunityDateKey(item.type))} ${formatPartnerRelativeDate(item.waitingSince, locale)}` : ""}</p>
-          <p className="mt-1 text-xs text-zinc-500">{formatPartnerMoney(item.amount, item.currency, locale)} · {item.projectName || item.proposalName}{opportunitySecondaryContext(item, locale)}</p>
-        </div>
-        <DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_continue_work_clicked" href={item.href} metadataSafe={{ opportunityType: item.type }} sourceSurface="dashboard_estimate_sales">
-          {partnerText(locale, opportunityActionKey(item.action))}<ArrowRight aria-hidden="true" className="size-4" />
-        </DashboardTrackedLink>
-      </li>)}
-    </ul>
-  </section>;
-}
-
-type EstimateSalesOpportunityType = NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]["type"];
-
-function opportunityStateKey(item: NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]) {
-  if (item.followUpState === "expired_sent") return "dashboard.proposalExpired" as const;
-  if (item.followUpState === "sent_opened_no_response") return "dashboard.proposalOpened" as const;
-  if (item.followUpState === "sent_not_opened") return "dashboard.proposalNotOpened" as const;
-  if (item.type === "resume_checkout") return "dashboard.proposalInCart" as const;
-  if (item.type === "accepted_ready_to_order") return "dashboard.proposalAccepted" as const;
-  return item.type === "ready_to_send" ? "dashboard.proposalReadyToSend" as const : "dashboard.awaitingCustomer" as const;
-}
-
-function opportunityDateKey(type: EstimateSalesOpportunityType) {
-  if (type === "resume_checkout" || type === "accepted_ready_to_order") return "dashboard.accepted" as const;
-  return type === "awaiting_customer" ? "dashboard.sent" as const : "dashboard.prepared" as const;
-}
-
-function opportunitySecondaryContext(item: NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number], locale: PartnerLocale): string {
-  if (item.type !== "awaiting_customer") return ` · ${partnerText(locale, opportunityDateKey(item.type))} ${formatPartnerRelativeDate(item.waitingSince, locale)}`;
-  if (item.validUntil && item.followUpState !== "expired_sent") return ` · ${partnerText(locale, "dashboard.proposalValidUntil")} ${formatDate(item.validUntil, locale)}`;
-  return "";
-}
-
-function opportunityActionKey(action: NonNullable<WorkspaceHomeDto["estimateSalesOpportunities"]>[number]["action"]) {
-  if (action === "resume_checkout") return "dashboard.resumeCheckout" as const;
-  if (action === "continue_order") return "dashboard.continueOrder" as const;
-  if (action === "resend") return "dashboard.sendAgain" as const;
-  if (action === "update") return "dashboard.updateProposal" as const;
-  return action === "open_and_send" ? "dashboard.openAndSend" as const : "dashboard.returnToProposal" as const;
 }
 
 function DiscoverySection({ locale, products = [], workspace }: {
@@ -181,85 +127,6 @@ function OpportunitySection({ locale, opportunities = [], workspace }: { locale:
     <SectionHeading actionHref="/cabinet/opportunities" actionLabel={partnerText(locale, "dashboard.allOpportunities")} id="dashboard-opportunities" title={partnerText(locale, "dashboard.opportunities")} />
     <div className="mt-3 grid gap-3 xl:grid-cols-2">{opportunities.slice(0, 4).map((opportunity) => <OpportunityCard canAddToOrder={workspace.capabilities.productCard.canAddToOrder} canAddToSpecification={workspace.capabilities.productCard.canAddToSpecification} canManagePurchasingLists={workspace.capabilities.productCard.canManagePurchasingLists} companyId={workspace.viewer?.companyId} key={opportunity.id} locale={locale} opportunity={opportunity} userId={workspace.viewer?.userId} />)}</div>
   </section>;
-}
-
-function AttentionSection({
-  items,
-  locale,
-}: {
-  items: WorkspaceHomeDto["attentionItems"];
-  locale: PartnerLocale;
-}) {
-  return (
-    <section aria-labelledby="dashboard-attention" className="h-full min-w-0">
-      <SectionHeading id="dashboard-attention" title={partnerText(locale, "dashboard.attention")} titleAccessory={<span className="text-xs font-medium tabular-nums text-zinc-600" data-attention-count>{items.length}</span>} />
-      {items.length ? (
-        <ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">
-          {items.map((item) => {
-            const presentation = presentDashboardAttention(item, locale);
-            return (
-            <li
-              className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-2 gap-y-1 px-3 py-2 sm:grid-cols-[20px_minmax(0,1fr)_auto] sm:items-center"
-              data-attention-card
-              key={`${item.kind}:${item.id}`}
-            >
-              <span className={`flex size-5 items-center justify-center ${item.severity === "warning" ? "text-amber-700" : "text-zinc-500"}`}>
-                {item.severity === "warning" ? <AlertTriangle aria-hidden="true" className="size-5" /> : <Clock3 aria-hidden="true" className="size-5" />}
-              </span>
-              <div className="min-w-0">
-                {item.orderNumber || item.plannedDate ? (
-                  <p className="mb-1 flex flex-wrap items-center gap-2 text-xs text-zinc-600">
-                    {item.orderNumber ? <span>{item.orderNumber}</span> : null}
-                    {item.plannedDate ? <span>{partnerText(locale, "dashboard.until")} {formatDate(item.plannedDate, locale)}</span> : null}
-                  </p>
-                ) : null}
-                <p className="font-semibold text-zinc-950">{presentation.title}</p>
-                <p className="mt-1 text-sm text-zinc-600">
-                  {presentation.consequence}
-                </p>
-              </div>
-              <DashboardTrackedLink
-                className="col-start-2 inline-flex min-h-11 items-center justify-center justify-self-end gap-2 rounded-md bg-emerald-700 px-3 text-center text-sm font-semibold text-white focus-visible:ring-2 focus-visible:ring-emerald-500 sm:col-start-3 sm:row-start-1 sm:self-center"
-                eventName="dashboard_attention_opened"
-                href={item.href}
-                metadataSafe={{ kind: item.kind }}
-                sourceSurface="dashboard_attention"
-              >
-                {presentation.ctaLabel}
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </DashboardTrackedLink>
-            </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="mt-1 flex items-center gap-2 text-sm text-zinc-600" data-attention-empty>
-          <CheckCircle2 aria-hidden="true" className="size-5 shrink-0" />
-          {partnerText(locale, "dashboard.allWell")}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function OperationalSnapshot({ locale, workspace }: { locale: PartnerLocale; workspace: WorkspaceHomeDto }) {
-  const canViewOrders = workspace.capabilities.navigation.some((item) => item.key === "orders" && item.availability === "available");
-  if (!workspace.financeGuidance && !canViewOrders) return null;
-  const nextShipment = workspace.shipmentSummary.items[0];
-  return <dl className="grid gap-3 sm:grid-cols-3" data-dashboard-operational-summary>
-    {workspace.financeGuidance ? <div className="min-w-0">
-      <dt className="text-xs font-medium text-zinc-500">{partnerText(locale, "dashboard.finance")}</dt>
-      <dd><DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_finance_opened" href="/cabinet/finance#payment-calendar" sourceSurface="dashboard_summary">{partnerText(locale, workspace.financeGuidance.state === "unavailable" ? "dashboard.financeState.unavailable" : workspace.financeGuidance.state === "overdue" ? "dashboard.financeOverdue" : workspace.financeGuidance.state === "due_soon" ? "dashboard.financeNext" : "dashboard.financeState.healthy")}<ArrowRight aria-hidden="true" className="size-4 shrink-0" /></DashboardTrackedLink></dd>
-    </div> : null}
-    {canViewOrders ? <div className="min-w-0">
-      <dt className="text-xs font-medium text-zinc-500">{partnerText(locale, "dashboard.currentOrders")}</dt>
-      <dd><DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold tabular-nums text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_order_opened" href="/cabinet/orders" sourceSurface="dashboard_summary">{workspace.orderSummary.active}<ArrowRight aria-hidden="true" className="size-4" /></DashboardTrackedLink></dd>
-    </div> : null}
-    {canViewOrders ? <div className="min-w-0">
-      <dt className="text-xs font-medium text-zinc-500">{partnerText(locale, "dashboard.nearestShipment")}</dt>
-      <dd>{nextShipment ? <DashboardTrackedLink className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold tabular-nums text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500" eventName="dashboard_shipment_opened" href={nextShipment.href} sourceSurface="dashboard_summary">{partnerText(locale, "dashboard.plannedDate")}: {formatDate(nextShipment.plannedDate, locale)}<ArrowRight aria-hidden="true" className="size-4 shrink-0" /></DashboardTrackedLink> : <span className="inline-flex min-h-11 items-center text-sm text-zinc-600">{partnerText(locale, "dashboard.notScheduled")}</span>}</dd>
-    </div> : null}
-  </dl>;
 }
 
 function OrdersSection({
