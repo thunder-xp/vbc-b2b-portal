@@ -356,7 +356,7 @@ describe("Partner Workspace operational home", () => {
 
     const { container } = render(await CabinetPage());
     const split = container.querySelector("[data-dashboard-finance-sales]");
-    expect(split).toHaveClass("grid", "items-stretch", "xl:grid-cols-2");
+    expect(split).toHaveClass("grid", "items-stretch", "gap-4", "xl:grid-cols-2");
     const financePanel = split?.querySelector("[data-finance-panel]");
     const salesPanel = split?.querySelector("[data-sales-panel]");
     expect(financePanel).toHaveAttribute("data-analytics-card");
@@ -383,6 +383,24 @@ describe("Partner Workspace operational home", () => {
     expect(container.querySelector("[data-dashboard-payment-list]")).toBeNull();
     expect(container.querySelector('[data-sales-currency-summary="MDL"]')?.textContent).toMatch(locale === "ro" ? /75\.000,00\sMDL/ : /75\s000,00\sMDL/);
     expect(container.querySelectorAll("[data-sales-month]")).toHaveLength(5);
+  });
+
+  it("uses the compact dashboard spacing scale without changing overview-card geometry", async () => {
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: workspaceData() });
+
+    const { container } = render(await CabinetPage());
+    const dashboard = container.querySelector("[data-operational-dashboard]");
+    const headings = container.querySelectorAll("[data-dashboard-section-heading]");
+    const fulfilment = container.querySelector('[data-dashboard-section="fulfilment"]');
+    const overviewCards = container.querySelectorAll("[data-dashboard-overview-card]");
+
+    expect(dashboard).toHaveClass("space-y-4");
+    expect(dashboard).not.toHaveClass("space-y-5");
+    expect(headings.length).toBeGreaterThan(0);
+    headings.forEach((heading) => expect(heading).toHaveClass("min-h-8", "items-baseline", "gap-3"));
+    expect(fulfilment).toHaveClass("gap-4", "xl:grid-cols-2");
+    expect(overviewCards).toHaveLength(5);
+    overviewCards.forEach((card) => expect(card).toHaveClass("min-h-44", "gap-2", "p-3"));
   });
 
   it("switches the Finance graph through 30 / 60 / 90 / 180 day projections", async () => {

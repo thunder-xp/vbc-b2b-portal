@@ -30,7 +30,7 @@ export function OperationalDashboard({
   workspace: WorkspaceHomeDto;
 }) {
   return (
-    <div className={`${styles.dashboard} space-y-5`} data-operational-dashboard>
+    <div className={`${styles.dashboard} space-y-4`} data-operational-dashboard>
       <RepeatPurchaseSection
         analyticsSurface="dashboard_reorder"
         eligibleCount={workspace.reorderProductTotalCount}
@@ -46,12 +46,12 @@ export function OperationalDashboard({
         <SupportDashboardBlock items={workspace.supportTickets ?? []} locale={locale} />
       </div>
       <OpportunitySection locale={locale} opportunities={workspace.opportunities} workspace={workspace} />
-      <div className="grid items-stretch gap-5 xl:grid-cols-2" data-dashboard-finance-sales>
+      <div className="grid items-stretch gap-4 xl:grid-cols-2" data-dashboard-finance-sales>
         <FinanceSection guidance={workspace.financeGuidance} locale={locale} summary={workspace.financeSummary} />
         <SalesSection analytics={workspace.salesAnalytics} locale={locale} />
       </div>
       <SpecialOffersSection locale={locale} products={workspace.specialOfferProducts} workspace={workspace} />
-      <div className="grid gap-5 xl:grid-cols-2" data-dashboard-section="fulfilment">
+      <div className="grid gap-4 xl:grid-cols-2" data-dashboard-section="fulfilment">
         <OrdersSection locale={locale} summary={workspace.orderSummary} />
         <ShipmentsSection locale={locale} summary={workspace.shipmentSummary} />
       </div>
@@ -501,8 +501,8 @@ function SectionHeading({
   titleAccessory?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-11 items-center justify-between gap-3" data-dashboard-section-heading>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={id}>{title}</h2>{titleAccessory}</div>
+    <div className="flex min-h-8 items-baseline justify-between gap-3" data-dashboard-section-heading>
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={id}>{title}</h2>{titleAccessory}</div>
       {actionHref && actionLabel ? (
         <DashboardTrackedLink
           className={`${compactActionClassName.textLink} shrink-0`}
