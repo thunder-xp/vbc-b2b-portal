@@ -8,10 +8,14 @@ export function WorkspaceEmptyState({
   title: string;
 }) {
   return (
-    <div className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-4">
-      <h3 className="text-sm font-medium text-zinc-950">{title}</h3>
-      <p className="mt-1 text-sm text-zinc-600">{message}</p>
-      <p className="mt-3 text-sm font-medium text-emerald-700">{actionLabel}</p>
+    <div aria-live="assertive" data-partner-feedback="error" role="alert">
+      <CircleX aria-hidden="true" data-partner-feedback-icon />
+      <div>
+        <h3 data-partner-feedback-title>{title}</h3>
+        <p data-partner-feedback-body="with-title">{message}</p>
+        <p className="mt-2 font-semibold">{actionLabel}</p>
+      </div>
     </div>
   );
 }
+import { CircleX } from "lucide-react";

@@ -5,6 +5,7 @@ import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions/orde
 import { OrderDetailIntentLink } from "@/src/modules/orders/components/OrderDetailIntentLink";
 import { OrderHistoryRefreshButton } from "@/src/modules/orders/components/OrderHistoryRefreshButton";
 import { NumberedPagination } from "@/src/modules/platform-ui";
+import { PartnerFeedback } from "@/src/modules/partner-cabinet/components";
 import {
   formatPartnerDate,
   formatPartnerRelativeAge,
@@ -54,11 +55,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
     page,
   });
   if (!result.success) {
-    return (
-      <p className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">
-        {copy.loadError}
-      </p>
-    );
+    return <PartnerFeedback kind="error">{copy.loadError}</PartnerFeedback>;
   }
 
   return (
@@ -84,21 +81,16 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
 
       {result.data.bootstrapState &&
       result.data.bootstrapState.status !== "succeeded" ? (
-        <div
-          className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3"
-          role="status"
+        <PartnerFeedback
+          kind="warning"
+          title={result.data.bootstrapState.status.startsWith("failed")
+            ? copy.historyUpdating
+            : copy.historySyncing}
         >
-          <p className="text-sm font-semibold text-zinc-900">
-            {result.data.bootstrapState.status.startsWith("failed")
-              ? copy.historyUpdating
-              : copy.historySyncing}
-          </p>
-          <p className="mt-1 text-sm text-zinc-700">
-            {result.data.bootstrapState.status.startsWith("failed")
-              ? copy.currentOrdersAvailable
-              : copy.historyPending}
-          </p>
-        </div>
+          {result.data.bootstrapState.status.startsWith("failed")
+            ? copy.currentOrdersAvailable
+            : copy.historyPending}
+        </PartnerFeedback>
       ) : null}
 
       <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">

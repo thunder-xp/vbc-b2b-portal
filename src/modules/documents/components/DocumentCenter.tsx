@@ -18,7 +18,7 @@ export function DocumentCenter({ page, filters, locale }: { page: PartnerDocumen
       <input name="section" type="hidden" value={filters.section ?? "all"} /><button className="min-h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">{copy.find}</button>
     </form>
     <p aria-live="polite" className="text-sm text-zinc-600">{copy.found}: {page.totalCount}</p>
-    {page.items.length ? <div>{page.items.map((document) => <DocumentCard document={document} key={document.id} locale={locale} />)}</div> : <section className="border-y border-zinc-200 py-10 text-center"><h2 className="font-semibold text-zinc-950">{copy.empty}</h2><p className="mt-2 text-sm text-zinc-600">{copy.emptyHint}</p></section>}
+    {page.items.length ? <div>{page.items.map((document) => <DocumentCard document={document} key={document.id} locale={locale} />)}</div> : <section data-partner-empty-state><h2 data-partner-empty-title>{copy.empty}</h2><p data-partner-empty-body>{copy.emptyHint}</p></section>}
     <NumberedPagination ariaLabel={copy.pages} currentPage={page.page} hrefForPage={(targetPage) => href({ ...filters, page: targetPage })} locale={locale} totalPages={page.totalPages} />
   </div>;
 }

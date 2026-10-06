@@ -16,6 +16,7 @@ import {
   getEstimatesCopy,
 } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { PartnerFeedback } from "@/src/modules/partner-cabinet/components";
 
 type SearchParams = {
   search?: string;
@@ -165,9 +166,7 @@ export default async function EstimatesPage({
       </form>
 
       {!result.success ? (
-        <p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {result.message}
-        </p>
+        <PartnerFeedback kind="error">{result.message}</PartnerFeedback>
       ) : result.data.records.length ? (
         <>
           <div className="grid min-w-0 gap-3 lg:hidden">
@@ -321,12 +320,12 @@ export default async function EstimatesPage({
           />
         </>
       ) : (
-        <section className="border-y border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-          <Calculator className="mx-auto size-8 text-emerald-700" />
-          <h2 className="mt-4 font-semibold">{copy.emptyTitle}</h2>
-          <p className="mt-1 text-sm text-zinc-500">{copy.emptyHint}</p>
+        <section data-partner-empty-state>
+          <Calculator aria-hidden="true" data-partner-empty-icon />
+          <h2 data-partner-empty-title>{copy.emptyTitle}</h2>
+          <p data-partner-empty-body>{copy.emptyHint}</p>
           <Link
-            className="mt-5 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+            className="mt-3 inline-flex min-h-8 items-center rounded-md bg-emerald-700 px-3 text-[11px] font-semibold text-white max-md:min-h-9"
             href="/cabinet/estimates/new"
             prefetch={false}
           >

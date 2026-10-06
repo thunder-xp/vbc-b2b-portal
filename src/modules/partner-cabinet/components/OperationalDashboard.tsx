@@ -546,8 +546,8 @@ function CompactEmpty({
   message: string;
 }) {
   return (
-    <div className="border-x border-b border-zinc-200 bg-white p-4 text-sm text-zinc-600">
-      <p>{message}</p>
+    <div data-partner-empty-state>
+      <p data-partner-empty-body>{message}</p>
       {actionHref && actionLabel ? (
         <DashboardTrackedLink
           className={`${compactActionClassName.secondary} mt-3`}

@@ -12,6 +12,7 @@ import {
 import type { NotificationEventGroup, NotificationListFilter } from "@/src/modules/notifications";
 import { notificationCopy, presentPartnerNotification } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { EmptyState, PartnerFeedback } from "@/src/modules/partner-cabinet/components";
 
 export const dynamic = "force-dynamic";
 
@@ -71,14 +72,9 @@ export default async function CabinetNotificationsPage({ searchParams }: { searc
       </nav>
 
       {!result.success ? (
-        <div className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{copy.loadError}</div>
+        <PartnerFeedback kind="error">{copy.loadError}</PartnerFeedback>
       ) : items.length === 0 ? (
-        <div className="flex min-h-64 flex-col items-center justify-center rounded-md border border-dashed border-zinc-300 bg-white px-6 text-center">
-          <Bell aria-hidden="true" className="text-zinc-400" size={28} />
-          <h2 className="mt-3 text-base font-semibold text-zinc-950">{copy.emptyTitle}</h2>
-          <p className="mt-1 max-w-md text-sm text-zinc-600">{copy.emptyMessage}</p>
-          <Link className="mt-4 text-sm font-medium text-emerald-700" href="/cabinet">{copy.backWorkspace}</Link>
-        </div>
+        <EmptyState actionHref="/cabinet" actionLabel={copy.backWorkspace} icon={Bell} message={copy.emptyMessage} title={copy.emptyTitle} />
       ) : (
         <>
           <ul className="space-y-3">
