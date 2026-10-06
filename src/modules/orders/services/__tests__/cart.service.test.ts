@@ -26,6 +26,57 @@ describe("DefaultCartService", () => {
     expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledOnce();
     expect(dependencies.pricingService.getProductCommercialViews).toHaveBeenCalledOnce();
   });
+
+  it("normalizes mixed cart contexts into one governed estimate line per product", async () => {
+    const dependencies = makeDependencies();
+    const row = { id: "standard-p1", cartId: "cart-1", productId: "product-1", quantity: 2, createdAt: "2026-01-01", updatedAt: "2026-01-01" };
+    dependencies.repository.listItems.mockResolvedValue([
+      row,
+      { ...row, id: "campaign-p1", quantity: 1 },
+      { ...row, id: "standard-p2", productId: "product-2", quantity: 4 },
+      { ...row, id: "campaign-p2", productId: "product-2", quantity: 2 },
+    ]);
+    dependencies.catalogService.getProductsByIds.mockResolvedValue([
+      { id: "product-1", slug: "camera", name: "Camera", sku: "SKU-1", imageUrl: null },
+      { id: "product-2", slug: "recorder", name: "Recorder", sku: "SKU-2", imageUrl: null },
+    ]);
+    dependencies.pricingService.getAuthoritativeProductCommercialViews = vi.fn().mockResolvedValue([
+      { productId: "product-1", partnerPrice: { amount: 9.21, currencyCode: "USD", lastUpdatedAt: "2026-10-06T10:00:00Z" } },
+      { productId: "product-2", partnerPrice: { amount: 15.5, currencyCode: "USD", lastUpdatedAt: "2026-10-06T10:00:00Z" } },
+    ]);
+
+    const source = await dependencies.service.getEstimateSource("user-1");
+
+    expect(source.lines).toEqual([
+      expect.objectContaining({ productId: "product-1", quantity: 3, partnerPrice: 9.21 }),
+      expect.objectContaining({ productId: "product-2", quantity: 6, partnerPrice: 15.5 }),
+    ]);
+    expect(dependencies.catalogService.getProductsByIds).toHaveBeenCalledWith("user-1", ["product-1", "product-2"]);
+    expect(dependencies.pricingService.getAuthoritativeProductCommercialViews).toHaveBeenCalledWith("user-1", ["product-1", "product-2"]);
+    expect(dependencies.pricingService.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when an estimate source contains a product outside the active catalog", async () => {
+    const dependencies = makeDependencies();
+    dependencies.catalogService.getProductsByIds.mockResolvedValue([]);
+
+    await expect(dependencies.service.getEstimateSource("user-1")).rejects.toMatchObject({
+      name: "NotFoundError",
+    });
+  });
+
+  it("preserves empty and unavailable cart failures at the estimate boundary", async () => {
+    const empty = makeDependencies();
+    empty.repository.listItems.mockResolvedValue([]);
+    await expect(empty.service.getEstimateSource("user-1")).rejects.toBeInstanceOf(InvalidStateError);
+
+    const unavailable = makeDependencies();
+    unavailable.repository.findActive.mockResolvedValue({
+      id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "submitting",
+      intentVersion: 7, createdAt: "2026-01-01", updatedAt: "2026-01-01",
+    });
+    await expect(unavailable.service.getEstimateSource("user-1")).rejects.toBeInstanceOf(InvalidStateError);
+  });
   it("adds an accessible catalog product through the scoped repository", async () => {
     const dependencies = makeDependencies();
     await expect(dependencies.service.addItem("user-1", " product-1 ", 2)).resolves.toBe(2);
@@ -295,6 +346,7 @@ function makeDependencies() {
   };
   const pricingService: {
     getProductCommercialViews: ReturnType<typeof vi.fn>;
+    getAuthoritativeProductCommercialViews?: ReturnType<typeof vi.fn>;
     getCommercialVisibility?: ReturnType<typeof vi.fn>;
   } = { getProductCommercialViews: vi.fn().mockResolvedValue([{
     productId: "product-1",

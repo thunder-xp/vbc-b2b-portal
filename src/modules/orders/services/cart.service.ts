@@ -376,7 +376,14 @@ export class DefaultCartService implements CartService {
     if (!cart || cart.status !== "active") throw new InvalidStateError("Корзина пуста или недоступна.");
     const items = await this.repository.listItems(cart.id);
     if (!items.length) throw new InvalidStateError("Корзина пуста.");
-    const productIds = items.map((item) => item.productId);
+    const quantityByProduct = new Map<string, number>();
+    for (const item of items) {
+      quantityByProduct.set(
+        item.productId,
+        (quantityByProduct.get(item.productId) ?? 0) + item.quantity,
+      );
+    }
+    const productIds = [...quantityByProduct.keys()];
     const [products, views] = await Promise.all([
       this.catalogService.getProductsByIds(userId, productIds),
       this.pricingInventoryService.getAuthoritativeProductCommercialViews
@@ -386,20 +393,23 @@ export class DefaultCartService implements CartService {
           )
         : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
     ]);
+    if (products.length !== productIds.length) {
+      throw new NotFoundError("One or more catalog products were not found.");
+    }
     const productById = new Map(products.map((product) => [product.id, product]));
     const viewById = new Map(views.map((view) => [view.cartItemId ?? view.productId, view]));
     return {
       companyId,
       cartId: cart.id,
-      lines: items.flatMap((item) => {
-        const product = productById.get(item.productId);
+      lines: productIds.flatMap((productId) => {
+        const product = productById.get(productId);
         if (!product) return [];
-        const price = viewById.get(item.productId)?.partnerPrice ?? null;
+        const price = viewById.get(productId)?.partnerPrice ?? null;
         return [{
           productId: product.id,
           sku: product.sku,
           productName: product.name,
-          quantity: item.quantity,
+          quantity: quantityByProduct.get(productId)!,
           partnerPrice: price?.amount ?? null,
           currencyCode: price?.currencyCode ?? null,
           priceUpdatedAt: price?.lastUpdatedAt ?? null,
