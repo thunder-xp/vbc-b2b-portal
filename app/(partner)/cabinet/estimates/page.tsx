@@ -84,11 +84,14 @@ export default async function EstimatesPage({
       <nav
         aria-label={copy.quickFilters}
         className="flex gap-2 overflow-x-auto pb-1"
+        data-partner-tabs
       >
         {quickFilters.map((filter) => (
           <Link
+            aria-current={filter.href === "/cabinet/estimates" ? (!query.status && !query.lifecycleStatus ? "page" : undefined) : filter.href.includes(`status=${query.status}`) || filter.href.includes(`lifecycleStatus=${query.lifecycleStatus}`) ? "page" : undefined}
             className="min-h-11 shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 hover:border-emerald-600 hover:text-emerald-700"
             href={filter.href}
+            data-partner-tab
             key={filter.href}
             prefetch={false}
           >

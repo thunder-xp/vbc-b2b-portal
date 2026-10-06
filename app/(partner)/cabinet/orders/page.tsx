@@ -105,15 +105,18 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
         <div
           className="flex min-w-0 gap-2 overflow-x-auto pb-1 lg:flex-1"
           aria-label={copy.state}
+          data-partner-tabs
         >
           {filters.map(([value, label]) => (
             <Link
+              aria-current={result.data.filter === value ? "page" : undefined}
               className={
                 result.data.filter === value
                   ? "whitespace-nowrap rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"
                   : "whitespace-nowrap rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               }
               href={filterHref(value, result.data.search)}
+              data-partner-tab
               key={value}
               prefetch={false}
             >

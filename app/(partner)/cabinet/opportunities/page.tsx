@@ -83,11 +83,13 @@ export default async function OpportunitiesPage({
       <nav
         aria-label={copy.opportunitiesFilters}
         className="flex max-w-full gap-2 overflow-x-auto pb-1"
+        data-partner-tabs
       >
         {availableFilters.map((item) => (
           <Link
             aria-current={filter === item.value ? "page" : undefined}
             className={`flex min-h-11 shrink-0 items-center rounded-md border px-3 text-sm font-semibold ${filter === item.value ? "border-emerald-700 bg-emerald-50 text-emerald-800" : "border-zinc-300 bg-white text-zinc-700"}`}
+            data-partner-tab
             href={filterHref(item.value)}
             key={item.value}
             prefetch={false}

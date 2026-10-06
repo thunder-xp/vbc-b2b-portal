@@ -55,11 +55,12 @@ export default async function CabinetNotificationsPage({ searchParams }: { searc
         </div>
       </header>
 
-      <nav aria-label={copy.filters} className="flex gap-2 overflow-x-auto pb-1">
+      <nav aria-label={copy.filters} className="flex gap-2 overflow-x-auto pb-1" data-partner-tabs>
         {filters.map((filter) => (
           <Link
             aria-current={selected === filter.value ? "page" : undefined}
             className={`inline-flex min-h-11 shrink-0 items-center rounded-md border px-4 text-sm font-medium ${selected === filter.value ? "border-zinc-950 bg-zinc-950 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"}`}
+            data-partner-tab
             href={`/cabinet/notifications?filter=${filter.value}`}
             key={filter.value}
             prefetch={false}

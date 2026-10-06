@@ -26,12 +26,13 @@ export function FinancePeriodPanel({
   return (
     <div className="min-w-0" data-finance-period-summary>
       <p className="mb-2 text-xs font-medium text-zinc-600">{partnerText(locale, "dashboard.financePeriodSelector")}</p>
-      <div aria-label={partnerText(locale, "dashboard.financePeriodSelector")} className="grid grid-cols-4 gap-1 rounded-md bg-zinc-100 p-1" role="group">
+      <div aria-label={partnerText(locale, "dashboard.financePeriodSelector")} className="grid grid-cols-4 gap-1 rounded-md bg-zinc-100 p-1" data-partner-segmented role="group">
         {PERIODS.map((days) => (
           <button
             aria-pressed={selectedDays === days}
             className={`flex min-h-11 items-center justify-center rounded px-2 text-xs font-semibold tabular-nums transition-colors hover:bg-white hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${selectedDays === days ? "bg-white text-emerald-700 shadow-sm" : "text-zinc-600"}`}
             data-finance-period-option={days}
+            data-partner-segment
             key={days}
             onClick={() => setSelectedDays(days)}
             type="button"

@@ -43,12 +43,14 @@ export function SalesTrendSummary({
       ))}
       <div
         className="grid grid-cols-4 gap-1 rounded-md bg-zinc-100 p-1"
+        data-partner-segmented
         data-sales-period-selector
       >
         {PERIODS.map((days) => (
           <label
             className="flex min-h-11 cursor-pointer items-center justify-center rounded px-2 text-xs font-semibold tabular-nums text-zinc-600 transition-colors hover:bg-white hover:text-zinc-950"
             data-sales-period-label={days}
+            data-partner-segment
             htmlFor={`dashboard-sales-period-${days}`}
             key={days}
           >
