@@ -8,6 +8,7 @@ import { partnerNavigationIcons } from "./partner-navigation-icons";
 
 type OverviewAction = Pick<Parameters<typeof DashboardTrackedLink>[0], "href" | "eventName" | "metadataSafe" | "sourceSurface"> & { label: string };
 type OverviewCardId = "attention" | "sales" | "finance" | "orders" | "shipment";
+type OverviewTone = "danger" | "info" | "neutral" | "success" | "warning";
 
 const OVERVIEW_ICONS = {
   attention: CircleAlert,
@@ -16,6 +17,14 @@ const OVERVIEW_ICONS = {
   orders: partnerNavigationIcons.orders,
   shipment: Truck,
 } satisfies Record<OverviewCardId, typeof CircleAlert>;
+
+const OVERVIEW_TONE_CLASS_NAME = {
+  danger: { icon: "bg-rose-50 text-rose-800", primary: "text-rose-800", secondary: "text-rose-700" },
+  info: { icon: "bg-sky-50 text-sky-800", primary: "text-zinc-950", secondary: "text-zinc-500" },
+  neutral: { icon: "bg-zinc-100 text-zinc-700", primary: "text-zinc-950", secondary: "text-zinc-500" },
+  success: { icon: "bg-emerald-50 text-emerald-800", primary: "text-zinc-950", secondary: "text-zinc-500" },
+  warning: { icon: "bg-amber-50 text-amber-900", primary: "text-amber-900", secondary: "text-amber-800" },
+} satisfies Record<OverviewTone, { icon: string; primary: string; secondary: string }>;
 
 export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerLocale; workspace: WorkspaceHomeDto }) {
   const navigation = workspace.capabilities.navigation.filter((item) => item.availability === "available");
@@ -46,6 +55,7 @@ export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerL
       primary={String(workspace.attentionItems.length)}
       secondary={attention ? attention.orderNumber || attentionPresentation?.title : partnerText(locale, "dashboard.overviewNoTasks")}
       title={partnerText(locale, "dashboard.attention")}
+      tone={attention ? "warning" : "success"}
     />
     <OverviewCard
       action={opportunity ? { href: opportunity.href, label: partnerText(locale, opportunityActionKey(opportunity.action)), eventName: "dashboard_continue_work_clicked", metadataSafe: { opportunityType: opportunity.type }, sourceSurface: "dashboard_estimate_sales" } : proposalsHref ? { href: proposalsHref, label: partnerText(locale, "dashboard.allEstimates"), eventName: "dashboard_continue_work_clicked", sourceSurface: "dashboard_estimate_sales" } : null}
@@ -54,6 +64,7 @@ export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerL
       primary={opportunity ? partnerText(locale, opportunityStateKey(opportunity)) : partnerText(locale, proposalsHref ? "dashboard.overviewNoOpportunities" : "dashboard.overviewUnavailable")}
       secondary={opportunity?.estimateNumber}
       title={partnerText(locale, "dashboard.salesOpportunities")}
+      tone={opportunity ? "info" : "neutral"}
     />
     <OverviewCard
       action={financeHref ? { href: financeHref, label: partnerText(locale, "dashboard.openFinance"), eventName: "dashboard_finance_opened", sourceSurface: "dashboard_summary" } : null}
@@ -62,6 +73,7 @@ export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerL
       primary={financeValue}
       secondary={financeTotal || fallbackTotal ? partnerText(locale, guidance?.state === "overdue" ? "dashboard.financeOverdue" : "dashboard.amountDue") : undefined}
       title={partnerText(locale, "dashboard.finance")}
+      tone={guidance?.state === "overdue" ? "danger" : guidance?.state === "due_soon" ? "warning" : guidance?.state === "healthy" ? "success" : "neutral"}
     />
     <OverviewCard
       action={ordersHref ? { href: ordersHref, label: partnerText(locale, "dashboard.openSales"), eventName: "dashboard_order_opened", sourceSurface: "dashboard_summary" } : null}
@@ -70,6 +82,7 @@ export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerL
       primary={ordersHref ? String(workspace.orderSummary.active) : partnerText(locale, "dashboard.overviewUnavailable")}
       secondary={ordersHref ? partnerText(locale, "dashboard.active") : undefined}
       title={partnerText(locale, "dashboard.currentOrders")}
+      tone="neutral"
     />
     <OverviewCard
       action={ordersHref ? { href: shipment?.href ?? ordersHref, label: partnerText(locale, shipment ? "dashboard.details" : "dashboard.openSales"), eventName: "dashboard_shipment_opened", sourceSurface: "dashboard_summary" } : null}
@@ -78,26 +91,29 @@ export function DashboardOverviewCards({ locale, workspace }: { locale: PartnerL
       primary={shipment ? formatPartnerDate(shipment.plannedDate, locale) : partnerText(locale, ordersHref ? "dashboard.notScheduled" : "dashboard.overviewUnavailable")}
       secondary={shipment ? `${partnerText(locale, "dashboard.plannedDate")} · ${shipment.orderNumber}` : undefined}
       title={partnerText(locale, "dashboard.nearestShipment")}
+      tone={shipment ? "info" : "neutral"}
     />
   </div>;
 }
 
-function OverviewCard({ action, id, locale, primary, secondary, title }: {
+function OverviewCard({ action, id, locale, primary, secondary, title, tone }: {
   action: OverviewAction | null;
   id: OverviewCardId;
   locale: PartnerLocale;
   primary: string;
   secondary?: string | null;
   title: string;
+  tone: OverviewTone;
 }) {
   const Icon = OVERVIEW_ICONS[id];
-  return <section aria-labelledby={`dashboard-overview-${id}`} className="relative flex h-full min-h-44 min-w-0 flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3" data-dashboard-overview-card={id}>
-    <span aria-hidden="true" className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-800" data-overview-icon-badge={id}>
+  const semantic = OVERVIEW_TONE_CLASS_NAME[tone];
+  return <section aria-labelledby={`dashboard-overview-${id}`} className="relative flex h-full min-h-44 min-w-0 flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3" data-dashboard-overview-card={id} data-overview-tone={tone}>
+    <span aria-hidden="true" className={`absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-md ${semantic.icon}`} data-overview-icon-badge={id}>
       <Icon aria-hidden="true" className="size-5" data-overview-icon={id} />
     </span>
     <h2 className="pr-12 text-xs font-semibold leading-4 text-zinc-600" id={`dashboard-overview-${id}`}>{title}</h2>
-    <p className="min-h-12 break-words text-lg font-semibold leading-6 tabular-nums text-zinc-950" data-overview-primary>{primary}</p>
-    {secondary ? <p className="truncate text-xs leading-4 text-zinc-500" data-overview-secondary title={secondary}>{secondary}</p> : null}
+    <p className={`min-h-12 break-words text-lg font-semibold leading-6 tabular-nums ${semantic.primary}`} data-overview-primary>{primary}</p>
+    {secondary ? <p className={`truncate text-xs leading-4 ${semantic.secondary}`} data-overview-secondary title={secondary}>{secondary}</p> : null}
     <div className="mt-auto">
       {action ? <DashboardTrackedLink className={`${compactActionClassName.textLink} max-w-full`} dataActionLevel="text-link" eventName={action.eventName} href={action.href} metadataSafe={action.metadataSafe} sourceSurface={action.sourceSurface}><span>{action.label}</span><ArrowRight aria-hidden="true" className="size-3.5 shrink-0" /></DashboardTrackedLink> : <button className="min-h-8 text-xs font-medium text-zinc-400" disabled type="button">{partnerText(locale, "dashboard.details")}</button>}
     </div>

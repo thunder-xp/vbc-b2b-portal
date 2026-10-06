@@ -91,16 +91,18 @@ describe("Partner Workspace operational home", () => {
     expect(cards[2]).toHaveTextContent("Нет данных");
     expect(cards[4]).toHaveTextContent("Не запланирована");
     const iconClasses = ["lucide-circle-alert", "lucide-calculator", "lucide-landmark", "lucide-list-checks", "lucide-truck"];
+    const iconToneClasses = ["bg-emerald-50 text-emerald-800", "bg-zinc-100 text-zinc-700", "bg-zinc-100 text-zinc-700", "bg-zinc-100 text-zinc-700", "bg-zinc-100 text-zinc-700"];
     expect(cards.map((card, index) => {
       const badge = card.querySelector("[data-overview-icon-badge]");
       const icon = card.querySelector("[data-overview-icon]");
       expect(badge).toHaveAttribute("aria-hidden", "true");
-      expect(badge).toHaveClass("absolute", "right-3", "top-3", "size-10", "rounded-md", "bg-emerald-50", "text-emerald-800");
+      expect(badge).toHaveClass("absolute", "right-3", "top-3", "size-10", "rounded-md", ...iconToneClasses[index].split(" "));
       expect(icon).toHaveAttribute("aria-hidden", "true");
       expect(icon).toHaveClass("size-5", iconClasses[index]);
       return icon?.getAttribute("data-overview-icon");
     })).toEqual(["attention", "sales", "finance", "orders", "shipment"]);
     expect(overview.querySelectorAll("[data-overview-icon-badge]")).toHaveLength(5);
+    expect(cards.map((card) => card.getAttribute("data-overview-tone"))).toEqual(["success", "neutral", "neutral", "neutral", "neutral"]);
     expect(cards.map((card) => card.querySelector("a")?.getAttribute("href"))).toEqual([
       "/cabinet/orders",
       "/cabinet/estimates",
@@ -127,6 +129,9 @@ describe("Partner Workspace operational home", () => {
     const card = container.querySelector('[data-dashboard-overview-card="attention"]')!;
     expect(card.querySelector("[data-overview-primary]")).toHaveTextContent("2");
     expect(card.querySelector("[data-overview-secondary]")).toHaveTextContent("NS-2");
+    expect(card).toHaveAttribute("data-overview-tone", "warning");
+    expect(card.querySelector("[data-overview-icon-badge]")).toHaveClass("bg-amber-50", "text-amber-900");
+    expect(card.querySelector("[data-overview-primary]")).toHaveClass("text-amber-900");
     expect(card).not.toHaveTextContent("NS-1");
     expect(within(card as HTMLElement).getByRole("link")).toHaveAttribute("href", "/cabinet/orders/NS-2");
     expect(JSON.stringify(attention)).toBe(before);
@@ -161,9 +166,37 @@ describe("Partner Workspace operational home", () => {
     const card = container.querySelector('[data-dashboard-overview-card="finance"]')!;
     expect(card.querySelector("[data-overview-primary]")).toHaveTextContent(/100,00\sMDL/);
     expect(card.querySelector("[data-overview-secondary]")).toHaveTextContent("Просрочено");
+    expect(card).toHaveAttribute("data-overview-tone", "danger");
+    expect(card.querySelector("[data-overview-icon-badge]")).toHaveClass("bg-rose-50", "text-rose-800");
+    expect(card.querySelector("[data-overview-primary]")).toHaveClass("text-rose-800");
+    expect(card.querySelector("[data-overview-secondary]")).toHaveClass("text-rose-700");
     expect(card.querySelector("a")).toHaveAttribute("href", "/cabinet/finance");
     expect(card).not.toHaveTextContent("EUR");
     expect(JSON.stringify(guidance)).toBe(before);
+  });
+
+  it("keeps payment, trend, merchandising, and CTA colors on their established semantic roles", async () => {
+    const payment = { id: "payment", eventDate: "2026-09-08", orderNumber: "NS-1", amount: 100, currency: "MDL", relativeHeight: 50, positionPercent: 50, stackIndex: 0, stackCount: 1 };
+    const guidance = { ...financeGuidanceData(), state: "overdue", totals: [{ currency: "MDL", outstanding: 500, overdue: 100 }], paymentGraph: [
+      { ...payment, id: "overdue", timing: "overdue" },
+      { ...payment, id: "today", timing: "today" },
+      { ...payment, id: "upcoming", timing: "upcoming" },
+      { ...payment, id: "paid", timing: "paid" },
+    ] };
+    const sales = salesAnalyticsData();
+    const negativeSeries = { ...sales.series[0], currency: "EUR", comparisons: sales.series[0].comparisons.map((comparison) => ({ ...comparison, changePercent: -10, state: "DECREASE" as const })) };
+    mocks.getWorkspaceHomeAction.mockResolvedValue({ success: true, data: { ...workspaceData(), financeGuidance: guidance, salesAnalytics: { ...sales, series: [...sales.series, negativeSeries] } } });
+
+    const { container } = render(await CabinetPage());
+    expect(container.querySelector('[data-finance-period-panel] [data-analytics-context] p')).toHaveClass("text-rose-800");
+    expect(container.querySelector('[data-finance-currency="MDL"] dd')).toHaveClass("text-rose-800");
+    expect(container.querySelector('[data-payment-state="overdue"] span[aria-hidden="true"]')).toHaveClass("bg-rose-600");
+    expect(container.querySelector('[data-payment-state="today"] span[aria-hidden="true"]')).toHaveClass("bg-amber-600");
+    expect(container.querySelector('[data-payment-state="upcoming"] span[aria-hidden="true"]')).toHaveClass("bg-emerald-700");
+    expect(container.querySelector('[data-payment-state="paid"] span[aria-hidden="true"]')).toHaveClass("bg-zinc-400");
+    expect(container.querySelector('[data-sales-trend-state="DECREASE"] [data-sales-change]')).toHaveClass("text-rose-700");
+    expect(container.querySelector('[data-sales-trend-state="INCREASE"] [data-sales-change]')).toHaveClass("text-emerald-700");
+    expect(container.querySelector('[data-dashboard-overview-card="finance"] a')).toHaveClass("text-emerald-700");
   });
 
   it.each([

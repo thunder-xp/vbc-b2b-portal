@@ -53,4 +53,12 @@ describe("MerchandisingBadges", () => {
     }
     expect(special).toHaveClass("border-orange-600", "bg-orange-500", "text-white");
   });
+
+  it("preserves the established merchandising color semantics", () => {
+    render(<><MerchandisingBadge label="Hot" variant="HOT" /><MerchandisingBadge label="New" variant="NEW" /><MerchandisingBadge label="Popular" variant="TOP" /><MerchandisingBadge label="Incoming" variant="REPLENISHMENT" /></>);
+    expect(screen.getByText("Hot")).toHaveClass("bg-rose-50", "text-rose-800");
+    expect(screen.getByText("New")).toHaveClass("bg-sky-50", "text-sky-800");
+    expect(screen.getByText("Popular")).toHaveClass("bg-amber-50", "text-amber-900");
+    expect(screen.getByText("Incoming")).toHaveClass("bg-emerald-50", "text-emerald-900");
+  });
 });
