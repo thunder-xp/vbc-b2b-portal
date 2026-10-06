@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CompanyAccessService } from "../../../access-control/services";
 import { CompanyStatus, MembershipStatus, UserStatus, UserType } from "../../../access-control/types";
@@ -300,3 +300,60 @@ const companyAccessService: CompanyAccessService = {
   async validateCompanyAccess() { return { isAllowed: true, context: null }; },
   async ensureActiveMembership() { return (await this.getOwnMemberships("user-1"))[0]!; },
 };
+
+describe("catalog governed-data contract", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  for (const environment of ["production", "development", "test"]) {
+    it(`returns honest empty data and rejects synthetic identities in ${environment}`, async () => {
+      vi.stubEnv("NODE_ENV", environment);
+      vi.stubEnv("VERCEL_ENV", "production");
+      vi.stubEnv("CATALOG_DEMO_MODE", "true");
+      const repository = new ListingRepository(false, []);
+      vi.spyOn(repository, "listCategories").mockResolvedValue([]);
+      vi.spyOn(repository, "listBrands").mockResolvedValue([]);
+      const service = new DefaultCatalogService(repository, companyAccessService);
+      expect(await service.listProducts("user-1", {})).toMatchObject({ products: [], totalCount: 0, isDemoData: false });
+      expect(await service.listCategories("user-1")).toEqual([]);
+      expect(await service.listBrands("user-1")).toEqual([]);
+      expect(await service.getProductDetailBySlug("user-1", "4mp-indoor-dome-camera")).toBeNull();
+      expect(await service.getProductRouteIdentityBySlug("user-1", "4mp-indoor-dome-camera")).toBeNull();
+      expect(await service.getProductDetailById("user-1", "demo-product-dome-camera")).toBeNull();
+      expect(repository.productCalls).toBe(1);
+    });
+  }
+  it("preserves modern aggregate real and empty results in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const repository = new AggregateListingRepository();
+    const service = new DefaultCatalogService(repository, companyAccessService);
+    expect(await service.listProducts("user-1", {})).toMatchObject({ isDemoData: false, totalCount: 3 });
+    vi.spyOn(repository, "listPartnerPage").mockResolvedValue({ items: [], totalCount: 0 });
+    expect(await service.listProducts("user-1", {})).toMatchObject({ products: [], totalCount: 0, isDemoData: false });
+    expect(repository.productCalls).toBe(0);
+  });
+  it("does not resolve synthetic IDs when governed products exist", async () => {
+    const service = new DefaultCatalogService(new ListingRepository(), companyAccessService);
+    expect(await service.getProductDetailById("user-1", "demo-product-dome-camera")).toBeNull();
+  });
+  it("propagates repository failures for every catalog entry point", async () => {
+    const repository = new AggregateListingRepository();
+    const failure = new Error("repository unavailable");
+    vi.spyOn(repository, "listPartnerPage").mockRejectedValue(failure);
+    vi.spyOn(repository, "listCategories").mockRejectedValue(failure);
+    vi.spyOn(repository, "listBrands").mockRejectedValue(failure);
+    vi.spyOn(repository, "getProductBySlug").mockRejectedValue(failure);
+    const service = new DefaultCatalogService(Object.assign(repository, {
+      getProductDetailAggregateById: vi.fn().mockRejectedValue(failure),
+    }), companyAccessService);
+    for (const operation of [
+      () => service.listProducts("user-1", {}),
+      () => service.listCategories("user-1"),
+      () => service.listBrands("user-1"),
+      () => service.getProductDetailBySlug("user-1", "missing"),
+      () => service.getProductRouteIdentityBySlug("user-1", "missing"),
+      () => service.getProductDetailById("user-1", "missing"),
+    ]) await expect(operation()).rejects.toBe(failure);
+    const legacy = new ListingRepository(false, []);
+    vi.spyOn(legacy, "listProducts").mockRejectedValue(failure);
+    await expect(new DefaultCatalogService(legacy, companyAccessService).listProducts("user-1", {})).rejects.toBe(failure);
+  });
+});

@@ -341,20 +341,6 @@ export class DefaultPricingInventoryService implements PricingInventoryService {
       const stock = canViewStock
         ? stockAvailabilityForProduct(stockBalances, supplierArrivals, productId)
         : null;
-      const demoView =
-        !cartContext && !partnerPrice && !msrpPrice && !stock
-          ? createDemoCommercialView(
-              productId,
-              canViewPartnerPrice,
-              canViewRetailPrice,
-              canViewStock,
-            )
-          : null;
-
-      if (demoView) {
-        return { ...demoView, retailBelowPartnerPrice: false };
-      }
-
       const partnerPriceMdl = canViewPartnerPrice
         ? createPartnerPriceMdlView(
             partnerPrice,
@@ -939,87 +925,3 @@ function formatRetailAmount(
   const sign = signed && amount !== 0 ? (amount > 0 ? "+" : "−") : "";
   return `${sign}${value} ${currency}`;
 }
-
-
-type DemoCommercialViewSource = {
-  partnerPrice: ProductPriceViewDto;
-  stock: ProductStockViewDto;
-};
-
-const demoNow = "2026-07-09T00:00:00.000Z";
-
-function createDemoCommercialView(
-  productId: string,
-  canViewPartnerPrice: boolean,
-  canViewRetailPrice: boolean,
-  canViewStock: boolean,
-): ProductCommercialViewDto | null {
-  const demoView = demoCommercialViews.get(productId);
-
-  if (!demoView || (!canViewPartnerPrice && !canViewRetailPrice && !canViewStock)) {
-    return null;
-  }
-
-  return {
-    productId,
-    partnerPrice: canViewPartnerPrice ? demoView.partnerPrice : null,
-    partnerPriceMdl: null,
-    msrpPriceUsd: null,
-    retailPrice: null,
-    commercialOpportunity: null,
-    commercialRateFreshness: null,
-    stock: canViewStock ? demoView.stock : null,
-    isDemoData: true,
-  };
-}
-
-const demoCommercialViews = new Map<string, DemoCommercialViewSource>([
-  [
-    "demo-product-dome-camera",
-    {
-      partnerPrice: {
-        currencyCode: "BGN",
-        amount: 100,
-        formattedAmount: "100.00 BGN",
-      },
-      stock: {
-        status: "in_stock",
-        label: "Demo availability: In Stock: 24 available",
-        exactAvailableQuantity: 24, exactPhysicalQuantity:24, exactReservedQuantity:0, exactIncomingQuantity:0, expectedArrival:null, hasVariantStock:false,
-        lastUpdatedAt: demoNow,
-      },
-    },
-  ],
-  [
-    "demo-product-controller",
-    {
-      partnerPrice: {
-        currencyCode: "BGN",
-        amount: 150,
-        formattedAmount: "150.00 BGN",
-      },
-      stock: {
-        status: "low_stock",
-        label: "Demo availability: Low Stock: 2 available",
-        exactAvailableQuantity:2,exactPhysicalQuantity:2,exactReservedQuantity:0,exactIncomingQuantity:0,expectedArrival:null,hasVariantStock:false,
-        lastUpdatedAt: demoNow,
-      },
-    },
-  ],
-  [
-    "demo-product-poe-switch",
-    {
-      partnerPrice: {
-        currencyCode: "BGN",
-        amount: 200,
-        formattedAmount: "200.00 BGN",
-      },
-      stock: {
-        status: "expected",
-        label: "Demo availability: Expected: 10",
-        exactAvailableQuantity:0,exactPhysicalQuantity:0,exactReservedQuantity:0,exactIncomingQuantity:10,expectedArrival:null,hasVariantStock:false,
-        lastUpdatedAt: demoNow,
-      },
-    },
-  ],
-]);

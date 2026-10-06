@@ -233,20 +233,12 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
     await this.ensureCatalogAccess(userId);
     const categories = await this.catalogRepository.listCategories();
 
-    if (categories.length === 0 && (await this.isCatalogEmpty())) {
-      return demoCategories.map(toCategoryDto);
-    }
-
     return categories.map(toCategoryDto);
   }
 
   async listBrands(userId: string): Promise<CatalogBrandDto[]> {
     await this.ensureCatalogAccess(userId);
     const brands = await this.catalogRepository.listBrands();
-
-    if (brands.length === 0 && (await this.isCatalogEmpty())) {
-      return demoBrands.map(toBrandDto);
-    }
 
     return brands.map(toBrandDto);
   }
@@ -328,40 +320,6 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
           this.catalogRepository.countProducts(repositoryInput),
         ]),
       );
-    }
-    const isEmptyCatalog = products.length === 0 && (await this.isCatalogEmpty());
-
-    if (isEmptyCatalog) {
-      const filteredDemoProducts = filterDemoProducts(input);
-      const start = (page - 1) * pageSize;
-      const demoCommercialViews = commercialSort
-        ? await this.getCommercialViews(userId, filteredDemoProducts)
-        : [];
-      const sortedDemoProducts = sortCatalogProducts(
-        filteredDemoProducts,
-        demoCommercialViews,
-        sort,
-      );
-      const pagedDemoProducts = sortedDemoProducts.slice(start, start + pageSize + 1);
-      const demoBrandMap = createBrandMap(demoBrands);
-      const demoCategoryMap = createCategoryMap(demoCategories);
-
-      return {
-        products: pagedDemoProducts
-          .slice(0, pageSize)
-          .map((product) =>
-            this.toProductCardDto(product, demoBrandMap, demoCategoryMap),
-          ),
-        page,
-        pageSize,
-        hasNextPage: pagedDemoProducts.length > pageSize,
-        isDemoData: true,
-        totalCount: filteredDemoProducts.length,
-        facets: [],
-        commercialViews: commercialSort
-          ? filterCommercialViews(demoCommercialViews, pagedDemoProducts.slice(0, pageSize))
-          : undefined,
-      };
     }
     const brandMap = createBrandMap(brands);
     const categoryMap = createCategoryMap(categories);
@@ -592,22 +550,6 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
       );
     }
 
-    if (await this.isCatalogEmpty()) {
-      const demoProduct = demoProducts.find((item) => item.slug === slug);
-
-      if (!demoProduct) {
-        return null;
-      }
-
-      return this.toProductDetailDto(
-        demoProduct,
-        demoImages.filter((image) => image.productId === demoProduct.id),
-        demoDocuments.filter((document) => document.productId === demoProduct.id),
-        createBrandMap(demoBrands),
-        createCategoryMap(demoCategories),
-      );
-    }
-
     return null;
   }
 
@@ -615,10 +557,6 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
     await this.ensureCatalogAccess(userId);
     const product = await this.catalogRepository.getProductBySlug(slug);
     if (product) return { id: product.id, slug: product.slug };
-    if (await this.isCatalogEmpty()) {
-      const demoProduct = demoProducts.find((item) => item.slug === slug);
-      return demoProduct ? { id: demoProduct.id, slug: demoProduct.slug } : null;
-    }
     return null;
   }
 
@@ -652,14 +590,7 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
         datasheet,
       );
     }
-    const demoProduct = demoProducts.find((item) => item.id === id);
-    return demoProduct ? this.toProductDetailDto(
-      demoProduct,
-      demoImages.filter((image) => image.productId === id),
-      demoDocuments.filter((document) => document.productId === id),
-      createBrandMap(demoBrands),
-      createCategoryMap(demoCategories),
-    ) : null;
+    return null;
   }
 
   async getProductsByIds(
@@ -817,15 +748,6 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
       activeMembership.companyId,
     );
     return activeMembership.companyId;
-  }
-
-  private async isCatalogEmpty(): Promise<boolean> {
-    const products = await this.catalogRepository.listProducts({
-      limit: 1,
-      offset: 0,
-    });
-
-    return products.length === 0;
   }
 
   private toProductCardDto(
@@ -1034,185 +956,3 @@ function toBrandDto(brand: CatalogBrand): CatalogBrandDto {
     logoUrl: brand.logoUrl,
   };
 }
-
-function filterDemoProducts(input: CatalogProductListInput): CatalogProduct[] {
-  const search = input.search?.trim().toLowerCase();
-
-  return demoProducts.filter((product) => {
-    if (input.categoryId && product.categoryId !== input.categoryId) {
-      return false;
-    }
-
-    if (input.brandId && product.brandId !== input.brandId) {
-      return false;
-    }
-
-    if (!search) {
-      return true;
-    }
-
-    return (
-      product.name.toLowerCase().includes(search) ||
-      product.sku.toLowerCase().includes(search) ||
-      (product.shortDescription ?? "").toLowerCase().includes(search)
-    );
-  });
-}
-
-const now = "2026-07-09T00:00:00.000Z";
-
-const demoCategories: CatalogCategory[] = [
-  {
-    id: "demo-category-video",
-    external1cId: null,
-    parentId: null,
-    name: "Video surveillance",
-    slug: "video-surveillance",
-    description: "Cameras and video security devices.",
-    sortOrder: 10,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "demo-category-access",
-    external1cId: null,
-    parentId: null,
-    name: "Access control",
-    slug: "access-control",
-    description: "Readers, controllers, and entry security devices.",
-    sortOrder: 20,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "demo-category-network",
-    external1cId: null,
-    parentId: null,
-    name: "Network infrastructure",
-    slug: "network-infrastructure",
-    description: "Switches and connectivity equipment.",
-    sortOrder: 30,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-];
-
-const demoBrands: CatalogBrand[] = [
-  {
-    id: "demo-brand-axis",
-    external1cId: null,
-    name: "Axis",
-    slug: "axis",
-    description: "Professional security devices.",
-    logoUrl: null,
-    sortOrder: 10,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "demo-brand-hikvision",
-    external1cId: null,
-    name: "Hikvision",
-    slug: "hikvision",
-    description: "Video and access-control equipment.",
-    logoUrl: null,
-    sortOrder: 20,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "demo-brand-ubiquiti",
-    external1cId: null,
-    name: "Ubiquiti",
-    slug: "ubiquiti",
-    description: "Network infrastructure devices.",
-    logoUrl: null,
-    sortOrder: 30,
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  },
-];
-
-const demoProducts: CatalogProduct[] = [
-  {
-    id: "demo-product-dome-camera",
-    external1cId: "DEMO-CAT-001",
-    categoryId: "demo-category-video",
-    brandId: "demo-brand-axis",
-    sku: "CAM-DOME-4MP",
-    name: "4MP Indoor Dome Camera",
-    slug: "4mp-indoor-dome-camera",
-    shortDescription: "Compact indoor camera for professional installations.",
-    description:
-      "A safe demo catalog item for browsing flow validation. Official product data will come from the approved source after synchronization is implemented.",
-    imageUrl: null,
-    isActive: true,
-    isVisible: true,
-    sortOrder: 10,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "demo-product-controller",
-    external1cId: "DEMO-CAT-002",
-    categoryId: "demo-category-access",
-    brandId: "demo-brand-hikvision",
-    sku: "ACC-CTRL-2D",
-    name: "Two-Door Access Controller",
-    slug: "two-door-access-controller",
-    shortDescription: "Controller foundation for secure entry projects.",
-    description:
-      "A safe demo access-control item with product identity and descriptive metadata only.",
-    imageUrl: null,
-    isActive: true,
-    isVisible: true,
-    sortOrder: 20,
-    createdAt: now,
-    updatedAt: now,
-  },
-  {
-    id: "demo-product-poe-switch",
-    external1cId: "DEMO-CAT-003",
-    categoryId: "demo-category-network",
-    brandId: "demo-brand-ubiquiti",
-    sku: "NET-POE-16",
-    name: "16-Port PoE Switch",
-    slug: "16-port-poe-switch",
-    shortDescription: "Network switch for camera and access installations.",
-    description:
-      "A safe demo network item used only when the catalog read model is empty.",
-    imageUrl: null,
-    isActive: true,
-    isVisible: true,
-    sortOrder: 30,
-    createdAt: now,
-    updatedAt: now,
-  },
-];
-
-const demoImages: CatalogProductImage[] = demoProducts.map((product) => ({
-  id: `${product.id}-image`,
-  productId: product.id,
-  url: "",
-  altText: product.name,
-  sortOrder: 0,
-  isPrimary: true,
-  createdAt: now,
-}));
-
-const demoDocuments: CatalogProductDocument[] = demoProducts.map((product) => ({
-  id: `${product.id}-document`,
-  productId: product.id,
-  title: "Product overview",
-  documentType: "datasheet",
-  url: "#",
-  sortOrder: 0,
-  isActive: true,
-  createdAt: now,
-}));

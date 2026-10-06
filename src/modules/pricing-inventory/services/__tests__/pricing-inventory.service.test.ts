@@ -859,3 +859,12 @@ function makeStock(
     updatedAt: now,
   };
 }
+
+describe("synthetic commercial identity rejection", () => {
+  it("does not fabricate prices for former demo IDs without governed prices", async () => {
+    const service = new DefaultPricingInventoryService(new FakePricingInventoryRepository([]), new FakeCompanyAccessService(), new FakePermissionService(["pricing.partner_price.view"]));
+    const views = await service.getProductCommercialViews("user-1", ["demo-product-dome-camera", "demo-product-controller", "demo-product-poe-switch"]);
+    expect(views).toHaveLength(3);
+    for (const view of views) expect(view).toMatchObject({ partnerPrice: null, stock: null, isDemoData: false });
+  });
+});
