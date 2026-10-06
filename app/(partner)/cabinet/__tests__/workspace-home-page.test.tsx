@@ -90,13 +90,17 @@ describe("Partner Workspace operational home", () => {
     expect(cards[1]).toHaveTextContent("Нет возможностей");
     expect(cards[2]).toHaveTextContent("Нет данных");
     expect(cards[4]).toHaveTextContent("Не запланирована");
-    const iconClasses = ["lucide-circle-alert", "lucide-file-text", "lucide-wallet-cards", "lucide-package", "lucide-truck"];
+    const iconClasses = ["lucide-circle-alert", "lucide-calculator", "lucide-landmark", "lucide-list-checks", "lucide-truck"];
     expect(cards.map((card, index) => {
+      const badge = card.querySelector("[data-overview-icon-badge]");
       const icon = card.querySelector("[data-overview-icon]");
+      expect(badge).toHaveAttribute("aria-hidden", "true");
+      expect(badge).toHaveClass("absolute", "right-3", "top-3", "size-10", "rounded-md", "bg-emerald-50", "text-emerald-800");
       expect(icon).toHaveAttribute("aria-hidden", "true");
-      expect(icon).toHaveClass("absolute", "right-3", "top-3", "size-4", iconClasses[index]);
+      expect(icon).toHaveClass("size-5", iconClasses[index]);
       return icon?.getAttribute("data-overview-icon");
     })).toEqual(["attention", "sales", "finance", "orders", "shipment"]);
+    expect(overview.querySelectorAll("[data-overview-icon-badge]")).toHaveLength(5);
     expect(overview.querySelector("ul")).toBeNull();
     expect(container.querySelector("[data-dashboard-operational-summary]")).toBeNull();
     expect(container.querySelectorAll("[data-attention-card]")).toHaveLength(0);

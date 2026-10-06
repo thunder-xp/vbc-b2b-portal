@@ -1,34 +1,12 @@
 "use client";
 
 import {
-  BookOpen,
-  Boxes,
-  Building2,
-  Calculator,
   ChevronDown,
   ChevronRight,
-  ClipboardList,
-  Columns3,
-  FileText,
-  Landmark,
-  FolderKanban,
   Gauge,
-  GraduationCap,
-  Gift,
-  LifeBuoy,
-  ListChecks,
-  Star,
-  Layers3,
-  Wrench,
-  UserRound,
-  Lightbulb,
-  Megaphone,
   PanelLeftClose,
   PanelLeftOpen,
-  SearchCheck,
   ShieldCheck,
-  ShoppingCart,
-  WandSparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -37,38 +15,8 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
 import { activeNavigationKey } from "./active-navigation";
 import { NavigationPendingIndicator } from "./NavigationPendingIndicator";
+import { partnerNavigationIcons } from "./partner-navigation-icons";
 import { partnerNavigationLabel, usePartnerLocale, usePartnerText } from "../../partner-locale";
-
-const icons = {
-  dashboard: Gauge,
-  catalog: Boxes,
-  opportunities: Lightbulb,
-  offers: Megaphone,
-  cart: ShoppingCart,
-  purchasing_lists: Star,
-  purchase_templates: Layers3,
-  comparison: Columns3,
-  solution_selection: SearchCheck,
-  projects: FolderKanban,
-  reservations: ClipboardList,
-  proposals: Calculator,
-  customers: Building2,
-  nomenclature: ClipboardList,
-  proposal_generator: WandSparkles,
-  orders: ListChecks,
-  installation_marketplace: Wrench,
-  installation_profile: UserRound,
-  expertise_lab: BookOpen,
-  expertise_academy: GraduationCap,
-  finance: Landmark,
-  documents: FileText,
-  warranty: LifeBuoy,
-  support: LifeBuoy,
-  knowledge_base: BookOpen,
-  loyalty_affiliate: Gift,
-  loyalty_bonus: Gift,
-  company: Building2,
-} satisfies Record<WorkspaceCapabilityKey, typeof Gauge>;
 
 const dashboardNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard"];
 const catalogNavigationOrder: readonly WorkspaceCapabilityKey[] = ["catalog"];
@@ -151,7 +99,7 @@ function NavigationItem({
   const t = usePartnerText();
   const [intentPrefetch, setIntentPrefetch] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
-  const Icon = icons[item.icon];
+  const Icon = partnerNavigationIcons[item.icon];
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
   const active = enabled && activeKey === item.key;
   const spacing = sidebarCollapsed
@@ -457,14 +405,14 @@ export function PartnerSidebar({
               <NavigationItem hasWorkspaceAccess={hasWorkspaceAccess} item={item} key={item.key} onNavigate={onNavigate} activeKey={activeKey} sidebarCollapsed={collapsed} />
             ))}
 
-            <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ListChecks} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
+            <ExpandableNavigationGroup {...groupProps("orders-finance-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={partnerNavigationIcons.orders} id="orders-finance-navigation" items={commercialNavigation} label={t("nav.group.ordersFinance")} onNavigate={onNavigate} activeKey={activeKey} />
           </SidebarSection>}
 
           {hasProductsSection && <SidebarSection collapsed={collapsed} id="products" title={t("nav.section.products")}>
             <ExpandableNavigationGroup
               {...groupProps("products-navigation")}
               hasWorkspaceAccess={hasWorkspaceAccess}
-              icon={Boxes}
+              icon={partnerNavigationIcons.catalog}
               id="products-navigation"
               items={productNavigation}
               label={t("nav.group.products")}
@@ -475,7 +423,7 @@ export function PartnerSidebar({
           {(canSelectProducts || businessNavigation.length > 0) && <ExpandableNavigationGroup
             {...groupProps("purchases-navigation")}
             hasWorkspaceAccess={hasWorkspaceAccess}
-            icon={ShoppingCart}
+            icon={partnerNavigationIcons.cart}
             id="purchases-navigation"
             items={businessNavigation}
             label={t("nav.group.purchases")}
@@ -497,7 +445,7 @@ export function PartnerSidebar({
           <ExpandableNavigationGroup
             {...groupProps("collections-navigation")}
             hasWorkspaceAccess={hasWorkspaceAccess}
-            icon={Layers3}
+            icon={partnerNavigationIcons.purchase_templates}
             id="collections-navigation"
             items={selectionNavigation}
             label={t("nav.group.collections")}
@@ -509,7 +457,7 @@ export function PartnerSidebar({
           {hasSalesSection && <SidebarSection collapsed={collapsed} id="sales" title={t("nav.section.sales")}>
           <ExpandableNavigationGroup
             hasWorkspaceAccess={hasWorkspaceAccess}
-            icon={Calculator}
+            icon={partnerNavigationIcons.proposals}
             id="estimates-navigation"
             items={estimatesNavigation}
             label={t("nav.group.estimates")}
@@ -518,17 +466,17 @@ export function PartnerSidebar({
             {...groupProps("estimates-navigation")}
           />
 
-          <ExpandableNavigationGroup {...groupProps("installation-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Wrench} id="installation-navigation" items={installationNavigation} label={t("nav.group.installationWorkspace")} onNavigate={onNavigate} activeKey={activeKey} />
+          <ExpandableNavigationGroup {...groupProps("installation-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={partnerNavigationIcons.installation_marketplace} id="installation-navigation" items={installationNavigation} label={t("nav.group.installationWorkspace")} onNavigate={onNavigate} activeKey={activeKey} />
 
           <ExpandableNavigationGroup {...groupProps("project-protection-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={ShieldCheck} id="project-protection-navigation" items={projectNavigation} label={t("nav.group.projectProtection")} onNavigate={onNavigate} activeKey={activeKey} />
           </SidebarSection>}
 
           {hasSupportSection && <SidebarSection collapsed={collapsed} id="support" title={t("nav.section.support")}>
-          <ExpandableNavigationGroup {...groupProps("expertise-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={GraduationCap} id="expertise-navigation" items={expertiseNavigation} label={t("nav.group.expertise")} onNavigate={onNavigate} activeKey={activeKey} />
+          <ExpandableNavigationGroup {...groupProps("expertise-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={partnerNavigationIcons.expertise_academy} id="expertise-navigation" items={expertiseNavigation} label={t("nav.group.expertise")} onNavigate={onNavigate} activeKey={activeKey} />
 
-          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={Gift} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} activeKey={activeKey} />
+          <ExpandableNavigationGroup {...groupProps("loyalty-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={partnerNavigationIcons.loyalty_affiliate} id="loyalty-navigation" items={loyaltyNavigation} label={t("nav.group.loyalty")} onNavigate={onNavigate} activeKey={activeKey} />
 
-          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={LifeBuoy} id="support-navigation" items={supportNavigation} label={t("nav.group.support")} onNavigate={onNavigate} activeKey={activeKey} />
+          <ExpandableNavigationGroup {...groupProps("support-navigation")} hasWorkspaceAccess={hasWorkspaceAccess} icon={partnerNavigationIcons.support} id="support-navigation" items={supportNavigation} label={t("nav.group.support")} onNavigate={onNavigate} activeKey={activeKey} />
           </SidebarSection>}
         </div>
       </nav>
