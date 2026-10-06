@@ -8,6 +8,7 @@ import { PartnerMobileNavigation } from "./PartnerMobileNavigation";
 import { PartnerLocaleProvider, type PartnerLocale } from "../../partner-locale";
 import { LiveCommerceSelectionProvider } from "../../catalog/components/LiveCommerceSelectionProvider";
 import { PartnerDesktopSidebar } from "./PartnerDesktopSidebar";
+import formStyles from "./PartnerFormStandard.module.css";
 import styles from "./PartnerTableStandard.module.css";
 
 export type PartnerWorkspaceShellContext = {
@@ -60,7 +61,7 @@ export function PartnerLayout({
             />
           )}
         />
-        <main className={`${styles.tableStandard} px-4 py-4 lg:px-8`} data-partner-content>{children}</main>
+        <main className={`${styles.tableStandard} ${formStyles.formStandard} px-4 py-4 lg:px-8`} data-partner-content>{children}</main>
       </div>
     </div>
     </LiveCommerceSelectionProvider>
