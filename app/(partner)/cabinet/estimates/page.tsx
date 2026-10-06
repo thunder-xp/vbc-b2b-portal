@@ -229,17 +229,17 @@ export default async function EstimatesPage({
                   <th className="px-4 py-3">{copy.estimate}</th>
                   <th className="px-4 py-3">{copy.customerProject}</th>
                   <th className="px-4 py-3">{copy.status}</th>
-                  <th className="px-4 py-3 text-right">{copy.total}</th>
+                  <th className="px-4 py-3 text-right" data-table-numeric>{copy.total}</th>
                   <th className="px-4 py-3">{copy.dates}</th>
                   <th className="px-4 py-3">{copy.proposal}</th>
                   <th className="px-4 py-3">{copy.author}</th>
-                  <th className="px-4 py-3">{copy.actions}</th>
+                  <th className="px-4 py-3" data-table-actions>{copy.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
                   <tr className="hover:bg-zinc-50" data-estimate-row-id={estimate.id} key={estimate.id}>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-id>
                       <Link
                         className="font-semibold text-zinc-950 hover:text-emerald-700"
                         href={`/cabinet/estimates/${estimate.id}`}
@@ -257,7 +257,7 @@ export default async function EstimatesPage({
                         {estimate.itemCount} {copy.positions}
                       </p>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-status>
                       <EstimateStatusBadge
                         locale={locale}
                         status={
@@ -265,10 +265,10 @@ export default async function EstimatesPage({
                         }
                       />
                     </td>
-                    <td className="px-4 py-4 text-right font-semibold">
+                    <td className="px-4 py-4 text-right font-semibold" data-table-total>
                       {estimate.total}
                     </td>
-                    <td className="px-4 py-4 text-zinc-600">
+                    <td className="px-4 py-4 text-zinc-600" data-table-meta>
                       <span className="block">
                         {copy.created}{" "}
                         {formatPartnerDate(estimate.createdAt, locale)}
@@ -295,7 +295,7 @@ export default async function EstimatesPage({
                     <td className="px-4 py-4 text-zinc-600">
                       {estimate.createdByName}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-actions>
                       <EstimateListActions
                         archived={estimate.archived}
                         canDeleteArchived={estimate.canDeleteArchived}

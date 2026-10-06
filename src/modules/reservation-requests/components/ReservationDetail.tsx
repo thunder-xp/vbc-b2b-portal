@@ -77,14 +77,14 @@ export function ReservationDetail({
           <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
             <tr>
               <th className="px-4 py-3">{copy.product}</th>
-              <th className="px-4 py-3">{copy.requested}</th>
-              <th className="px-4 py-3">{copy.approved}</th>
+              <th className="px-4 py-3" data-table-numeric>{copy.requested}</th>
+              <th className="px-4 py-3" data-table-numeric>{copy.approved}</th>
               {showPartnerPrice ? (
-                <th className="px-4 py-3">{copy.partnerPrice}</th>
+                <th className="px-4 py-3" data-table-numeric>{copy.partnerPrice}</th>
               ) : null}
-              <th className="px-4 py-3">{copy.retail}</th>
-              <th className="px-4 py-3">{copy.availability}</th>
-              <th className="px-4 py-3">{copy.arrival}</th>
+              <th className="px-4 py-3" data-table-numeric>{copy.retail}</th>
+              <th className="px-4 py-3" data-table-numeric>{copy.availability}</th>
+              <th className="px-4 py-3" data-table-numeric>{copy.arrival}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -97,11 +97,11 @@ export function ReservationDetail({
                   >
                     {line.productName}
                   </Link>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-zinc-500" data-table-sku>
                     SKU {line.sku} · {copy.maximum} {line.specificationQuantity}
                   </div>
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-4" data-table-numeric>
                   {draft ? (
                     <QuantityEditor
                       itemId={line.id}
@@ -113,19 +113,19 @@ export function ReservationDetail({
                     line.requestedQuantity
                   )}
                 </td>
-                <td className="px-4 py-4">{line.approvedQuantity ?? "—"}</td>
+                <td className="px-4 py-4" data-table-numeric>{line.approvedQuantity ?? "—"}</td>
                 {showPartnerPrice ? (
-                  <td className="px-4 py-4">
+                  <td className="px-4 py-4" data-table-numeric>
                     {line.partnerPrice ?? copy.unavailable}
                   </td>
                 ) : null}
-                <td className="px-4 py-4">
+                <td className="px-4 py-4" data-table-numeric>
                   {line.retailPrice ?? copy.unavailable}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-4" data-table-numeric>
                   {line.availability.availableStock ?? copy.pending}
                 </td>
-                <td className="px-4 py-4">
+                <td className="px-4 py-4" data-table-numeric>
                   {line.availability.nearestArrivalDate ?? "—"}
                   {line.availability.nearestArrivalQuantity !== null
                     ? ` · ${line.availability.nearestArrivalQuantity} ${copy.units}`
