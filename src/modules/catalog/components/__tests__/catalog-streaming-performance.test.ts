@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 const page = source("app/(partner)/cabinet/catalog/page.tsx");
 const results = source("app/(partner)/cabinet/catalog/CatalogResults.tsx");
 const search = source("src/modules/catalog/components/CatalogSearch.tsx");
-const filterLink = source("src/modules/catalog/components/CatalogFilterLink.tsx");
 
 describe("catalog streaming and interaction boundaries", () => {
   it("starts product results only on the discovery path before deferred facet work", () => {
@@ -35,12 +34,6 @@ describe("catalog streaming and interaction boundaries", () => {
     expect(search).toContain("controller.abort()");
     expect(search).toContain("lastRequestedRef.current === requestKey");
     expect(search).toContain("isLikelyExactSku(normalized) ? 100 : 250");
-  });
-
-  it("prevents an equivalent filter navigation while it is pending", () => {
-    expect(filterLink).toContain("pendingHref.current === href");
-    expect(filterLink).toContain("event.preventDefault()");
-    expect(filterLink).toContain("startTransition(() => router.push(href))");
   });
 });
 

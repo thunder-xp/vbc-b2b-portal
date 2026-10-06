@@ -41,7 +41,8 @@ describe("catalog freshness messaging cleanup", () => {
   });
 
   it("keeps internal freshness diagnostics and leaves no catalog spacer replacement", () => {
-    expect(adminRatePanel).toContain("Ручное подтверждение по данным 1С");
+    expect(adminRatePanel).toContain("Источник: 1С — автоматически");
+    expect(adminRatePanel).toContain("Ручная публикация доступна только как аварийное действие");
     expect(adminRatePanel).not.toContain("Свежесть");
     expect(catalogResults).not.toMatch(/staleWarning[^\n]*\?\s*<p/);
     expect(catalogPage).toContain("CategoryMegaMenu");

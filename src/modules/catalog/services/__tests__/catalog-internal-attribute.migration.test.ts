@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const migration = source("supabase/migrations/20260922134835_catalog_internal_merchandising_attribute_semantics.sql");
+const migration = source("supabase/migrations/20260922135859_catalog_internal_merchandising_attribute_semantics.sql");
 const publicCandidate = source("supabase/migrations/20260921110734_public_retail_candidate_build_headroom.sql");
 const catalogRepository = source("src/modules/catalog/repositories/supabase/catalog.supabase-repository.ts");
 const newProductProvider = source("src/modules/integration/providers/one-c/one-c-product-new-provider.ts");

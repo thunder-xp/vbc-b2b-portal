@@ -116,7 +116,7 @@ describe("catalog navigation", () => {
 
   it("exposes replenishment through the canonical selection filter and clears it safely", () => {
     render(<CatalogFilters collection="replenishment" />);
-    const replenishment = screen.getByRole("link", { name: /Пополнение/ });
+    const replenishment = screen.getByRole("link", { name: /Поступление/ });
     expect(replenishment).toHaveAttribute("href", "/cabinet/catalog");
     expect(replenishment.querySelector('[aria-label="Выбрано"]')).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Очистить всё" })).toHaveAttribute("href", "/cabinet/catalog");

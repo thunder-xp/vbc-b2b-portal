@@ -31,7 +31,7 @@ describe("CatalogMerchandisingSections accessibility", () => {
     expect(screen.getByRole("heading", { name: "Популярное" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Показать все: Популярное" })).toHaveAttribute(
       "href",
-      "/cabinet/catalog?label=TOP&period=30",
+      "/cabinet/catalog?label=TOP",
     );
   });
 
@@ -42,10 +42,10 @@ describe("CatalogMerchandisingSections accessibility", () => {
       companyId={null}
       locale="ro"
       sections={[{
-        contextBadge: "Пополнение",
+        contextBadge: "Поступление",
         href: "/cabinet/catalog?collection=replenishment",
         labelCode: "REPLENISHMENT",
-        title: "Последнее поступление",
+        title: "Поступление",
         products: [{ id: "product", name: "Camera" } as never],
         totalCount: 1,
       }]}

@@ -102,6 +102,7 @@ describe("parseCatalogRouteState", () => {
   });
 
   it("defaults all automated selections to hidden 365 and accepts shorter slices", () => {
+    expect(parseCatalogRouteState({ label: "TOP" })).toMatchObject({ period: 365, periodState: null });
     expect(parseCatalogRouteState({ label: "NEW" })).toMatchObject({ period: 365 });
     expect(parseCatalogRouteState({ label: "NEW", period: "60" })).toMatchObject({ period: 60 });
     expect(parseCatalogRouteState({ label: "TOP", period: "365" })).toMatchObject({ period: 365, periodState: null });

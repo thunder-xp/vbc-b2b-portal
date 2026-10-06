@@ -111,10 +111,11 @@ describe("B2B catalog list row", () => {
 
     const actions = screen.getByTestId("catalog-list-actions");
     expect(actions).toHaveClass(
-      "items-start",
+      "items-center",
       "flex-wrap",
       "xl:max-[1439px]:col-span-4",
       "min-[1440px]:col-span-1",
+      "min-[1440px]:col-start-5",
       "min-[1440px]:flex-nowrap",
     );
     expect(actions).toContainElement(screen.getByTestId("quantity-cart"));
