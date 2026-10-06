@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import type { BehaviorEventName } from "../../behavior-analytics/types";
 import { getCatalogCopy, usePartnerLocale } from "../../partner-locale";
+import { compactActionClassName } from "../../platform-ui/action-styles";
 import { emitLiveCommerceSelectionAdd, type LiveCommerceSelectionProduct } from "../services/live-commerce-selection";
 
 export function CatalogQuantityCartAction({
@@ -58,7 +59,8 @@ export function CatalogQuantityCartAction({
         />
         <button
           aria-label={getQuickSelectionLabel(locale)}
-          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md bg-emerald-700 px-2 text-sm font-semibold leading-tight text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:opacity-60"
+          className={`${compactActionClassName.primary} min-w-0 px-2 leading-tight`}
+          data-action-level="primary"
           disabled={Boolean(quantityError)}
           onClick={() => {
             if (quantityError) return;

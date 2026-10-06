@@ -20,7 +20,8 @@ import { ProductComparisonAction } from "../../catalog/components/ProductCompari
 import { FavoriteProductButton } from "../../purchasing-lists/components/FavoriteProductButton";
 import { dismissCommercialOpportunityAction } from "../actions/commercial-opportunity.actions";
 import type { CommercialOpportunity } from "../types";
-import { actionClassName } from "../../platform-ui/action-styles";
+import { compactActionClassName } from "../../platform-ui/action-styles";
+import { IconActionTooltip } from "../../platform-ui/IconActionTooltip";
 
 export function OpportunityCard({
   canAddToOrder = true,
@@ -109,16 +110,18 @@ export function OpportunityCard({
             </p>
             <h2 className="mt-1 line-clamp-2 font-semibold text-zinc-950" title={title}>{title}</h2>
           </div>
-          <button
-            aria-label={`${locale === "ro" ? "Nu afișa" : "Не показывать"}: ${title}`}
-            className="flex size-11 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
-            disabled={pending}
-            onClick={dismiss}
-            title={locale === "ro" ? "Nu afișa" : "Не показывать"}
-            type="button"
-          >
-            <EyeOff aria-hidden="true" className="size-4" />
-          </button>
+          <IconActionTooltip align="end" label={locale === "ro" ? "Nu afișa" : "Не показывать"}>
+            <button
+              aria-label={`${locale === "ro" ? "Nu afișa" : "Не показывать"}: ${title}`}
+              className={compactActionClassName.icon}
+              data-action-level="icon"
+              disabled={pending}
+              onClick={dismiss}
+              type="button"
+            >
+              <EyeOff aria-hidden="true" className="size-4" />
+            </button>
+          </IconActionTooltip>
         </div>
 
         <p className="mt-2 text-sm text-zinc-700">
@@ -139,7 +142,8 @@ export function OpportunityCard({
 
         <div className="mt-3 flex flex-wrap items-center gap-2 sm:flex-nowrap" data-opportunity-actions>
           <Link
-            className={actionClassName.primary}
+            className={compactActionClassName.primary}
+            data-action-level="primary"
             href={href}
             onClick={() => recordBehaviorInteraction({ eventName: template ? "opportunity_template_opened" : "opportunity_repeat_started", metadataSafe: { opportunityType: opportunity.type }, route: "/cabinet/opportunities", sourceSurface: "opportunity_card" })}
             prefetch={false}
@@ -256,16 +260,18 @@ function ProductOpportunityCard({
           {canManagePurchasingLists ? <FavoriteProductButton compact initialSaved={false} productId={product.id} /> : null}
           {canAddToSpecification ? <ProductSpecificationAction compact productId={product.id} /> : null}
           {companyId && userId ? <ProductComparisonAction categoryId={null} companyId={companyId} compact productId={product.id} userId={userId} /> : null}
-          <button
-            aria-label={`${locale === "ro" ? "Nu afișa" : "Не показывать"}: ${title}`}
-            className="flex size-11 shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white text-zinc-500 hover:bg-zinc-100 focus-visible:ring-2 focus-visible:ring-emerald-500"
-            disabled={pending}
-            onClick={dismiss}
-            title={locale === "ro" ? "Nu afișa" : "Не показывать"}
-            type="button"
-          >
-            <EyeOff aria-hidden="true" className="size-4" />
-          </button>
+          <IconActionTooltip align="end" label={locale === "ro" ? "Nu afișa" : "Не показывать"}>
+            <button
+              aria-label={`${locale === "ro" ? "Nu afișa" : "Не показывать"}: ${title}`}
+              className={compactActionClassName.icon}
+              data-action-level="icon"
+              disabled={pending}
+              onClick={dismiss}
+              type="button"
+            >
+              <EyeOff aria-hidden="true" className="size-4" />
+            </button>
+          </IconActionTooltip>
         </div>
         {message ? <p aria-live="polite" className="mt-2 text-[11px] font-medium text-emerald-700">{message}</p> : null}
       </div>

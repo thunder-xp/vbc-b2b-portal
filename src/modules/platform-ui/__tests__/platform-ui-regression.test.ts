@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { actionClassName } from "../action-styles";
+import { actionClassName, compactActionClassName } from "../action-styles";
 
 const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -12,6 +12,17 @@ describe("platform UI regression boundaries", () => {
     expect(actionClassName.primary).toContain("min-h-11");
     expect(actionClassName.destructive).toContain("text-red-700");
     expect(actionClassName.destructive).not.toContain("bg-emerald-700");
+  });
+
+  it("defines the compact four-level action hierarchy", () => {
+    expect(Object.keys(compactActionClassName)).toEqual(["primary", "secondary", "textLink", "icon"]);
+    expect(compactActionClassName.primary).toContain("min-h-11");
+    expect(compactActionClassName.primary).toContain("bg-emerald-700");
+    expect(compactActionClassName.secondary).toContain("min-h-10");
+    expect(compactActionClassName.secondary).toContain("border-zinc-300");
+    expect(compactActionClassName.textLink).toContain("text-xs");
+    expect(compactActionClassName.textLink).not.toContain("border");
+    expect(compactActionClassName.icon).toContain("size-11");
   });
 
   it("keeps read-only primitives server-rendered and loading motion optional", () => {

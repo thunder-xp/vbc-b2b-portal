@@ -2,6 +2,7 @@ import { ArrowRight, CircleAlert, Truck } from "lucide-react";
 
 import { formatPartnerDate, formatPartnerMoney, partnerText, presentDashboardAttention, type PartnerLocale } from "../../partner-locale";
 import type { WorkspaceHomeDto } from "../services";
+import { compactActionClassName } from "../../platform-ui/action-styles";
 import { DashboardTrackedLink } from "./DashboardTrackedLink";
 import { partnerNavigationIcons } from "./partner-navigation-icons";
 
@@ -90,7 +91,6 @@ function OverviewCard({ action, id, locale, primary, secondary, title }: {
   title: string;
 }) {
   const Icon = OVERVIEW_ICONS[id];
-  const actionClassName = "inline-flex min-h-8 max-w-full items-center gap-1.5 rounded text-xs font-semibold text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500";
   return <section aria-labelledby={`dashboard-overview-${id}`} className="relative flex h-full min-h-44 min-w-0 flex-col gap-2 rounded-md border border-zinc-200 bg-white p-3" data-dashboard-overview-card={id}>
     <span aria-hidden="true" className="absolute right-3 top-3 inline-flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-800" data-overview-icon-badge={id}>
       <Icon aria-hidden="true" className="size-5" data-overview-icon={id} />
@@ -99,7 +99,7 @@ function OverviewCard({ action, id, locale, primary, secondary, title }: {
     <p className="min-h-12 break-words text-lg font-semibold leading-6 tabular-nums text-zinc-950" data-overview-primary>{primary}</p>
     {secondary ? <p className="truncate text-xs leading-4 text-zinc-500" data-overview-secondary title={secondary}>{secondary}</p> : null}
     <div className="mt-auto">
-      {action ? <DashboardTrackedLink className={actionClassName} eventName={action.eventName} href={action.href} metadataSafe={action.metadataSafe} sourceSurface={action.sourceSurface}><span>{action.label}</span><ArrowRight aria-hidden="true" className="size-3.5 shrink-0" /></DashboardTrackedLink> : <button className="min-h-8 text-xs font-medium text-zinc-400" disabled type="button">{partnerText(locale, "dashboard.details")}</button>}
+      {action ? <DashboardTrackedLink className={`${compactActionClassName.textLink} max-w-full`} dataActionLevel="text-link" eventName={action.eventName} href={action.href} metadataSafe={action.metadataSafe} sourceSurface={action.sourceSurface}><span>{action.label}</span><ArrowRight aria-hidden="true" className="size-3.5 shrink-0" /></DashboardTrackedLink> : <button className="min-h-8 text-xs font-medium text-zinc-400" disabled type="button">{partnerText(locale, "dashboard.details")}</button>}
     </div>
   </section>;
 }

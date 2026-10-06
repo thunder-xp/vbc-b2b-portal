@@ -8,6 +8,7 @@ import type { BehaviorEventName } from "../../behavior-analytics/types";
 export function DashboardTrackedLink({
   children,
   className,
+  dataActionLevel,
   eventName,
   href,
   metadataSafe,
@@ -15,6 +16,7 @@ export function DashboardTrackedLink({
 }: {
   children: React.ReactNode;
   className?: string;
+  dataActionLevel?: "primary" | "secondary" | "text-link" | "icon";
   eventName: BehaviorEventName;
   href: string;
   metadataSafe?: Record<string, string | number | boolean | null>;
@@ -23,6 +25,7 @@ export function DashboardTrackedLink({
   return (
     <Link
       className={className}
+      data-action-level={dataActionLevel}
       href={href}
       onClick={() =>
         recordBehaviorInteraction({

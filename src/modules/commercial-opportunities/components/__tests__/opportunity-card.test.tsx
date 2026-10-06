@@ -50,8 +50,14 @@ describe("OpportunityCard", () => {
     render(<OpportunityCard opportunity={base} />);
     expect(screen.getByText("Вы покупаете регулярно")).toBeInTheDocument();
     expect(screen.getByText("Последняя покупка — 32 дня назад. Обычно: 2 шт.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "В набор" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Не показывать/ })).toBeInTheDocument();
+    const primary = screen.getByRole("button", { name: "В набор" });
+    const dismiss = screen.getByRole("button", { name: /Не показывать/ });
+    expect(primary).toHaveAttribute("data-action-level", "primary");
+    expect(primary).toHaveClass("min-h-11", "bg-emerald-700", "text-xs", "font-semibold");
+    expect(dismiss).toHaveAttribute("data-action-level", "icon");
+    expect(dismiss).toHaveClass("size-11", "border-zinc-300", "bg-white");
+    const tooltip = screen.getAllByRole("tooltip").find((item) => item.textContent === "Не показывать");
+    expect(tooltip).toHaveClass("hidden", "group-hover/icon-action-tooltip:block", "group-focus-within/icon-action-tooltip:block");
   });
 
   it("renders the product-backed Variant 2 card as three ordered horizontal zones", () => {

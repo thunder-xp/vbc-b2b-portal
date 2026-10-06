@@ -18,6 +18,7 @@ import { SalesTrendSummary } from "./SalesTrendSummary";
 import { FinancePeriodPanel } from "./FinancePeriodPanel";
 import { RollingPeriodSelector, type RollingPeriod, type RollingPeriodState } from "../../commerce-period";
 import styles from "./OperationalDashboard.module.css";
+import { compactActionClassName } from "../../platform-ui/action-styles";
 
 export function OperationalDashboard({
   locale,
@@ -504,7 +505,8 @@ function SectionHeading({
       <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={id}>{title}</h2>{titleAccessory}</div>
       {actionHref && actionLabel ? (
         <DashboardTrackedLink
-          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500"
+          className={`${compactActionClassName.textLink} shrink-0`}
+          dataActionLevel="text-link"
           eventName={sectionEvent(id)}
           href={actionHref}
           sourceSurface={id}
@@ -548,7 +550,8 @@ function CompactEmpty({
       <p>{message}</p>
       {actionHref && actionLabel ? (
         <DashboardTrackedLink
-          className="mt-3 inline-flex min-h-11 items-center font-semibold text-emerald-700"
+          className={`${compactActionClassName.secondary} mt-3`}
+          dataActionLevel="secondary"
           eventName="dashboard_quick_action_clicked"
           href={actionHref}
           sourceSurface="dashboard_empty_state"

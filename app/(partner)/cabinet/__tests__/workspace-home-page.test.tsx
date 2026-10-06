@@ -101,6 +101,15 @@ describe("Partner Workspace operational home", () => {
       return icon?.getAttribute("data-overview-icon");
     })).toEqual(["attention", "sales", "finance", "orders", "shipment"]);
     expect(overview.querySelectorAll("[data-overview-icon-badge]")).toHaveLength(5);
+    expect(cards.map((card) => card.querySelector("a")?.getAttribute("href"))).toEqual([
+      "/cabinet/orders",
+      "/cabinet/estimates",
+      "/cabinet/finance",
+      "/cabinet/orders",
+      "/cabinet/orders",
+    ]);
+    expect(cards.every((card) => card.querySelector("a")?.getAttribute("data-action-level") === "text-link")).toBe(true);
+    expect(cards.every((card) => card.querySelector("a")?.classList.contains("text-xs"))).toBe(true);
     expect(overview.querySelector("ul")).toBeNull();
     expect(container.querySelector("[data-dashboard-operational-summary]")).toBeNull();
     expect(container.querySelectorAll("[data-attention-card]")).toHaveLength(0);
@@ -356,8 +365,14 @@ describe("Partner Workspace operational home", () => {
     expect(salesPanel).toHaveClass("flex-1", "p-3");
     expect(within(split as HTMLElement).getByRole("heading", { name: finance })).toBeInTheDocument();
     expect(within(split as HTMLElement).getByRole("heading", { name: sales })).toBeInTheDocument();
-    expect(within(split as HTMLElement).getByRole("link", { name: new RegExp(openFinance) })).toHaveAttribute("href", "/cabinet/finance");
-    expect(within(split as HTMLElement).getByRole("link", { name: new RegExp(openSales) })).toHaveAttribute("href", "/cabinet/orders");
+    const financeAction = within(split as HTMLElement).getByRole("link", { name: new RegExp(openFinance) });
+    const salesAction = within(split as HTMLElement).getByRole("link", { name: new RegExp(openSales) });
+    expect(financeAction).toHaveAttribute("href", "/cabinet/finance");
+    expect(salesAction).toHaveAttribute("href", "/cabinet/orders");
+    expect(financeAction).toHaveAttribute("data-action-level", "text-link");
+    expect(salesAction).toHaveAttribute("data-action-level", "text-link");
+    expect(financeAction).toHaveClass("text-xs", "font-semibold");
+    expect(salesAction).toHaveClass("text-xs", "font-semibold");
     expect(screen.getByRole("heading", { name: dynamics })).toBeInTheDocument();
     expect(container.querySelector('[data-dashboard-chart-type="bar-timeline"]')).toBeInTheDocument();
     expect(container.querySelector('[data-dashboard-chart-type="line"] svg polyline')).toBeInTheDocument();
