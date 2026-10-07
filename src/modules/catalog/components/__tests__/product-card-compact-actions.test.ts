@@ -23,9 +23,11 @@ describe("B2B product-card compact action contract", () => {
     const action = read("src/modules/catalog/components/CatalogQuantityCartAction.tsx");
 
     expect(action).toContain('className="h-11 min-h-11 w-full');
+    expect(action).toContain("data-product-card-quantity");
     expect(action).toContain("h-11 min-h-11 min-w-0");
     expect(action).toContain("data-product-card-primary-action");
     expect(action).toContain("getQuickSelectionLabel(locale)");
+    expect(read("src/modules/partner-cabinet/components/PartnerFormStandard.module.css")).toContain("input[data-product-card-quantity]");
   });
 
   it("retains the underlying estimate and purchasing-list implementations outside the card", () => {

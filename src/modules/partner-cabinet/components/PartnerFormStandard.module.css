@@ -134,3 +134,8 @@
     min-height: 40px;
   }
 }
+
+.formStandard :global(input[data-product-card-quantity]) {
+  height: 44px;
+  min-height: 44px;
+}
