@@ -5,8 +5,28 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CatalogSortControl } from "../CatalogSortControl";
+import { CatalogSearch } from "../CatalogSearch";
 
 describe("B2B catalog toolbar ergonomics", () => {
+  it("uses the 44px form token and reserves icon space without an overlaid submit", () => {
+    render(<CatalogSearch initialSearch="DH-C4K-P" categoryId="cameras" sort="price_desc" />);
+    const input = screen.getByRole("searchbox");
+    const submit = screen.getByRole("button", { name: "Найти" });
+    expect(input).toHaveAttribute("data-catalog-toolbar-control");
+    expect(input).toHaveAttribute("data-catalog-search-input");
+    expect(input).toHaveClass("h-11");
+    expect(submit).toHaveClass("h-11", "shrink-0");
+    expect(submit).not.toHaveClass("absolute");
+    expect(input.parentElement?.querySelector("svg")).toHaveClass("left-3", "top-1/2");
+    expect(input).toHaveValue("DH-C4K-P");
+    expect(document.querySelector('input[name="category"]')).toHaveValue("cameras");
+    expect(document.querySelector('input[name="sort"]')).toHaveValue("price_desc");
+    const css = source("src/modules/partner-cabinet/components/PartnerFormStandard.module.css");
+    expect(css).toContain("padding-inline: var(--partner-control-padding-start, 10px) 10px");
+    expect(css).toContain("--partner-control-padding-start: 40px");
+    expect(css).toContain("[data-catalog-toolbar-control]");
+    expect(css).toContain("--partner-control-height: 44px");
+  });
   it("keeps the primary controls in Categories, Search, Sort, View order", () => {
     const page = source("app/(partner)/cabinet/catalog/page.tsx");
     const toolbar = page.slice(
@@ -55,6 +75,8 @@ describe("B2B catalog toolbar ergonomics", () => {
     );
 
     const sort = screen.getByRole("combobox", { name: "Сортировка" });
+    expect(sort).toHaveAttribute("data-catalog-toolbar-control");
+    expect(sort).toHaveClass("h-11");
     expect(sort).toHaveValue("price_desc");
     fireEvent.change(sort, { target: { value: "price_asc" } });
     expect(requestSubmit).toHaveBeenCalledOnce();

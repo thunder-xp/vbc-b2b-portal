@@ -5,6 +5,37 @@ import { CommercialCampaignService } from "../commercial-campaign.service";
 import { SPECIAL_OFFERS_PROMO_PROFILE } from "../../promo-profile";
 
 describe("CommercialCampaignService", () => {
+  it("previews five unique active governed products with an exact product count", async () => {
+    const repository = stubRepository();
+    vi.mocked(repository.listPartner).mockResolvedValue({
+      items: [
+        { products: Array.from({ length: 7 }, (_, index) => ({ productId: `product-${index}` })) },
+        { products: [{ productId: "product-0" }] },
+      ] as never,
+      totalCount: 2,
+    });
+    const service = new CommercialCampaignService(repository, workspace() as never);
+    expect(await service.getActiveProductPreview("user-1")).toEqual({
+      productIds: ["product-0", "product-1", "product-2", "product-3", "product-4"], totalCount: 7,
+    });
+    expect(repository.listPartner).toHaveBeenCalledExactlyOnceWith({ companyId: "company-1", filter: "active", limit: 50, offset: 0 });
+    expect(repository.getPartner).not.toHaveBeenCalled();
+  });
+
+  it("counts products across campaign pages without per-product queries", async () => {
+    const repository = stubRepository();
+    vi.mocked(repository.listPartner)
+      .mockResolvedValueOnce({ items: [{ products: [{ productId: "first" }] }] as never, totalCount: 51 })
+      .mockResolvedValueOnce({ items: [{ products: [{ productId: "second" }] }] as never, totalCount: 51 });
+    const service = new CommercialCampaignService(repository, workspace() as never);
+    expect(await service.getActiveProductPreview("user-1")).toEqual({ productIds: ["first", "second"], totalCount: 2 });
+    expect(repository.listPartner).toHaveBeenNthCalledWith(2, { companyId: "company-1", filter: "active", limit: 50, offset: 50 });
+  });
+
+  it("returns no preview for an empty active projection", async () => {
+    const service = new CommercialCampaignService(stubRepository(), workspace() as never);
+    expect(await service.getActiveProductPreview("user-1")).toEqual({ productIds: [], totalCount: 0 });
+  });
   it("uses one bounded audience-scoped list request", async () => {
     const repository = stubRepository();
     const service = new CommercialCampaignService(repository, workspace() as never);

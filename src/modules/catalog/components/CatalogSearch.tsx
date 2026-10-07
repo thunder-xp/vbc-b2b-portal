@@ -61,7 +61,7 @@ export function CatalogSearch({ categoryId, categoryIds, categorySet, collection
   }
 
   return <div className="relative min-w-0 flex-1">
-    <form action="/cabinet/catalog" className="relative">
+    <form action="/cabinet/catalog" className="flex min-w-0 items-center gap-2">
       {categoryId && <input name="category" type="hidden" value={categoryId} />}
       {categoryIds?.length ? <input name="categories" type="hidden" value={categoryIds.join(",")} /> : null}
       {categorySet && <input name="categorySet" type="hidden" value={categorySet} />}
@@ -70,9 +70,11 @@ export function CatalogSearch({ categoryId, categoryIds, categorySet, collection
       {merchandisingLabel && <input name="label" type="hidden" value={merchandisingLabel} />}
       {(merchandisingLabel === "TOP" || merchandisingLabel === "NEW" || merchandisingLabel === "HOT") && period && period !== 365 ? <input name="period" type="hidden" value={period} /> : null}
       {sort !== "default" && <input name="sort" type="hidden" value={sort} />}
-      <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-400" />
-      <input aria-label={copy.searchLabel} autoComplete="off" className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-24 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder={copy.searchPlaceholder} type="search" value={query} />
-      <button className="absolute right-1 top-1 h-9 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white" type="submit">{copy.searchButton}</button>
+      <div className="relative min-w-0 flex-1">
+        <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+        <input aria-label={copy.searchLabel} autoComplete="off" data-catalog-toolbar-control data-catalog-search-input className="h-11 w-full rounded-md border border-zinc-300 bg-white pl-10 pr-3 text-sm outline-none focus:border-emerald-700" name="search" onChange={(event) => updateQuery(event.target.value)} placeholder={copy.searchPlaceholder} type="search" value={query} />
+      </div>
+      <button className="h-11 shrink-0 rounded-md bg-zinc-950 px-4 text-sm font-medium text-white" type="submit">{copy.searchButton}</button>
     </form>
     {(loading || results.length > 0) && <div className="absolute left-0 right-0 top-12 z-30 rounded-lg border border-zinc-200 bg-white p-2 shadow-xl">
       {loading ? <p className="p-3 text-sm text-zinc-500">{copy.searching}</p> : results.map((product) => <Link className="flex items-center gap-3 rounded-md p-2 hover:bg-zinc-50" href={`/cabinet/catalog/${product.slug}`} key={product.id} prefetch={false}>

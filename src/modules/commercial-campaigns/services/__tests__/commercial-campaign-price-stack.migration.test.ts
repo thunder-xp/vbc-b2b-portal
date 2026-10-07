@@ -5,6 +5,14 @@ import { describe, expect, it } from "vitest";
 const migration = fs.readFileSync(path.join(process.cwd(), "supabase/migrations/20261004100427_polish_special_offers_partner_price_stack_v3.sql"), "utf8");
 
 describe("commercial campaign governed price stack migration", () => {
+  it("excludes inactive, expired, future, unpublished-audience and hidden products", () => {
+    expect(migration).toContain("campaign.status in ('active', 'scheduled')");
+    expect(migration).toContain("campaign.starts_at <= now()");
+    expect(migration).toContain("campaign.ends_at > now()");
+    expect(migration).toContain("audience.version_number = campaign.current_version");
+    expect(migration).toContain("and audience.included");
+    expect(migration).toContain("product.is_active and product.is_visible");
+  });
   it("returns only current governed read-model prices and never stores campaign-owned price input", () => {
     expect(migration).toContain("'msrpPrice'");
     expect(migration).toContain("'partnerPrice'");

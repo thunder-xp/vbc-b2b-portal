@@ -15,7 +15,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { WorkspaceCapabilityKey, WorkspaceNavigationItem } from "../services";
 import { activeNavigationKey } from "./active-navigation";
 import { NavigationPendingIndicator } from "./NavigationPendingIndicator";
-import { partnerNavigationIcons } from "./partner-navigation-icons";
+import { catalogNavigationIcons, partnerNavigationIcons } from "./partner-navigation-icons";
 import { partnerNavigationLabel, usePartnerLocale, usePartnerText } from "../../partner-locale";
 
 const dashboardNavigationOrder: readonly WorkspaceCapabilityKey[] = ["dashboard"];
@@ -99,7 +99,9 @@ function NavigationItem({
   const t = usePartnerText();
   const [intentPrefetch, setIntentPrefetch] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout>>(null);
-  const Icon = partnerNavigationIcons[item.icon];
+  const Icon = item.key === "catalog" ? catalogNavigationIcons.showcase
+    : item.key === "catalog_full" ? catalogNavigationIcons.catalog
+    : partnerNavigationIcons[item.icon];
   const enabled = Boolean(hasWorkspaceAccess && item.availability === "available" && item.href);
   const active = enabled && activeKey === item.key;
   const spacing = sidebarCollapsed

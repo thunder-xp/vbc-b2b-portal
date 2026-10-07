@@ -32,7 +32,7 @@ export function CatalogMerchandisingSections({
   return (
     <div className="space-y-7" data-testid="catalog-merchandising-sections">
       {sections.map((section) => {
-        const visibleTitle = section.labelCode === "TOP" ? copy.popular : section.labelCode === "HOT" ? copy.hotPrice : section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title;
+        const visibleTitle = section.labelCode === "TOP" ? copy.popular : section.labelCode === "HOT" ? copy.hotPrice : section.labelCode === "SPECIAL_OFFER" ? copy.specialOffers : section.labelCode === "REPLENISHMENT" ? copy.latestArrival : section.title;
         return <section aria-labelledby={`section-${section.labelCode}`} key={section.labelCode}>
           <BehaviorViewEvent
             dedupeKey={`merchandising-section:${section.labelCode}:${section.labelCode === "TOP" ? periods.popular ?? 365 : section.labelCode === "NEW" ? periods.new ?? 365 : section.labelCode === "HOT" ? periods.hot ?? 365 : "editorial"}`}

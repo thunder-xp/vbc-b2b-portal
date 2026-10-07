@@ -13,6 +13,7 @@ import {
   createMerchandisingService,
 } from "../../merchandising/actions";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
+import { createCommercialCampaignService } from "../../commercial-campaigns/actions/service-factory";
 import { createPartnerWorkspaceContextService } from "../../partner-cabinet/actions/service-factory";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
@@ -67,13 +68,19 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       ),
       createPartnerWorkspaceContextService().getWorkspaceContext(userId),
     ]);
-    const replenishmentPage = context.accessState === "active" && context.companyId
-      ? await new SupabaseWarehouseArrivalRepository().getCurrentReplenishmentPreview(context.companyId)
-      : { items: [], totalCount: 0 };
+    const [replenishmentPage, specialOffers] = await Promise.all([
+      context.accessState === "active" && context.companyId
+      ? new SupabaseWarehouseArrivalRepository().getCurrentReplenishmentPreview(context.companyId)
+      : { items: [], totalCount: 0 },
+      context.accessState === "active" && context.capabilities.navigation.some((item) => item.key === "offers" && item.availability === "available")
+        ? createCommercialCampaignService().getActiveProductPreview(userId)
+        : { productIds: [] as string[], totalCount: 0 },
+    ]);
     const replenishment = replenishmentPage.items;
     const productIds = [...new Set([
       ...assignments.map((item) => item.productId),
       ...replenishment.map((item) => item.productId),
+      ...specialOffers.productIds,
     ])];
     if (!productIds.length) {
       return success("Catalog merchandising is empty.", {
@@ -96,9 +103,11 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       product.id,
       {
         ...product,
-        merchandisingLabels: assignments
+        merchandisingLabels: [...assignments
           .filter((assignment) => assignment.productId === product.id)
           .map((assignment) => assignment.labelCode),
+          ...(specialOffers.productIds.includes(product.id) ? ["SPECIAL_OFFER" as const] : []),
+        ],
       },
     ]));
     const sections: CatalogMerchandisingSection[] = SECTION_ORDER.flatMap(({ href, labelCode, title }) => {
@@ -122,6 +131,19 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
         }]
         : [];
     });
+    const specialOfferProducts = specialOffers.productIds.flatMap((id) => {
+      const product = productsById.get(id);
+      return product ? [product] : [];
+    });
+    if (specialOfferProducts.length) {
+      sections.push({
+        labelCode: "SPECIAL_OFFER",
+        title: "Спецпредложения",
+        products: specialOfferProducts,
+        href: "/cabinet/offers",
+        totalCount: specialOffers.totalCount,
+      });
+    }
     const replenishmentProducts = replenishment
       .flatMap((item) => {
         const product = productsById.get(item.productId);

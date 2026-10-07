@@ -12,7 +12,7 @@
   border-color: rgb(212 212 216);
   border-radius: 6px;
   background-color: rgb(255 255 255);
-  padding-inline: 10px;
+  padding-inline: var(--partner-control-padding-start, 10px) 10px;
   font-family: inherit;
   font-size: 12px;
   font-weight: 400;
@@ -138,4 +138,13 @@
 /* Cart steppers share the 44px action height, including touch viewports. */
 .formStandard :global(input[data-cart-quantity-control]) {
   --partner-control-height: 44px;
+}
+
+/* Catalog toolbar controls share the adjacent category/mode button height. */
+.formStandard :global([data-catalog-toolbar-control]) {
+  --partner-control-height: 44px;
+}
+
+.formStandard :global(input[data-catalog-search-input]) {
+  --partner-control-padding-start: 40px;
 }

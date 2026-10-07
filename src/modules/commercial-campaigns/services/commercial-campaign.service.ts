@@ -17,6 +17,24 @@ export class CommercialCampaignService {
     return { ...result, page, totalPages: Math.max(1, Math.ceil(result.totalCount / pageSize)) };
   }
   async getPartner(userId: string, campaignId: string) { return this.repository.getPartner(await this.companyId(userId), campaignId); }
+  async getActiveProductPreview(userId: string) {
+    const companyId = await this.companyId(userId);
+    const productIds = new Set<string>();
+    let offset = 0;
+    let totalCount = 0;
+    do {
+      // Reuse the governed audience/publication/time/visibility projection.
+      // Pagination is by campaigns, never by card or product.
+      const page = await this.repository.listPartner({ companyId, filter: "active", limit: 50, offset });
+      for (const campaign of page.items) {
+        for (const product of campaign.products) productIds.add(product.productId);
+      }
+      totalCount = page.totalCount;
+      offset += 50;
+      if (!page.items.length) break;
+    } while (offset < totalCount);
+    return { productIds: Array.from(productIds).slice(0, 5), totalCount: productIds.size };
+  }
   async addToCart(userId: string, campaignItemId: string, quantity: number, requestId: string, publicationVersion: number) {
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) throw new InvalidStateError("Campaign quantity is invalid.");
     return this.repository.addToCart({ companyId: await this.companyId(userId), campaignItemId, quantity, requestId, publicationVersion });

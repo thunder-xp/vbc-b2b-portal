@@ -23,7 +23,7 @@ describe("partner navigation intent prefetch", () => {
   it("waits for sustained pointer intent and cancels flyover prefetch", () => {
     vi.useFakeTimers();
     render(<PartnerSidebar navigation={navigation} />);
-    fireEvent.click(screen.getByRole("button", { name: "ТОВАРЫ" }));
+    fireEvent.click(screen.getByRole("button", { name: "Товары" }));
     const link = screen.getByRole("link", { name: "Каталог товаров" });
 
     fireEvent.mouseEnter(link);
@@ -40,7 +40,7 @@ describe("partner navigation intent prefetch", () => {
 
   it("prefetches immediately for keyboard intent", () => {
     render(<PartnerSidebar navigation={navigation} />);
-    fireEvent.click(screen.getByRole("button", { name: "ТОВАРЫ" }));
+    fireEvent.click(screen.getByRole("button", { name: "Товары" }));
     const link = screen.getByRole("link", { name: "Каталог товаров" });
 
     fireEvent.focus(link);

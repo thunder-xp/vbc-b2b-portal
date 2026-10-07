@@ -38,6 +38,12 @@ const context = {
 const navigation = context.navigation;
 
 describe("Partner workspace shell", () => {
+  it("uses canonical showcase and grid icons on product child links", () => {
+    render(<PartnerSidebar navigation={navigation} hasWorkspaceAccess />);
+    fireEvent.click(screen.getByRole("button", { name: "Товары" }));
+    expect(screen.getByRole("link", { name: "Витрина" }).querySelector("svg")).toHaveClass("lucide-sparkles");
+    expect(screen.getByRole("link", { name: "Каталог товаров" }).querySelector("svg")).toHaveClass("lucide-layout-grid");
+  });
   beforeEach(() => {
     pathname = "/cabinet";
     query = "";
@@ -108,12 +114,12 @@ describe("Partner workspace shell", () => {
     const topLevelLabels = (section: HTMLElement) => Array.from(section.querySelectorAll<HTMLElement>('[data-sidebar-top-level="true"]'))
       .map((item) => item.querySelector(":scope > span.flex-1")?.textContent?.trim() ?? item.textContent?.trim());
     expect(topLevelLabels(sections[0]!)).toEqual(["Рабочий стол", "Заказы и финансы"]);
-    expect(topLevelLabels(sections[1]!)).toEqual(["ТОВАРЫ", "Покупки", "Подборки"]);
+    expect(topLevelLabels(sections[1]!)).toEqual(["Товары", "Покупки", "Подборки"]);
     expect(topLevelLabels(sections[2]!)).toEqual(["Сметы и КП", "Монтаж и заявки", "Проектная защита"]);
     expect(topLevelLabels(sections[3]!)).toEqual(["Экспертиза Novotech", "Программы лояльности", "Гарантия и техподдержка"]);
     expect(document.querySelector("[data-sidebar-font]")).not.toBeInTheDocument();
 
-    const productsButton = screen.getByRole("button", { name: "ТОВАРЫ" });
+    const productsButton = screen.getByRole("button", { name: "Товары" });
     expect(productsButton).toHaveAttribute("aria-expanded", "false");
     await user.click(productsButton);
     const products = within(document.getElementById("products-navigation")!);
@@ -343,7 +349,7 @@ describe("Partner workspace shell", () => {
     query = search;
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
 
-    expect(screen.getByRole("button", { name: "ТОВАРЫ" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Товары" })).toHaveAttribute("aria-expanded", "true");
     const selected = document.querySelectorAll('#products-navigation a[aria-current="page"]');
     expect(selected).toHaveLength(1);
     expect(selected[0]).toHaveTextContent(label);
@@ -419,7 +425,7 @@ describe("Partner workspace shell", () => {
   it("expands and collapses the products group with exactly two children", async () => {
     const user = userEvent.setup();
     render(<PartnerSidebar hasWorkspaceAccess navigation={navigation} />);
-    const products = screen.getByRole("button", { name: "ТОВАРЫ" });
+    const products = screen.getByRole("button", { name: "Товары" });
 
     expect(products).toHaveAttribute("aria-expanded", "false");
     await user.click(products);
