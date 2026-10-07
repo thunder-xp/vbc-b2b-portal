@@ -11,6 +11,7 @@ import {
   Gift,
   GraduationCap,
   Landmark,
+  LayoutGrid,
   Layers3,
   LifeBuoy,
   Lightbulb,
@@ -19,12 +20,18 @@ import {
   SearchCheck,
   ShoppingCart,
   Star,
+  Sparkles,
   UserRound,
   WandSparkles,
   Wrench,
 } from "lucide-react";
 
 import type { WorkspaceCapabilityKey } from "../services";
+
+export const catalogNavigationIcons = {
+  showcase: Sparkles,
+  catalog: LayoutGrid,
+};
 
 export const partnerNavigationIcons = {
   dashboard: Gauge,

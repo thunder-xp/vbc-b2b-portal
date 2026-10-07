@@ -18,6 +18,20 @@ import {
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "../product-card.model";
 
 describe("partner catalog showcase contract", () => {
+  it("renders active special offers through canonical cards and the existing full-set destination", () => {
+    render(<CatalogMerchandisingSections capabilities={RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={{}} companyId={null} userId={null} sections={[{
+      labelCode: "SPECIAL_OFFER", title: "Спецпредложения", href: "/cabinet/offers", totalCount: 8,
+      products: Array.from({ length: 8 }, (_, index) => ({ id: `offer-${index}`, name: `Offer ${index}` } as never)),
+    }]} />);
+    expect(screen.getByRole("region", { name: "Спецпредложения" })).toBeInTheDocument();
+    expect(screen.getByTestId("catalog-showcase-grid-SPECIAL_OFFER").querySelectorAll("article")).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "Показать все: Спецпредложения" })).toHaveAttribute("href", "/cabinet/offers");
+  });
+
+  it("renders no empty showcase wrapper when no active products exist", () => {
+    const { container } = render(<CatalogMerchandisingSections capabilities={RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={{}} companyId={null} userId={null} sections={[]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
   it("preserves independent Popular, New, and Hot period state in each local navigation", () => {
     const states = { popular: 30, new: 60, hot: 90 } as const;
     expect(curatedPeriodHref(states, "popular", 60)).toBe("/cabinet/catalog?period=60&newPeriod=60&hotPeriod=90");

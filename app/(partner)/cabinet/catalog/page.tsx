@@ -1,4 +1,3 @@
-import { LayoutGrid, Sparkles } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -29,6 +28,7 @@ import {
 } from "@/src/modules/catalog/services";
 import { canonicalizeLegacyRollingPeriodParams, resolveRollingPeriod } from "@/src/modules/commerce-period";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
+import { catalogNavigationIcons } from "@/src/modules/partner-cabinet/components/partner-navigation-icons";
 import { getCatalogCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
@@ -137,7 +137,7 @@ async function renderCatalogPage({ searchParams }: CatalogPageProps) {
 }
 
 function CatalogModeLink({ curated, labels }: { curated: boolean; labels: { allCatalog: string; showcase: string } }) {
-  const Icon = curated ? LayoutGrid : Sparkles;
+  const Icon = curated ? catalogNavigationIcons.catalog : catalogNavigationIcons.showcase;
   return <Link
     className="inline-flex h-11 shrink-0 items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 text-sm font-semibold text-zinc-900 hover:border-emerald-600 hover:text-emerald-800"
     href={curated ? "/cabinet/catalog?view=all" : "/cabinet/catalog"}

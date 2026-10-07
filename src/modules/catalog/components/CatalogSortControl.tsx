@@ -37,6 +37,7 @@ export function CatalogSortControl({
       <label className="min-w-0 flex-1">
         <span className="sr-only">{copy.sort}</span>
         <AutoSubmitCatalogSort
+          data-catalog-toolbar-control
           aria-label={copy.sort}
           className="h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-800 outline-none focus:border-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:w-48"
           defaultValue={sort}

@@ -231,7 +231,7 @@ const ru = {
   "nav.section.sales": "ПРОДАЖИ",
   "nav.section.support": "ПОДДЕРЖКА",
   "nav.group.purchases": "Покупки",
-  "nav.group.products": "ТОВАРЫ",
+    "nav.group.products": "Товары",
   "nav.group.collections": "Подборки",
   "nav.group.productSelection": "Подбор товаров",
   "nav.group.estimates": "Сметы и КП",
