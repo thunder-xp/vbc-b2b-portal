@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { ReactElement } from "react";
+import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components/BehaviorViewEvent";
 import { getWorkspaceHomeAction } from "@/src/modules/partner-cabinet/actions/workspace-home.action";
 import { OperationalDashboard } from "@/src/modules/partner-cabinet/components/OperationalDashboard";
@@ -15,6 +16,10 @@ type CabinetPageProps = {
 function CabinetPage(): Promise<ReactElement>;
 function CabinetPage(props: CabinetPageProps): Promise<ReactElement>;
 async function CabinetPage({ searchParams = Promise.resolve({}) }: Partial<CabinetPageProps> = {}) {
+  return withRoutePerformance("dashboard", () => renderCabinetPage({ searchParams }));
+}
+
+async function renderCabinetPage({ searchParams = Promise.resolve({}) }: Partial<CabinetPageProps> = {}) {
   const params = await searchParams;
   const repeatState = parseRollingPeriodState(single(params.period));
   if (params.popularPeriod || params.newPeriod || params.hotPeriod) {

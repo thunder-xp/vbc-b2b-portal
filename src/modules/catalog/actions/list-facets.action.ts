@@ -29,7 +29,7 @@ export async function listCatalogFacetsAction(
   try {
     const userId = await getAuthenticatedUserId();
     const merchandisingLabel = normalizeMerchandisingLabel(input.merchandisingLabel);
-    const facets = await measurePerformanceStage("catalog", "catalog_facets", () => new DefaultCatalogService(
+    const facets = await measurePerformanceStage("catalog", "facets", () => new DefaultCatalogService(
       new SupabaseCatalogRepository(),
       createCompanyAccessService(),
     ).listFacets(userId, {

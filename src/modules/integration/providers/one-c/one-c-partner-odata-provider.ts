@@ -1,4 +1,5 @@
 import type { PartnerProvider } from "../../contracts";
+import { recordLiveProviderCall } from "@/src/lib/performance/request-diagnostics";
 import type {
   IntegrationPageResultDTO,
   IntegrationSyncWindowDTO,
@@ -435,6 +436,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
     let response: Response;
     try {
+      recordLiveProviderCall();
       response = await fetch(exactFinalUrl, {
         method: "GET",
         headers: {

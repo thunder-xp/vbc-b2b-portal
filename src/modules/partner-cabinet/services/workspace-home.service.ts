@@ -1,4 +1,5 @@
 import type { CatalogProductCardDto } from "../../catalog/services";
+import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 import type { ProductReferenceService } from "../../catalog/services";
 import type { ProductReferenceDto } from "../../catalog/types";
 import { InvalidStateError } from "../../access-control/services";
@@ -370,14 +371,17 @@ export class DefaultWorkspaceHomeService implements WorkspaceHomeService {
       ...candidates.map((candidate) => candidate.id),
       ...opportunityProductIds,
     ])];
-    const [commercialViews, references] = await Promise.all([
-      candidates.length
-        ? this.pricingInventoryService.getProductCommercialViews(userId, candidates.map((candidate) => candidate.id))
-        : Promise.resolve([]),
-      referenceProductIds.length && this.productReferenceService
-        ? this.productReferenceService.getProductReferencesByIds(userId, referenceProductIds)
-        : Promise.resolve([]),
-    ]);
+    const [commercialViews, references] = await timedDashboardRead(
+      "reference_enrichment",
+      () => Promise.all([
+        candidates.length
+          ? this.pricingInventoryService.getProductCommercialViews(userId, candidates.map((candidate) => candidate.id))
+          : Promise.resolve([]),
+        referenceProductIds.length && this.productReferenceService
+          ? this.productReferenceService.getProductReferencesByIds(userId, referenceProductIds)
+          : Promise.resolve([]),
+      ]),
+    );
     const commercialByProduct = new Map(
       commercialViews.map((view) => [view.productId, view]),
     );
@@ -790,16 +794,7 @@ function logDashboardShortage(section: string, eligibleCount: number, targetCoun
 }
 
 async function timedDashboardRead<T>(stage: string, operation: () => Promise<T>): Promise<T> {
-  const startedAt = performance.now();
-  try {
-    return await operation();
-  } finally {
-    console.info(JSON.stringify({
-      event: "dashboard_read_completed",
-      stage,
-      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
-    }));
-  }
+  return measurePerformanceStage("dashboard", stage, operation);
 }
 
 function freshnessItem(

@@ -26,7 +26,11 @@ export async function getCatalogProductDetailByIdAction(id: string, projection?:
     const normalizedId = id.trim();
     if (!normalizedId) return invalidInput("Product id is required.");
     const userId = await getAuthenticatedUserId();
-    const product = await createCatalogService().getProductDetailById(userId, normalizedId, normalizeProjection(projection));
+    const product = await measurePerformanceStage(
+      "product_detail",
+      "product_projection",
+      () => createCatalogService().getProductDetailById(userId, normalizedId, normalizeProjection(projection)),
+    );
     return success(product ? "Catalog product loaded." : "Catalog product was not found.", product);
   } catch (error) {
     return failureFromError(error);

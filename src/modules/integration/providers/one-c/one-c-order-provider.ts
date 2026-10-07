@@ -1,5 +1,7 @@
 import Decimal from "decimal.js";
 
+import { recordLiveProviderCall } from "@/src/lib/performance/request-diagnostics";
+
 import type { GlobalOrderHistoryPageResult, OrderProvider, SalesOrderHistoryExistenceResult, SalesOrderHistoryPageResult } from "../../contracts";
 import type {
   GlobalOrderHistoryCounterpartyDTO,
@@ -66,6 +68,7 @@ export class OneCCustomerOrderProvider implements OrderProvider {
 
     let response: Response;
     try {
+      recordLiveProviderCall();
       response = await fetch(url, {
         method: "POST",
         headers: {
@@ -1581,6 +1584,7 @@ function isVerifiedOrderReadBack(
 
 async function fetchOneC(config: OneCProviderConfig, url: string | URL, message: string): Promise<Response> {
   try {
+    recordLiveProviderCall();
     return await fetch(url, {
       method: "GET",
       headers: {

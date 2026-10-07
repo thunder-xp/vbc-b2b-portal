@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
+import { measurePerformanceStage, withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import {
   getCatalogProductDetailByIdAction,
   getCatalogProductRouteIdentityAction,
@@ -51,6 +52,13 @@ export default async function ProductDetailPage({
   params,
   searchParams,
 }: ProductDetailPageProps) {
+  return withRoutePerformance("product_detail", () => renderProductDetailPage({ params, searchParams }));
+}
+
+async function renderProductDetailPage({
+  params,
+  searchParams,
+}: ProductDetailPageProps) {
   const [resolvedParams, resolvedSearchParams, locale] = await Promise.all([
     params,
     searchParams,
@@ -74,6 +82,7 @@ export default async function ProductDetailPage({
   if (!identityResult.data) {
     notFound();
   }
+  const productId = identityResult.data.id;
 
   const needsCommercialContext =
     activeTab === "overview" || activeTab === "analogs" || activeTab === "related";
@@ -92,25 +101,25 @@ export default async function ProductDetailPage({
     knowledgeResult,
   ] = await Promise.all([
     getCatalogProductDetailByIdAction(
-      identityResult.data.id,
+      productId,
       detailProjection(activeTab),
     ),
     needsCommercialContext
-      ? getProductCommercialViewsAction([identityResult.data.id])
+      ? measurePerformanceStage("product_detail", "commercial_context", () => getProductCommercialViewsAction([productId]))
       : Promise.resolve(null),
-    getPartnerWorkspaceContextAction(),
-    getProductMerchandisingLabelsAction(identityResult.data.id),
+    measurePerformanceStage("product_detail", "workspace_context", getPartnerWorkspaceContextAction),
+    measurePerformanceStage("product_detail", "merchandising", () => getProductMerchandisingLabelsAction(productId)),
     activeTab === "pricing"
-      ? getRetailPriceHistoryAction(identityResult.data.id, "all")
+      ? getRetailPriceHistoryAction(productId, "all")
       : Promise.resolve(null),
     activeTab === "analogs" || activeTab === "related"
-      ? getProductRelationSectionsAction(identityResult.data.id)
+      ? measurePerformanceStage("product_detail", "relation_summary", () => getProductRelationSectionsAction(productId))
       : Promise.resolve(null),
     activeTab === "overview"
-      ? getProductRelationSummaryAction(identityResult.data.id)
+      ? measurePerformanceStage("product_detail", "relation_summary", () => getProductRelationSummaryAction(productId))
       : Promise.resolve(null),
     activeTab === "overview"
-      ? getProductKnowledgeAction(identityResult.data.id)
+      ? measurePerformanceStage("product_detail", "knowledge", () => getProductKnowledgeAction(productId))
       : Promise.resolve(null),
   ]);
 
@@ -143,19 +152,19 @@ export default async function ProductDetailPage({
   );
   const [favoriteResult, pricingResult] = await Promise.all([
     activeTab !== "analogs" && activeTab !== "related" && canManagePurchasingLists
-      ? listFavoriteProductIdsAction([product.id])
+      ? measurePerformanceStage("product_detail", "favorites", () => listFavoriteProductIdsAction([product.id]))
       : Promise.resolve(null),
     activeTab === "overview" && companyId && canViewCompetitiveIntelligence
-      ? new CompetitorRetailPricingService()
-          .getProductPricing(companyId, product.id, commercialView)
-          .catch((error: unknown) => {
-            console.error({
-              event: "product_competitor_pricing_read_failed",
-              errorType: error instanceof Error ? error.name : typeof error,
-              productId: product.id,
-            });
-            return [];
-          })
+      ? measurePerformanceStage("product_detail", "competitor_pricing", () =>
+          new CompetitorRetailPricingService()
+            .getProductPricing(companyId, product.id, commercialView)
+            .catch((error: unknown) => {
+              console.error({
+                event: "product_competitor_pricing_read_failed",
+                errorType: error instanceof Error ? error.name : typeof error,
+              });
+              return [];
+            }))
       : Promise.resolve([]),
   ]);
   const initialFavorite = Boolean(

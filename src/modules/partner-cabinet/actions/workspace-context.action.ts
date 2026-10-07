@@ -8,10 +8,7 @@ import {
 import { getAuthenticatedUserId } from "../../access-control/actions/service-factory";
 import type { PartnerWorkspaceContext } from "../services";
 import { createPartnerWorkspaceContextService } from "./workspace-context.factory";
-import {
-  emitRequestTotal,
-  measurePerformanceStage,
-} from "@/src/lib/performance/request-diagnostics";
+import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function getPartnerWorkspaceContextAction(): Promise<
   ActionResult<PartnerWorkspaceContext>
@@ -26,7 +23,5 @@ export async function getPartnerWorkspaceContextAction(): Promise<
     return success("Partner workspace context loaded.", context);
   } catch (error) {
     return failureFromError(error);
-  } finally {
-    emitRequestTotal("workspace");
   }
 }

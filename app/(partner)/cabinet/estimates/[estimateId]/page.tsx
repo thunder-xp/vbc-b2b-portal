@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { measurePerformanceStage, withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import {
   canPromptProposalGeneratorFeedbackAction,
   getEstimateAction,
@@ -19,6 +20,16 @@ export default async function EstimateEditorPage({
   params: Promise<{ estimateId: string }>;
   searchParams: Promise<{ generatorSession?: string; proposalAction?: string; version?: string }>;
 }) {
+  return withRoutePerformance("estimate_detail", () => renderEstimateEditorPage({ params, searchParams }));
+}
+
+async function renderEstimateEditorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ estimateId: string }>;
+  searchParams: Promise<{ generatorSession?: string; proposalAction?: string; version?: string }>;
+}) {
   const [{ estimateId }, { generatorSession, proposalAction, version }, locale] = await Promise.all([
     params,
     searchParams,
@@ -26,10 +37,10 @@ export default async function EstimateEditorPage({
   ]);
   const copy = getEstimatesCopy(locale);
   const [estimate, services, commercialOptions, workflow] = await Promise.all([
-    getEstimateAction(estimateId),
-    listEstimateServicesAction(),
-    getEstimateCommercialOptionsAction(),
-    getEstimateWorkflowAction(estimateId),
+    measurePerformanceStage("estimate_detail", "estimate", () => getEstimateAction(estimateId)),
+    measurePerformanceStage("estimate_detail", "services", listEstimateServicesAction),
+    measurePerformanceStage("estimate_detail", "commercial_options", getEstimateCommercialOptionsAction),
+    measurePerformanceStage("estimate_detail", "workflow", () => getEstimateWorkflowAction(estimateId)),
   ]);
   if (!estimate.success) {
     if (estimate.errorCode === "NOT_FOUND") notFound();
@@ -46,10 +57,8 @@ export default async function EstimateEditorPage({
       </p>
     );
   const showGeneratorFeedback = generatorSession
-    ? await canPromptProposalGeneratorFeedbackAction(
-        generatorSession,
-        estimateId,
-      )
+    ? await measurePerformanceStage("estimate_detail", "generator_feedback", () =>
+        canPromptProposalGeneratorFeedbackAction(generatorSession, estimateId))
     : false;
   return (
     <div className="space-y-5">

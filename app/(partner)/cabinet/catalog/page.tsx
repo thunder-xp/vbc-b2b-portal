@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
 import {
+  deferRoutePerformance,
+  measurePerformanceStage,
+  withRoutePerformance,
+} from "@/src/lib/performance/request-diagnostics";
+import {
   listCatalogMerchandisingSectionsAction,
 } from "@/src/modules/catalog/actions";
 import { listCatalogCategoriesAction } from "@/src/modules/catalog/actions/list-categories.action";
@@ -37,13 +42,21 @@ type CatalogPageProps = {
 const PAGE_SIZE = 20;
 
 export default async function CatalogPage({ searchParams }: CatalogPageProps) {
+  return withRoutePerformance("catalog", () => renderCatalogPage({ searchParams }));
+}
+
+async function renderCatalogPage({ searchParams }: CatalogPageProps) {
   const [params, cookieStore, locale] = await Promise.all([searchParams, cookies(), getPartnerLocale()]);
   const canonicalHref = canonicalizeLegacyRollingPeriodParams("/cabinet/catalog", params ?? {}, ["period", "newPeriod", "hotPeriod"]);
   if (canonicalHref) redirect(canonicalHref);
   const copy = getCatalogCopy(locale);
   const routeState = parseCatalogRouteState(params);
   const initialViewMode = parseCatalogViewMode(cookieStore.get(CATALOG_VIEW_COOKIE)?.value);
-  const categoriesResult = await listCatalogCategoriesAction();
+  const categoriesResult = await measurePerformanceStage(
+    "catalog",
+    "taxonomy",
+    listCatalogCategoriesAction,
+  );
 
   if (!categoriesResult.success) {
     return <EmptyCatalog message={categoriesResult.message} title={copy.unavailableTitle} />;
@@ -71,6 +84,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     period: routeState.period,
     search: routeState.search,
   });
+  const resultsPerformanceMeasurement = deferRoutePerformance();
 
   return <div className="space-y-6">
     <CatalogToolbarFrame>
@@ -82,7 +96,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
     {routeState.mode === "discovery" ? <CatalogBreadcrumb categories={categoriesResult.data} locale={locale} selectedId={routeState.categoryId} /> : null}
     <Suspense fallback={<CatalogResultsFallback ariaLabel={copy.loading} curated={routeState.mode === "curated"} />}>
       {routeState.mode === "curated"
-        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction({ popular: resolveRollingPeriod(routeState.popularPeriodState), new: resolveRollingPeriod(routeState.newPeriodState), hot: resolveRollingPeriod(routeState.hotPeriodState) })} periods={{ popular: routeState.popularPeriodState ?? null, new: routeState.newPeriodState ?? null, hot: routeState.hotPeriodState ?? null }} workspacePromise={getPartnerWorkspaceContextAction()} />
+        ? <CuratedCatalogResults locale={locale} merchandisingPromise={listCatalogMerchandisingSectionsAction({ popular: resolveRollingPeriod(routeState.popularPeriodState), new: resolveRollingPeriod(routeState.newPeriodState), hot: resolveRollingPeriod(routeState.hotPeriodState) })} performanceMeasurement={resultsPerformanceMeasurement} periods={{ popular: routeState.popularPeriodState ?? null, new: routeState.newPeriodState ?? null, hot: routeState.hotPeriodState ?? null }} workspacePromise={measurePerformanceStage("catalog", "commercial_context", getPartnerWorkspaceContextAction)} />
         : <CatalogResults
             attributeFilters={routeState.attributeFilters}
             availability={routeState.availability}
@@ -97,6 +111,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             locale={locale}
             merchandisingLabel={routeState.merchandisingLabel}
             page={routeState.page}
+            performanceMeasurement={resultsPerformanceMeasurement}
             period={routeState.period}
             periodState={routeState.periodState}
             productsPromise={listCatalogProductsAction({
@@ -115,7 +130,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
             })}
             search={routeState.search}
             sort={routeState.sort}
-            workspacePromise={getPartnerWorkspaceContextAction()}
+            workspacePromise={measurePerformanceStage("catalog", "commercial_context", getPartnerWorkspaceContextAction)}
           />}
     </Suspense>
   </div>;

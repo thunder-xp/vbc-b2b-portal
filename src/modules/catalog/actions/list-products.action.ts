@@ -25,7 +25,7 @@ import {
   normalizeCatalogOptionalText,
 } from "./catalog-action-input";
 import { resolveRollingPeriod } from "../../commerce-period";
-import { emitRequestTotal, measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
+import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 export async function listCatalogProductsAction(
   input: CatalogProductListInput,
@@ -35,7 +35,7 @@ export async function listCatalogProductsAction(
     const availability = normalizeCatalogAvailability(input.availability);
     const pricingInventoryService = createPricingInventoryService();
     const merchandisingLabel = normalizeMerchandisingLabel(input.merchandisingLabel);
-    const products = await measurePerformanceStage("catalog", "catalog_results", () => createCatalogService(pricingInventoryService).listProducts(userId, {
+    const products = await measurePerformanceStage("catalog", "page_aggregate", () => createCatalogService(pricingInventoryService).listProducts(userId, {
       categoryId: normalizeCatalogOptionalText(input.categoryId),
       categoryIds: normalizeCatalogCategoryIds(input.categoryIds),
       brandId: normalizeCatalogOptionalText(input.brandId),
@@ -53,8 +53,6 @@ export async function listCatalogProductsAction(
     return success("Catalog products loaded.", products);
   } catch (error) {
     return failureFromError(error);
-  } finally {
-    emitRequestTotal("catalog");
   }
 }
 
