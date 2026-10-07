@@ -48,6 +48,8 @@ export function MobileQuickProductCommerce({
 }) {
   const copy = getQuickProductCopy(locale);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previousPanelRef = useRef<HTMLElement>(null);
+  const previousCloseRef = useRef<HTMLButtonElement>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const requestSequenceRef = useRef(0);
   const lastRequestedRef = useRef<string | null>(null);
@@ -63,6 +65,18 @@ export function MobileQuickProductCommerce({
   const [expandedPrevious, setExpandedPrevious] = useState(previouslyPurchased.items);
   const [previousLoading, setPreviousLoading] = useState(false);
   const selection = useLiveCommerceSelection();
+
+  useEffect(() => {
+    if (!previousOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    previousCloseRef.current?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [previousOpen]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem("novotech:live-commerce-search:v1") ?? "";
@@ -185,9 +199,9 @@ export function MobileQuickProductCommerce({
       <div className="sticky top-0 z-20 mx-auto max-w-3xl bg-white/95 py-1 backdrop-blur">
         <form onSubmit={(event) => { event.preventDefault(); lastRequestedRef.current = null; void runSearch(query); }} role="search">
           <div className="relative">
-            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 size-4 text-zinc-500" />
-            <input aria-label={copy.searchLabel} autoCapitalize="characters" autoComplete="off" autoCorrect="off" autoFocus className={`${styles.searchInput} h-12 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-12 text-base font-medium uppercase outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100`} enterKeyHint="search" inputMode="search" maxLength={100} onChange={(event) => updateSearchQuery(event.target.value)} onPaste={(event) => { const value = event.clipboardData.getData("text").trim(); if (!value) return; event.preventDefault(); pastedQueryRef.current = value.toLocaleLowerCase("en"); updateSearchQuery(value); }} placeholder={copy.searchPlaceholder} ref={inputRef} spellCheck={false} type="search" value={query} />
-            {query ? <button aria-label={copy.clear} className="absolute right-0 top-0 inline-flex h-12 w-12 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" onClick={() => { updateSearchQuery(""); inputRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button> : null}
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+            <input aria-label={copy.searchLabel} autoCapitalize="characters" autoComplete="off" autoCorrect="off" autoFocus className={`${styles.searchInput} h-11 w-full rounded-lg border border-zinc-300 bg-white pl-10 pr-12 text-base font-medium uppercase outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100`} data-catalog-toolbar-control data-catalog-search-input enterKeyHint="search" inputMode="search" maxLength={100} onChange={(event) => updateSearchQuery(event.target.value)} onPaste={(event) => { const value = event.clipboardData.getData("text").trim(); if (!value) return; event.preventDefault(); pastedQueryRef.current = value.toLocaleLowerCase("en"); updateSearchQuery(value); }} placeholder={copy.searchPlaceholder} ref={inputRef} spellCheck={false} type="search" value={query} />
+            {query ? <button aria-label={copy.clear} className="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-r-lg text-zinc-500 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-600" onClick={() => { updateSearchQuery(""); inputRef.current?.focus(); }} type="button"><X aria-hidden="true" className="size-5" /></button> : null}
           </div>
         </form>
         {loading ? <p aria-live="polite" className="mt-2 text-xs font-medium text-emerald-800">{copy.searching}</p> : null}
@@ -218,9 +232,17 @@ export function MobileQuickProductCommerce({
       </div>
 
       {previousOpen ? <div className="fixed inset-0 z-50 bg-black/45" role="presentation">
-        <section aria-label={copy.purchasedBefore} aria-modal="true" className="absolute inset-x-0 bottom-0 flex max-h-[90dvh] flex-col rounded-t-2xl bg-zinc-50 shadow-2xl sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[32rem] sm:rounded-none" data-testid="previously-purchased-panel" role="dialog">
-          <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3"><div><h2 className="font-semibold text-zinc-950">{copy.purchasedBefore}</h2><p className="text-xs text-zinc-500">{previouslyPurchased.totalCount} {copy.productsShort}</p></div><button aria-label={copy.closePurchased} className="inline-flex size-11 items-center justify-center rounded-md text-zinc-600" onClick={() => setPreviousOpen(false)} type="button"><X aria-hidden="true" className="size-5" /></button></header>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <section aria-label={copy.purchasedBefore} aria-modal="true" className="absolute inset-x-0 inset-y-0 flex h-dvh min-h-0 flex-col overflow-hidden bg-zinc-50 shadow-2xl sm:left-auto sm:right-0 sm:w-[32rem]" data-testid="previously-purchased-panel" ref={previousPanelRef} role="dialog" onKeyDown={(event) => {
+          if (event.key === "Escape") { event.stopPropagation(); setPreviousOpen(false); }
+          if (event.key !== "Tab") return;
+          const controls = Array.from(previousPanelRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), [tabindex="0"]') ?? []);
+          const first = controls[0];
+          const last = controls.at(-1);
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}>
+          <header className="flex shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 py-3"><div><h2 className="font-semibold text-zinc-950">{copy.purchasedBefore}</h2><p className="text-xs text-zinc-500">{previouslyPurchased.totalCount} {copy.productsShort}</p></div><button aria-label={copy.closePurchased} className="inline-flex size-11 items-center justify-center rounded-md text-zinc-600" onClick={() => setPreviousOpen(false)} ref={previousCloseRef} type="button"><X aria-hidden="true" className="size-5" /></button></header>
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3" data-testid="previously-purchased-list">
             {previousLoading ? <p className="py-8 text-center text-sm text-zinc-500">{copy.searching}</p> : expandedPrevious.map((product) => <ProductCard canSelectProducts={canSelectProducts} copy={copy} feedback={feedback[product.id]} key={product.id} locale={locale} onAdd={addProduct} onQuantity={updateQuantity} product={product} quantity={quantities[product.id] ?? 1} selectedQuantity={selectedQuantity(product.id)} />)}
           </div>
         </section>
@@ -287,7 +309,7 @@ function ProductCard({ canSelectProducts, compact = false, copy, feedback, loadi
       showRetail={Boolean(quickProduct)}
       stock={product.commercialView?.stock}
     />
-    <div className="space-y-2 p-3">{selectedQuantity > 0 ? <p className="text-xs font-semibold text-emerald-800">{copy.inSelection}: {selectedQuantity} {copy.units}</p> : null}<div className={`grid gap-2 ${compact ? "grid-cols-[8.75rem_minmax(0,1fr)] xl:grid-cols-1" : "grid-cols-[8.75rem_minmax(0,1fr)]"}`}><div aria-label={copy.quantity} className="grid grid-cols-[2.75rem_3.25rem_2.75rem]" role="group"><button aria-label={copy.decrease} className="inline-flex h-11 items-center justify-center rounded-l-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity <= 1} onClick={() => onQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" className="size-4" /></button><input aria-label={copy.quantity} className="h-11 min-w-0 border-y border-zinc-300 bg-white px-1 text-center text-base font-semibold outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600" inputMode="numeric" max={9999} min={1} onChange={(event) => onQuantity(product.id, Number(event.target.value))} pattern="[0-9]*" type="number" value={quantity} /><button aria-label={copy.increase} className="inline-flex h-11 items-center justify-center rounded-r-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity >= 9999} onClick={() => onQuantity(product.id, quantity + 1)} type="button"><Plus aria-hidden="true" className="size-4" /></button></div><button className="inline-flex h-11 min-w-0 items-center justify-center rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-zinc-300 disabled:text-zinc-600" disabled={loading || !canSelectProducts || !priced} onClick={() => onAdd(product)} title={!canSelectProducts || !priced ? copy.unavailableAction : undefined} type="button">{copy.add}</button></div><p aria-live="polite" className="min-h-4 text-xs font-medium text-emerald-700">{feedback ?? ""}</p></div>
+    <div className="space-y-2 p-3">{selectedQuantity > 0 ? <p className="text-xs font-semibold text-emerald-800">{copy.inSelection}: {selectedQuantity} {copy.units}</p> : null}<div className={`grid gap-2 ${compact ? "grid-cols-[8.75rem_minmax(0,1fr)] xl:grid-cols-1" : "grid-cols-[8.75rem_minmax(0,1fr)]"}`}><div aria-label={copy.quantity} className="grid grid-cols-[2.75rem_3.25rem_2.75rem]" role="group"><button aria-label={copy.decrease} className="inline-flex h-11 items-center justify-center rounded-l-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity <= 1} onClick={() => onQuantity(product.id, quantity - 1)} type="button"><Minus aria-hidden="true" className="size-4" /></button><input aria-label={copy.quantity} className="h-11 min-w-0 border-y border-zinc-300 bg-white px-1 text-center text-base font-semibold outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600" data-quantity-stepper-control inputMode="numeric" max={9999} min={1} onChange={(event) => onQuantity(product.id, Number(event.target.value))} pattern="[0-9]*" type="number" value={quantity} /><button aria-label={copy.increase} className="inline-flex h-11 items-center justify-center rounded-r-lg border border-zinc-300 bg-zinc-50 text-zinc-800 disabled:opacity-40" disabled={quantity >= 9999} onClick={() => onQuantity(product.id, quantity + 1)} type="button"><Plus aria-hidden="true" className="size-4" /></button></div><button className="inline-flex h-11 min-w-0 items-center justify-center rounded-lg bg-emerald-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-zinc-300 disabled:text-zinc-600" disabled={loading || !canSelectProducts || !priced} onClick={() => onAdd(product)} title={!canSelectProducts || !priced ? copy.unavailableAction : undefined} type="button">{copy.add}</button></div><p aria-live="polite" className="min-h-4 text-xs font-medium text-emerald-700">{feedback ?? ""}</p></div>
   </article>;
 }
 

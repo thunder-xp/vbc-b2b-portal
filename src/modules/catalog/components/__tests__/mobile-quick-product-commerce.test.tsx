@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -58,6 +58,43 @@ describe("mobile quick product commerce", () => {
     expect(screen.getByRole("navigation", { name: title })).toHaveClass("[&>a]:min-h-11");
     expect(screen.queryByRole("link", { name: /Открыть каталог|Категории|Deschide catalogul|Categorii/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/Живой подбор товаров|Selecție live de produse/)).not.toBeInTheDocument();
+  });
+
+  it("reuses catalog search geometry without changing native search semantics", () => {
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" />);
+    const input = screen.getByRole("searchbox");
+    expect(input).toHaveAttribute("data-catalog-toolbar-control");
+    expect(input).toHaveAttribute("data-catalog-search-input");
+    expect(input).toHaveClass("h-11", "pl-10", "pr-12");
+    expect(input.parentElement?.querySelector("svg")).toHaveClass("left-3", "top-1/2", "-translate-y-1/2");
+  });
+
+  it("isolates full-height drawer scrolling and shares quantity state and 44px steppers", () => {
+    const previous = [1, 2].map(index => ({ ...pricedProduct, id: `previous-${index}`, purchaseCount: 2, totalQuantity: 4, lastQuantity: 2, lastPurchasedAt: "2026-08-12T10:00:00Z", repeatPurchaseDue: false }));
+    render(<MobileQuickProductCommerce canSelectProducts locale="ru" previouslyPurchased={{ items: previous, totalCount: 2 }} />);
+    const input = within(screen.getByTestId("previously-purchased-section")).getAllByRole("spinbutton")[0];
+    expect(input).toHaveAttribute("data-quantity-stepper-control");
+    expect(input).toHaveClass("h-11");
+    fireEvent.change(input, { target: { value: "7" } });
+    const showAll = screen.getByRole("button", { name: "Показать все" });
+    showAll.focus();
+    fireEvent.click(showAll);
+    const panel = screen.getByRole("dialog");
+    expect(panel).toHaveClass("h-dvh", "inset-y-0", "overflow-hidden");
+    expect(panel.querySelector("header")).toHaveClass("shrink-0");
+    expect(screen.getByTestId("previously-purchased-list")).toHaveClass("min-h-0", "flex-1", "overflow-y-auto", "overscroll-contain");
+    expect(document.body.style.overflow).toBe("hidden");
+    const close = within(panel).getByRole("button", { name: "Закрыть ранее купленные товары" });
+    expect(close).toHaveFocus();
+    expect(within(panel).getAllByRole("spinbutton")[0]).toHaveValue(7);
+    fireEvent.click(within(panel).getAllByRole("button", { name: "Увеличить количество" })[0]);
+    expect(input).toHaveValue(8);
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(within(panel).getAllByRole("button").at(-1)).toHaveFocus();
+    fireEvent.keyDown(panel, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+    expect(showAll).toHaveFocus();
   });
 
   it("debounces representative typing into one request and shows governed commerce data", async () => {
@@ -243,7 +280,7 @@ describe("mobile quick product commerce", () => {
     await act(() => vi.advanceTimersByTimeAsync(100));
     expect(screen.getAllByRole("button", { name: "Очистить поиск" })).toHaveLength(1);
     const clear = screen.getByRole("button", { name: "Очистить поиск" });
-    expect(clear).toHaveClass("h-12", "w-12");
+    expect(clear).toHaveClass("h-11", "w-11");
     fireEvent.click(clear);
     expect(input).toHaveValue("");
     expect(input).toHaveFocus();

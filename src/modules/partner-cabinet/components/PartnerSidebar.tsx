@@ -210,7 +210,7 @@ function ExpandableNavigationGroup({
   activeKey: string | undefined;
 }) {
   const routeActive = routeActiveOverride ?? items.some((item) => activeKey === item.key);
-  const visualExpanded = expanded && !sidebarCollapsed;
+  const visualExpanded = expanded;
   const Chevron = visualExpanded ? ChevronDown : ChevronRight;
   const activeChild = activeChildLabel ?? items.find((item) => activeKey === item.key)?.label;
   const accessibleLabel = sidebarCollapsed && activeChild ? `${label}: ${activeChild}` : label;
@@ -243,11 +243,12 @@ function ExpandableNavigationGroup({
         id={id}
       >
         <div className="overflow-hidden">
-          <div className="ml-[18px] space-y-0.5 border-l border-white/15 py-1 pl-2">
+          <div className={sidebarCollapsed ? "space-y-0" : "ml-[18px] space-y-0.5 border-l border-white/15 py-1 pl-2"}>
             {children}
             {items.map((item) => (
               <NavigationItem
                 expanded={visualExpanded}
+                sidebarCollapsed={sidebarCollapsed}
                 hasWorkspaceAccess={hasWorkspaceAccess}
                 item={item}
                 key={item.key}
@@ -265,7 +266,6 @@ function ExpandableNavigationGroup({
 
 export function PartnerSidebar({
   collapsed = false,
-  companyName,
   hasWorkspaceAccess = true,
   navigation,
   onCollapsedChange,
@@ -361,8 +361,7 @@ export function PartnerSidebar({
     expanded: openGroupId === id,
     onToggle: () => {
       if (collapsed) {
-        onCollapsedChange?.(false);
-        setOpenGroupId(id);
+        setOpenGroupId((current) => current === id ? null : id);
         return;
       }
       setOpenGroupId((current) => current === id ? (activeGroupId === id ? id : null) : id);
@@ -384,7 +383,6 @@ export function PartnerSidebar({
             <p className={`${collapsed ? "text-[10px] tracking-[0.08em]" : "text-xs"} font-semibold uppercase text-emerald-300`}>NOVOTECH</p>
             {collapsed ? null : <>
               <p className="mt-1 text-base font-semibold">{t("shell.partnerCabinet")}</p>
-              <p className="mt-1 truncate text-xs text-zinc-400" title={companyName ?? undefined}>{companyName ?? t("shell.companyNotSelected")}</p>
             </>}
           </div>
           {onCollapsedChange ? <button
@@ -435,7 +433,8 @@ export function PartnerSidebar({
             activeChildLabel={activeKey === "product_selection" ? t("nav.group.productSelection") : undefined}
           >
             {canSelectProducts && <NavigationItem
-              expanded={openGroupId === "purchases-navigation" && !collapsed}
+              expanded={openGroupId === "purchases-navigation"}
+              sidebarCollapsed={collapsed}
               hasWorkspaceAccess={hasWorkspaceAccess}
               item={{ ...navigationByKey.get("catalog")!, key: "product_selection", label: t("nav.group.productSelection"), href: "/cabinet/quick-order", icon: "solution_selection" }}
               onNavigate={onNavigate}
