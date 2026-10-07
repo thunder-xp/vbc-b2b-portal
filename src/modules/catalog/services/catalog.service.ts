@@ -210,10 +210,16 @@ export class DefaultCatalogService implements CatalogService, ProductReferenceSe
   }
 
   async listCategories(userId: string): Promise<CatalogCategoryDto[]> {
-    await this.ensureCatalogAccess(userId);
-    const categories = await this.catalogRepository.listCategories();
+    const categoriesResult = this.catalogRepository.listCategories().then(
+      (categories) => ({ categories } as const),
+      (error: unknown) => ({ error } as const),
+    );
 
-    return categories.map(toCategoryDto);
+    await this.ensureCatalogAccess(userId);
+    const result = await categoriesResult;
+    if ("error" in result) throw result.error;
+
+    return result.categories.map(toCategoryDto);
   }
 
   async listBrands(userId: string): Promise<CatalogBrandDto[]> {
