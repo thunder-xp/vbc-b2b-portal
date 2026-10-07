@@ -141,7 +141,7 @@ describe("Partner workspace shell", () => {
     const selectionButton = screen.getByRole("button", { name: "Покупки" });
     await user.click(selectionButton);
     const purchases = within(document.getElementById("purchases-navigation")!);
-    expect(purchases.getAllByRole("link").map((link) => link.textContent)).toEqual(["Подбор товаров", "Возможности для закупки", "Специальные предложения"]);
+    expect(purchases.getAllByRole("link").map((link) => link.textContent)).toEqual(["Быстрый подбор", "Возможности для закупки", "Специальные предложения"]);
     expect(purchases.getAllByRole("link").every((link) => link.dataset.sidebarSubmenuItem === "true")).toBe(true);
     const collectionsButton = screen.getByRole("button", { name: "Подборки" });
     await user.click(collectionsButton);
@@ -160,7 +160,7 @@ describe("Partner workspace shell", () => {
     expect(projectGroup.getByRole("link", { name: "Спецификации" })).toHaveAttribute("href", "/cabinet/specifications");
 
     await user.click(screen.getByRole("button", { name: "Покупки" }));
-    expect(screen.getByRole("link", { name: "Подбор товаров" })).toHaveAttribute("href", "/cabinet/quick-order");
+    expect(screen.getByRole("link", { name: "Быстрый подбор" })).toHaveAttribute("href", "/cabinet/quick-order");
     expect(screen.getByRole("link", { name: "Возможности для закупки" })).toHaveAttribute("href", "/cabinet/opportunities");
     expect(screen.getByRole("link", { name: "Специальные предложения" })).toHaveAttribute("href", "/cabinet/offers");
 
@@ -208,9 +208,41 @@ describe("Partner workspace shell", () => {
     expect(screen.getByRole("button", { name: "Развернуть главное меню" })).toBeInTheDocument();
     const purchases = screen.getByRole("button", { name: "Покупки: Специальные предложения" });
     expect(purchases).toHaveClass("text-emerald-200");
-    expect(purchases).toHaveAttribute("aria-expanded", "false");
+    expect(purchases).toHaveAttribute("aria-expanded", "true");
     await user.click(purchases);
-    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+    expect(purchases).toHaveAttribute("aria-expanded", "false");
+    expect(onCollapsedChange).not.toHaveBeenCalled();
+  });
+
+  it("keeps compact children inline and permits only one open group without changing preference", async () => {
+    pathname = "/cabinet";
+    const user = userEvent.setup();
+    const { container } = render(<PartnerDesktopSidebar companyName={context.companyName} hasWorkspaceAccess initialCollapsed navigation={navigation} />);
+    const products = screen.getByRole("button", { name: "Товары" });
+    const purchases = screen.getByRole("button", { name: "Покупки" });
+    await user.click(products);
+    expect(products).toHaveAttribute("aria-expanded", "true");
+    const showcase = screen.getByRole("link", { name: "Витрина" });
+    expect(showcase).toHaveAttribute("title", "Витрина");
+    expect(showcase).toHaveClass("justify-center", "px-2");
+    expect(showcase.querySelector("span.sr-only")).toBeInTheDocument();
+    expect(showcase.closest("#products-navigation")).toBeInTheDocument();
+    await user.click(purchases);
+    expect(products).toHaveAttribute("aria-expanded", "false");
+    expect(purchases).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Быстрый подбор" })).toHaveAttribute("href", "/cabinet/quick-order");
+    purchases.focus();
+    await user.keyboard(" ");
+    expect(purchases).toHaveAttribute("aria-expanded", "false");
+    expect(container.querySelector("[data-partner-sidebar-shell]")).toHaveAttribute("data-sidebar-collapsed", "true");
+    expect(screen.queryByText("Partner Company")).not.toBeInTheDocument();
+  });
+
+  it("omits company identity from the expanded sidebar header", () => {
+    render(<PartnerSidebar companyName={context.companyName} hasWorkspaceAccess navigation={navigation} />);
+    expect(screen.queryByText("Partner Company")).not.toBeInTheDocument();
+    expect(screen.getByText("NOVOTECH")).toBeInTheDocument();
+    expect(screen.getByText("Кабинет партнёра")).toBeInTheDocument();
   });
 
   it("persists desktop sidebar collapse without replacing the navigation tree", async () => {
@@ -332,7 +364,8 @@ describe("Partner workspace shell", () => {
     render(<PartnerHeader context={context} />);
     await user.click(screen.getByRole("button", { name: "Открыть меню пользователя" }));
 
-    expect(screen.getByText("GOLD")).toBeInTheDocument();
+    expect(screen.queryByText("GOLD")).not.toBeInTheDocument();
+    expect(screen.getByText("Partner Company")).toHaveClass("text-emerald-700");
     expect(screen.getByRole("img", { name: "Partner Company" })).toHaveTextContent("PC");
     const languageAction = screen.getByRole("menuitem", { name: "Переключить интерфейс на румынский" });
     expect(within(languageAction).getByText("Язык")).toBeInTheDocument();
@@ -580,7 +613,7 @@ describe("Partner workspace shell", () => {
   });
 
   it.each([
-    ["/cabinet/quick-order", "Подбор товаров"],
+    ["/cabinet/quick-order", "Быстрый подбор"],
     ["/cabinet/opportunities", "Возможности для закупки"],
     ["/cabinet/offers", "Специальные предложения"],
   ])("opens and highlights purchases for direct URL %s", (route, label) => {

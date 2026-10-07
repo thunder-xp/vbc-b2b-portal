@@ -69,7 +69,7 @@ export function UserMenu({ context }: { context: PartnerWorkspaceShellContext })
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-zinc-950">{displayName}</p>
               <p className="mt-1 truncate text-xs text-zinc-500">{context.membershipRole ?? t("shell.partner")}</p>
-              {context.partnerStatus ? <p className="mt-1 truncate text-xs font-semibold text-emerald-700">{context.partnerStatus}</p> : null}
+              {context.companyName ? <p className="mt-1 truncate text-xs font-semibold text-emerald-700">{context.companyName}</p> : null}
             </div>
             <span aria-label={context.companyName ?? t("common.company")} className="flex h-12 w-16 shrink-0 items-center justify-center rounded border border-zinc-200 bg-zinc-50 bg-contain bg-center bg-no-repeat text-xs font-semibold text-zinc-600" role="img" style={context.companyLogoUrl ? { backgroundImage: `url("${context.companyLogoUrl}")` } : undefined}>
               {context.companyLogoUrl ? null : companyInitials(context.companyName)}

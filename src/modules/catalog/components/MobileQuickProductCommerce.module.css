@@ -1,3 +1,7 @@
+.searchInput {
+  --partner-control-padding-end: 48px;
+}
+
 .searchInput::-webkit-search-decoration,
 .searchInput::-webkit-search-cancel-button {
   appearance: none;

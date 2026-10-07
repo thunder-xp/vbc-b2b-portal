@@ -12,7 +12,7 @@
   border-color: rgb(212 212 216);
   border-radius: 6px;
   background-color: rgb(255 255 255);
-  padding-inline: var(--partner-control-padding-start, 10px) 10px;
+  padding-inline: var(--partner-control-padding-start, 10px) var(--partner-control-padding-end, 10px);
   font-family: inherit;
   font-size: 12px;
   font-weight: 400;
@@ -136,7 +136,8 @@
 }
 
 /* Cart steppers share the 44px action height, including touch viewports. */
-.formStandard :global(input[data-cart-quantity-control]) {
+.formStandard :global(input[data-cart-quantity-control]),
+.formStandard :global(input[data-quantity-stepper-control]) {
   --partner-control-height: 44px;
 }
 
