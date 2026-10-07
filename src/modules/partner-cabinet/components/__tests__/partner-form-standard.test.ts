@@ -13,9 +13,11 @@ describe("Partner form visual standard", () => {
     expect(layout).toContain("PartnerFormStandard.module.css");
     expect(layout).toContain("formStyles.formStandard");
     expect(styles).toContain("font-size: 11px");
-    expect(styles).toContain("height: 36px");
+    expect(styles).toContain("height: var(--partner-control-height, 36px)");
     expect(styles).toContain("font-size: 12px");
-    expect(styles).toContain("height: 40px");
+    expect(styles).toContain("height: var(--partner-control-height, 40px)");
+    expect(styles).toContain("input[data-cart-quantity-control]");
+    expect(styles).toContain("--partner-control-height: 44px");
   });
 
   it("preserves semantics while standardizing selects, states, and numeric inputs", () => {

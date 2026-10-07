@@ -159,12 +159,16 @@ describe("partner order history pages", () => {
     expect(screen.getByText("Camera")).toBeInTheDocument();
     expect(screen.queryByText("Снимок при отправке из платформы")).not.toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();
-    expect(screen.getByTestId("order-status-total-row")).toHaveTextContent("Итого");
-    expect(screen.getByTestId("order-status-total-row")).toHaveTextContent("1 000,00 MDL");
+    expect(screen.getByTestId("order-metadata-row")).toHaveTextContent("Итого");
+    expect(screen.getByTestId("order-metadata-row")).toHaveTextContent("Статус");
+    expect(screen.getByTestId("order-metadata-row")).toHaveTextContent("Дата заказа");
+    expect(screen.getByTestId("order-metadata-row")).toHaveTextContent("Планируемая отгрузка");
+    expect(screen.queryByText("ALERT-SS SRL")).not.toBeInTheDocument();
+    expect(screen.getByTestId("order-metadata-row")).toHaveTextContent("1 000,00 MDL");
     expect(screen.getByRole("heading", { name: "Состав" })).toBeInTheDocument();
     expect(screen.queryByText("Текущий состав в 1С")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Корзина" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
-    expect(screen.getByRole("link", { name: "Корзина" }).querySelector(".lucide-shopping-cart")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "В корзину" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
+    expect(screen.getByRole("link", { name: "В корзину" }).querySelector(".lucide-shopping-cart")).not.toBeNull();
   });
 
   it("renders a confirmed-not-created attempt as a preserved-cart recovery state", async () => {
@@ -220,7 +224,7 @@ describe("partner order history pages", () => {
 
     render(await OrderDetailPage({ params: Promise.resolve({ id: summary.id }) }));
 
-    expect(screen.getByRole("link", { name: "Корзина" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "В корзину" })).toHaveAttribute(
       "href",
       `/cabinet/quick-order?repeatOrder=${summary.id}`,
     );

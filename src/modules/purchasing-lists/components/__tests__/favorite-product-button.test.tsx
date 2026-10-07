@@ -15,6 +15,8 @@ describe("FavoriteProductButton", () => {
   it("optimistically adds a product and exposes pressed state", async () => {
     render(<FavoriteProductButton initialSaved={false} productId={PRODUCT_ID} />);
     const button = screen.getByRole("button", { name: "Добавить в избранное" });
+    expect(button).toHaveClass("border", "hover:shadow-none", "focus-visible:ring-2", "border-zinc-300", "bg-white");
+    expect(button).toHaveAttribute("aria-pressed", "false");
     expect(button.querySelector("svg")).toHaveClass("lucide-star");
     await userEvent.click(button);
     expect(setFavoriteProductAction).toHaveBeenCalledWith(PRODUCT_ID, true);

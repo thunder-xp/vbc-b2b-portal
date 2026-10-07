@@ -7,8 +7,8 @@
 
 .formStandard :global(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])),
 .formStandard :global(select) {
-  height: 36px;
-  min-height: 36px;
+  height: var(--partner-control-height, 36px);
+  min-height: var(--partner-control-height, 36px);
   border-color: rgb(212 212 216);
   border-radius: 6px;
   background-color: rgb(255 255 255);
@@ -125,12 +125,17 @@
 @media (max-width: 768px) {
   .formStandard :global(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])),
   .formStandard :global(select) {
-    height: 40px;
-    min-height: 40px;
+    height: var(--partner-control-height, 40px);
+    min-height: var(--partner-control-height, 40px);
   }
 
   .formStandard :global(label:has(input[type="checkbox"])),
   .formStandard :global(label:has(input[type="radio"])) {
     min-height: 40px;
   }
+}
+
+/* Cart steppers share the 44px action height, including touch viewports. */
+.formStandard :global(input[data-cart-quantity-control]) {
+  --partner-control-height: 44px;
 }

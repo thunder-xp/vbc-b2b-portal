@@ -159,10 +159,11 @@ export function CartItemActions({
         </button>
         <div>
           <input
+            data-cart-quantity-control
             aria-describedby={`${itemId}-quantity-status`}
             aria-invalid={!Number.isInteger(draft) || draft < 1 || draft > 9999}
             aria-label={copy.productQuantity}
-            className="block h-11 w-16 rounded-md border border-zinc-300 px-2 text-center text-sm"
+            className="block h-11 w-16 rounded-md border border-zinc-300 px-2 text-center text-sm font-medium text-zinc-950"
             disabled={locked || pending}
             max={9999}
             min={1}
