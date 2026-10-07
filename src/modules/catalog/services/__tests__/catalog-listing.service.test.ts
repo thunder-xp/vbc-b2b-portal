@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CompanyAccessService } from "../../../access-control/services";
+import { ForbiddenError, MembershipRequiredError } from "../../../access-control/services";
 import { CompanyStatus, MembershipStatus, UserStatus, UserType } from "../../../access-control/types";
 import type { CatalogRepository, ListCatalogProductsInput } from "../../repositories";
 import type { CatalogBrand, CatalogCategory, CatalogProduct, CatalogProductAttribute, CatalogProductDocument } from "../../types";
@@ -151,6 +152,79 @@ describe("DefaultCatalogService listing projection", () => {
       { value: "4 MP", count: 3, selected: true },
       { value: "8 MP", count: 2, selected: false },
     ] }]);
+  });
+
+  it("overlaps the global taxonomy read with governed access without returning early", async () => {
+    let releaseMemberships!: (memberships: Awaited<ReturnType<CompanyAccessService["getOwnMemberships"]>>) => void;
+    const memberships = new Promise<Awaited<ReturnType<CompanyAccessService["getOwnMemberships"]>>>((resolve) => {
+      releaseMemberships = resolve;
+    });
+    const access = {
+      ...companyAccessService,
+      getOwnMemberships: vi.fn(() => memberships),
+    } satisfies CompanyAccessService;
+    const repository = new ListingRepository();
+    const listCategories = vi.spyOn(repository, "listCategories");
+
+    const result = new DefaultCatalogService(repository, access).listCategories("user-1");
+    let settled = false;
+    void result.finally(() => { settled = true; });
+
+    expect(listCategories).toHaveBeenCalledOnce();
+    expect(access.getOwnMemberships).toHaveBeenCalledOnce();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    releaseMemberships(await companyAccessService.getOwnMemberships("user-1"));
+    await expect(result).resolves.toEqual([
+      { id: "root", external1cId: null, parentId: null, name: "Root", slug: "root", description: null },
+      { id: "child", external1cId: null, parentId: "root", name: "Child", slug: "child", description: null },
+      { id: "leaf", external1cId: null, parentId: "child", name: "Leaf", slug: "leaf", description: null },
+    ]);
+  });
+
+  it("preserves the governed access error when the parallel taxonomy read also fails", async () => {
+    const accessError = new MembershipRequiredError();
+    const repositoryError = new Error("taxonomy unavailable");
+    const repository = new ListingRepository();
+    vi.spyOn(repository, "listCategories").mockRejectedValue(repositoryError);
+    const access = {
+      ...companyAccessService,
+      getOwnMemberships: vi.fn().mockRejectedValue(accessError),
+    } satisfies CompanyAccessService;
+
+    await expect(new DefaultCatalogService(repository, access).listCategories("user-1"))
+      .rejects.toBe(accessError);
+  });
+
+  it.each([MembershipStatus.Suspended, MembershipStatus.Revoked])(
+    "keeps %s membership access denied",
+    async (status) => {
+      const accessError = new ForbiddenError("Company membership is not allowed.");
+      const access = {
+        ...companyAccessService,
+        getOwnMemberships: vi.fn().mockResolvedValue([
+          { ...(await companyAccessService.getOwnMemberships("user-1"))[0]!, status },
+        ]),
+        getActiveCompanyContext: vi.fn().mockRejectedValue(accessError),
+      } satisfies CompanyAccessService;
+
+      await expect(new DefaultCatalogService(new ListingRepository(), access).listCategories("user-1"))
+        .rejects.toBe(accessError);
+      expect(access.getActiveCompanyContext).toHaveBeenCalledWith("user-1", "");
+    },
+  );
+
+  it("keeps a mismatched active company context denied", async () => {
+    const accessError = new ForbiddenError("Company membership is not allowed.");
+    const access = {
+      ...companyAccessService,
+      getActiveCompanyContext: vi.fn().mockRejectedValue(accessError),
+    } satisfies CompanyAccessService;
+
+    await expect(new DefaultCatalogService(new ListingRepository(), access).listCategories("user-1"))
+      .rejects.toBe(accessError);
+    expect(access.getActiveCompanyContext).toHaveBeenCalledWith("user-1", "company");
   });
 });
 
