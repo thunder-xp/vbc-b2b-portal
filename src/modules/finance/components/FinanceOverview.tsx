@@ -160,11 +160,11 @@ function PaymentCalendarOverview({ locale, overview }: { locale: PartnerLocale; 
       <div>
         <h2 className="text-xl font-semibold text-zinc-950" id="payment-calendar-title">{copy.paymentCalendar}</h2>
       </div>
-      {calendar.unavailableCount > 0 ? <p className="mt-2 rounded bg-amber-50 px-3 py-2 text-xs text-amber-900" role="status" data-finance-warning>{copy.unavailableRows}</p> : null}
+      {calendar.unavailableCount > 0 ? <p className="mt-2" data-finance-warning data-partner-feedback="warning" role="status"><AlertCircle aria-hidden="true" data-partner-feedback-icon />{copy.unavailableRows}</p> : null}
       {calendar.current.length ? <div className="space-y-4 pt-3">{groups.map(([timing, label]) => {
         const items = calendar.current.filter((item) => item.timing === timing);
         return items.length ? <div key={timing}><h3 className={`text-xs font-semibold uppercase tracking-wide ${timing === "overdue" ? "text-amber-800" : "text-zinc-600"}`}>{label}</h3><ul className="mt-2 divide-y divide-zinc-200 border border-zinc-200 bg-white">{items.map((item) => <PaymentItem item={item} key={item.id} locale={locale} />)}</ul></div> : null;
-      })}</div> : <p className="py-8 text-sm text-zinc-600">{copy.noCurrentObligations}</p>}
+      })}</div> : <p data-partner-empty-state>{copy.noCurrentObligations}</p>}
       {calendar.settled.length ? <details className="mt-6 border-t border-zinc-200 pt-4"><summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold text-zinc-800">{copy.settledHistory} ({calendar.settled.length})</summary><ul className="divide-y divide-zinc-200 border border-zinc-200 bg-white">{calendar.settled.map((item) => <PaymentItem item={item} key={item.id} locale={locale} />)}</ul></details> : null}
     </section>
   </>;
@@ -213,15 +213,16 @@ function EmptyFinanceState({
               text: copy.temporarilyUnavailableText,
             };
   return (
-    <section className="py-4" data-compact-empty>
+    <section data-compact-empty>
       <WalletCards
         aria-hidden="true"
         className="size-5 text-zinc-400"
+        data-partner-empty-icon
       />
-      <h2 className="mt-3 text-lg font-semibold text-zinc-900">
+      <h2 data-partner-empty-title>
         {content.title}
       </h2>
-      <p className="mt-1 text-sm text-zinc-600">{content.text}</p>
+      <p data-partner-empty-body>{content.text}</p>
     </section>
   );
 }

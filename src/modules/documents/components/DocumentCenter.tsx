@@ -9,7 +9,7 @@ import { DocumentCard } from "./DocumentCard";
 export function DocumentCenter({ page, filters, locale }: { page: PartnerDocumentPage; locale: PartnerLocale; filters: { q?: string; section?: DocumentSection; type?: PartnerDocumentType; language?: string; state?: DocumentStateFilter } }) {
   const copy = documentsCopy(locale);
   return <div className="space-y-6">
-    <nav aria-label={copy.sections} className="flex gap-2 overflow-x-auto pb-1">{DOCUMENT_SECTIONS.map((section) => <Link className={`shrink-0 rounded-md border px-3 py-2 text-sm font-medium ${filters.section === section.value || (!filters.section && section.value === "all") ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-zinc-200 text-zinc-700"}`} href={href({ ...filters, section: section.value, page: undefined })} key={section.value}>{documentSectionLabel(locale, section.value)}</Link>)}</nav>
+    <nav aria-label={copy.sections} className="flex gap-2 overflow-x-auto pb-1" data-partner-tabs>{DOCUMENT_SECTIONS.map((section) => { const active = filters.section === section.value || (!filters.section && section.value === "all"); return <Link aria-current={active ? "page" : undefined} className={`shrink-0 rounded-md border px-3 py-2 text-sm font-medium ${active ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-zinc-200 text-zinc-700"}`} data-partner-tab href={href({ ...filters, section: section.value, page: undefined })} key={section.value}>{documentSectionLabel(locale, section.value)}</Link>; })}</nav>
     <form className="grid gap-3 border-y border-zinc-200 py-4 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1fr)_13rem_10rem_11rem_auto] lg:items-end">
       <Field label={copy.search}><input defaultValue={filters.q} name="q" placeholder={copy.searchPlaceholder} type="search" /></Field>
       <Field label={copy.type}><select defaultValue={filters.type ?? ""} name="type"><option value="">{copy.allTypes}</option>{Object.keys(DOCUMENT_TYPE_LABELS).map((value) => <option key={value} value={value}>{documentTypeLabel(locale, value as PartnerDocumentType)}</option>)}</select></Field>
@@ -18,7 +18,7 @@ export function DocumentCenter({ page, filters, locale }: { page: PartnerDocumen
       <input name="section" type="hidden" value={filters.section ?? "all"} /><button className="min-h-11 rounded-md bg-zinc-900 px-4 text-sm font-semibold text-white" type="submit">{copy.find}</button>
     </form>
     <p aria-live="polite" className="text-sm text-zinc-600">{copy.found}: {page.totalCount}</p>
-    {page.items.length ? <div>{page.items.map((document) => <DocumentCard document={document} key={document.id} locale={locale} />)}</div> : <section className="border-y border-zinc-200 py-10 text-center"><h2 className="font-semibold text-zinc-950">{copy.empty}</h2><p className="mt-2 text-sm text-zinc-600">{copy.emptyHint}</p></section>}
+    {page.items.length ? <div>{page.items.map((document) => <DocumentCard document={document} key={document.id} locale={locale} />)}</div> : <section data-partner-empty-state><h2 data-partner-empty-title>{copy.empty}</h2><p data-partner-empty-body>{copy.emptyHint}</p></section>}
     <NumberedPagination ariaLabel={copy.pages} currentPage={page.page} hrefForPage={(targetPage) => href({ ...filters, page: targetPage })} locale={locale} totalPages={page.totalPages} />
   </div>;
 }

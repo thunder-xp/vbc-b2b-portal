@@ -44,7 +44,8 @@ export function CatalogQuantityCartAction({
           aria-describedby={quantityError || feedback ? feedbackId : undefined}
           aria-invalid={Boolean(quantityError)}
           aria-label={copy.productQuantity}
-          className="h-11 w-full rounded-md border border-zinc-300 px-2 text-center text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200"
+          className="h-11 min-h-11 w-full rounded-md border border-zinc-300 px-2 text-center text-sm outline-none focus:border-emerald-600 focus-visible:ring-2 focus-visible:ring-emerald-200"
+          data-product-card-quantity
           id={`catalog-quantity-${productId}`}
           inputMode="numeric"
           max={9999}
@@ -54,12 +55,14 @@ export function CatalogQuantityCartAction({
             setFeedback(null);
           }}
           step={1}
+          style={{ height: 44, minHeight: 44 }}
           type="number"
           value={quantityInput}
         />
         <button
           aria-label={getQuickSelectionLabel(locale)}
-          className={`${compactActionClassName.primary} min-w-0 px-2 leading-tight`}
+          className={`${compactActionClassName.primary} h-11 min-h-11 min-w-0 px-2 leading-tight`}
+          data-product-card-primary-action
           data-action-level="primary"
           disabled={Boolean(quantityError)}
           onClick={() => {

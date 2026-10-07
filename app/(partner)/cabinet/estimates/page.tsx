@@ -16,6 +16,7 @@ import {
   getEstimatesCopy,
 } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
+import { PartnerFeedback } from "@/src/modules/partner-cabinet/components";
 
 type SearchParams = {
   search?: string;
@@ -84,11 +85,14 @@ export default async function EstimatesPage({
       <nav
         aria-label={copy.quickFilters}
         className="flex gap-2 overflow-x-auto pb-1"
+        data-partner-tabs
       >
         {quickFilters.map((filter) => (
           <Link
+            aria-current={filter.href === "/cabinet/estimates" ? (!query.status && !query.lifecycleStatus ? "page" : undefined) : filter.href.includes(`status=${query.status}`) || filter.href.includes(`lifecycleStatus=${query.lifecycleStatus}`) ? "page" : undefined}
             className="min-h-11 shrink-0 rounded-md border border-zinc-300 bg-white px-3 py-2.5 text-sm font-medium text-zinc-700 hover:border-emerald-600 hover:text-emerald-700"
             href={filter.href}
+            data-partner-tab
             key={filter.href}
             prefetch={false}
           >
@@ -162,9 +166,7 @@ export default async function EstimatesPage({
       </form>
 
       {!result.success ? (
-        <p className="border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-800">
-          {result.message}
-        </p>
+        <PartnerFeedback kind="error">{result.message}</PartnerFeedback>
       ) : result.data.records.length ? (
         <>
           <div className="grid min-w-0 gap-3 lg:hidden">
@@ -229,17 +231,17 @@ export default async function EstimatesPage({
                   <th className="px-4 py-3">{copy.estimate}</th>
                   <th className="px-4 py-3">{copy.customerProject}</th>
                   <th className="px-4 py-3">{copy.status}</th>
-                  <th className="px-4 py-3 text-right">{copy.total}</th>
+                  <th className="px-4 py-3 text-right" data-table-numeric>{copy.total}</th>
                   <th className="px-4 py-3">{copy.dates}</th>
                   <th className="px-4 py-3">{copy.proposal}</th>
                   <th className="px-4 py-3">{copy.author}</th>
-                  <th className="px-4 py-3">{copy.actions}</th>
+                  <th className="px-4 py-3" data-table-actions>{copy.actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {result.data.records.map((estimate) => (
                   <tr className="hover:bg-zinc-50" data-estimate-row-id={estimate.id} key={estimate.id}>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-id>
                       <Link
                         className="font-semibold text-zinc-950 hover:text-emerald-700"
                         href={`/cabinet/estimates/${estimate.id}`}
@@ -257,7 +259,7 @@ export default async function EstimatesPage({
                         {estimate.itemCount} {copy.positions}
                       </p>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-status>
                       <EstimateStatusBadge
                         locale={locale}
                         status={
@@ -265,10 +267,10 @@ export default async function EstimatesPage({
                         }
                       />
                     </td>
-                    <td className="px-4 py-4 text-right font-semibold">
+                    <td className="px-4 py-4 text-right font-semibold" data-table-total>
                       {estimate.total}
                     </td>
-                    <td className="px-4 py-4 text-zinc-600">
+                    <td className="px-4 py-4 text-zinc-600" data-table-meta>
                       <span className="block">
                         {copy.created}{" "}
                         {formatPartnerDate(estimate.createdAt, locale)}
@@ -295,7 +297,7 @@ export default async function EstimatesPage({
                     <td className="px-4 py-4 text-zinc-600">
                       {estimate.createdByName}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-actions>
                       <EstimateListActions
                         archived={estimate.archived}
                         canDeleteArchived={estimate.canDeleteArchived}
@@ -318,12 +320,12 @@ export default async function EstimatesPage({
           />
         </>
       ) : (
-        <section className="border-y border-dashed border-zinc-300 bg-white px-6 py-14 text-center">
-          <Calculator className="mx-auto size-8 text-emerald-700" />
-          <h2 className="mt-4 font-semibold">{copy.emptyTitle}</h2>
-          <p className="mt-1 text-sm text-zinc-500">{copy.emptyHint}</p>
+        <section data-partner-empty-state>
+          <Calculator aria-hidden="true" data-partner-empty-icon />
+          <h2 data-partner-empty-title>{copy.emptyTitle}</h2>
+          <p data-partner-empty-body>{copy.emptyHint}</p>
           <Link
-            className="mt-5 inline-flex rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
+            className="mt-3 inline-flex min-h-8 items-center rounded-md bg-emerald-700 px-3 text-[11px] font-semibold text-white max-md:min-h-9"
             href="/cabinet/estimates/new"
             prefetch={false}
           >

@@ -15,6 +15,7 @@ export function PartnerTopCategoryFilterBar({ allCount, allLabel, categories, cu
     aria-label={allLabel}
     className="max-w-full overflow-x-auto pb-1"
     data-partner-top-category-filter-bar
+    data-partner-filter-chips
   >
     <div className="flex min-w-max gap-2">
       <CategoryLink active={!selectedCategoryIds.length} count={allCount} href={buildTopCategoryHref(currentHref, [])} label={allLabel} />
@@ -60,6 +61,7 @@ function CategoryLink({ active, count, href, label }: { active: boolean; count?:
     aria-label={typeof count === "number" ? `${label} ${count}` : label}
     className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-none border px-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${active ? "border-emerald-700 bg-emerald-700 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-emerald-600 hover:text-emerald-800"}`}
     href={href}
+    data-partner-filter-chip
     prefetch={false}
   >
     {label}{typeof count === "number" ? <span className="text-xs font-medium opacity-80">{count}</span> : null}

@@ -2,6 +2,7 @@ export { CompanyCard } from "./CompanyCard";
 export { CompanyLogoForm } from "./CompanyLogoForm";
 export { DashboardCard } from "./DashboardCard";
 export { EmptyState } from "./EmptyState";
+export { PartnerFeedback, type PartnerFeedbackKind } from "./PartnerFeedback";
 export { MembershipCard } from "./MembershipCard";
 export { PartnerHeader } from "./PartnerHeader";
 export { PartnerCartLink } from "./PartnerCartLink";

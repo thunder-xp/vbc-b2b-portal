@@ -85,14 +85,14 @@ export function SpecificationDetail({
               <thead className="bg-zinc-50 text-xs uppercase text-zinc-500">
                 <tr>
                   <th className="px-4 py-3">{copy.model}</th>
-                  <th className="px-4 py-3">{copy.quantity}</th>
+                  <th className="px-4 py-3" data-table-numeric>{copy.quantity}</th>
                   {showPartnerCommercial ? (
-                    <th className="px-4 py-3">{copy.partnerPrice}</th>
+                    <th className="px-4 py-3" data-table-numeric>{copy.partnerPrice}</th>
                   ) : null}
-                  <th className="px-4 py-3">{copy.retail}</th>
-                  <th className="px-4 py-3">{copy.availability}</th>
-                  <th className="px-4 py-3">{copy.arrival}</th>
-                  <th className="px-4 py-3">{copy.total}</th>
+                  <th className="px-4 py-3" data-table-numeric>{copy.retail}</th>
+                  <th className="px-4 py-3" data-table-numeric>{copy.availability}</th>
+                  <th className="px-4 py-3" data-table-numeric>{copy.arrival}</th>
+                  <th className="px-4 py-3" data-table-numeric>{copy.total}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
@@ -105,11 +105,11 @@ export function SpecificationDetail({
                       >
                         {line.productName}
                       </Link>
-                      <div className="mt-1 text-xs text-zinc-500">
+                      <div className="mt-1 text-xs text-zinc-500" data-table-sku>
                         SKU {line.sku}
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-numeric>
                       {isDraft ? (
                         <SpecificationItemControls
                           itemId={line.id}
@@ -121,19 +121,19 @@ export function SpecificationDetail({
                       )}
                     </td>
                     {showPartnerCommercial ? (
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-4" data-table-numeric>
                         {line.partnerUnitPrice ?? copy.pending}
                       </td>
                     ) : null}
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-numeric>
                       {line.retailUnitPrice ?? copy.pending}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-numeric>
                       {line.availableStock === null
                         ? copy.pending
                         : line.availableStock}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-numeric>
                       {line.nearestArrivalDate ? (
                         <>
                           <div>{line.nearestArrivalDate}</div>
@@ -145,7 +145,7 @@ export function SpecificationDetail({
                         "—"
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4" data-table-total>
                       {showPartnerCommercial ? (
                         <>
                           <div className="font-semibold">

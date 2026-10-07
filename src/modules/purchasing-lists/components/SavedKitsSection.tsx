@@ -176,7 +176,7 @@ export function SavedKitsSection({
           {loadingKitId === kit.id ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : <ArrowRight aria-hidden="true" className="size-4" />}{copy.open}
         </button>
       </article>)}
-    </div> : <p className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-5 text-sm text-zinc-600">{copy.empty}</p>}
+    </div> : <p data-partner-empty-state>{copy.empty}</p>}
     {message && !detail ? <p aria-live="polite" className="text-sm font-medium text-emerald-800">{message}</p> : null}
 
     {detail ? <div className="fixed inset-0 z-50 bg-black/45" role="presentation">

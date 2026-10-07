@@ -19,6 +19,7 @@ export function PartnerWorkspaceTabs({
     <nav
       aria-label={ariaLabel}
       className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+      data-partner-tabs
     >
       {tabs.map((tab) => {
         const active = tab.key === activeKey;
@@ -30,6 +31,7 @@ export function PartnerWorkspaceTabs({
                 ? "border-emerald-700 bg-emerald-700 text-white"
                 : "border-zinc-300 bg-white text-zinc-800 hover:border-emerald-700"
             }`}
+            data-partner-tab
             href={tab.href}
             key={tab.key}
           >

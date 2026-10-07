@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { PartnerWorkspaceTabs } from "@/src/modules/partner-cabinet/components/PartnerWorkspaceTabs";
+import { PartnerFeedback } from "@/src/modules/partner-cabinet/components/PartnerFeedback";
 import { getPartnerWorkspaceContextAction } from "@/src/modules/partner-cabinet/actions/workspace-context.action";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { getInstallationAssignmentDispatcher } from "@/src/modules/retail-marketplace/server";
@@ -71,7 +72,7 @@ export default async function InstallationMarketplaceActivationPage({ searchPara
   return <main className="mx-auto max-w-6xl space-y-6">
     <header className="flex flex-wrap items-start justify-end gap-4" data-partner-page-header><div><h1 className="text-2xl font-semibold">{workspace.title}</h1><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{workspace.intro}</p></div><span className="rounded-full bg-zinc-100 px-3 py-2 text-xs font-semibold">{t.status}: {state.status}</span></header>
     {view !== "profile" ? <PartnerWorkspaceTabs activeKey={view} ariaLabel={workspace.title} tabs={operationalViews.map((entry) => ({ key: entry, label: workspace.tabs[entry], href: `/cabinet/installation-marketplace?view=${entry}` }))} /> : null}
-    {query.result && <p role="status" className="border-l-4 border-emerald-600 bg-emerald-50 p-3 text-sm">{query.result === "saved" ? t.saved : query.result === "submitted" ? t.submitted : t.enrolled}</p>}
+    {query.result && <PartnerFeedback kind="success">{query.result === "saved" ? t.saved : query.result === "submitted" ? t.submitted : t.enrolled}</PartnerFeedback>}
     {view === "overview" ? <Overview locale={locale} state={state} workspace={workspace} /> : null}
     {assignmentView ? <PartnerInstallationLists assignments={assignments} locale={locale} marketplaceProjects={marketplaceProjects} view={assignmentView} /> : null}
     {view === "profile" ? state.status === "NOT_ENROLLED" ? <NotEnrolled t={t} /> : <ActivationWorkspace locale={locale} state={state} t={t} /> : null}
@@ -96,10 +97,10 @@ function ActivationWorkspace({ locale, state, t }: { locale: "ru" | "ro"; state:
   const locked = state.status === "PENDING_REVIEW" || state.status === "SUSPENDED";
   return <>
     <section aria-label={t.status} className="grid grid-cols-2 gap-3 lg:grid-cols-4">{metricValues.map((value,index)=><div className="border border-zinc-200 bg-white p-4" key={t.metrics[index]}><p className="text-2xl font-semibold">{value}</p><p className="mt-1 text-xs text-zinc-600">{t.metrics[index]}</p></div>)}</section>
-    {state.status === "REJECTED" && <p className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm"><strong>{t.rejected}.</strong>{state.rejectionNote ? ` ${state.rejectionNote}` : ""}</p>}
-    {state.status === "DRAFT" && state.correctionReason ? <p className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm"><strong>{t.correction}.</strong> {state.correctionReason}</p> : null}
-    {state.status === "SUSPENDED" && <p className="border-l-4 border-red-600 bg-red-50 p-3 text-sm">{t.suspend}</p>}
+    {state.status === "REJECTED" && <PartnerFeedback kind="warning"><strong>{t.rejected}.</strong>{state.rejectionNote ? ` ${state.rejectionNote}` : ""}</PartnerFeedback>}
+    {state.status === "DRAFT" && state.correctionReason ? <PartnerFeedback kind="warning"><strong>{t.correction}.</strong> {state.correctionReason}</PartnerFeedback> : null}
+    {state.status === "SUSPENDED" && <PartnerFeedback kind="error">{t.suspend}</PartnerFeedback>}
     <section className="border border-zinc-200 bg-white p-5"><h2 className="text-lg font-semibold">{t.checklist}</h2><div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{state.readiness.items.map((item)=>{const key=readinessLabels[item.code as keyof typeof readinessLabels];return <div className="flex min-h-11 items-center justify-between gap-3 border border-zinc-200 px-3 text-sm" key={item.code}><span>{key ? t[key] : item.code}</span><span className={item.ready ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>{item.ready ? t.ready : t.missing}</span></div>;})}</div></section>
-    {locked ? <p className="border border-zinc-200 bg-white p-5 text-sm text-zinc-600">{t.locked}</p> : <PartnerActivationForm activation={state} locale={locale} showSubmit={!['ACTIVE','APPROVED'].includes(state.status)} />}
+    {locked ? <PartnerFeedback kind="info">{t.locked}</PartnerFeedback> : <PartnerActivationForm activation={state} locale={locale} showSubmit={!['ACTIVE','APPROVED'].includes(state.status)} />}
   </>;
 }
