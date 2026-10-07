@@ -269,6 +269,74 @@ describe("QuickReorderService cart conversion", () => {
   });
 });
 
+describe("direct historical order demand", () => {
+  const requestKey = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const lineIds = ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"];
+  function directDependencies() {
+    const dependencies = makeDependencies();
+    const value = source();
+    value.lines.forEach((item, index) => { item.lineId = lineIds[index]; });
+    dependencies.repository.getReorderSource.mockResolvedValue(value);
+    return { ...dependencies, value };
+  }
+
+  it("merges the entire order once with source quantities and provenance, without commercial prechecks", async () => {
+    const dependencies = directDependencies();
+    await dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey });
+    expect(dependencies.repository.getReorderSource).toHaveBeenCalledOnce();
+    expect(dependencies.pricing.getProductCommercialViews).not.toHaveBeenCalled();
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      orderId: ORDER_ID, requestKey,
+      items: [{ lineId: lineIds[0], quantity: 3 }, { lineId: lineIds[1], quantity: 2 }],
+    }));
+    expect(dependencies.permission.ensurePermission).toHaveBeenCalledWith("user-1", "company-1", "cart.manage");
+  });
+
+  it("adds only the requested row, without trusting client quantity or price", async () => {
+    const dependencies = directDependencies();
+    await dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey, lineId: lineIds[1] });
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledWith(expect.objectContaining({
+      items: [{ lineId: lineIds[1], quantity: 2 }],
+    }));
+    expect(dependencies.pricing.getProductCommercialViews).not.toHaveBeenCalled();
+  });
+
+  it.each(["unknown stock", "shortage", "stale price", "FX review", "commercial review", "historical lifecycle"])("does not preflight %s before direct demand admission", async () => {
+    const dependencies = directDependencies();
+    dependencies.pricing.getProductCommercialViews.mockRejectedValue(new Error("Commercial resolution belongs to the cart"));
+    dependencies.pricing.getAuthoritativeProductCommercialViews = vi.fn().mockRejectedValue(new Error("No pre-cart review"));
+    const result = await dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey });
+    expect(result.cartId).toBe("cart-1");
+    expect(dependencies.pricing.getProductCommercialViews).not.toHaveBeenCalled();
+    expect(dependencies.pricing.getAuthoritativeProductCommercialViews).not.toHaveBeenCalled();
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledOnce();
+  });
+
+  it("reports structurally invalid rows explicitly while merging the remaining demand", async () => {
+    const dependencies = directDependencies();
+    dependencies.value.lines[1].currentExternalProductRef = "invalid";
+    const result = await dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey });
+    expect(result.items).toContainEqual(expect.objectContaining({ lineId: lineIds[1], result: "skipped", sku: "SKU-1" }));
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledWith(expect.objectContaining({ items: [{ lineId: lineIds[0], quantity: 3 }] }));
+  });
+
+  it("reports unrepresentable historical quantities rather than rounding or silently dropping them", async () => {
+    const dependencies = directDependencies();
+    dependencies.value.lines[1].historicalQuantity = 1.5;
+    const result = await dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey });
+    expect(result.items).toContainEqual(expect.objectContaining({ lineId: lineIds[1], result: "skipped" }));
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledOnce();
+  });
+
+  it("rejects cross-company and unknown source-line requests before mutation", async () => {
+    const dependencies = directDependencies();
+    await expect(dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey, lineId: "33333333-3333-4333-8333-333333333333" })).rejects.toBeInstanceOf(NotFoundError);
+    dependencies.value.companyId = "other-company";
+    await expect(dependencies.service.addSelectedToCart("user-1", { orderId: ORDER_ID, requestKey })).rejects.toBeInstanceOf(NotFoundError);
+    expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
+  });
+});
+
 function makeDependencies() {
   const repository = {
     getReorderSource: vi.fn().mockResolvedValue(source()),

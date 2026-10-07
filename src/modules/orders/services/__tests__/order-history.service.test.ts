@@ -165,6 +165,7 @@ describe("DefaultPartnerOrderHistoryService", () => {
     expect(repository.listEvents).not.toHaveBeenCalled();
     expect(productReferences.getProductReferencesByIds).not.toHaveBeenCalled();
     expect(result.lines[0]?.product?.slug).toBe("camera");
+    expect(result.lines[0]?.lineId).toBe("item-1");
     expect(result.documents).toHaveLength(1);
     expect(JSON.stringify(result)).not.toContain(record.external1cOrderRef);
   });

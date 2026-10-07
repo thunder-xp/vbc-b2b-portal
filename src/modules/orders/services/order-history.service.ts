@@ -80,6 +80,7 @@ export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
   originType: import("../types").PartnerOrderOrigin;
   originLabel: string | null;
   lines: Array<{
+    lineId?: string;
     product: ProductReferenceDto | null;
     productName: string;
     sku: string | null;
@@ -1156,6 +1157,7 @@ function toDetailLine(
   canViewPartnerPrice: boolean,
 ) {
   return {
+    lineId: item.id,
     productName: item.productName ?? "Товар из истории 1С",
     sku: item.sku,
     quantity: item.quantity,
