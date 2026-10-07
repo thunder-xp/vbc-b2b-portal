@@ -34,8 +34,8 @@ export function MerchandisingBadge({ icon, label, variant }: { icon?: ReactNode;
   return <span aria-label={icon ? label : undefined} className={`${BADGE_CLASS} ${icon ? "size-6 justify-center px-0" : ""} ${className}`} data-merchandising-badge title={icon ? label : undefined}>{icon}{icon ? <span className="sr-only">{label}</span> : label}</span>;
 }
 
-export function MerchandisingBadgeOverlay({ children }: { children: ReactNode }) {
-  return <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[calc(100%-1rem)]">{children}</div>;
+export function MerchandisingBadgeOverlay({ children, reserveImageActions = false }: { children: ReactNode; reserveImageActions?: boolean }) {
+  return <div className={`pointer-events-none absolute left-2 top-2 z-10 ${reserveImageActions ? "max-w-[calc(100%-4.5rem)]" : "max-w-[calc(100%-1rem)]"}`}>{children}</div>;
 }
 
 export function MerchandisingBadges({

@@ -120,11 +120,13 @@ describe("ProductCard workspace context", () => {
     const { container } = render(<ProductCard capabilities={capabilities} product={{ ...product, merchandisingLabels: ["NEW", "HOT"] }} />);
     const imageLink = screen.getByRole("img", { name: "IP Camera" }).closest("a");
     const overlay = container.querySelector<HTMLElement>(".absolute.left-2.top-2");
+    const media = container.querySelector<HTMLElement>("[data-product-card-media]");
 
-    expect(imageLink).toContainElement(overlay);
-    expect(overlay).toHaveClass("pointer-events-none", "z-10");
+    expect(media).toContainElement(imageLink);
+    expect(media).toContainElement(overlay);
+    expect(overlay).toHaveClass("pointer-events-none", "z-10", "max-w-[calc(100%-1rem)]");
     expect(overlay?.querySelectorAll("span")).toHaveLength(2);
-    expect(imageLink).toHaveClass("relative", "aspect-[4/3]", "overflow-hidden");
+    expect(media).toHaveClass("relative", "aspect-[4/3]", "overflow-hidden");
   });
 
   it("removes low-value listing metadata and raw attribute chips", () => {
@@ -146,5 +148,28 @@ describe("ProductCard workspace context", () => {
   it("shows exact public stock quantity",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","stock.view"])).productCard;render(<ProductCard capabilities={capabilities} commercialView={{...commercialView,stock:{...commercialView.stock,status:"in_stock",label:"В наличии: 12 шт.",exactAvailableQuantity:12}}} product={product}/>);expect(screen.getByText("В наличии: 12 шт.")).toBeInTheDocument();});
   it("shows the localized confirmed supplier arrival date",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","stock.view"])).productCard;render(<ProductCard capabilities={capabilities} commercialView={{...commercialView,stock:{...commercialView.stock,status:"expected",label:"Ожидается к поступлению\n1 августа 2026 г.",expectedArrival:{expectedQuantity:5,expectedDate:"2026-08-01",sourceStatus:"confirmed_supply"}}}} product={product}/>);expect(screen.getByText(/Ожидается к поступлению/)).toBeInTheDocument();expect(screen.getByText(/1 августа 2026 г\./)).toBeInTheDocument();});
   it("rebuilds availability presentation for Romanian instead of reusing the Russian DTO label",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","stock.view"])).productCard;render(<ProductCard capabilities={capabilities} commercialView={{...commercialView,stock:{...commercialView.stock,status:"expected",label:"Ожидается к поступлению\n1 августа 2026 г.",expectedArrival:{expectedQuantity:5,expectedDate:"2026-08-01",sourceStatus:"confirmed_supply"}}}} locale="ro" product={product}/>);expect(screen.getByText(/În curs de aprovizionare/)).toBeInTheDocument();expect(screen.getByText(/1 august 2026/)).toBeInTheDocument();expect(screen.queryByText(/Ожидается к поступлению/)).not.toBeInTheDocument();});
-  it("localizes the secondary actions group for Romanian",()=>{const capabilities=resolveWorkspaceCapabilities(new Set(["catalog.view","purchasing_lists.manage"])).productCard;render(<ProductCard capabilities={capabilities} locale="ro" product={product}/>);expect(screen.getByLabelText("Acțiuni suplimentare")).toBeInTheDocument();expect(screen.queryByLabelText("Дополнительные действия")).not.toBeInTheDocument();});
+  it("moves Favorite and Compare into the image top-right without duplicate estimate or footer actions", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "purchasing_lists.manage", "specifications.manage"])).productCard;
+    const { container } = render(<ProductCard capabilities={capabilities} companyId="company-1" product={{ ...product, merchandisingLabels: ["NEW"] }} userId="user-1" />);
+    const media = container.querySelector<HTMLElement>("[data-product-card-media]");
+    const imageActions = container.querySelector<HTMLElement>("[data-product-card-image-actions]");
+
+    expect(media).toContainElement(imageActions);
+    expect(imageActions).toHaveClass("absolute", "right-2", "top-2", "z-20", "flex-col");
+    expect(imageActions).toContainElement(screen.getByRole("button", { name: "Favorite" }));
+    expect(imageActions).toContainElement(screen.getByRole("button", { name: "Compare" }));
+    expect(media?.querySelector(".absolute.left-2.top-2")).toHaveClass("max-w-[calc(100%-4.5rem)]");
+    expect(screen.queryByRole("button", { name: "Estimate" })).not.toBeInTheDocument();
+    expect(container.querySelector('[aria-label="Дополнительные действия"]')).not.toBeInTheDocument();
+  });
+
+  it("keeps the canonical image action order and removes list-chooser card duplication", () => {
+    const capabilities = resolveWorkspaceCapabilities(new Set(["catalog.view", "purchasing_lists.manage"])).productCard;
+    render(<ProductCard capabilities={capabilities} companyId="company-1" product={product} userId="user-1" />);
+    const actions = screen.getByLabelText("Действия с товаром");
+
+    expect(actions.children[0]).toHaveTextContent("Favorite");
+    expect(actions.children[1]).toHaveTextContent("Compare");
+    expect(actions).not.toHaveTextContent("Estimate");
+  });
 });
