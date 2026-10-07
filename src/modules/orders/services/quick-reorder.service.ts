@@ -228,20 +228,28 @@ export class QuickReorderService {
   async addSelectedToCart(userId: string, input: {
     orderId: string;
     requestKey: string;
-    lines: QuickReorderSelectionInput[];
+    lines?: QuickReorderSelectionInput[];
+    lineId?: string;
   }): Promise<QuickReorderConversionResultDto> {
     if (!this.cartRepository) throw new InvalidStateError("Quick reorder is unavailable.");
     const companyId = await this.resolveCompany(userId, ["orders.view", "cart.manage"]);
     const source = await measureQuickReorderStage("conversion_source", () => this.historyRepository.getReorderSource(requirePortalUuid(input.orderId)));
     if (!source || source.companyId !== companyId) throw new NotFoundError("Order was not found.");
     const requestKey = requirePortalUuid(input.requestKey);
-    const selected = normalizeSelection(input.lines);
-    if (!selected.length) throw new InvalidStateError("Select at least one order line.");
     const sourceByLine = new Map(source.lines.map((line) => [line.lineId, line]));
+    if (input.lineId && !sourceByLine.has(requirePortalUuid(input.lineId))) throw new NotFoundError("Order line was not found.");
+    const directDemand = input.lines === undefined;
+    const requested = input.lines ?? source.lines
+      .filter((line) => !input.lineId || line.lineId === input.lineId)
+      .map((line) => ({ lineId: line.lineId, quantity: line.historicalQuantity }));
+    const invalidQuantityLines = directDemand ? requested.filter((line) => !Number.isInteger(line.quantity) || line.quantity < 1 || line.quantity > 9999) : [];
+    const selected = normalizeSelection(requested.filter((line) => !invalidQuantityLines.includes(line)));
+    if (!requested.length) throw new InvalidStateError("Select at least one order line.");
+    if (requested.length > 200) throw new InvalidStateError("Select no more than 200 order lines.");
     if (selected.some((line) => !sourceByLine.has(line.lineId))) throw new NotFoundError("Order line was not found.");
 
     const productIds = [...new Set(selected.flatMap(({ lineId }) => sourceByLine.get(lineId)?.productId ?? []))];
-    const commercialViews = await measureQuickReorderStage(
+    const commercialViews = directDemand ? [] : await measureQuickReorderStage(
       "conversion_commercial",
       () => this.pricingInventoryService.getAuthoritativeProductCommercialViews
         ? this.pricingInventoryService.getAuthoritativeProductCommercialViews(
@@ -252,7 +260,12 @@ export class QuickReorderService {
     );
     const commercialByProduct = new Map(commercialViews.map((view) => [view.productId, view]));
     const validItems: Array<{ lineId: string; quantity: number }> = [];
-    const issues: QuickReorderConversionItemDto[] = [];
+    const issues: QuickReorderConversionItemDto[] = invalidQuantityLines.map(({ lineId }) => ({
+      lineId,
+      productName: sourceByLine.get(lineId)?.currentName ?? sourceByLine.get(lineId)?.historicalProductName ?? "Товар из истории",
+      sku: sourceByLine.get(lineId)?.currentSku ?? sourceByLine.get(lineId)?.historicalSku ?? "Без артикула",
+      result: "skipped",
+    }));
     let changedPrice = 0;
 
     for (const selection of selected) {
@@ -275,11 +288,11 @@ export class QuickReorderService {
       }
       const currentCommercial = commercialByProduct.get(line.productId);
       const currentPrice = currentCommercial?.isDemoData ? null : currentCommercial?.partnerPrice;
-      if (!currentPrice) {
+      if (!directDemand && !currentPrice) {
         issues.push({ lineId: line.lineId, ...identity, result: "missing_price" });
-      } else if (isStale(currentPrice.lastUpdatedAt, "price")) {
+      } else if (!directDemand && currentPrice && isStale(currentPrice.lastUpdatedAt, "price")) {
         issues.push({ lineId: line.lineId, ...identity, result: "missing_price" });
-      } else {
+      } else if (!directDemand && currentPrice) {
         const difference = comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice.amount, currentPrice.currencyCode);
         if (difference.kind === "increased" || difference.kind === "decreased") changedPrice += 1;
       }

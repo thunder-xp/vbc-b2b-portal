@@ -21,6 +21,30 @@ const selectionSchema = z.array(z.object({
   quantity: z.number().int().min(1).max(9999),
 })).min(1).max(200);
 
+const historicalDemandSchema = z.object({
+  orderId: z.string().uuid(),
+  requestKey: z.string().uuid(),
+  lineId: z.string().uuid().optional(),
+});
+
+export async function addHistoricalOrderToCartAction(input: {
+  orderId: string;
+  requestKey: string;
+  lineId?: string;
+}): Promise<ActionResult<QuickReorderConversionResultDto>> {
+  const parsed = historicalDemandSchema.safeParse(input);
+  if (!parsed.success) return invalidInput("Не удалось определить заказ или позицию.");
+  try {
+    const result = await createQuickReorderService().addSelectedToCart(await getAuthenticatedUserId(), parsed.data);
+    revalidatePath("/cabinet/cart");
+    revalidatePath(`/cabinet/orders/${parsed.data.orderId}`);
+    revalidatePath("/cabinet", "layout");
+    return success("Заказ обработан в корзине.", result);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
 export async function addQuickReorderToCartAction(
   _state: ActionResult<QuickReorderConversionResultDto | null>,
   formData: FormData,

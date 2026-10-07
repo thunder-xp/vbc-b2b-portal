@@ -1,4 +1,3 @@
-import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -7,6 +6,7 @@ import { getPartnerOrderHistoryAction } from "@/src/modules/orders/actions";
 import { SaveAsPurchasingListButton } from "@/src/modules/purchasing-lists/components";
 import { RelatedDocuments } from "@/src/modules/documents/components";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components";
+import { HistoricalOrderCartButton } from "@/src/modules/orders/components/HistoricalOrderCartButton";
 import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
 import {
   formatPartnerDate,
@@ -71,21 +71,10 @@ export default async function OrderDetailPage({
           <Metric label={copy.plannedShipment} value={order.deliveryDate ? formatDate(order.deliveryDate, locale) : copy.notSpecified} />
           <Metric label={copy.total} value={order.documentTotal ?? "—"} />
         </dl>
-        {!portalAttemptUnresolved ? (
         <div className="mt-5 flex flex-wrap gap-2">
-          <Link
-            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
-            href={order.posted && order.statusCode === "completed"
-              ? `/cabinet/quick-order?repeatOrder=${encodeURIComponent(order.id)}`
-              : `/cabinet/orders/${order.id}/reorder`}
-            prefetch={false}
-          >
-            <ShoppingCart aria-hidden="true" className="size-4" />
-            {locale === "ro" ? "În coș" : "В корзину"}
-          </Link>
-          <SaveAsPurchasingListButton orderId={order.id} source="order" />
+          <HistoricalOrderCartButton locale={locale} orderId={order.id} />
+          {!portalAttemptUnresolved ? <SaveAsPurchasingListButton orderId={order.id} source="order" /> : null}
         </div>
-        ) : null}
       </section>
 
       {showComposition ? <section>
@@ -94,8 +83,8 @@ export default async function OrderDetailPage({
           <ul className="divide-y divide-zinc-200">
             {order.lines.map((line, index) => (
               <li
-                className="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_90px_140px_140px] sm:items-center"
-                key={`${line.sku ?? line.productName}-${index}`}
+                className="grid gap-3 p-4 sm:grid-cols-[4rem_minmax(0,1fr)_64px_100px_100px_44px] sm:items-center"
+                key={line.lineId ?? `${line.sku ?? line.productName}-${index}`}
               >
                 {line.product ? (
                   <Link
@@ -147,6 +136,7 @@ export default async function OrderDetailPage({
                 <span className="text-sm font-semibold text-zinc-950">
                   {line.lineTotal ?? "—"}
                 </span>
+                <HistoricalOrderCartButton compact lineId={line.lineId} locale={locale} orderId={order.id} />
               </li>
             ))}
           </ul>

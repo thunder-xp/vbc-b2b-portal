@@ -54,6 +54,13 @@ describe("partner order detail v2 read model", () => {
     expect(detailPage).not.toContain("listOrderDocumentsAction");
   });
 
+  it("wires whole-order and per-line actions to direct demand rather than a review route", () => {
+    expect(detailPage).toContain("<HistoricalOrderCartButton locale={locale} orderId={order.id}");
+    expect(detailPage).toContain("<HistoricalOrderCartButton compact lineId={line.lineId}");
+    expect(detailPage).not.toContain("repeatOrder=");
+    expect(detailPage).not.toContain("/reorder`");
+  });
+
   it("prefetches only an intended order detail target", () => {
     expect(ordersPage).toContain("<OrderDetailIntentLink");
     expect(intentLink).toContain("setTimeout(() =>");

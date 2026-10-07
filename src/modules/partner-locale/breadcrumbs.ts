@@ -1,7 +1,10 @@
 import type { PartnerLocale } from "./locale";
+import { workspaceNavigationHref, type WorkspaceCapabilityKey } from "../partner-cabinet/services/workspace-capability.service";
 
 export type PartnerBreadcrumbItem = Readonly<{
   label: string;
+  href: string;
+  iconKey?: "dashboard";
 }>;
 
 type BreadcrumbCopy = Readonly<{
@@ -55,6 +58,7 @@ type BreadcrumbCopy = Readonly<{
   opportunity: string;
   order: string;
   orders: string;
+  ordersFinance: string;
   product: string;
   products: string;
   procurement: string;
@@ -136,6 +140,7 @@ const COPY: Record<PartnerLocale, BreadcrumbCopy> = {
     opportunity: "Возможность для закупки",
     order: "Заказ",
     orders: "Заказы",
+    ordersFinance: "Заказы и финансы",
     product: "Товар",
     products: "Товары",
     procurement: "Закупки",
@@ -215,6 +220,7 @@ const COPY: Record<PartnerLocale, BreadcrumbCopy> = {
     opportunity: "Oportunitate de achiziție",
     order: "Comandă",
     orders: "Comenzi",
+    ordersFinance: "Comenzi și finanțe",
     product: "Produs",
     products: "Produse",
     procurement: "Achiziții",
@@ -245,7 +251,7 @@ const COPY: Record<PartnerLocale, BreadcrumbCopy> = {
   },
 };
 
-type SearchParamsReader = Pick<URLSearchParams, "get">;
+type SearchParamsReader = Pick<URLSearchParams, "get"> & { toString?: () => string };
 
 export const SUPPORTED_PARTNER_ROUTE_AREAS = [
   "arrivals",
@@ -281,10 +287,6 @@ export const SUPPORTED_PARTNER_ROUTE_AREAS = [
   "support",
 ] as const;
 
-function items(...labels: string[]): PartnerBreadcrumbItem[] {
-  return labels.map((label) => ({ label }));
-}
-
 export function resolvePartnerBreadcrumbs(
   pathname: string,
   searchParams: SearchParamsReader,
@@ -292,84 +294,106 @@ export function resolvePartnerBreadcrumbs(
 ): PartnerBreadcrumbItem[] {
   const copy = COPY[locale];
   const segments = pathname.split("/").filter(Boolean).slice(1);
-  const [area, second, third, fourth, fifth] = segments;
-
-  if (!area) return items(copy.cabinet, copy.dashboard);
-  if (area === "catalog") {
-    if (second === "replenishment") return items(copy.procurement, copy.products, copy.replenishment);
-    if (second) return items(copy.procurement, copy.products, copy.product);
-    return items(copy.procurement, copy.products, searchParams.get("view") === "all" ? copy.catalog : copy.showcase);
+  const [area, second, third, , fifth] = segments;
+  const serializedQuery = searchParams.toString?.();
+  const currentHref = pathname + (serializedQuery && serializedQuery !== "[object Object]" ? `?${serializedQuery}` : "");
+  const destination = (key: WorkspaceCapabilityKey) => workspaceNavigationHref(key)!;
+  const parentRoutes = new Map<keyof BreadcrumbCopy, string>([
+    ["procurement", destination("catalog")], ["products", destination("catalog")],
+    ["purchases", "/cabinet/quick-order"], ["collections", destination("purchase_templates")],
+    ["sales", destination("proposals")], ["estimatesGroup", destination("proposals")],
+    ["estimates", destination("proposals")], ["estimate", second ? `/cabinet/estimates/${second}` : destination("proposals")],
+    ["ordersFinance", destination("orders")], ["orders", destination("orders")],
+    ["documents", destination("documents")], ["company", destination("company")],
+    ["notifications", "/cabinet/notifications"], ["installation", destination("installation_marketplace")],
+    ["projectProtection", destination("reservations")], ["reservations", destination("reservations")],
+    ["specifications", destination("projects")], ["support", destination("support")],
+    ["expertise", destination("expertise_lab")], ["loyalty", destination("loyalty_affiliate")],
+    ["service", destination("warranty")], ["knowledge", destination("knowledge_base")],
+  ]);
+  function items(...keys: (keyof BreadcrumbCopy)[]): PartnerBreadcrumbItem[] {
+    const hierarchy = keys.filter((key) => key !== "cabinet" && key !== "dashboard");
+    return [
+      { label: copy.dashboard, href: destination("dashboard"), iconKey: "dashboard" },
+      ...hierarchy.map((key, index) => ({ label: copy[key], href: index === hierarchy.length - 1 ? currentHref : parentRoutes.get(key) ?? currentHref })),
+    ];
   }
-  if (area === "quick-order") return items(copy.procurement, copy.purchases, copy.quickOrder);
-  if (area === "opportunities") return items(copy.procurement, copy.purchases, second ? copy.opportunity : copy.opportunities);
-  if (area === "offers") return items(copy.procurement, copy.purchases, second ? copy.offer : copy.offers);
-  if (area === "arrivals") return items(copy.procurement, copy.products, second ? copy.replenishment : copy.arrivals);
-  if (area === "cart") return items(copy.procurement, copy.cart);
-  if (area === "repeat-purchase") return items(copy.procurement, copy.purchases, copy.repeatPurchase);
+  if (!area) return items("cabinet", "dashboard");
+  if (area === "catalog") {
+    if (second === "replenishment") return items("procurement", "products", "replenishment");
+    if (second) return items("procurement", "products", "product");
+    return items("procurement", "products", searchParams.get("view") === "all" ? "catalog" : "showcase");
+  }
+  if (area === "quick-order") return items("procurement", "purchases", "quickOrder");
+  if (area === "opportunities") return items("procurement", "purchases", second ? "opportunity" : "opportunities");
+  if (area === "offers") return items("procurement", "purchases", second ? "offer" : "offers");
+  if (area === "arrivals") return items("procurement", "products", second ? "replenishment" : "arrivals");
+  if (area === "cart") return items("procurement", "cart");
+  if (area === "repeat-purchase") return items("procurement", "purchases", "repeatPurchase");
   if (area === "purchasing-lists") {
     const title = !second && searchParams.get("filter") === "favorites"
-      ? copy.favorites
+      ? "favorites"
       : second === "new"
-        ? copy.createList
+        ? "createList"
         : second
-          ? copy.purchasingList
-          : copy.purchasingLists;
-    return items(copy.collections, title);
+          ? "purchasingList"
+          : "purchasingLists";
+    return items("collections", title);
   }
-  if (area === "compare") return items(copy.collections, copy.compare);
+  if (area === "compare") return items("collections", "compare");
   if (area === "purchase-templates") {
-    return items(copy.collections, second === "new" ? copy.createList : second ? copy.purchaseTemplate : copy.purchaseTemplates);
+    return items("collections", second === "new" ? "createList" : second ? "purchaseTemplate" : "purchaseTemplates");
   }
   if (area === "orders") {
-    return items(copy.cabinet, second ? copy.order : copy.orders);
+    return second ? items("ordersFinance", "orders", "order") : items("ordersFinance", "orders");
   }
-  if (area === "finance") return items(copy.cabinet, copy.finance);
-  if (area === "documents") return items(copy.cabinet, second ? copy.document : copy.documents);
+  if (area === "finance") return items("ordersFinance", "finance");
+  if (area === "documents") return second ? items("ordersFinance", "documents", "document") : items("ordersFinance", "documents");
   if (area === "company") return second === "users"
-    ? items(copy.cabinet, copy.company, copy.companyUsers)
-    : items(copy.cabinet, copy.company);
-  if (area === "profile") return items(copy.cabinet, copy.profile);
-  if (area === "memberships") return items(copy.cabinet, copy.memberships);
+    ? items("cabinet", "company", "companyUsers")
+    : items("cabinet", "company");
+  if (area === "profile") return items("cabinet", "profile");
+  if (area === "memberships") return items("cabinet", "memberships");
   if (area === "notifications") return second === "settings"
-    ? items(copy.cabinet, copy.notifications, copy.notificationSettings)
-    : items(copy.cabinet, copy.notifications);
-  if (area === "search") return items(copy.cabinet, copy.search);
+    ? items("cabinet", "notifications", "notificationSettings")
+    : items("cabinet", "notifications");
+  if (area === "search") return items("cabinet", "search");
   if (area === "estimates") {
-    if (second === "new") return items(copy.sales, copy.estimatesGroup, copy.createEstimate);
-    if (second === "generator") return items(copy.sales, copy.estimatesGroup, copy.proposalGenerator);
-    if (third === "preview" || (third === "versions" && fifth === "preview")) return items(copy.sales, copy.estimatesGroup, copy.estimatePreview);
-    return items(copy.sales, copy.estimatesGroup, second ? copy.estimate : copy.estimates);
+    if (second === "new") return items("sales", "estimatesGroup", "createEstimate");
+    if (second === "generator") return items("sales", "estimatesGroup", "proposalGenerator");
+    if (third === "preview" || (third === "versions" && fifth === "preview")) return items("sales", "estimatesGroup", "estimatePreview");
+    return items("sales", "estimatesGroup", second ? "estimate" : "estimates");
   }
-  if (area === "customers") return items(copy.sales, copy.estimatesGroup, second ? copy.customer : copy.customers);
-  if (area === "nomenclature") return items(copy.sales, copy.estimatesGroup, copy.nomenclature);
-  if (area === "competitor-prices") return items(copy.sales, copy.estimatesGroup, second ? copy.competitorPriceImport : copy.competitorPrices);
+  if (area === "customers") return items("sales", "estimatesGroup", second ? "customer" : "customers");
+  if (area === "nomenclature") return items("sales", "estimatesGroup", "nomenclature");
+  if (area === "competitor-prices") return items("sales", "estimatesGroup", second ? "competitorPriceImport" : "competitorPrices");
   if (area === "installation-marketplace") {
-    const title = searchParams.get("view") === "profile" ? copy.installationProfile : copy.installationStatus;
-    return items(copy.sales, copy.installation, title);
+    const title = searchParams.get("view") === "profile" ? "installationProfile" : "installationStatus";
+    return items("sales", "installation", title);
   }
-  if (area === "installation-orders") return items(copy.sales, copy.installation, copy.installationOrders);
+  if (area === "installation-orders") return items("sales", "installation", "installationOrders");
   if (area === "reservation-requests") {
-    return items(copy.sales, copy.projectProtection, second === "new" ? copy.createReservation : second ? copy.reservation : copy.reservations);
+    return items("sales", "projectProtection", second === "new" ? "createReservation" : second ? "reservation" : "reservations");
   }
   if (area === "specifications") {
-    return items(copy.sales, copy.projectProtection, second === "new" ? copy.createSpecification : second ? copy.specification : copy.specifications);
+    return items("sales", "projectProtection", second === "new" ? "createSpecification" : second ? "specification" : "specifications");
   }
   if (area === "expertise") {
-    if (second === "academy") return items(copy.support, copy.expertise, copy.academy);
-    if (second === "lab") return items(copy.support, copy.expertise, copy.lab);
-    return items(copy.support, copy.expertise, copy.video);
+    if (second === "academy") return items("support", "expertise", "academy");
+    if (second === "lab") return items("support", "expertise", "lab");
+    return items("support", "expertise", "video");
   }
   if (area === "loyalty") {
-    return items(copy.support, copy.loyalty, second === "affiliate" ? copy.affiliate : copy.bonus);
+    return items("support", "loyalty", second === "affiliate" ? "affiliate" : "bonus");
   }
   if (area === "service") {
-    if (second === "new") return items(copy.support, copy.service, copy.createServiceRequest);
-    if (second === "history") return items(copy.support, copy.service, copy.serviceHistory);
-    return second ? items(copy.support, copy.service, copy.serviceCase) : items(copy.support, copy.service);
+    if (second === "new") return items("support", "service", "createServiceRequest");
+    if (second === "history") return items("support", "service", "serviceHistory");
+    return second ? items("support", "service", "serviceCase") : items("support", "service");
   }
   if (area === "support") {
-    return items(copy.support, copy.service, second === "new" ? copy.createSupportTicket : second ? copy.supportTicket : copy.itSupport);
+    return items("support", "service", second === "new" ? "createSupportTicket" : second ? "supportTicket" : "itSupport");
   }
-  if (area === "knowledge") return items(copy.support, copy.service, second ? copy.knowledgeArticle : copy.knowledge);
-  return items(copy.cabinet, copy.dashboard);
+  if (area === "knowledge") return items("support", "service", second ? "knowledgeArticle" : "knowledge");
+  return items("cabinet", "dashboard");
 }

@@ -95,6 +95,10 @@ type CapabilityDefinition = {
   activeWhen?: { queryKey: string; values: readonly string[]; includeMissing?: boolean };
 };
 
+export function workspaceNavigationHref(key: WorkspaceCapabilityKey): string | null {
+  return WORKSPACE_CAPABILITIES.find((item) => item.key === key)?.href ?? null;
+}
+
 const WORKSPACE_CAPABILITIES: readonly CapabilityDefinition[] = [
   { key: "reservations", label: "Резервирование", href: "/cabinet/reservation-requests", requiredPermission: "reservations.manage", released: true, unavailableBehavior: "hide" },
   { key: "dashboard", label: "Рабочий стол", href: "/cabinet", requiredPermission: null, released: true, unavailableBehavior: "hide" },

@@ -225,6 +225,8 @@ describe("Partner workspace shell", () => {
     const showcase = screen.getByRole("link", { name: "Витрина" });
     expect(showcase).toHaveAttribute("title", "Витрина");
     expect(showcase).toHaveClass("justify-center", "px-2");
+    expect(showcase).toHaveClass("before:w-4", "before:left-0", "before:h-px");
+    expect(showcase.parentElement).toHaveClass("before:w-px", "before:left-0", "before:bg-white/20");
     expect(showcase.querySelector("span.sr-only")).toBeInTheDocument();
     expect(showcase.closest("#products-navigation")).toBeInTheDocument();
     await user.click(purchases);
