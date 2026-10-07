@@ -4,6 +4,7 @@ import type {
   PricingProvider,
   ProductPriceFetchRequestDTO,
 } from "../../contracts";
+import { recordLiveProviderCall } from "@/src/lib/performance/request-diagnostics";
 import type { IntegrationPageResultDTO, ProductPriceDTO } from "../../dto";
 import {
   IntegrationForbiddenError,
@@ -81,6 +82,7 @@ export class OneCPriceODataProvider implements PricingProvider {
     let response: Response;
     const startedAt = Date.now();
     try {
+      recordLiveProviderCall();
       response = await fetch(exactFinalUrl, {
         method: "GET",
         headers: {

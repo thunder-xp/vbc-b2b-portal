@@ -13,17 +13,9 @@ import type { WorkspaceSelectionPeriods } from "../services";
 export async function getWorkspaceHomeAction(periods?: WorkspaceSelectionPeriods): Promise<
   ActionResult<WorkspaceHomeDto>
 > {
-  const startedAt = performance.now();
-  console.info(JSON.stringify({ event: "dashboard_load_started" }));
   try {
     const user = await getAuthenticatedUser();
     const workspace = await createWorkspaceHomeService().getWorkspaceHome(user.id, user.loginGeneration, periods);
-
-    console.info(JSON.stringify({
-      event: "dashboard_load_completed",
-      durationMs: Math.round((performance.now() - startedAt) * 100) / 100,
-      deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
-    }));
     return success("Workspace loaded.", workspace);
   } catch (error) {
     return failureFromError(error);

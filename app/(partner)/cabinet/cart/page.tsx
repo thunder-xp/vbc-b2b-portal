@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { ProductLineThumbnail } from "@/src/modules/catalog/components/ProductLineThumbnail";
 import { getCartAction } from "@/src/modules/orders/actions";
 import { CartItemActions } from "@/src/modules/orders/components/CartItemActions";
@@ -13,6 +14,10 @@ import { getOrdersCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 
 export default async function CartPage() {
+  return withRoutePerformance("cart", renderCartPage);
+}
+
+async function renderCartPage() {
   const [result, locale] = await Promise.all([
     getCartAction(),
     getPartnerLocale(),

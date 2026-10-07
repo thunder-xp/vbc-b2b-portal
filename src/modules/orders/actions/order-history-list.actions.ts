@@ -1,9 +1,6 @@
 "use server";
 
-import {
-  emitRequestTotal,
-  measurePerformanceStage,
-} from "@/src/lib/performance/request-diagnostics";
+import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
 
 import {
   type ActionResult,
@@ -57,7 +54,5 @@ export async function listPartnerOrderHistoryAction(input: {
       };
     }
     return failureFromError(error);
-  } finally {
-    emitRequestTotal("orders");
   }
 }

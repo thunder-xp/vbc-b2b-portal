@@ -1,5 +1,7 @@
 import Decimal from "decimal.js";
 
+import { measurePerformanceStage } from "@/src/lib/performance/request-diagnostics";
+
 import type { CompanyAccessService, PermissionService } from "../../access-control/services";
 import { DomainConflictError, InvalidStateError, NotFoundError } from "../../access-control/services";
 import { MembershipStatus } from "../../access-control/types";
@@ -150,11 +152,17 @@ export class DefaultCartService implements CartService {
   ) {}
 
   async getCart(userId: string): Promise<CartDetailDto> {
-    const companyId = await this.resolveCompanyId(userId);
-    const visibility = this.pricingInventoryService.getCommercialVisibility
-      ? await this.pricingInventoryService.getCommercialVisibility(userId)
-      : null;
-    const cart = await this.repository.findActive(companyId, userId);
+    const { companyId, visibility } = await measurePerformanceStage("cart", "cart_context", async () => ({
+      companyId: await this.resolveCompanyId(userId),
+      visibility: this.pricingInventoryService.getCommercialVisibility
+        ? await this.pricingInventoryService.getCommercialVisibility(userId)
+        : null,
+    }));
+    const cart = await measurePerformanceStage(
+      "cart",
+      "active_cart",
+      () => this.repository.findActive(companyId, userId),
+    );
     if (!cart) return {
       id: null,
       intentVersion: null,
@@ -174,19 +182,35 @@ export class DefaultCartService implements CartService {
       onlinePaymentPreflightEligible: false,
       commercialRateId: null,
     };
-    const [items, reconciliation] = await Promise.all([
-      this.repository.listItems(cart.id),
-      cart.status === "submitting"
-        ? this.repository.findReconciliationLock(cart.id)
-        : Promise.resolve(null),
-    ]);
+    const [items, reconciliation] = await measurePerformanceStage(
+      "cart",
+      "items_and_reconciliation",
+      () => Promise.all([
+        this.repository.listItems(cart.id),
+        cart.status === "submitting"
+          ? this.repository.findReconciliationLock(cart.id)
+          : Promise.resolve(null),
+      ]),
+    );
     const productIds = items.map((item) => item.productId);
     const [products, views, checkoutConfiguration] = await Promise.all([
-      this.catalogService.getProductsByIds(userId, productIds),
-      this.pricingInventoryService.getCartCommercialViews
-        ? this.pricingInventoryService.getCartCommercialViews(userId, cart.id, productIds)
-        : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
-      this.checkoutConfigurationRepository?.getByCompanyId(companyId) ?? null,
+      measurePerformanceStage(
+        "cart",
+        "catalog_projection",
+        () => this.catalogService.getProductsByIds(userId, productIds),
+      ),
+      measurePerformanceStage(
+        "cart",
+        "commercial_resolution",
+        () => this.pricingInventoryService.getCartCommercialViews
+          ? this.pricingInventoryService.getCartCommercialViews(userId, cart.id, productIds)
+          : this.pricingInventoryService.getProductCommercialViews(userId, productIds),
+      ),
+      measurePerformanceStage(
+        "cart",
+        "checkout_configuration",
+        () => Promise.resolve(this.checkoutConfigurationRepository?.getByCompanyId(companyId) ?? null),
+      ),
     ]);
     const productsById = new Map(products.map((product) => [product.id, product]));
     const viewsById = new Map(views.map((view) => [view.cartItemId ?? view.productId, view]));

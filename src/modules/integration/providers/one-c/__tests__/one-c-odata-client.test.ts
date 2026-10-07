@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { IntegrationODataError } from "../../../errors";
 import {
   getOneCODataErrorResponseBody,
@@ -23,6 +24,33 @@ describe("OneCODataClient", () => {
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(new Headers(init.headers).get("Accept")).toBe("application/json");
     expect(url.searchParams.getAll("$format")).toEqual(["json"]);
+  });
+
+  it("counts an actual provider request at the shared 1C boundary", async () => {
+    vi.stubEnv("PERFORMANCE_DIAGNOSTICS_ENABLED", "true");
+    vi.stubEnv("PERFORMANCE_DIAGNOSTICS_SAMPLE_RATE", "1");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ value: [] })));
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    await withRoutePerformance("dashboard", () => client().get("Catalog_Products"));
+
+    const total = info.mock.calls
+      .map(([value]) => JSON.parse(String(value)) as { stage: string; liveProviderCalls: number })
+      .find((event) => event.stage === "total_server");
+    expect(total?.liveProviderCalls).toBe(1);
+  });
+
+  it("keeps provider count at zero when no provider request occurs", async () => {
+    vi.stubEnv("PERFORMANCE_DIAGNOSTICS_ENABLED", "true");
+    vi.stubEnv("PERFORMANCE_DIAGNOSTICS_SAMPLE_RATE", "1");
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+
+    await withRoutePerformance("dashboard", async () => undefined);
+
+    const total = info.mock.calls
+      .map((call) => JSON.parse(String(call[0])) as { stage: string; liveProviderCalls: number })
+      .find((event) => event.stage === "total_server");
+    expect(total?.liveProviderCalls).toBe(0);
   });
 
   it("adds JSON format when the caller does not provide it", async () => {

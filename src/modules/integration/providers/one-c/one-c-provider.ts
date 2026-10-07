@@ -11,6 +11,7 @@ import type {
   SalesOrderStatusFetchRequestDTO,
   StockBalanceFetchRequestDTO,
 } from "../../contracts";
+import { recordLiveProviderCall } from "@/src/lib/performance/request-diagnostics";
 import type {
   CatalogBrandDTO,
   CatalogCategoryDTO,
@@ -268,6 +269,7 @@ async function requestOneCCatalog<TPayload>(
     url.searchParams.set("cursor", input.page.cursor);
   }
 
+  recordLiveProviderCall();
   const response = await fetch(url, {
     method: "GET",
     headers: buildHeaders(config),

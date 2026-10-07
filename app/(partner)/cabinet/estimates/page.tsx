@@ -1,6 +1,7 @@
 import { Calculator, FilePlus2, Search } from "lucide-react";
 import Link from "next/link";
 
+import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listEstimatesAction } from "@/src/modules/estimates/actions";
 import { EstimateStatusBadge } from "@/src/modules/estimates/components/EstimateStatusBadge";
@@ -27,6 +28,14 @@ type SearchParams = {
   page?: string;
 };
 export default async function EstimatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  return withRoutePerformance("estimates", () => renderEstimatesPage({ searchParams }));
+}
+
+async function renderEstimatesPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;

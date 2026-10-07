@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { listPartnerOrderHistoryAction } from "@/src/modules/orders/actions/order-history-list.actions";
 import { OrderDetailIntentLink } from "@/src/modules/orders/components/OrderDetailIntentLink";
@@ -25,6 +26,10 @@ type OrdersPageProps = {
 };
 
 export default async function OrdersPage({ searchParams }: OrdersPageProps) {
+  return withRoutePerformance("orders", () => renderOrdersPage({ searchParams }));
+}
+
+async function renderOrdersPage({ searchParams }: OrdersPageProps) {
   const [params, locale] = await Promise.all([
     searchParams,
     getPartnerLocale(),

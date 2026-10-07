@@ -1,4 +1,5 @@
 import type { listCatalogMerchandisingSectionsAction } from "@/src/modules/catalog/actions";
+import type { DeferredPerformanceMeasurement } from "@/src/lib/performance/request-diagnostics";
 import { BehaviorViewEvent } from "@/src/modules/behavior-analytics/components";
 import { CatalogMerchandisingSections } from "@/src/modules/catalog/components";
 import { EmptyCatalog } from "@/src/modules/catalog/components/EmptyCatalog";
@@ -9,6 +10,19 @@ import { getCatalogCopy, type PartnerLocale } from "@/src/modules/partner-locale
 import type { RollingPeriodState } from "@/src/modules/commerce-period";
 
 export async function CuratedCatalogResults({
+  performanceMeasurement,
+  ...props
+}: {
+  merchandisingPromise: ReturnType<typeof listCatalogMerchandisingSectionsAction>;
+  locale: PartnerLocale;
+  performanceMeasurement: DeferredPerformanceMeasurement;
+  periods: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState };
+  workspacePromise: ReturnType<typeof getPartnerWorkspaceContextAction>;
+}) {
+  return performanceMeasurement(() => renderCuratedCatalogResults(props));
+}
+
+async function renderCuratedCatalogResults({
   merchandisingPromise,
   locale,
   periods,

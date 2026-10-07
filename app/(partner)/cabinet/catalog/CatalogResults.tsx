@@ -1,6 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
+import {
+  deferRoutePerformance,
+  type DeferredPerformanceMeasurement,
+} from "@/src/lib/performance/request-diagnostics";
 import { listCatalogFacetsAction } from "@/src/modules/catalog/actions/list-facets.action";
 import type { listCatalogProductsAction } from "@/src/modules/catalog/actions/list-products.action";
 import { CatalogFilters } from "@/src/modules/catalog/components/CatalogFilters";
@@ -37,6 +41,7 @@ type Props = {
   collection?: CatalogCollection;
   explicitAll: boolean;
   page: number;
+  performanceMeasurement: DeferredPerformanceMeasurement;
   period: NewRollingPeriod;
   periodState?: RollingPeriodState;
   initialViewMode: CatalogViewMode;
@@ -49,6 +54,13 @@ type Props = {
 };
 
 export async function CatalogResults({
+  performanceMeasurement,
+  ...props
+}: Props) {
+  return performanceMeasurement(() => renderCatalogResults(props));
+}
+
+async function renderCatalogResults({
   attributeFilters,
   availability,
   brandId,
@@ -68,7 +80,7 @@ export async function CatalogResults({
   search,
   sort,
   workspacePromise,
-}: Props) {
+}: Omit<Props, "performanceMeasurement">) {
   const copy = getCatalogCopy(locale);
   const [productsResult, workspaceContextResult] = await Promise.all([
     productsPromise,
@@ -82,6 +94,7 @@ export async function CatalogResults({
   const commercialViews = createCommercialViewMap(productsResult.data.commercialViews ?? []);
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const resultsTitle = selectedCategory?.name ?? (categorySet ? undefined : collection === "replenishment" ? copy.latestArrival : null);
+  const facetPerformanceMeasurement = deferRoutePerformance();
 
   return <div className="space-y-6">
     <BehaviorViewEvent brandId={brandId} categoryId={categoryId} dedupeKey={`catalog:${period}:${categoryId ?? categoryIds?.join(",") ?? categorySet ?? "all"}:${search ?? ""}:${availability}:${collection ?? merchandisingLabel ?? ""}:${page}`} eventName="catalog_viewed" resultCount={productsResult.data.totalCount} route="/cabinet/catalog" searchQuery={search} sourceSurface={collection === "replenishment" ? "warehouse_replenishment" : explicitAll ? "full_catalog" : "catalog_discovery"} />
@@ -91,7 +104,7 @@ export async function CatalogResults({
     {(search || selectedCategory || categorySet || categoryIds?.length || collection || merchandisingLabel || availability !== "all" || Object.keys(attributeFilters).length > 0) && <div className="flex flex-wrap items-center gap-1.5 text-sm" data-catalog-active-filters><span className="mr-0.5 text-zinc-500">{copy.activeFilters}:</span>{selectedCategory && <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, availability, merchandisingLabel, page: 1, period, search, sort, attributeFilters })} label={selectedCategory.name} />}{(categorySet || categoryIds?.length) ? <FilterChip href={buildCatalogHref({ brandId, collection, explicitAll, availability, merchandisingLabel, page: 1, period, search, sort, attributeFilters })} label={copy.categories} /> : null}{search && <FilterChip href={buildCatalogHref({ brandId, categoryIds, categorySet, collection, explicitAll, availability, categoryId, merchandisingLabel, page: 1, period, sort, attributeFilters })} label={`${copy.searchFilter}: ${search}`} />}{collection && <FilterChip href={buildCatalogHref({ brandId, categoryIds, categorySet, explicitAll, availability, categoryId, page: 1, search, sort, attributeFilters })} label={copy.replenishment} />}{merchandisingLabel && <FilterChip href={buildCatalogHref({ brandId, categoryIds, categorySet, collection, explicitAll, availability, categoryId, page: 1, search, sort, attributeFilters })} label={merchandisingLabelName(merchandisingLabel, copy)} />}{availability !== "all" && <FilterChip href={buildCatalogHref({ brandId, categoryIds, categorySet, collection, explicitAll, categoryId, merchandisingLabel, page: 1, period, search, sort, attributeFilters })} label={availability === "in_stock" ? copy.inStock : copy.expected} />}{Object.entries(attributeFilters).flatMap(([key, values]) => values.map((value) => <FilterChip href={buildCatalogHref({ brandId, categoryIds, categorySet, collection, explicitAll, availability, categoryId, merchandisingLabel, page: 1, period, search, sort, attributeFilters: withoutAttributeValue(attributeFilters, key, value) })} key={`${key}:${value}`} label={`${copy.characteristicFilter}: ${value}`} />))}<Link className="ml-0.5 whitespace-nowrap text-sm font-medium text-emerald-700" href={explicitAll ? "/cabinet/catalog?view=all" : "/cabinet/catalog"} prefetch={false}>{copy.clearAll}</Link></div>}
     <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
       <Suspense fallback={<CatalogFacetFallback copy={copy} />}>
-        <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} brandId={brandId} categoryId={categoryId} categoryIds={categoryIds} categorySet={categorySet} collection={collection} explicitAll={explicitAll} locale={locale} merchandisingLabel={merchandisingLabel} period={period} search={search} sort={sort} />
+        <CatalogFacetResults attributeFilters={attributeFilters} availability={availability} brandId={brandId} categoryId={categoryId} categoryIds={categoryIds} categorySet={categorySet} collection={collection} explicitAll={explicitAll} locale={locale} merchandisingLabel={merchandisingLabel} performanceMeasurement={facetPerformanceMeasurement} period={period} search={search} sort={sort} />
       </Suspense>
       <section className="min-w-0 space-y-5">
         <CatalogPresentation capabilities={workspaceContextResult.success ? workspaceContextResult.data.capabilities.productCard : RESTRICTED_PRODUCT_CARD_CAPABILITIES} catalogState={{ attributeFilters, availability, brandId, categoryId, categoryIds, categorySet, collection, explicitAll, merchandisingLabel, page, period, search, sort }} commercialViews={commercialViews} companyId={workspaceContextResult.success ? workspaceContextResult.data.companyId : null} contextBadge={collection === "replenishment" ? copy.replenishment : undefined} emptyState={<EmptyCatalog message={search ? copy.noSearchResults : copy.noCategoryProducts} title={copy.notFoundTitle} />} initialMode={initialViewMode} products={productsResult.data.products} quickLinks={<CatalogQuickLinks categories={categories} locale={locale} state={{ attributeFilters, availability, brandId, categoryId, categoryIds: categoryIds ?? [], categorySet, collection, explicitAll, merchandisingLabel, mode: "discovery", page, period, search, sort }} />} userId={workspaceContextResult.success ? workspaceContextResult.data.userId : null} />
@@ -102,6 +115,13 @@ export async function CatalogResults({
 }
 
 export async function CatalogFacetResults({
+  performanceMeasurement,
+  ...props
+}: Pick<Props, "attributeFilters" | "availability" | "brandId" | "categoryId" | "categoryIds" | "categorySet" | "collection" | "explicitAll" | "locale" | "merchandisingLabel" | "period" | "search" | "sort"> & { performanceMeasurement: DeferredPerformanceMeasurement }) {
+  return performanceMeasurement(() => renderCatalogFacetResults(props));
+}
+
+async function renderCatalogFacetResults({
   attributeFilters,
   availability,
   categoryId,

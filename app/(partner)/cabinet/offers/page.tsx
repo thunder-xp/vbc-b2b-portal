@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { listPartnerCampaignsAction } from "@/src/modules/commercial-campaigns/actions";
 import { CampaignCard } from "@/src/modules/commercial-campaigns/components";
 import type { CampaignFilter } from "@/src/modules/commercial-campaigns/types";
@@ -9,6 +10,14 @@ import { getPartnerLocale } from "@/src/modules/partner-locale/server";
 import { actionClassName } from "@/src/modules/platform-ui";
 
 export default async function OffersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string; page?: string }>;
+}) {
+  return withRoutePerformance("special_offers", () => renderOffersPage({ searchParams }));
+}
+
+async function renderOffersPage({
   searchParams,
 }: {
   searchParams: Promise<{ filter?: string; page?: string }>;

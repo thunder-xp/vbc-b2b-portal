@@ -7,6 +7,7 @@ import {
   IntegrationUnauthorizedError,
   IntegrationValidationError,
 } from "../../errors";
+import { recordLiveProviderCall } from "@/src/lib/performance/request-diagnostics";
 
 export type OneCODataClientConfig = {
   baseUrl: string | null;
@@ -183,6 +184,7 @@ export class OneCODataClient {
     const startedAt = performance.now();
     let response: Response;
     try {
+      recordLiveProviderCall();
       response = await fetch(url, {
         method: "PATCH",
         headers: {
@@ -277,6 +279,7 @@ export class OneCODataClient {
     const startedAt = performance.now();
     let response: Response;
     try {
+      recordLiveProviderCall();
       response = await fetch(`${baseUrl.replace(/\/$/, "")}/$metadata`, {
         method: "GET",
         headers: {
@@ -325,6 +328,7 @@ export class OneCODataClient {
     const startedAt = performance.now();
     let response: Response;
     try {
+      recordLiveProviderCall();
       response = await fetch(`${baseUrl.replace(/\/$/, "")}/$metadata`, {
         method: "GET",
         headers: {
@@ -537,6 +541,7 @@ export class OneCODataClient {
     let response: Response;
     const startedAt = performance.now();
     try {
+      recordLiveProviderCall();
       response = await fetch(url, {
         method: "GET",
         headers: {
