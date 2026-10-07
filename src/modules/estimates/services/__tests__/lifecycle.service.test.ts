@@ -30,7 +30,7 @@ describe("EstimateLifecycleService", () => {
     const acceptedVersion = { ...dependencies.version, status: "accepted" as const, acceptedAt: "2026-09-05T10:00:00Z" };
     vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({ ...dependencies.aggregate, estimate: acceptedEstimate });
     vi.mocked(dependencies.lifecycle.listVersions).mockResolvedValue([acceptedVersion]);
-    vi.mocked(dependencies.lifecycle.listVersionCartConversions).mockResolvedValue([{ versionId: "version-1", createdBy: "user-1", direction: "estimate_to_cart", cart: { id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", items: [{ productId: "product-1", quantity: 2 }] } }]);
+    vi.mocked(dependencies.lifecycle.listVersionCartConversions).mockResolvedValue([{ versionId: "version-1", createdBy: "user-1", direction: "estimate_to_cart", cart: { id: "cart-1", companyId: "company-1", createdBy: "user-1", status: "active", items: [{ productId: "product-1", quantity: 2, commercialSource: "STANDARD" }] } }]);
 
     const workflow = await dependencies.service.getWorkflow("user-1", "estimate-1");
 

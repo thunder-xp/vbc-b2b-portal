@@ -22,6 +22,8 @@ export type EstimateVersionCreationResult =
   | { status: "created"; version: EstimateVersion; repeated: boolean }
   | { status: "conflict"; currentRevision: number; code: "ESTIMATE_VERSION_CONFLICT" };
 
+export type CartCommercialSource = "STANDARD" | "CAMPAIGN";
+
 export type EstimateCartConversionEvidence = {
   versionId: string | null;
   createdBy: string;
@@ -31,7 +33,7 @@ export type EstimateCartConversionEvidence = {
     companyId: string;
     createdBy: string;
     status: "active" | "submitting" | "converted" | "abandoned";
-    items: Array<{ productId: string; quantity: number }>;
+    items: Array<{ productId: string; quantity: number; commercialSource: CartCommercialSource | null }>;
   };
 };
 

@@ -1,4 +1,5 @@
 import type { EstimateLifecycleStatus, EstimateStatus, EstimateVersionStatus } from "../estimates/types";
+import type { CartCommercialSource } from "../estimates/repositories";
 
 export type EstimateSalesOpportunityType = "resume_checkout" | "accepted_ready_to_order" | "ready_to_send" | "awaiting_customer";
 export type EstimateFollowUpState = "sent" | "sent_not_opened" | "sent_opened_no_response" | "expired_sent";
@@ -23,7 +24,7 @@ export type EstimateCartConversionEvidence = {
     companyId: string;
     createdBy: string;
     status: "active" | "submitting" | "converted" | "abandoned";
-    items: Array<{ productId: string; quantity: number }>;
+    items: Array<{ productId: string; quantity: number; commercialSource: CartCommercialSource | null }>;
   };
 };
 

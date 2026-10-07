@@ -37,7 +37,7 @@ function conversion(overrides: Partial<EstimateCartConversionEvidence> = {}): Es
       companyId,
       createdBy: userId,
       status: "active",
-      items: [{ productId: "product-1", quantity: 2 }],
+      items: [{ productId: "product-1", quantity: 2, commercialSource: "STANDARD" }],
     },
     ...overrides,
   };
@@ -77,6 +77,20 @@ describe("PartnerSalesWorkspaceService", () => {
     expect(result.some((item) => item.type === "accepted_ready_to_order")).toBe(false);
   });
 
+  it("does not project resume checkout when CAMPAIGN quantity only completes the product total", async () => {
+    const evidence = conversion({
+      cart: {
+        ...conversion().cart!,
+        items: [
+          { productId: "product-1", quantity: 1, commercialSource: "STANDARD" },
+          { productId: "product-1", quantity: 1, commercialSource: "CAMPAIGN" },
+        ],
+      },
+    });
+
+    await expect(list([accepted({ cartConversions: [evidence] })])).resolves.toEqual([]);
+  });
+
   it("requires deterministic accepted-version identity and never substitutes a request key or another version", async () => {
     const wrongVersion = conversion({ versionId: "version-other", requestKey: "version-1" });
     await expect(list([accepted({ cartConversions: [wrongVersion] })])).resolves.toEqual([
@@ -89,7 +103,7 @@ describe("PartnerSalesWorkspaceService", () => {
     const linked = conversion({
       cart: {
         ...conversion().cart!,
-        items: [{ productId: "unrelated", quantity: 9 }, { productId: "product-1", quantity: 3 }],
+        items: [{ productId: "unrelated", quantity: 9, commercialSource: "STANDARD" }, { productId: "product-1", quantity: 3, commercialSource: "STANDARD" }],
       },
     });
     await expect(list([accepted({ cartConversions: [linked] })])).resolves.toEqual([
@@ -105,7 +119,7 @@ describe("PartnerSalesWorkspaceService", () => {
       cartConversions: [conversion({
         versionId: "version-2",
         requestKey: "request-2",
-        cart: { ...conversion().cart!, items: [{ productId: "product-1", quantity: 2 }, { productId: "product-2", quantity: 1 }] },
+        cart: { ...conversion().cart!, items: [{ productId: "product-1", quantity: 2, commercialSource: "STANDARD" }, { productId: "product-2", quantity: 1, commercialSource: "STANDARD" }] },
       })],
     });
 
@@ -119,7 +133,7 @@ describe("PartnerSalesWorkspaceService", () => {
     ["missing cart", conversion({ cart: null })],
     ["replaced cart", conversion({ cart: { ...conversion().cart!, id: "old-cart", status: "abandoned" } })],
     ["cleared cart", conversion({ cart: { ...conversion().cart!, items: [] } })],
-    ["reduced accepted quantity", conversion({ cart: { ...conversion().cart!, items: [{ productId: "product-1", quantity: 1 }] } })],
+    ["reduced accepted quantity", conversion({ cart: { ...conversion().cart!, items: [{ productId: "product-1", quantity: 1, commercialSource: "STANDARD" }] } })],
   ])("does not render a broken action for %s", async (_scenario, evidence) => {
     await expect(list([accepted({ cartConversions: [evidence] })])).resolves.toEqual([]);
   });

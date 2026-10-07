@@ -4,7 +4,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { withBoundedSerializationRetry } from "@/src/lib/database/serialization-retry";
 
 import type { EstimateVersion, ProposalSettings, ProposalTemplate } from "../../types";
-import type { EstimateCartConversionEvidence, EstimateLifecycleRepository } from "../lifecycle.repository";
+import type { CartCommercialSource, EstimateCartConversionEvidence, EstimateLifecycleRepository } from "../lifecycle.repository";
 import { EstimateLifecycleRepositoryError } from "../lifecycle.repository";
 import { mapEstimateRow, type EstimateRow } from "./mappers";
 
@@ -44,13 +44,13 @@ type ConversionRow = {
     company_id: string;
     created_by: string;
     status: NonNullable<EstimateCartConversionEvidence["cart"]>["status"];
-    items: Array<{ product_id: string; quantity: number | string }>;
+    items: Array<{ product_id: string; quantity: number | string; commercial_source: unknown }>;
   } | Array<{
     id: string;
     company_id: string;
     created_by: string;
     status: NonNullable<EstimateCartConversionEvidence["cart"]>["status"];
-    items: Array<{ product_id: string; quantity: number | string }>;
+    items: Array<{ product_id: string; quantity: number | string; commercial_source: unknown }>;
   }>;
 };
 
@@ -84,7 +84,7 @@ export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRep
 
   async listVersionCartConversions(estimateId: string, versionId: string): Promise<EstimateCartConversionEvidence[]> {
     const { data, error } = await (await createClient()).from("estimate_cart_conversions")
-      .select("version_id, created_by, direction, cart:carts!estimate_cart_conversions_cart_id_fkey(id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity))")
+      .select("version_id, created_by, direction, cart:carts!estimate_cart_conversions_cart_id_fkey(id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity, commercial_source))")
       .eq("estimate_id", estimateId)
       .eq("version_id", versionId)
       .eq("direction", "estimate_to_cart")
@@ -101,7 +101,11 @@ export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRep
           companyId: cart.company_id,
           createdBy: cart.created_by,
           status: cart.status,
-          items: cart.items.map((item) => ({ productId: item.product_id, quantity: Number(item.quantity) })),
+          items: cart.items.map((item) => ({
+            productId: item.product_id,
+            quantity: Number(item.quantity),
+            commercialSource: mapCartCommercialSource(item.commercial_source),
+          })),
         } : null,
       };
     });
@@ -206,6 +210,10 @@ export class SupabaseEstimateLifecycleRepository implements EstimateLifecycleRep
     if (error || !data) throw new EstimateLifecycleRepositoryError(error?.code ?? null);
     return mapEstimateRow(data as EstimateRow);
   }
+}
+
+function mapCartCommercialSource(value: unknown): CartCommercialSource | null {
+  return value === "STANDARD" || value === "CAMPAIGN" ? value : null;
 }
 
 function mapVersion(row: VersionRow): EstimateVersion {

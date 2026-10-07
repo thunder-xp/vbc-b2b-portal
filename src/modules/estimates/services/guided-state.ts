@@ -124,7 +124,9 @@ function findResumableCartId(input: EstimateGuidedStateInput): string | null {
       || cart.createdBy !== input.userId
       || cart.status !== "active"
     ) continue;
-    const cartQuantities = aggregateQuantities(cart.items);
+    const cartQuantities = aggregateQuantities(
+      cart.items.filter((item) => item.commercialSource === "STANDARD"),
+    );
     if ([...requirements].every(([productId, quantity]) => (cartQuantities.get(productId) ?? 0) >= quantity)) {
       return cart.id;
     }

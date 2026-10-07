@@ -4,6 +4,7 @@ import { createClient } from "@/src/lib/supabase/server";
 import { z } from "zod";
 
 import type { EstimateSalesOpportunityRepository } from "./repository";
+import type { CartCommercialSource } from "../estimates/repositories";
 
 const activeCartSchema = z.object({
   id: z.string().uuid(),
@@ -13,6 +14,7 @@ const activeCartSchema = z.object({
   items: z.array(z.object({
     product_id: z.string().uuid(),
     quantity: z.union([z.number(), z.string()]),
+    commercial_source: z.unknown(),
   })),
 });
 const conversionSchema = z.object({
@@ -68,7 +70,7 @@ export class SupabaseEstimateSalesOpportunityRepository implements EstimateSales
         .order("created_at", { ascending: false })
         .limit(Math.min(32, Math.max(limit, limit * 4))),
       client.from("carts")
-        .select("id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity)")
+        .select("id, company_id, created_by, status, items:cart_items!cart_items_cart_id_fkey(product_id, quantity, commercial_source)")
         .eq("company_id", companyId)
         .eq("created_by", userId)
         .eq("status", "active")
@@ -116,11 +118,19 @@ export class SupabaseEstimateSalesOpportunityRepository implements EstimateSales
             companyId: cart.company_id,
             createdBy: cart.created_by,
             status: cart.status,
-            items: cart.items.map((item) => ({ productId: item.product_id, quantity: Number(item.quantity) })),
+            items: cart.items.map((item) => ({
+              productId: item.product_id,
+              quantity: Number(item.quantity),
+              commercialSource: mapCartCommercialSource(item.commercial_source),
+            })),
           } : null,
         };
       }),
     });
     });
   }
+}
+
+function mapCartCommercialSource(value: unknown): CartCommercialSource | null {
+  return value === "STANDARD" || value === "CAMPAIGN" ? value : null;
 }
