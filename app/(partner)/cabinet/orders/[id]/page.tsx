@@ -65,25 +65,11 @@ export default async function OrderDetailPage({
       ) : null}
       <section>
         <h1 className="text-2xl font-semibold">{order.primaryLabel}</h1>
-        <div className="mt-3 flex flex-wrap items-end justify-between gap-3 rounded-md bg-zinc-50 px-4 py-3" data-testid="order-status-total-row">
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">{copy.status}</p>
-            <p className="mt-1 text-sm font-semibold text-zinc-800">{orderStatusLabel(order.statusCode, copy)}</p>
-          </div>
-          {order.documentTotal ? <div className="text-right">
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">{copy.total}</p>
-            <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{order.documentTotal}</p>
-          </div> : null}
-        </div>
-        <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-          <Metric label={copy.company} value={order.companyName} />
+        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="order-metadata-row">
+          <Metric label={copy.status} value={orderStatusLabel(order.statusCode, copy)} />
           <Metric label={copy.orderDate} value={formatDate(order.documentDate, locale)} />
-          <Metric
-            label={copy.plannedShipment}
-            value={
-              order.deliveryDate ? formatDate(order.deliveryDate, locale) : copy.notSpecified
-            }
-          />
+          <Metric label={copy.plannedShipment} value={order.deliveryDate ? formatDate(order.deliveryDate, locale) : copy.notSpecified} />
+          <Metric label={copy.total} value={order.documentTotal ?? "—"} />
         </dl>
         {!portalAttemptUnresolved ? (
         <div className="mt-5 flex flex-wrap gap-2">
@@ -95,7 +81,7 @@ export default async function OrderDetailPage({
             prefetch={false}
           >
             <ShoppingCart aria-hidden="true" className="size-4" />
-            {copy.cart}
+            {locale === "ro" ? "În coș" : "В корзину"}
           </Link>
           <SaveAsPurchasingListButton orderId={order.id} source="order" />
         </div>
@@ -201,7 +187,7 @@ function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="text-xs uppercase text-zinc-500">{label}</dt>
-      <dd className="mt-1 font-medium text-zinc-950">{value}</dd>
+      <dd className="mt-1 font-medium tabular-nums text-zinc-950">{value}</dd>
     </div>
   );
 }

@@ -31,6 +31,25 @@ vi.mock(
 const cartId = "44444444-4444-4444-8444-444444444444";
 
 describe("cart checkout mutation barrier", () => {
+  it("keeps the stepper action geometry and persists increment/decrement unchanged", async () => {
+    mocks.update.mockResolvedValue({ success: true, errorCode: null, message: "", data: 1 });
+    render(<CartCheckoutCoordinator><CartItemActions itemId="item-1" quantity={2} /></CartCheckoutCoordinator>);
+    const input = screen.getByRole("spinbutton", { name: "Количество товара" });
+    const minus = screen.getByRole("button", { name: "Уменьшить количество" });
+    const plus = screen.getByRole("button", { name: "Увеличить количество" });
+    expect(minus).toHaveClass("size-11");
+    expect(plus).toHaveClass("size-11");
+    expect(input).toHaveClass("h-11", "text-zinc-950");
+    expect(input).toHaveAttribute("data-cart-quantity-control");
+    fireEvent.click(plus);
+    await waitFor(() => expect(input).toHaveValue(3));
+    await waitFor(() => expect(plus).toBeEnabled());
+    expect(mocks.update.mock.calls.at(-1)?.[1].get("quantity")).toBe("3");
+    fireEvent.click(minus);
+    await waitFor(() => expect(input).toHaveValue(2));
+    await waitFor(() => expect(minus).toBeEnabled());
+    expect(mocks.update.mock.calls.at(-1)?.[1].get("quantity")).toBe("2");
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.submit.mockResolvedValue({
