@@ -53,9 +53,13 @@ Vercel remains linked to GitHub with `main` as the Production Branch. `prebuild`
 - Vercel Preview builds pass for arbitrary feature branches;
 - Vercel Production builds fail unless Vercel supplies repository `vbc-b2b-portal`, ref `main`, and a well-formed Git commit SHA.
 
-This rejects a normal `vercel --prod` build from a feature branch or from a worktree without canonical Git metadata. Vercel records the deployed SHA, ref, deployment time, target, and aliases for provenance.
+The project-level Vercel Deployment Sources policy applies to Production and allows only Git. It blocks Production deployments from the Vercel CLI, REST API, deploy hooks, v0, and marketplace integrations. The Production deployment check also requires `Canonical Release Gate` before promotion. Preview is outside the Production-only source rule, so Git feature branches continue to deploy normally.
 
-Manual alias reassignment remains a privileged Vercel account capability. It is an explicit administrator action rather than a normal release path and must follow the emergency procedure below. Access to Vercel project administration is therefore part of the governance boundary.
+These controls reject `vercel --prod` from arbitrary worktrees and hold a Git-sourced Production promotion unless the canonical GitHub gate exists and passes. Vercel records the deployed SHA, ref, deployment time, target, aliases, source policy, and deployment-check result for provenance.
+
+During rollout, two Production deployments from the non-main branch `ui/b2b-product-card-compact-actions-v1-20261007` were observed through the Vercel CLI while `main` remained unchanged. That live race confirmed the baseline gap and is why the server-side Deployment Sources rule is required in addition to the repository `prebuild` guard.
+
+Force Promote, manual alias reassignment, and changing the source policy remain privileged Vercel owner capabilities. They are explicit administrator actions rather than normal release paths and must follow the emergency procedure below. Access to Vercel project administration is therefore part of the governance boundary.
 
 ## Branch protection policy
 
@@ -78,7 +82,7 @@ The administrator bypass is not the routine release path. Every bypass must be r
 4. Allow the Git-linked `main` deployment to reach Production.
 5. Verify the READY deployment SHA equals the new `main` SHA and retain the gate, deployment, and migration-ledger evidence.
 
-If GitHub checks or merge controls are unavailable and an administrator bypass is operationally necessary, the same commit must still be placed in `main` before or immediately after the Production action. A hotfix may not remain only in a feature branch or Vercel deployment.
+If GitHub checks or merge controls are unavailable and an administrator bypass is operationally necessary, a Vercel owner may temporarily override the Production source policy or use Force Promote. The exact Production commit must still be placed in `main` before or immediately after the action, the source policy must be restored to Git-only, and the canonical gate must run on the resulting `main` commit. A hotfix may not remain only in a feature branch or Vercel deployment.
 
 ## Rollback
 
