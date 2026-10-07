@@ -3,11 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PurchasingListsPage from "../page";
 
 const listAction = vi.hoisted(() => vi.fn());
-vi.mock("@/src/modules/purchasing-lists/actions", () => ({ listPurchasingListsAction: listAction }));
+const getAction = vi.hoisted(() => vi.fn());
+vi.mock("@/src/modules/purchasing-lists/actions", () => ({ getPurchasingListAction: getAction, listPurchasingListsAction: listAction }));
+vi.mock("@/src/modules/purchasing-lists/components/PurchasingListEditor", () => ({
+  PurchasingListEditor: ({ initial }: { initial: { lines: Array<{ productName: string }> } }) => <div data-testid="favorites-products"><button>В корзину</button>{initial.lines[0]?.productName}</div>,
+}));
 vi.mock("@/src/modules/partner-locale/server", () => ({ getPartnerLocale: async () => "ru" }));
 
 describe("saved selections presentation", () => {
-  beforeEach(() => listAction.mockResolvedValue({ success: true, data: { records: [], page: 1, totalPages: 1 } }));
+  beforeEach(() => {
+    listAction.mockResolvedValue({ success: true, data: { records: [], page: 1, totalPages: 1 } });
+    getAction.mockResolvedValue({ success: true, data: { lines: [{ productName: "Favorite camera" }] } });
+  });
 
   it("moves the Favorites page context out of the body and retains the empty state", async () => {
     const { container } = render(await PurchasingListsPage({ searchParams: Promise.resolve({ filter: "favorites" }) }));
@@ -25,9 +32,11 @@ describe("saved selections presentation", () => {
     expect(screen.getByRole("heading", { name: "Test kit" })).toBeInTheDocument();
   });
 
-  it("uses the shared star vocabulary for a Favorites card", async () => {
+  it("renders favorite products with a direct canonical cart action", async () => {
     listAction.mockResolvedValue({ success: true, data: { records: [{ id: "favorites-1", name: "Избранное", isSystemFavorites: true, itemCount: 2, totalQuantity: 3, updatedAt: "2026-09-08" }], page: 1, totalPages: 1 } });
     const { container } = render(await PurchasingListsPage({ searchParams: Promise.resolve({ filter: "favorites" }) }));
-    expect(container.querySelector(".lucide-star")).toBeInTheDocument();
+    expect(container.querySelector("[data-testid='favorites-products']")).toHaveTextContent("Favorite camera");
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeInTheDocument();
+    expect(getAction).toHaveBeenCalledExactlyOnceWith("favorites-1");
   });
 });

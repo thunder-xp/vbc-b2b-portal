@@ -1,7 +1,8 @@
 import { ArrowRight, Layers3, Star } from "lucide-react";
 import Link from "next/link";
 
-import { listPurchasingListsAction } from "@/src/modules/purchasing-lists/actions";
+import { getPurchasingListAction, listPurchasingListsAction } from "@/src/modules/purchasing-lists/actions";
+import { PurchasingListEditor } from "@/src/modules/purchasing-lists/components/PurchasingListEditor";
 import { NumberedPagination } from "@/src/modules/platform-ui";
 import { formatPartnerDate, getSavedKitCopy, procurementCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -24,6 +25,12 @@ export default async function PurchasingListsPage({ searchParams }: { searchPara
   const page = result.data;
   const records = page.records.filter((record) => favoritesView ? record.isSystemFavorites : !record.isSystemFavorites);
   const Icon = favoritesView ? Star : Layers3;
+
+  if (favoritesView && records[0]) {
+    const detail = await getPurchasingListAction(records[0].id);
+    if (!detail.success) return <p className="rounded-md border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{copy.unavailable}</p>;
+    return <PurchasingListEditor initial={detail.data} />;
+  }
 
   return <div className="mx-auto max-w-7xl space-y-5">
     {!favoritesView ? <form className="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_180px_auto]">

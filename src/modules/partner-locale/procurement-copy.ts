@@ -42,7 +42,7 @@ export const procurementCopy = definePartnerCopy(
     close: "Закрыть",
     operationError: "Не удалось выполнить операцию. Выбор сохранён.",
     addListToCart: "Добавить комплект в корзину",
-    addToCart: "Добавить в корзину",
+    addToCart: "В корзину",
     createEstimate: "Создать смету",
     duplicateList: "Сохранить как новый",
     duplicate: "Сохранить как новый",
@@ -210,7 +210,7 @@ export const procurementCopy = definePartnerCopy(
     operationError:
       "Operațiunea nu a putut fi efectuată. Selecția a fost păstrată.",
     addListToCart: "Adaugă setul în coș",
-    addToCart: "Adaugă în coș",
+    addToCart: "În coș",
     createEstimate: "Creează deviz",
     duplicateList: "Salvează ca set nou",
     duplicate: "Salvează ca set nou",

@@ -133,7 +133,7 @@ export function PurchasingListEditor({
         </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center" data-page-actions>
           {!initial.archivedAt && !initial.isSystemFavorites ? <Link className={`${dirty ? listSecondaryButton : listPrimaryButton} col-span-2`} href={`/cabinet/quick-order?kit=${encodeURIComponent(initial.id)}#saved-kits`}><Layers3 aria-hidden="true" className="size-4 shrink-0" />{kitCopy.useKit}</Link> : null}
-          {!initial.archivedAt && !selected.size ? <>
+          {!selected.size ? <>
             <button className={initial.isSystemFavorites && !dirty ? listPrimaryButton : listSecondaryButton} disabled={pending} onClick={() => cart(false)} type="button"><ShoppingCart aria-hidden="true" className="size-4 shrink-0" />{editorCopy.cart}</button>
             <button className={listSecondaryButton} disabled={pending} onClick={() => estimate(false)} type="button"><Calculator aria-hidden="true" className="size-4 shrink-0" />{editorCopy.estimate}</button>
           </> : null}
@@ -165,14 +165,14 @@ export function PurchasingListEditor({
     {selected.size ? <section aria-label={editorCopy.selected} className="rounded-md border border-emerald-200 bg-emerald-50 p-2" data-selection-toolbar>
       <div className="flex items-center justify-between gap-2"><p className="px-1 text-sm font-semibold text-emerald-900">{editorCopy.selected}: {selected.size}</p><button aria-label={editorCopy.clearSelection} className={listIconButton} onClick={() => setSelected(new Set())} title={editorCopy.clearSelection} type="button"><X aria-hidden="true" className="size-4" /></button></div>
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        {!initial.archivedAt ? <>
+        <>
           <button className={listSecondaryButton} onClick={() => {
             lines.filter((line) => selected.has(line.id)).forEach((line) => emitLiveCommerceSelectionAdd({ product: purchasingListSelectionProduct(line), quantity: line.quantity }));
             setMessage(editorCopy.selectionAdded);
           }} type="button"><Layers3 aria-hidden="true" className="size-4 shrink-0" />{editorCopy.addToSelection}</button>
           <button className={listSecondaryButton} disabled={pending} onClick={() => cart(true)} type="button"><ShoppingCart aria-hidden="true" className="size-4 shrink-0" />{editorCopy.cart}</button>
           <button className={listSecondaryButton} disabled={pending} onClick={() => estimate(true)} type="button"><Calculator aria-hidden="true" className="size-4 shrink-0" />{editorCopy.estimate}</button>
-        </> : null}
+        </>
         {editable ? <button className={`${listSecondaryButton} text-rose-700`} disabled={pending} onClick={() => mutate(() => removePurchasingListItemsAction(initial.id, initial.revision, [...selected]))} type="button"><Trash2 aria-hidden="true" className="size-4 shrink-0" />{copy.removeSelected}</button> : null}
       </div>
     </section> : null}
@@ -182,9 +182,8 @@ export function PurchasingListEditor({
       <Link className={`${listPrimaryButton} mt-3`} href="/cabinet/catalog">{copy.addProducts}</Link>
     </section> : <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 bg-white">
       {lines.map((line, index) => {
-        const insufficientStock = line.availableStock !== null && line.existingCartQuantity + line.quantity > line.availableStock;
-        const cartDisabledReason = insufficientStock ? editorCopy.insufficientStock : line.cartAdmissionBlocker === "PRODUCT_UNAVAILABLE" ? line.stateLabel : null;
-        return <PurchasingListProductRow cartAvailable={!initial.archivedAt} cartDisabled={pending || Boolean(cartDisabledReason)} cartDisabledReason={cartDisabledReason} cartState={rowCartFeedback?.itemId === line.id ? rowCartFeedback.state : "idle"} editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
+        const cartDisabledReason = line.cartAdmissionBlocker === "PRODUCT_UNAVAILABLE" ? line.stateLabel : null;
+        return <PurchasingListProductRow cartAvailable cartDisabled={pending || Boolean(cartDisabledReason)} cartDisabledReason={cartDisabledReason} cartState={rowCartFeedback?.itemId === line.id ? rowCartFeedback.state : "idle"} editable={editable} first={index === 0} key={line.id} last={index === lines.length - 1} line={line} locale={locale}
         onAddToCart={() => addLineToCart(line)}
         onMove={(direction) => move(index, direction)}
         onQuantity={(quantity) => { setRowCartFeedback((current) => current?.itemId === line.id ? null : current); setLines((current) => current.map((item) => item.id === line.id ? { ...item, quantity } : item)); }}

@@ -157,6 +157,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   /> : null;
 
   return <section className="mt-3 border-t border-zinc-200 pt-3" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
+    {proposal && initialWorkflow.permissions.canConvert ? <button className={`${secondary} mb-2 w-full`} disabled={pending || unsavedChanges} onClick={openConversion} type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button> : null}
     <div className="grid gap-2">
       {draftGuide?.primaryAction ? <div className="w-full" data-testid="estimate-primary-next-action">
         {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
@@ -164,7 +165,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
         {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) && !(editorOwnsSave && draftGuide.primaryAction === "save") ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
       </div> : guided.primaryAction && guided.primaryAction !== "send" ? <div className="w-full" data-testid="estimate-primary-next-action">
         {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
-        {guided.primaryAction === "continue_order" ? <button className={`${primary} w-full`} disabled={pending} onClick={openConversion} type="button"><ShoppingCart className="size-4" />{copy.addEquipmentToCart}</button> : null}
+        {guided.primaryAction === "continue_order" ? <Link className={`${primary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link> : null}
         {guided.primaryAction === "resume_checkout" ? <Link className={`${primary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : null}
         {guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${primary} w-full`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}
       </div> : null}
@@ -202,7 +203,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
       </div> : null}
     </details> : null}
 
-    <ConfirmationDialog confirmDisabled={!conversionPreview || conversionPreview.orderableLineCount === 0} confirmLabel={copy.continueToOrder} consequence={copy.cartConversionConsequence} open={conversionOpen} onCancel={() => setConversionOpen(false)} onConfirm={addToCart} pending={pending} title={copy.orderCreation}>
+    <ConfirmationDialog confirmDisabled={!conversionPreview || conversionPreview.orderableLineCount === 0} confirmLabel={locale === "ru" ? "В корзину" : "În coș"} consequence={copy.cartConversionConsequence} open={conversionOpen} onCancel={() => setConversionOpen(false)} onConfirm={addToCart} pending={pending} title={copy.orderCreation}>
       {conversionPreview ? <OrderConversionReview copy={copy} locale={locale} preview={conversionPreview} /> : <p aria-live="polite" className="text-sm text-zinc-600">{copy.checkingOrder}</p>}
     </ConfirmationDialog>
   </section>;

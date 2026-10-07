@@ -166,22 +166,22 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       }],
     }} revision={3} />);
 
-    const transferAction = screen.getByRole("button", { name: "Создать заказ" });
-    expect(transferAction).toHaveClass("bg-emerald-700");
+    const transferAction = screen.getByRole("button", { name: "В корзину" });
+    expect(transferAction).toBeEnabled();
     await user.click(transferAction);
     expect(screen.getByRole("dialog", { name: "Подготовка корзины к заказу" })).toBeInTheDocument();
     expect(await screen.findByText("2 товарных позиций · 5 единиц")).toBeInTheDocument();
     expect(screen.getByText("Не попадут в заказ")).toBeInTheDocument();
     expect(screen.getByText(/Цена в КП:/)).toHaveTextContent("текущая цена:");
     expect(screen.getByText(/заказ в 1С на этом шаге не создаётся/i)).toBeInTheDocument();
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Продолжить к заказу" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "В корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledOnce());
     expect(screen.getByText("КП добавлено в корзину")).toBeInTheDocument();
     expect(screen.getByText(/4 позиций · 1 доступны · 1 доступны частично · 1 отсутствуют/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Перейти в корзину" })).toHaveAttribute("href", "/cabinet/cart");
-    await user.click(screen.getByRole("button", { name: "Создать заказ" }));
+    expect(screen.getAllByRole("link", { name: "Перейти в корзину" }).every((link) => link.getAttribute("href") === "/cabinet/cart")).toBe(true);
+    await user.click(screen.getByRole("button", { name: "В корзину" }));
     await screen.findByText("2 товарных позиций · 5 единиц");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Продолжить к заказу" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "В корзину" }));
     await waitFor(() => expect(addEstimateEquipmentToCartAction).toHaveBeenCalledTimes(2));
     const [first, second] = vi.mocked(addEstimateEquipmentToCartAction).mock.calls;
     expect(first?.slice(0, 2)).toEqual(["estimate-1", "version-1"]);

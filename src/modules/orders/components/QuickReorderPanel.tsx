@@ -15,7 +15,8 @@ import { getOrdersCopy, usePartnerLocale, type OrdersCopy } from "../../partner-
 const INITIAL_STATE: ActionResult<QuickReorderConversionResultDto | null> = { success: false, errorCode: "IDLE", message: "", data: null };
 
 export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { preview: QuickReorderPreviewDto; requestKey: string }) {
-  const copy = getOrdersCopy(usePartnerLocale());
+  const locale = usePartnerLocale();
+  const copy = getOrdersCopy(locale);
   const [selected, setSelected] = useState(() => new Set(preview.lines.filter((line) => line.selectedByDefault).map((line) => line.lineId)));
   const [quantities, setQuantities] = useState<Record<string, number>>(() => Object.fromEntries(preview.lines.map((line) => [line.lineId, line.historicalQuantity])));
   const selectedCount = selected.size;
@@ -115,7 +116,7 @@ export function QuickReorderPanel({ preview, requestKey: initialRequestKey }: { 
         <input name="requestKey" type="hidden" value={requestKey} />
         <input name="lines" type="hidden" value={JSON.stringify(selectedLines)} />
         <p className="text-sm text-zinc-700">{copy.selected}: <strong>{selectedCount}</strong> {copy.positions}, <strong>{selectedUnits}</strong> {copy.units}</p>
-        <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled={!selectedCount || pending || (state.success && !newAttempt)} type="submit">{pending ? copy.adding : copy.addSelectedToCart}</button>
+        <button className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-zinc-300" disabled={!selectedCount || pending || (state.success && !newAttempt)} type="submit">{pending ? copy.adding : locale === "ru" ? "В корзину" : "În coș"}</button>
       </form>
       <div className="flex justify-end"><SaveAsPurchasingListButton label={copy.saveSelectedAsList} orderId={preview.orderId} selections={selectedLines} source="quick_reorder" /></div>
       {state.errorCode !== "IDLE" && !state.success ? <p className="rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{copy.reorderAddError}</p> : null}

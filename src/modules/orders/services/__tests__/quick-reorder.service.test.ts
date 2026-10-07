@@ -18,7 +18,7 @@ describe("QuickReorderService preview", () => {
     expect(result.lines[1]).toMatchObject({ selectedByDefault: true, status: "temporarily_unavailable" });
   });
 
-  it("reports missing price, inactive product, and invalid 1C identity without selecting them", async () => {
+  it("admits missing-price demand while rejecting only structurally invalid products", async () => {
     const dependencies = makeDependencies();
     dependencies.pricing.getProductCommercialViews.mockResolvedValue([
       commercial("product-1", null, 5),
@@ -36,10 +36,10 @@ describe("QuickReorderService preview", () => {
     const result = await dependencies.service.preview("user-1", ORDER_ID);
 
     expect(result.lines.map((line) => line.status)).toEqual(["missing_price", "unavailable", "review_required"]);
-    expect(result.lines.every((line) => !line.canSelect)).toBe(true);
+    expect(result.lines.map((line) => line.canSelect)).toEqual([true, false, false]);
   });
 
-  it("marks stale current prices for review and excludes them from conversion", async () => {
+  it("marks stale current prices for review without excluding them from conversion", async () => {
     const dependencies = makeDependencies();
     const value = source();
     value.lines[0].lineId = "11111111-1111-4111-8111-111111111111";
@@ -53,9 +53,12 @@ describe("QuickReorderService preview", () => {
       lines: [{ lineId: value.lines[0].lineId, quantity: 1 }],
     });
 
-    expect(preview.lines[0]).toMatchObject({ status: "review_required", canSelect: false });
-    expect(conversion).toMatchObject({ cartId: null, skipped: 1 });
-    expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
+    expect(preview.lines[0]).toMatchObject({ status: "review_required", canSelect: true });
+    expect(conversion).toMatchObject({ cartId: "cart-1", skipped: 0, missingPrice: 1 });
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledWith(expect.objectContaining({
+      orderId: ORDER_ID,
+      items: [{ lineId: value.lines[0].lineId, quantity: 1 }],
+    }));
   });
 
   it("denies a source order outside the active company", async () => {
@@ -105,7 +108,7 @@ describe("repeat order to Live Commerce Selection", () => {
     expect(JSON.stringify(result)).not.toContain("historicalUnitPrice");
   });
 
-  it("re-resolves one bounded batch and returns only currently ready products", async () => {
+  it("re-resolves one bounded batch and retains zero-stock demand", async () => {
     const dependencies = makeDependencies();
     const value = source();
     value.lines[0].lineId = "11111111-1111-4111-8111-111111111111";
@@ -127,8 +130,11 @@ describe("repeat order to Live Commerce Selection", () => {
 
     expect(authoritative).toHaveBeenCalledOnce();
     expect(authoritative).toHaveBeenCalledWith("user-1", ["product-1", "product-2"]);
-    expect(result).toMatchObject({ readyCount: 1, attentionCount: 1 });
-    expect(result.items).toEqual([expect.objectContaining({ product: expect.objectContaining({ id: "product-1" }), quantity: 4 })]);
+    expect(result).toMatchObject({ readyCount: 2, attentionCount: 0 });
+    expect(result.items).toEqual([
+      expect.objectContaining({ product: expect.objectContaining({ id: "product-1" }), quantity: 4 }),
+      expect.objectContaining({ product: expect.objectContaining({ id: "product-2" }), quantity: 2 }),
+    ]);
     expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
   });
 
@@ -222,7 +228,7 @@ describe("QuickReorderService cart conversion", () => {
     expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
   });
 
-  it("reports inactive and missing-price products without sending them to the mutation", async () => {
+  it("rejects inactive products but sends missing-price demand to the mutation", async () => {
     const dependencies = makeDependencies();
     const value = source();
     value.lines[0].lineId = "11111111-1111-4111-8111-111111111111";
@@ -237,8 +243,11 @@ describe("QuickReorderService cart conversion", () => {
       lines: value.lines.map((line) => ({ lineId: line.lineId, quantity: 1 })),
     });
 
-    expect(result).toMatchObject({ cartId: null, inactive: 1, missingPrice: 1 });
-    expect(dependencies.cart.mergeOrderReorderItems).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ cartId: "cart-1", inactive: 1, missingPrice: 1 });
+    expect(dependencies.cart.mergeOrderReorderItems).toHaveBeenCalledWith(expect.objectContaining({
+      orderId: ORDER_ID,
+      items: [{ lineId: value.lines[1].lineId, quantity: 1 }],
+    }));
   });
 
   it("uses the request key for retry safety while allowing an explicit second attempt", async () => {

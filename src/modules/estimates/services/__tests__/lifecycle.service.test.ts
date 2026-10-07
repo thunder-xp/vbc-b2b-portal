@@ -183,18 +183,20 @@ describe("EstimateLifecycleService", () => {
 
   it.each([
     ["draft", "draft"],
-    ["sent", "sent"],
-    ["rejected", "rejected"],
-    ["sent", "expired"],
-    ["accepted", "converted_to_order"],
-    ["archived", "accepted"],
-  ] as const)("rejects a non-eligible %s/%s estimate before cart mutation", async (status, lifecycleStatus) => {
+    ["ready", "sent"],
+    ["ready", "accepted"],
+    ["ready", "rejected"],
+    ["ready", "expired"],
+  ] as const)("admits a readable %s/%s estimate without changing workflow state", async (status, lifecycleStatus) => {
     const dependencies = makeDependencies();
     const estimate = { ...dependencies.estimate, status, lifecycleStatus, acceptedVersionId: lifecycleStatus === "accepted" ? "version-1" : null };
     vi.mocked(dependencies.estimates.findById).mockResolvedValue(estimate);
     await expect(dependencies.service.addEquipmentToCart("user-1", "estimate-1", "version-1", 3, "22222222-2222-2222-2222-222222222222"))
-      .rejects.toBeInstanceOf(InvalidStateError);
-    expect(dependencies.cart.mergeEstimateProducts).not.toHaveBeenCalled();
+      .resolves.toMatchObject({ cartId: "cart-1" });
+    expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledOnce();
+    expect(estimate).toMatchObject({ status, lifecycleStatus });
+    expect(dependencies.lifecycle.transitionVersion).not.toHaveBeenCalled();
+    expect(dependencies.lifecycle.markReady).not.toHaveBeenCalled();
   });
 
   it("blocks a soft-deleted or otherwise unreadable estimate before cart mutation", async () => {

@@ -178,7 +178,7 @@ export class QuickReorderService {
     }
     const items = selected.flatMap(({ lineId, quantity }) => {
       const line = byLineId.get(lineId)!;
-      return line.status === "READY" && line.product ? [{ product: line.product, quantity }] : [];
+      return line.product ? [{ product: line.product, quantity }] : [];
     });
     return {
       items,
@@ -277,14 +277,12 @@ export class QuickReorderService {
       const currentPrice = currentCommercial?.isDemoData ? null : currentCommercial?.partnerPrice;
       if (!currentPrice) {
         issues.push({ lineId: line.lineId, ...identity, result: "missing_price" });
-        continue;
+      } else if (isStale(currentPrice.lastUpdatedAt, "price")) {
+        issues.push({ lineId: line.lineId, ...identity, result: "missing_price" });
+      } else {
+        const difference = comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice.amount, currentPrice.currencyCode);
+        if (difference.kind === "increased" || difference.kind === "decreased") changedPrice += 1;
       }
-      if (isStale(currentPrice.lastUpdatedAt, "price")) {
-        issues.push({ lineId: line.lineId, ...identity, result: "skipped" });
-        continue;
-      }
-      const difference = comparePrices(line.historicalUnitPrice, line.historicalCurrencyCode, currentPrice.amount, currentPrice.currencyCode);
-      if (difference.kind === "increased" || difference.kind === "decreased") changedPrice += 1;
       validItems.push(selection);
     }
 
@@ -299,7 +297,8 @@ export class QuickReorderService {
     }));
     const added = new Set(mutation.addedProductIds);
     const updated = new Set(mutation.updatedProductIds);
-    const successfulItems = validItems.map(({ lineId }) => {
+    const issueLineIds = new Set(issues.map((item) => item.lineId));
+    const successfulItems = validItems.filter(({ lineId }) => !issueLineIds.has(lineId)).map(({ lineId }) => {
       const line = sourceByLine.get(lineId)!;
       return {
         lineId,
@@ -382,7 +381,10 @@ function toRepeatSelectionLine(
           : !stockAvailable
             ? "UNAVAILABLE"
             : "READY";
-  const product = status === "READY"
+  const product = line.productExists
+    && line.currentIsActive
+    && line.currentIsVisible
+    && validIdentity
     && line.productId
     && line.currentSlug
     && line.currentName
@@ -468,10 +470,7 @@ function toPreviewLine(
     ? classifyLine(line, commercial, priceDifference!)
     : classifyRetailOnlyLine(line, commercial);
   const selectable = line.productExists && line.currentIsActive && line.currentIsVisible
-    && isValidOneCReference(line.currentExternalProductRef)
-    && (canViewPartnerPrice
-      ? Boolean(currentPrice) && !isStale(currentPrice?.lastUpdatedAt, "price")
-      : true);
+    && isValidOneCReference(line.currentExternalProductRef);
   return {
     lineId: line.lineId,
     productId: line.productId,

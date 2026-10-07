@@ -249,6 +249,8 @@ export class PurchasingListService {
           sourceCurrencyCode: _sourceCurrencyCode,
           ...safeItem
         } = item;
+        void _sourceUnitPrice;
+        void _sourceCurrencyCode;
         return {
           ...safeItem,
           sku: product?.sku ?? "Без артикула",
@@ -271,12 +273,10 @@ export class PurchasingListService {
           state,
           stateLabel: commercialProductStateLabels[state],
           existingCartQuantity,
-          canAddToCart: Boolean(product && (availableStock === null || existingCartQuantity + item.quantity <= availableStock)),
+          canAddToCart: Boolean(product),
           cartAdmissionBlocker: !product
             ? "PRODUCT_UNAVAILABLE"
-            : availableStock !== null && existingCartQuantity + item.quantity > availableStock
-              ? "INSUFFICIENT_KNOWN_STOCK"
-              : null,
+            : null,
           canConvert: Boolean(product && !(["inactive", "missing_price", "requires_review"] as const).includes(state as never)),
         };
       }),
@@ -366,7 +366,6 @@ export class PurchasingListService {
 
   async addToCart(userId: string, input: { listId: string; requestKey: string; selections?: Array<{ itemId: string; quantity?: number }> }): Promise<PurchasingListConversionResultDto> {
     const detail = await this.getDetail(userId, input.listId);
-    if (detail.archivedAt) throw new InvalidStateError("Archived list cannot be added to cart.");
     const selected = input.selections?.length ? new Map(input.selections.map((selection) => [
       requireUuid(selection.itemId),
       selection.quantity === undefined ? undefined : normalizeQuantity(selection.quantity),

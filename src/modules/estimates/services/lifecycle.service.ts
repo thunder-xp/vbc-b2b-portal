@@ -267,7 +267,7 @@ export class EstimateLifecycleService {
   }
 
   async getOrderConversionPreview(userId: string, estimateId: string, versionId: string, expectedRevision: number): Promise<EstimateOrderConversionPreviewDto> {
-    const source = await this.acceptedConversionSource(userId, estimateId, versionId, expectedRevision);
+    const source = await this.cartAdmissionSource(userId, estimateId, versionId, expectedRevision);
     const productLines = versionProductLines(source.version);
     const resolvedProducts = await this.cartService.previewEstimateProducts(userId, productLines);
     const resolvedByLineId = new Map(resolvedProducts.map((line) => [line.lineId, line]));
@@ -329,7 +329,7 @@ export class EstimateLifecycleService {
   }
 
   async addEquipmentToCart(userId: string, estimateId: string, versionId: string, expectedRevision: number, requestKey: string): Promise<EstimateCartConversionSummary> {
-    const source = await this.acceptedConversionSource(userId, estimateId, versionId, expectedRevision);
+    const source = await this.cartAdmissionSource(userId, estimateId, versionId, expectedRevision);
     const lines = versionProductLines(source.version);
     if (!lines.length) throw new InvalidStateError("В принятом КП нет товарных позиций для заказа.");
     const result = await this.cartService.mergeEstimateProducts(userId, {
@@ -340,7 +340,7 @@ export class EstimateLifecycleService {
     return result;
   }
 
-  private async acceptedConversionSource(userId: string, estimateId: string, versionId: string, expectedRevision: number) {
+  private async cartAdmissionSource(userId: string, estimateId: string, versionId: string, expectedRevision: number) {
     const companyId = await this.resolveCompany(userId, CONVERT_PERMISSION);
     const normalizedEstimateId = normalizeId(estimateId);
     const normalizedVersionId = normalizeId(versionId);
@@ -351,9 +351,6 @@ export class EstimateLifecycleService {
     ]);
     if (!estimate || estimate.companyId !== companyId || !version || version.companyId !== companyId || version.estimateId !== estimate.id) {
       throw new NotFoundError("Смета не найдена.");
-    }
-    if (estimate.lifecycleStatus !== "accepted" || estimate.acceptedVersionId !== version.id || version.status !== "accepted") {
-      throw new InvalidStateError("Для заказа доступна только текущая принятая версия КП.");
     }
     if (estimate.revision !== revision) {
       throw new InvalidStateError("КП изменилось. Обновите страницу и проверьте состав заказа ещё раз.");

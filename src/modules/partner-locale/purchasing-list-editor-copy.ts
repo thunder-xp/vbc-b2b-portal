@@ -2,7 +2,7 @@ import { definePartnerCopy } from "./define-copy";
 
 export const purchasingListEditorCopy = definePartnerCopy({
   cart: "В корзину",
-  addItemToCart: "Добавить в корзину",
+  addItemToCart: "В корзину",
   itemAddedToCart: "Товар добавлен в корзину.",
   itemAddFailed: "Не удалось добавить товар в корзину.",
   insufficientStock: "Недостаточно товара на складе с учётом количества в корзине.",
@@ -13,12 +13,12 @@ export const purchasingListEditorCopy = definePartnerCopy({
   settings: "Настройки комплекта",
   management: "Действия с комплектом",
   attention: "Требуют внимания",
-  availableOnly: "В корзину — доступные позиции",
+  availableOnly: "Статус проверки не ограничивает добавление в корзину",
   unsaved: "Есть несохранённые изменения",
   selectionAdded: "Товары добавлены в подборку.",
 }, {
   cart: "În coș",
-  addItemToCart: "Adaugă în coș",
+  addItemToCart: "În coș",
   itemAddedToCart: "Produsul a fost adăugat în coș.",
   itemAddFailed: "Produsul nu a putut fi adăugat în coș.",
   insufficientStock: "Stoc insuficient ținând cont de cantitatea din coș.",
@@ -29,7 +29,7 @@ export const purchasingListEditorCopy = definePartnerCopy({
   settings: "Setările setului",
   management: "Acțiuni pentru set",
   attention: "Necesită atenție",
-  availableOnly: "În coș — produsele disponibile",
+  availableOnly: "Starea verificării nu limitează adăugarea în coș",
   unsaved: "Există modificări nesalvate",
   selectionAdded: "Produsele au fost adăugate în selecție.",
 });

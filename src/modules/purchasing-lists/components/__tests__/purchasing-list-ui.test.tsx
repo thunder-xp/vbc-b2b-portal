@@ -33,25 +33,25 @@ describe("purchasing list UI", () => {
   });
 
   it("renders compact wrapping product lines and keyboard-accessible ordering controls", async () => {
-    render(<PurchasingListEditor initial={detail()} />);
+    const { container } = render(<PurchasingListEditor initial={detail()} />);
     expect(screen.getByText("Very long camera product name that must wrap on mobile layouts")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Very long camera/ })).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Примечание" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Переместить вверх" })).toBeDisabled();
     await userEvent.click(screen.getByRole("checkbox", { name: /Выбрать/ }));
-    expect(screen.getByRole("button", { name: "В корзину" })).toBeEnabled();
-    expect(screen.getAllByRole("button", { name: "В корзину" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "В корзину" })).toHaveLength(2);
+    expect(rowCartAction(container)).toBeEnabled();
   });
 
   it("adds one kit row with its current quantity through the existing list-to-cart action", async () => {
     const initial = detail();
     initial.lines[0].availableStock = 10;
-    render(<PurchasingListEditor initial={initial} />);
+    const { container } = render(<PurchasingListEditor initial={initial} />);
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество" }), { target: { value: "5" } });
-    const rowAction = screen.getByRole("button", { name: "Добавить в корзину" });
+    const rowAction = rowCartAction(container);
     expect(rowAction).toHaveClass("size-11");
     expect(rowAction).toHaveAttribute("data-cart-state", "idle");
-    expect(screen.getByRole("tooltip", { name: "Добавить в корзину" })).toHaveClass("hidden", "group-hover/icon-action-tooltip:block", "group-focus-within/icon-action-tooltip:block");
+    expect(screen.getByRole("tooltip", { name: "В корзину" })).toHaveClass("hidden", "group-hover/icon-action-tooltip:block", "group-focus-within/icon-action-tooltip:block");
 
     await userEvent.click(rowAction);
     await waitFor(() => expect(actions.addPurchasingListToCartAction).toHaveBeenCalledExactlyOnceWith({
@@ -61,26 +61,26 @@ describe("purchasing list UI", () => {
     }));
     expect(initial.lines[0].quantity).toBe(2);
     expect(actions.updatePurchasingListItemsAction).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Добавить в корзину" })).toHaveAttribute("data-cart-state", "success"));
+    await waitFor(() => expect(rowCartAction(container)).toHaveAttribute("data-cart-state", "success"));
     expect(screen.getByText("Товар добавлен в корзину.")).toHaveClass("sr-only");
     expect(refresh).toHaveBeenCalled();
   });
 
   it("updates the local final-quantity decision after a successful row add", async () => {
     const initial = detail();
-    render(<PurchasingListEditor initial={initial} />);
-    await userEvent.click(screen.getByRole("button", { name: "Добавить в корзину" }));
+    const { container } = render(<PurchasingListEditor initial={initial} />);
+    await userEvent.click(rowCartAction(container));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     fireEvent.change(screen.getByRole("spinbutton", { name: "Количество" }), { target: { value: "4" } });
-    expect(screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ })).toBeDisabled();
+    expect(rowCartAction(container)).toBeEnabled();
   });
 
   it("keeps review-required rows enabled when stock admission passes", () => {
     const initial = detail();
     initial.lines[0].canConvert = false;
     initial.lines[0].state = "requires_review";
-    render(<PurchasingListEditor initial={initial} />);
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeEnabled();
+    const { container } = render(<PurchasingListEditor initial={initial} />);
+    expect(rowCartAction(container)).toBeEnabled();
     expect(actions.addPurchasingListToCartAction).not.toHaveBeenCalled();
   });
 
@@ -103,48 +103,48 @@ describe("purchasing list UI", () => {
   it("keeps the row review warning when stock is unknown", () => {
     const initial = reviewRequiredDetail();
     initial.lines[0].availableStock = null;
-    render(<PurchasingListEditor initial={initial} />);
+    const { container } = render(<PurchasingListEditor initial={initial} />);
     expect(screen.getByText("Требует проверки")).toBeInTheDocument();
     expect(screen.getByText("Уточняется")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeEnabled();
+    expect(rowCartAction(container)).toBeEnabled();
   });
 
   it("updates the row warning across the stock threshold without changing review metadata", () => {
     const initial = reviewRequiredDetail();
-    render(<PurchasingListEditor initial={initial} />);
+    const { container } = render(<PurchasingListEditor initial={initial} />);
     const quantity = screen.getByRole("spinbutton", { name: "Количество" });
     expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
     fireEvent.change(quantity, { target: { value: "6" } });
     expect(screen.getByText("Требует проверки")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ })).toBeDisabled();
+    expect(rowCartAction(container)).toBeEnabled();
     fireEvent.change(quantity, { target: { value: "5" } });
     expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Добавить в корзину" })).toBeEnabled();
+    expect(rowCartAction(container)).toBeEnabled();
     expect(initial.lines[0]).toMatchObject({ state: "requires_review", stateLabel: "Требует проверки", canConvert: false });
   });
 
   it("keeps row warning presentation separate from final-cart stock admission", () => {
     const initial = reviewRequiredDetail();
     initial.lines[0].existingCartQuantity = 4;
-    render(<PurchasingListEditor initial={initial} />);
+    const { container } = render(<PurchasingListEditor initial={initial} />);
     expect(screen.queryByText("Требует проверки")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ })).toBeDisabled();
+    expect(rowCartAction(container)).toBeEnabled();
   });
 
-  it("disables the row action when final quantity exceeds known stock and exposes the reason", () => {
+  it("admits the row action when final quantity exceeds known stock", () => {
     const initial = detail();
     initial.lines[0].existingCartQuantity = 4;
-    render(<PurchasingListEditor initial={initial} />);
-    const action = screen.getByRole("button", { name: /Добавить в корзину\. Недостаточно товара на складе/ });
-    expect(action).toBeDisabled();
-    expect(screen.getByRole("tooltip", { name: /Недостаточно товара на складе/ })).toBeInTheDocument();
+    const { container } = render(<PurchasingListEditor initial={initial} />);
+    expect(rowCartAction(container)).toBeEnabled();
+    expect(screen.queryByRole("tooltip", { name: /Недостаточно товара на складе/ })).not.toBeInTheDocument();
   });
 
-  it("keeps archived lists immutable and removes conversion controls", () => {
-    render(<PurchasingListEditor initial={{ ...detail(), archivedAt: "2026-07-20T12:00:00Z" }} />);
+  it("keeps archived lists immutable while retaining cart admission", () => {
+    const { container } = render(<PurchasingListEditor initial={{ ...detail(), archivedAt: "2026-07-20T12:00:00Z" }} />);
     expect(screen.queryByRole("textbox", { name: "Название" })).not.toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: "Количество" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /корзину/i })).not.toBeInTheDocument();
+    expect(rowCartAction(container)).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "В корзину" })).toHaveLength(2);
   });
 
   it("protects favorites metadata while keeping quantity editable", () => {
@@ -213,19 +213,19 @@ describe("purchasing list UI", () => {
     expect(toolbar).toHaveTextContent("Выбрано: 1");
     expect(within(toolbar).getByRole("button", { name: "Добавить в подборку" })).toBeEnabled();
     expect(screen.getAllByRole("button", { name: "Создать КП" })).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "В корзину" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "В корзину" })).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: "Снять выбор" }));
     expect(container.querySelector('[data-selection-toolbar]')).toBeNull();
   });
 
   it("preserves full-list and selected Cart payloads and rotates idempotency keys after success", async () => {
     const initial = detail();
-    render(<PurchasingListEditor initial={initial} />);
-    await userEvent.click(screen.getByRole("button", { name: "В корзину" }));
+    const { container } = render(<PurchasingListEditor initial={initial} />);
+    await userEvent.click(pageCartAction(container));
     const first = vi.mocked(actions.addPurchasingListToCartAction).mock.calls[0][0];
     expect(first).toEqual({ listId: initial.id, requestKey: expect.any(String) });
     await userEvent.click(screen.getByRole("checkbox"));
-    await userEvent.click(screen.getByRole("button", { name: "В корзину" }));
+    await userEvent.click(pageCartAction(container));
     const second = vi.mocked(actions.addPurchasingListToCartAction).mock.calls[1][0];
     expect(second).toEqual({ listId: initial.id, requestKey: expect.any(String), selections: [{ itemId: initial.lines[0].id }] });
     expect(second.requestKey).not.toBe(first.requestKey);
@@ -245,13 +245,13 @@ describe("purchasing list UI", () => {
 
   it("retains dirty quantities and the same Cart retry key after failure", async () => {
     vi.mocked(actions.addPurchasingListToCartAction).mockResolvedValueOnce({ success: false, data: null, message: "Failure", errorCode: "UNKNOWN" } as never);
-    render(<PurchasingListEditor initial={detail()} />);
+    const { container } = render(<PurchasingListEditor initial={detail()} />);
     fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "3" } });
-    await userEvent.click(screen.getByRole("button", { name: "В корзину" }));
+    await userEvent.click(pageCartAction(container));
     expect(refresh).not.toHaveBeenCalled();
     expect(screen.getByRole("spinbutton")).toHaveValue(3);
     await waitFor(() => expect(screen.getByRole("button", { name: "Сохранить изменения" })).toBeEnabled());
-    await userEvent.click(screen.getByRole("button", { name: "В корзину" }));
+    await userEvent.click(pageCartAction(container));
     const calls = vi.mocked(actions.addPurchasingListToCartAction).mock.calls;
     expect(calls[0][0].requestKey).toBe(calls[1][0].requestKey);
   });
@@ -310,13 +310,24 @@ describe("purchasing list UI", () => {
         expect(button.getAttribute("title")).toBe(button.getAttribute("aria-label"));
       }
     }
-    expect(screen.getByRole("button", { name: locale === "ru" ? "Добавить в корзину" : "Adaugă în coș" }).querySelector(".lucide-shopping-cart")).not.toBeNull();
-    expect(screen.getByRole("button", { name: locale === "ru" ? "В корзину" : "În coș" })).toHaveClass("min-h-11");
+    const pageCartAction = screen.getAllByRole("button", { name: locale === "ru" ? "В корзину" : "În coș" })
+      .find((button) => !button.hasAttribute("data-row-cart-action"));
+    expect(pageCartAction?.querySelector(".lucide-shopping-cart")).not.toBeNull();
+    expect(pageCartAction).toHaveClass("min-h-11");
     expect(screen.getByRole("button", { name: locale === "ru" ? "Создать КП" : "Creează ofertă" }).querySelector(".lucide-calculator")).not.toBeNull();
     expect(screen.getByRole("link", { name: locale === "ru" ? "Использовать комплект" : "Folosește setul" })).toHaveAttribute("href", expect.stringContaining("/cabinet/quick-order?kit="));
     expect(screen.queryByText(/Примечание|Notă|Системный список|Listă de sistem/)).toBeNull();
   });
 });
+
+function rowCartAction(container: HTMLElement) {
+  return container.querySelector<HTMLButtonElement>("[data-row-cart-action]")!;
+}
+
+function pageCartAction(container: HTMLElement) {
+  return Array.from(container.querySelectorAll<HTMLButtonElement>("button"))
+    .find((button) => !button.hasAttribute("data-row-cart-action") && button.textContent === "В корзину")!;
+}
 
 function detail(): PurchasingListDetailDto { return { id: "33333333-3333-4333-8333-333333333333", companyId: "company-1", name: "Install kit", description: null, visibility: "private", createdBy: "user-1", updatedBy: "user-1", revision: 1, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", archivedAt: null, ownerName: "Partner", canManage: true, lines: [{ id: "44444444-4444-4444-8444-444444444444", listId: "33333333-3333-4333-8333-333333333333", productId: "55555555-5555-4555-8555-555555555555", quantity: 2, position: 1, note: null, sourceType: "manual", sourceReferenceId: null, createdAt: "2026-07-20T00:00:00Z", updatedAt: "2026-07-20T00:00:00Z", sku: "400691", productName: "Very long camera product name that must wrap on mobile layouts", slug: "camera", imageUrl: null, currentPartnerPrice: "$10.00", currentPartnerPriceAmount: 10, currentPartnerCurrencyCode: "USD", currentRetailPrice: "1 000 MDL", currentRetailPriceAmount: 1000, currentRetailCurrencyCode: "MDL", availableStock: 5, existingCartQuantity: 0, canAddToCart: true, cartAdmissionBlocker: null, expectedArrivalDate: "2026-07-25", expectedArrivalQuantity: 10, state: "available", stateLabel: "Доступно", canConvert: true }] }; }
 
