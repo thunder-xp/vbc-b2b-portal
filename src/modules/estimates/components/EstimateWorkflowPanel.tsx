@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Download, FilePlus2, Plus, Save, Send, ShoppingCart, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Eye, FilePlus2, Info, Plus, Save, Send, ShoppingCart, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -31,13 +31,14 @@ import { ESTIMATE_DIRTY_STATE_EVENT, type EstimateDirtyStateDetail } from "./est
 import { ESTIMATE_PDF_READY_EVENT, notifyEstimatePdfReady, type EstimatePdfReadyDetail } from "./EstimatePdfShareAction";
 import { SendProposalDialog } from "./SendProposalDialog";
 
-export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction, draftReadiness = initialWorkflow.draftReadiness ?? inactiveDraftReadiness, onDraftPrimaryAction = () => undefined, editorOwnsSave = false }: {
+export function EstimateWorkflowPanel({ initialWorkflow, revision, initialProposalAction, draftReadiness = initialWorkflow.draftReadiness ?? inactiveDraftReadiness, onDraftPrimaryAction = () => undefined, editorOwnsSave = false, proposalPreviewHref }: {
   initialWorkflow: EstimateWorkflowDto;
   revision: number;
   initialProposalAction?: { kind: "resend"; versionId: string } | null;
   draftReadiness?: EstimateDraftReadinessDto;
   onDraftPrimaryAction?: (readiness: EstimateDraftReadinessDto) => void;
   editorOwnsSave?: boolean;
+  proposalPreviewHref?: string;
 }) {
   const locale = usePartnerLocale();
   const copy = getEstimatesCopy(locale);
@@ -151,23 +152,23 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     proposalNumber={proposal.estimateNumber ?? proposal.label.split(" / ")[0]}
     proposalTotal={proposal.total}
     triggerLabel={guided.secondaryActions.includes("resend") ? copy.sendAgain : copy.sendToCustomer}
-    triggerTone={initialWorkflow.customer?.primaryEmail && guided.primaryAction === "send" ? "primary" : "secondary"}
+    triggerTone="secondary"
     unsavedChanges={unsavedChanges}
     versionId={proposal.id}
   /> : null;
 
-  return <section className="mt-3 border-t border-zinc-200 pt-3" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
-    {proposal && initialWorkflow.permissions.canConvert ? <button className={`${secondary} mb-2 w-full`} disabled={pending || unsavedChanges} onClick={openConversion} type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button> : null}
+  return <section className="mt-4 border-t border-zinc-200 pt-4" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
+    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">{copy.actions}</p>
+    <div className="mt-3 grid gap-2" data-testid="estimate-sidebar-action-stack">
+      {proposal && initialWorkflow.permissions.canConvert ? <button className={`${primary} w-full`} disabled={pending || unsavedChanges} onClick={openConversion} type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button> : <button className={`${primary} w-full`} disabled type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button>}
+      <Link className={`${secondary} w-full`} href={proposalPreviewHref ?? `/cabinet/estimates/${initialWorkflow.estimateId}`} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
+      {proposal && pdfDocumentId && pdfStatus === "ready" ? <Link className={`${secondary} w-full`} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : <button className={`${secondary} w-full`} disabled={!proposal || pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{copy.downloadPdf}</button>}
+      {proposal && (guided.primaryAction === "send" || guided.secondaryActions.includes("send") || guided.secondaryActions.includes("resend")) ? sendDialog : guided.secondaryActions.includes("mark_sent") && proposal ? <button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : draftGuide?.primaryAction === "prepare_proposal" ? <div className="w-full" data-testid="estimate-primary-next-action"><button className={`${secondary} w-full`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button></div> : guided.primaryAction === "update" && proposal ? <button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : guided.primaryAction === "continue_order" ? <Link className={`${secondary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link> : guided.primaryAction === "resume_checkout" ? <Link className={`${secondary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${secondary} w-full`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}
+    </div>
     <div className="grid gap-2">
-      {draftGuide?.primaryAction ? <div className="w-full" data-testid="estimate-primary-next-action">
-        {draftGuide.primaryAction === "prepare_proposal" ? <button className={`${primary} w-full`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button> : null}
+      {draftGuide?.primaryAction && draftGuide.primaryAction !== "prepare_proposal" ? <div className="w-full" data-testid="estimate-primary-next-action">
         {draftGuide.primaryAction === "generate_pdf" ? <button className={`${primary} w-full`} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.prepareProposal}</button> : null}
         {!["prepare_proposal", "generate_pdf"].includes(draftGuide.primaryAction) && !(editorOwnsSave && draftGuide.primaryAction === "save") ? <button aria-keyshortcuts={draftGuide.primaryAction === "save" ? "Control+S Meta+S" : undefined} className={`${primary} w-full`} disabled={pending} onClick={() => onDraftPrimaryAction(draftGuide)} type="button">{draftPrimaryIcon(draftGuide.primaryAction)}{draftPrimaryLabel(draftGuide.state, copy)}</button> : null}
-      </div> : guided.primaryAction && guided.primaryAction !== "send" ? <div className="w-full" data-testid="estimate-primary-next-action">
-        {guided.primaryAction === "update" && proposal ? <button className={`${primary} w-full`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : null}
-        {guided.primaryAction === "continue_order" ? <Link className={`${primary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link> : null}
-        {guided.primaryAction === "resume_checkout" ? <Link className={`${primary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : null}
-        {guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${primary} w-full`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}
       </div> : null}
     </div>
 
@@ -186,12 +187,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     </div> : null}
 
     {!draftGuide && proposal && (guided.primaryAction === "send" || guided.secondaryActions.some((action) => ["pdf", "send", "resend", "mark_sent", "record_response"].includes(action))) ? <div className="mt-3 grid gap-2 border-t border-zinc-100 pt-3" data-testid="estimate-stage-actions">
-      {guided.primaryAction === "send" ? sendDialog : null}
-      {guided.secondaryActions.includes("pdf") && pdfStatus !== "ready" ? <button aria-describedby={pdfPending ? "estimate-pdf-progress" : undefined} className={quiet} disabled={pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{pdfPending ? copy.preparing : copy.generatePdf}</button> : null}
       {pdfPending ? <span aria-live="polite" className="text-sm text-zinc-600" id="estimate-pdf-progress" role="status">{copy.preparing}</span> : null}
-      {guided.secondaryActions.includes("pdf") && pdfDocumentId && pdfStatus === "ready" ? <Link className={quiet} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : null}
-      {guided.primaryAction !== "send" && (guided.secondaryActions.includes("send") || guided.secondaryActions.includes("resend")) ? sendDialog : null}
-      {guided.secondaryActions.includes("mark_sent") ? <button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : null}
       {guided.secondaryActions.includes("record_response") ? <><button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "accepted"))} type="button"><CheckCircle2 className="size-4" />{copy.acceptedByCustomerAction}</button><label className="sr-only" htmlFor="estimate-rejection-reason">{copy.rejectionReason}</label><select className={`${input} w-full`} id="estimate-rejection-reason" onChange={(event) => setRejectionReason(event.target.value as typeof rejectionReason)} value={rejectionReason}><option value="">{copy.rejectionReason}</option><option value="price">{copy.rejectionPrice}</option><option value="no_budget">{copy.rejectionNoBudget}</option><option value="other_supplier">{copy.rejectionOtherSupplier}</option><option value="project_changed">{copy.rejectionProjectChanged}</option><option value="postponed">{copy.rejectionPostponed}</option><option value="other">{copy.rejectionOther}</option></select><button className={`${secondary} w-full`} disabled={pending || !rejectionReason} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "rejected", null, "", rejectionReason || undefined))} type="button"><XCircle className="size-4" />{copy.rejectedAction}</button></> : null}
     </div> : null}
 
@@ -202,6 +198,8 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
         {proposal.deliveries.map((delivery) => <DeliveryRow copy={copy} delivery={delivery} key={delivery.id} locale={locale} onRevoke={revoke} pending={pending} />)}
       </div> : null}
     </details> : null}
+
+    <div className="mt-4 flex gap-2 rounded-md bg-blue-50 px-3 py-2.5 text-xs leading-5 text-blue-900" data-testid="estimate-direct-cart-info"><Info className="mt-0.5 size-4 shrink-0 text-blue-700" /><p>{copy.directCartInfo}</p></div>
 
     <ConfirmationDialog confirmDisabled={!conversionPreview || conversionPreview.orderableLineCount === 0} confirmLabel={locale === "ru" ? "В корзину" : "În coș"} consequence={copy.cartConversionConsequence} open={conversionOpen} onCancel={() => setConversionOpen(false)} onConfirm={addToCart} pending={pending} title={copy.orderCreation}>
       {conversionPreview ? <OrderConversionReview copy={copy} locale={locale} preview={conversionPreview} /> : <p aria-live="polite" className="text-sm text-zinc-600">{copy.checkingOrder}</p>}
@@ -292,5 +290,4 @@ function deliveryStatusLabel(status: ProposalDeliverySummaryDto["status"], copy:
 const input = "min-h-11 w-full border border-zinc-300 bg-white px-3 text-sm outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100";
 const primary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
-const quiet = "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-zinc-300 px-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-45";
 const inactiveDraftReadiness: EstimateDraftReadinessDto = { state: "not_applicable", primaryAction: null, target: null, linePosition: null, ready: true, checks: [] };

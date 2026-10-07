@@ -6,7 +6,7 @@ import {
   ChevronRight,
   ChevronUp,
   Copy,
-  Eye,
+  CircleDollarSign,
   CheckCircle2,
   MoreHorizontal,
   Pencil,
@@ -1366,11 +1366,14 @@ export function EstimateCommercialEditor({
             </details>
           ) : null}
         </main>
-        <aside className="min-w-0 border-y border-zinc-200 bg-white p-4 xl:sticky xl:top-56 xl:border-l">
+        <aside className="min-w-0 self-start rounded-lg border border-zinc-200 bg-white p-4 xl:sticky xl:top-56">
           <Summary
+            availableCurrencies={commercialOptions.currencies}
             copy={copy}
             currency={draft.currencyCode}
+            currencyDisabled={!isDraft || controlsDisabled || commercialOptions.currencies.length < 2}
             locale={locale}
+            onCurrencyChange={(currency) => currency !== draft.currencyCode && setCurrencyChoice(currency)}
             preview={preview.value}
             sections={presentationSections}
             showProfit={!retailOnly}
@@ -1378,13 +1381,13 @@ export function EstimateCommercialEditor({
             vatMode={draft.vatMode}
             vatRatePercent={draft.vatRatePercent}
           />
-          <Link className={`${buttonClass} mt-3 w-full`} href={proposalPreviewHref} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
           <EstimateWorkflowPanel
             editorOwnsSave
             draftReadiness={draftReadiness}
             initialProposalAction={initialProposalAction}
             initialWorkflow={workflow}
             onDraftPrimaryAction={runDraftPrimaryAction}
+            proposalPreviewHref={proposalPreviewHref}
             revision={estimate.revision}
           />
         </aside>
@@ -1772,9 +1775,12 @@ function Charges({
 }
 
 function Summary({
+  availableCurrencies,
   copy,
   currency,
+  currencyDisabled,
   locale,
+  onCurrencyChange,
   preview,
   sections,
   showProfit,
@@ -1782,9 +1788,12 @@ function Summary({
   vatMode,
   vatRatePercent,
 }: {
+  availableCurrencies: string[];
   copy: ReturnType<typeof getEstimatesCopy>;
   currency: string;
+  currencyDisabled: boolean;
   locale: PartnerLocale;
+  onCurrencyChange: (currency: string) => void;
   preview: ReturnType<typeof calculateEstimateCommercials> | null;
   sections: PresentationSection[];
   showProfit: boolean;
@@ -1800,10 +1809,23 @@ function Summary({
     (preview?.globalDiscountAmount ?? 0);
   return (
     <section aria-labelledby="estimate-summary-title">
-      <h2 className="font-semibold text-zinc-950" id="estimate-summary-title">
-        {copy.commercialCalculation}
-      </h2>
-      <div className="mt-4 space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-zinc-950" id="estimate-summary-title">
+          {copy.commercialCalculation}
+        </h2>
+        <label className="sr-only" htmlFor="estimate-summary-currency">{copy.commercialCalculation}: {copy.currency}</label>
+        <select
+          className="h-8 rounded-md border border-zinc-300 bg-white px-2 text-xs font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:bg-zinc-50 disabled:text-zinc-600"
+          disabled={currencyDisabled}
+          id="estimate-summary-currency"
+          onChange={(event) => onCurrencyChange(event.target.value)}
+          value={currency}
+        >
+          {availableCurrencies.includes(currency) ? null : <option value={currency}>{currency}</option>}
+          {availableCurrencies.map((code) => <option key={code} value={code}>{code}</option>)}
+        </select>
+      </div>
+      <div className="mt-4 space-y-2 tabular-nums">
         {sections.map((section) => (
           <div
             className="flex justify-between gap-3 text-sm"
@@ -1833,7 +1855,7 @@ function Summary({
           </div>
         ) : null}
       </div>
-      <div className="mt-4 border-t pt-4">
+      <div className="mt-4 border-t-2 border-zinc-300 pt-4">
         <p className="text-xs font-medium text-zinc-500">{copy.payable}</p>
         <p className="mt-1 text-2xl font-semibold">
           {money(preview?.finalTotal ?? 0, currency, locale)}
@@ -1843,11 +1865,19 @@ function Summary({
             {copy.incompletePricing}
           </p>
         )}
-        {showProfit ? <div className="mt-4 border-t border-zinc-200 pt-3" data-testid="estimate-summary-profit">
-          <p className="text-xs font-medium text-zinc-500">{copy.myProfit}</p>
-          <p className={`mt-1 text-lg font-semibold ${preview?.grossProfit !== null && preview?.grossProfit !== undefined && preview.grossProfit < 0 ? "text-red-700" : "text-emerald-800"}`}>
-            {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency, locale)}
-          </p>
+        {showProfit ? <div className="mt-4 grid grid-cols-2 rounded-md border border-emerald-100 bg-emerald-50 px-3 py-3 text-emerald-950 tabular-nums" data-testid="estimate-summary-profit">
+          <div className="min-w-0 pr-3">
+            <p className="flex items-center gap-1.5 text-xs font-medium"><CircleDollarSign className="size-4 shrink-0 text-emerald-700" />{copy.myProfit}</p>
+            <p className={`mt-1 truncate text-base font-semibold ${preview?.grossProfit !== null && preview?.grossProfit !== undefined && preview.grossProfit < 0 ? "text-red-700" : "text-emerald-800"}`}>
+              {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency, locale)}
+            </p>
+          </div>
+          <div className="min-w-0 border-l border-emerald-200 pl-3">
+            <p className="text-xs font-medium">{copy.profitability}</p>
+            <p className={`mt-1 text-base font-semibold ${preview?.overallMarginPercent !== null && preview?.overallMarginPercent !== undefined && preview.overallMarginPercent < 0 ? "text-red-700" : "text-emerald-800"}`}>
+              {preview?.overallMarginPercent === null || preview?.overallMarginPercent === undefined ? "—" : `${preview.overallMarginPercent.toFixed(1)}%`}
+            </p>
+          </div>
           {preview?.profitIncompleteLineCount ? <p className="mt-1 text-xs text-amber-800">
             {copy.profitIncomplete.replace("{count}", String(preview.profitIncompleteLineCount))}
           </p> : null}

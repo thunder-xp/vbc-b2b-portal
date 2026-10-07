@@ -123,7 +123,7 @@ describe("EstimateWorkflowPanel ergonomics", () => {
 
     expect(screen.queryByText("Текущий этап")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Предпросмотр" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Сформировать PDF" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Скачать PDF" })).toBeInTheDocument();
     expect(screen.queryByText(/версия/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Создать новую версию" })).not.toBeInTheDocument();
   });
@@ -191,6 +191,18 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(second?.[3]).not.toBe(first?.[3]);
   });
 
+  it("keeps direct cart admission enabled for an archived estimate", () => {
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-archived", estimateStatus: "archived", lifecycleStatus: "rejected", acceptedVersionId: null,
+      emailDeliveryAvailable: false, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
+      guidedState: { state: "rejected", primaryAction: "update", secondaryActions: ["preview", "pdf", "duplicate"], resumeCartId: null }, permissions: fullPermissions,
+      versions: [{ id: "version-archived", versionNumber: 1, estimateRevision: 3, label: "KP-ARCHIVE", status: "rejected", statusLabel: "Rejected", total: "100 USD", currencyCode: "USD", note: null, createdAt: "2026-09-01T08:00:00Z", createdByName: "Manager", sentAt: "2026-09-01T09:00:00Z", acceptedAt: null, rejectedAt: "2026-09-02T09:00:00Z", pdfDocumentId: "pdf-archive", pdfStatus: "ready", deliveries: [] }],
+    }} revision={3} />);
+
+    expect(screen.getByRole("button", { name: "В корзину" })).toBeEnabled();
+    expect(screen.getByTestId("estimate-direct-cart-info")).toHaveTextContent("Архивные и черновики");
+  });
+
   it("acknowledges generation immediately and exposes the ready artifact without an RSC refresh", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
@@ -209,14 +221,14 @@ describe("EstimateWorkflowPanel ergonomics", () => {
       versions: [{ id: "version-1", versionNumber: 1, estimateRevision: 3, label: "Proposal", status: "prepared", statusLabel: "Prepared", total: "1 000,00 USD", currencyCode: "USD", note: null, createdAt: "2026-09-02T09:00:00Z", createdByName: "Manager", sentAt: null, acceptedAt: null, rejectedAt: null, pdfDocumentId: null, pdfStatus: null, deliveries: [] }],
     }} revision={3} />);
 
-    const click = user.click(screen.getByRole("button", { name: "Сформировать PDF" }));
+    const click = user.click(screen.getByRole("button", { name: "Скачать PDF" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Подготовка");
-    expect(screen.getByRole("button", { name: "Подготовка..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Скачать PDF" })).toBeDisabled();
     resolveGeneration(readyResult);
     await click;
     expect(await screen.findByRole("link", { name: "Скачать PDF" })).toHaveAttribute("href", "/api/estimates/documents/document-1");
-    const stageActions = screen.getByTestId("estimate-stage-actions");
-    const addEmail = within(stageActions).getByRole("button", { name: "Добавить email" });
+    const actionStack = screen.getByTestId("estimate-sidebar-action-stack");
+    const addEmail = within(actionStack).getByRole("button", { name: "Добавить email" });
     expect(addEmail).toBeEnabled();
     expect(addEmail).toHaveClass("w-full", "border-zinc-300");
     expect(addEmail).not.toHaveClass("bg-emerald-700");

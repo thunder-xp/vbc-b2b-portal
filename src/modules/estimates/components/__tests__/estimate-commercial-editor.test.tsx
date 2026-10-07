@@ -178,6 +178,33 @@ describe("EstimateCommercialEditor", () => {
     expect(prepareAction).toBeEnabled();
   });
 
+  it("renders the approved commercial sidebar structure and action hierarchy", () => {
+    renderEditor();
+    const sidebar = screen.getByRole("heading", { name: "Коммерческий расчёт" }).closest("aside");
+    expect(sidebar).not.toBeNull();
+    const scope = within(sidebar!);
+    expect(scope.getByRole("combobox", { name: "Коммерческий расчёт: Валюта" })).toHaveValue("USD");
+    const labels = ["Оборудование", "Материалы", "Монтажные работы", "Пусконаладочные работы", "Общая скидка", "Итого без НДС", "К оплате"];
+    let previous: Element | null = null;
+    for (const label of labels) {
+      const current = scope.getByText(label);
+      if (previous) expect(previous.compareDocumentPosition(current) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      previous = current;
+    }
+    expect(scope.getByText("Моя прибыль")).toBeInTheDocument();
+    expect(scope.getByText("Рентабельность")).toBeInTheDocument();
+    const stack = scope.getByTestId("estimate-sidebar-action-stack");
+    expect(stack.querySelectorAll(":scope > button, :scope > a, :scope > div")).toHaveLength(4);
+    expect(within(stack).getByRole("button", { name: "В корзину" })).toHaveClass("bg-emerald-700");
+    expect(within(stack).getByRole("link", { name: "Предпросмотр КП" })).toHaveClass("border-zinc-300", "bg-white");
+    expect(scope.getByTestId("estimate-direct-cart-info")).toHaveTextContent("Архивные и черновики поддерживают прямое добавление в корзину.");
+  });
+
+  it("keeps the header currency control visible but read-only for one authoritative currency", () => {
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={detail} services={[]} workflow={workflow} />);
+    expect(screen.getByRole("combobox", { name: "Коммерческий расчёт: Валюта" })).toBeDisabled();
+  });
+
   it("removes partner-facing rate-age copy and normalizes the materials label", () => {
     render(<EstimateCommercialEditor
       commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16", rateFreshness: { label: "Коммерческий курс обновлён 165 часов назад.", staleNotice: "stale" } }}
