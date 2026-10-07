@@ -43,6 +43,7 @@ import {
 import { canonicalEstimateWorkName } from "../estimate-work-labels";
 import {
   calculateEstimateCommercials,
+  convertMoney,
   EstimateCalculationError,
   profitCostBasisForLineType,
   resolveCurrencyRate,
@@ -150,6 +151,7 @@ export function EstimateCommercialEditor({
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   const [currencyChoice, setCurrencyChoice] = useState<string | null>(null);
+  const [summaryCurrency, setSummaryCurrency] = useState(initialEstimate.currencyCode);
   const [currencyChangePolicy, setCurrencyChangePolicy] =
     useState<EstimateCurrencyChangePolicy>("preserve_manual");
   const [pending, startTransition] = useTransition();
@@ -334,6 +336,7 @@ export function EstimateCommercialEditor({
     dirtyRef.current = false;
     setEstimate(next);
     setDraft(acceptedDraft);
+    setSummaryCurrency(next.currencyCode);
     setDirty(false);
     setSaveState("saved");
     setMessage(nextMessage);
@@ -1370,10 +1373,15 @@ export function EstimateCommercialEditor({
           <Summary
             availableCurrencies={commercialOptions.currencies}
             copy={copy}
-            currency={draft.currencyCode}
-            currencyDisabled={!isDraft || controlsDisabled || commercialOptions.currencies.length < 2}
+            currency={summaryCurrency}
+            currencyDisabled={(isDraft && controlsDisabled) || commercialOptions.currencies.length < 2 || !commercialOptions.usdMdlRate}
+            displayRate={draft.currencyCode === summaryCurrency ? 1 : commercialOptions.usdMdlRate ? resolveCurrencyRate(draft.currencyCode, summaryCurrency, commercialOptions.usdMdlRate) : null}
             locale={locale}
-            onCurrencyChange={(currency) => currency !== draft.currencyCode && setCurrencyChoice(currency)}
+            onCurrencyChange={(currency) => {
+              if (currency === summaryCurrency) return;
+              if (isDraft) setCurrencyChoice(currency);
+              else setSummaryCurrency(currency);
+            }}
             preview={preview.value}
             sections={presentationSections}
             showProfit={!retailOnly}
@@ -1536,6 +1544,7 @@ export function EstimateCommercialEditor({
               commercialOptions.usdMdlRate,
             );
             update((current) => ({ ...current, currencyCode: currencyChoice }));
+            setSummaryCurrency(currencyChoice);
             setCurrencyChangePolicy(policy);
             setCurrencyChoice(null);
           }}
@@ -1779,6 +1788,7 @@ function Summary({
   copy,
   currency,
   currencyDisabled,
+  displayRate,
   locale,
   onCurrencyChange,
   preview,
@@ -1792,6 +1802,7 @@ function Summary({
   copy: ReturnType<typeof getEstimatesCopy>;
   currency: string;
   currencyDisabled: boolean;
+  displayRate: number | null;
   locale: PartnerLocale;
   onCurrencyChange: (currency: string) => void;
   preview: ReturnType<typeof calculateEstimateCommercials> | null;
@@ -1807,6 +1818,7 @@ function Summary({
     (preview?.lineDiscountTotal ?? 0) +
     (preview?.sectionDiscountTotal ?? 0) +
     (preview?.globalDiscountAmount ?? 0);
+  const displayMoney = (value: number) => money(value < 0 ? -convertMoney(Math.abs(value), displayRate ?? 1) : convertMoney(value, displayRate ?? 1), currency, locale);
   return (
     <section aria-labelledby="estimate-summary-title">
       <div className="flex items-center justify-between gap-3">
@@ -1837,28 +1849,28 @@ function Summary({
             >
               {section.customName ?? sectionName(section.config.key, copy)}
             </span>
-            <span className="shrink-0">{money(section.total, currency, locale)}</span>
+            <span className="shrink-0">{displayMoney(section.total)}</span>
           </div>
         ))}
         <div className="flex justify-between gap-3 border-t border-zinc-200 pt-2 text-sm">
           <span className="text-zinc-500">{copy.totalDiscount}</span>
-          <span>{money(totalDiscount, currency, locale)}</span>
+          <span>{displayMoney(totalDiscount)}</span>
         </div>
         <div className="flex justify-between gap-3 text-sm">
           <span className="text-zinc-500">{copy.totalWithoutVat}</span>
-          <span>{money(preview?.totalExcludingVat ?? 0, currency, locale)}</span>
+          <span>{displayMoney(preview?.totalExcludingVat ?? 0)}</span>
         </div>
         {vatApplicable ? (
           <div className="flex justify-between gap-3 text-sm">
             <span className="text-zinc-500">{copy.vat}</span>
-            <span>{money(preview?.vatAmount ?? 0, currency, locale)}</span>
+            <span>{displayMoney(preview?.vatAmount ?? 0)}</span>
           </div>
         ) : null}
       </div>
       <div className="mt-4 border-t-2 border-zinc-300 pt-4">
         <p className="text-xs font-medium text-zinc-500">{copy.payable}</p>
         <p className="mt-1 text-2xl font-semibold">
-          {money(preview?.finalTotal ?? 0, currency, locale)}
+          {displayMoney(preview?.finalTotal ?? 0)}
         </p>
         {preview?.incompletePricing && (
           <p className="mt-3 bg-amber-50 p-2 text-xs text-amber-900">
@@ -1869,7 +1881,7 @@ function Summary({
           <div className="min-w-0 pr-3">
             <p className="flex items-center gap-1.5 text-xs font-medium"><CircleDollarSign className="size-4 shrink-0 text-emerald-700" />{copy.myProfit}</p>
             <p className={`mt-1 truncate text-base font-semibold ${preview?.grossProfit !== null && preview?.grossProfit !== undefined && preview.grossProfit < 0 ? "text-red-700" : "text-emerald-800"}`}>
-              {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : money(preview.grossProfit, currency, locale)}
+              {preview?.grossProfit === null || preview?.grossProfit === undefined ? "—" : displayMoney(preview.grossProfit)}
             </p>
           </div>
           <div className="min-w-0 border-l border-emerald-200 pl-3">

@@ -205,6 +205,16 @@ describe("EstimateCommercialEditor", () => {
     expect(screen.getByRole("combobox", { name: "Коммерческий расчёт: Валюта" })).toBeDisabled();
   });
 
+  it("uses the authoritative rate for display-currency switching on immutable estimates", async () => {
+    const user = userEvent.setup();
+    render(<EstimateCommercialEditor commercialOptions={{ currencies: ["USD", "MDL"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16" }} initialEstimate={{ ...detail, status: "ready" }} services={[]} workflow={{ ...workflow, estimateStatus: "ready" }} />);
+    const selector = screen.getByRole("combobox", { name: "Коммерческий расчёт: Валюта" });
+    expect(selector).toBeEnabled();
+    await user.selectOptions(selector, "MDL");
+    expect(selector).toHaveValue("MDL");
+    expect(within(screen.getByTestId("estimate-summary-profit")).getByText(/350,00/)).toBeInTheDocument();
+  });
+
   it("removes partner-facing rate-age copy and normalizes the materials label", () => {
     render(<EstimateCommercialEditor
       commercialOptions={{ currencies: ["USD"], usdMdlRate: 17.5, rateEffectiveDate: "2026-07-16", rateFreshness: { label: "Коммерческий курс обновлён 165 часов назад.", staleNotice: "stale" } }}
