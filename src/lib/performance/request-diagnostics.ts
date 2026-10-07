@@ -202,7 +202,8 @@ function emitPerformanceEvent(
     databaseDurationMs: round(counters.databaseDurationMs),
     authCalls: counters.authCalls,
     liveProviderCalls: counters.liveProviderCalls,
-    deployedCommitSha: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
+    deployedCommitSha:
+      process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "local",
     environment: request.environment,
     sampleRate: request.sampleRate,
   }));

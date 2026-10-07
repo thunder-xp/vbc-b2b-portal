@@ -15,6 +15,7 @@ type Event = {
   correlationId: string;
   databaseDurationMs: number;
   databaseQueryCount: number;
+  deployedCommitSha: string;
   liveProviderCalls: number;
   routeCategory: string;
   stage: string;
@@ -130,6 +131,24 @@ describe("request diagnostics", () => {
     });
     expect(result).toBe("business-result");
     expect(events()).toHaveLength(0);
+  });
+
+  it("uses explicit deployment commit metadata when Vercel metadata is unavailable", async () => {
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "");
+    vi.stubEnv("GIT_COMMIT_SHA", "task-commit");
+    await withRoutePerformance("orders", async () => undefined);
+    expect(events().find((event) => event.stage === "total_server")?.deployedCommitSha).toBe(
+      "task-commit",
+    );
+  });
+
+  it("prefers Vercel deployment commit metadata when it is available", async () => {
+    vi.stubEnv("VERCEL_GIT_COMMIT_SHA", "vercel-commit");
+    vi.stubEnv("GIT_COMMIT_SHA", "fallback-commit");
+    await withRoutePerformance("orders", async () => undefined);
+    expect(events().find((event) => event.stage === "total_server")?.deployedCommitSha).toBe(
+      "vercel-commit",
+    );
   });
 
   function events(): Event[] {
