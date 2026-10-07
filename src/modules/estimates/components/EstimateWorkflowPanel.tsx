@@ -54,6 +54,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   const [pending, startTransition] = useTransition();
   const [pdfPending, startPdfTransition] = useTransition();
   const proposal = initialWorkflow.versions.find((item) => item.id === initialWorkflow.acceptedVersionId) ?? initialWorkflow.versions[0] ?? null;
+  const cartVersionId = proposal?.status === "accepted" && proposal.id === initialWorkflow.acceptedVersionId ? proposal.id : null;
   const [generatedDocument, setGeneratedDocument] = useState<EstimatePdfReadyDetail | null>(null);
   const pdfStatus = generatedDocument ? "ready" : proposal?.pdfStatus ?? null;
   const pdfDocumentId = generatedDocument?.id ?? proposal?.pdfDocumentId ?? null;
@@ -95,11 +96,10 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     if (result.success) { after?.(); router.refresh(); }
   });
   const openConversion = () => {
-    if (!proposal) return;
     setConversionOpen(true);
     setConversionPreview(null);
     startTransition(async () => {
-      const result = await getEstimateOrderConversionPreviewAction(initialWorkflow.estimateId, proposal.id, revision);
+      const result = await getEstimateOrderConversionPreviewAction(initialWorkflow.estimateId, cartVersionId, revision);
       if (!result.success) {
         setConversionOpen(false);
         return setMessage(result.message || copy.operationFailed);
@@ -109,9 +109,9 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
     });
   };
   const addToCart = () => startTransition(async () => {
-    if (!proposal || !conversionPreview) return;
+    if (!conversionPreview) return;
     const requestKey = crypto.randomUUID();
-    const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, proposal.id, conversionPreview.estimateRevision, requestKey);
+    const result = await addEstimateEquipmentToCartAction(initialWorkflow.estimateId, conversionPreview.versionId, conversionPreview.estimateRevision, requestKey);
     if (!result.success) return setMessage(result.message || copy.operationFailed);
     setMessage(null);
     setConversionResult(result.data);
@@ -160,7 +160,7 @@ export function EstimateWorkflowPanel({ initialWorkflow, revision, initialPropos
   return <section className="mt-4 border-t border-zinc-200 pt-4" data-draft-readiness-state={draftGuide?.state} data-testid="estimate-guided-workflow" id="estimate-order-conversion">
     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">{copy.actions}</p>
     <div className="mt-3 grid gap-2" data-testid="estimate-sidebar-action-stack">
-      {proposal && initialWorkflow.permissions.canConvert ? <button className={`${primary} w-full`} disabled={pending || unsavedChanges} onClick={openConversion} type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button> : <button className={`${primary} w-full`} disabled type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button>}
+      {initialWorkflow.permissions.canConvert ? <button className={`${primary} w-full`} disabled={pending || unsavedChanges} onClick={openConversion} type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button> : <button className={`${primary} w-full`} disabled type="button"><ShoppingCart className="size-4" />{locale === "ru" ? "В корзину" : "În coș"}</button>}
       <Link className={`${secondary} w-full`} href={proposalPreviewHref ?? `/cabinet/estimates/${initialWorkflow.estimateId}`} prefetch={false}><Eye className="size-4" />{copy.proposalPreview}</Link>
       {proposal && pdfDocumentId && pdfStatus === "ready" ? <Link className={`${secondary} w-full`} href={`/api/estimates/documents/${pdfDocumentId}`}><Download className="size-4" />{copy.downloadPdf}</Link> : <button className={`${secondary} w-full`} disabled={!proposal || pdfPending} onClick={generatePdf} type="button"><Download className="size-4" />{copy.downloadPdf}</button>}
       {proposal && (guided.primaryAction === "send" || guided.secondaryActions.includes("send") || guided.secondaryActions.includes("resend")) ? sendDialog : guided.secondaryActions.includes("mark_sent") && proposal ? <button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => transitionEstimateVersionAction(proposal.id, "sent", "other"))} type="button"><Send className="size-4" />{copy.sentToCustomer}</button> : draftGuide?.primaryAction === "prepare_proposal" ? <div className="w-full" data-testid="estimate-primary-next-action"><button className={`${secondary} w-full`} disabled={pending} onClick={prepareProposal} type="button"><FilePlus2 className="size-4" />{pending ? copy.preparing : copy.prepareProposal}</button></div> : guided.primaryAction === "update" && proposal ? <button className={`${secondary} w-full`} disabled={pending} onClick={() => run(() => createDraftFromEstimateVersionAction(proposal.id))} type="button">{copy.updateProposal}</button> : guided.primaryAction === "continue_order" ? <Link className={`${secondary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.goToCart}</Link> : guided.primaryAction === "resume_checkout" ? <Link className={`${secondary} w-full`} href="/cabinet/cart"><ShoppingCart className="size-4" />{copy.resumeOrder}</Link> : guided.primaryAction === "open_order" && initialWorkflow.lifecycleOrderId ? <Link className={`${secondary} w-full`} href={`/cabinet/orders/${initialWorkflow.lifecycleOrderId}`}>{copy.openOrder}</Link> : null}

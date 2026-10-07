@@ -137,6 +137,41 @@ describe("EstimateLifecycleService", () => {
     }));
   });
 
+  it("uses the persisted archived estimate directly when no immutable proposal exists", async () => {
+    const dependencies = makeDependencies();
+    const archivedEstimate = {
+      ...dependencies.estimate,
+      status: "archived" as const,
+      archivedAt: "2026-10-01T08:00:00Z",
+    };
+    vi.mocked(dependencies.estimates.findAggregateById).mockResolvedValue({
+      ...dependencies.aggregate,
+      estimate: archivedEstimate,
+    });
+
+    const preview = await dependencies.service.getOrderConversionPreview("user-1", "estimate-1", null, 3);
+    const result = await dependencies.service.addEquipmentToCart(
+      "user-1",
+      "estimate-1",
+      null,
+      3,
+      "22222222-2222-2222-2222-222222222222",
+    );
+
+    expect(preview).toMatchObject({ versionId: null, orderableLineCount: 1, estimateRevision: 3 });
+    expect(result).toMatchObject({ cartId: "cart-1" });
+    expect(dependencies.cart.mergeEstimateProducts).toHaveBeenCalledWith("user-1", expect.objectContaining({
+      estimateId: "estimate-1",
+      versionId: null,
+      expectedRevision: 3,
+      lines: [expect.objectContaining({ lineId: "item-0", productId: "product-1", quantity: 2 })],
+    }));
+    expect(dependencies.lifecycle.findVersion).not.toHaveBeenCalled();
+    expect(dependencies.lifecycle.transitionVersion).not.toHaveBeenCalled();
+    expect(dependencies.lifecycle.createVersion).not.toHaveBeenCalled();
+    expect(archivedEstimate.archivedAt).toBe("2026-10-01T08:00:00Z");
+  });
+
   it("builds the accepted-version conversion review server-side with explicit exclusions and differences", async () => {
     const dependencies = makeDependencies();
     const acceptedEstimate = { ...dependencies.estimate, lifecycleStatus: "accepted" as const, acceptedVersionId: "version-1", revision: 5 };

@@ -203,6 +203,29 @@ describe("EstimateWorkflowPanel ergonomics", () => {
     expect(screen.getByTestId("estimate-direct-cart-info")).toHaveTextContent("Архивные и черновики");
   });
 
+  it("opens direct cart review for an archived estimate without creating a proposal version", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    vi.mocked(getEstimateOrderConversionPreviewAction).mockResolvedValue({ success: true, message: "Checked", errorCode: null, data: {
+      estimateId: "estimate-archived", versionId: null, estimateRevision: 7, estimateNumber: "KP-ARCHIVE",
+      customerName: "Customer", projectName: "Site", currencyCode: "MDL", orderableLineCount: 1,
+      orderableUnitCount: 2, excludedLineCount: 0, serviceLineCount: 0, externalLineCount: 0,
+      unavailableLineCount: 0, invalidLineCount: 0, changedPriceCount: 0, stockIssueCount: 0,
+      lines: [{ lineId: "line-1", classification: "ORDERABLE", sku: "SKU-1", name: "Camera", quantity: 2, unit: "pcs", estimateUnitPrice: 100, estimateCurrencyCode: "MDL", currentUnitPrice: 100, currentCurrencyCode: "MDL", priceChanged: false, stockStatus: "FULLY_AVAILABLE", availableQuantity: 8, expectedArrivalDate: null }],
+    } });
+    render(<EstimateWorkflowPanel initialWorkflow={{
+      estimateId: "estimate-archived", estimateStatus: "archived", lifecycleStatus: "draft", acceptedVersionId: null,
+      emailDeliveryAvailable: false, draftReadiness: inactiveDraftReadiness, readiness: { ready: true, checks: [] },
+      guidedState: { state: "draft", primaryAction: null, secondaryActions: ["duplicate"], resumeCartId: null }, permissions: fullPermissions,
+      versions: [],
+    }} revision={7} />);
+
+    await user.click(screen.getByRole("button", { name: "В корзину" }));
+    expect(await screen.findByText("1 товарных позиций · 2 единиц")).toBeInTheDocument();
+    expect(getEstimateOrderConversionPreviewAction).toHaveBeenCalledWith("estimate-archived", null, 7);
+    expect(createEstimateVersionAction).not.toHaveBeenCalled();
+  });
+
   it("acknowledges generation immediately and exposes the ready artifact without an RSC refresh", async () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();

@@ -11,6 +11,10 @@ const revokeSql = readFileSync(join(
   process.cwd(),
   "supabase/migrations/20260926141000_revoke_legacy_estimate_cart_transfer.sql",
 ), "utf8");
+const cartRepository = readFileSync(join(
+  process.cwd(),
+  "src/modules/orders/repositories/supabase/order.supabase-repository.ts",
+), "utf8");
 
 describe("accepted Estimate quote-to-order database boundary", () => {
   it("binds one idempotent cart transfer to the immutable accepted version", () => {
@@ -41,5 +45,11 @@ describe("accepted Estimate quote-to-order database boundary", () => {
     expect(sql).toContain("set search_path = ''");
     expect(revokeSql).toContain("revoke all on function public.transfer_estimate_to_cart_v2(uuid, uuid, jsonb)");
     expect(revokeSql).toContain("from public, anon, authenticated");
+  });
+
+  it("routes accepted snapshots through v3 and live draft/archive estimates through the universal v4 boundary", () => {
+    expect(cartRepository).toContain('input.versionId');
+    expect(cartRepository).toContain('rpc("transfer_accepted_estimate_to_cart_v3"');
+    expect(cartRepository).toContain('rpc("transfer_estimate_to_cart_v4"');
   });
 });

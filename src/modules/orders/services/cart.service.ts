@@ -131,7 +131,7 @@ export interface CartService {
   previewEstimateProducts(userId: string, lines: EstimateToCartSourceLine[]): Promise<EstimateToCartPreviewLine[]>;
   mergeEstimateProducts(userId: string, input: {
     estimateId: string;
-    versionId: string;
+    versionId: string | null;
     expectedRevision: number;
     requestKey: string;
     lines: EstimateToCartSourceLine[];
@@ -444,7 +444,7 @@ export class DefaultCartService implements CartService {
 
   async mergeEstimateProducts(userId: string, input: {
     estimateId: string;
-    versionId: string;
+    versionId: string | null;
     expectedRevision: number;
     requestKey: string;
     lines: EstimateToCartSourceLine[];

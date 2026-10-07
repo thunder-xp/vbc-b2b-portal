@@ -7,6 +7,7 @@ import type { PricingInventoryService } from "../../pricing-inventory/services";
 import { EstimateVersionConflictError, type EstimateLifecycleRepository, type EstimateRepository, type ProposalDeliveryRepository, type RefreshedProductPrice } from "../repositories";
 import type {
   Estimate,
+  EstimateAggregate,
   EstimateCartConversionSummary,
   EstimateOrderConversionLineDto,
   EstimateOrderConversionPreviewDto,
@@ -266,12 +267,15 @@ export class EstimateLifecycleService {
     });
   }
 
-  async getOrderConversionPreview(userId: string, estimateId: string, versionId: string, expectedRevision: number): Promise<EstimateOrderConversionPreviewDto> {
+  async getOrderConversionPreview(userId: string, estimateId: string, versionId: string | null, expectedRevision: number): Promise<EstimateOrderConversionPreviewDto> {
     const source = await this.cartAdmissionSource(userId, estimateId, versionId, expectedRevision);
-    const productLines = versionProductLines(source.version);
+    const productLines = source.version ? versionProductLines(source.version) : aggregateProductLines(source.aggregate!);
     const resolvedProducts = await this.cartService.previewEstimateProducts(userId, productLines);
     const resolvedByLineId = new Map(resolvedProducts.map((line) => [line.lineId, line]));
-    const lines = source.version.snapshot.items.map((item, index): EstimateOrderConversionLineDto => {
+    const sourceItems = source.version
+      ? source.version.snapshot.items
+      : source.aggregate!.items.map(aggregateItemSnapshot);
+    const lines = sourceItems.map((item, index): EstimateOrderConversionLineDto => {
       const lineId = textValue(item.id) ?? `snapshot-line-${index + 1}`;
       const lineType = textValue(item.line_type);
       const quantity = numberValue(item.quantity) ?? 0;
@@ -309,12 +313,12 @@ export class EstimateLifecycleService {
     const orderable = lines.filter((line) => line.classification === "ORDERABLE");
     return {
       estimateId: source.estimate.id,
-      versionId: source.version.id,
+      versionId: source.version?.id ?? null,
       estimateRevision: source.estimate.revision,
-      estimateNumber: source.version.estimateNumber,
-      customerName: textValue(source.version.snapshot.estimate.customer_name) ?? source.estimate.customerName,
-      projectName: textValue(source.version.snapshot.estimate.project_name) ?? source.estimate.projectName,
-      currencyCode: source.version.currencyCode,
+      estimateNumber: source.version?.estimateNumber ?? source.estimate.estimateNumber,
+      customerName: source.version ? textValue(source.version.snapshot.estimate.customer_name) ?? source.estimate.customerName : source.estimate.customerName,
+      projectName: source.version ? textValue(source.version.snapshot.estimate.project_name) ?? source.estimate.projectName : source.estimate.projectName,
+      currencyCode: source.version?.currencyCode ?? source.estimate.currencyCode,
       orderableLineCount: orderable.length,
       orderableUnitCount: orderable.reduce((sum, line) => sum + line.quantity, 0),
       excludedLineCount: lines.length - orderable.length,
@@ -328,34 +332,41 @@ export class EstimateLifecycleService {
     };
   }
 
-  async addEquipmentToCart(userId: string, estimateId: string, versionId: string, expectedRevision: number, requestKey: string): Promise<EstimateCartConversionSummary> {
+  async addEquipmentToCart(userId: string, estimateId: string, versionId: string | null, expectedRevision: number, requestKey: string): Promise<EstimateCartConversionSummary> {
     const source = await this.cartAdmissionSource(userId, estimateId, versionId, expectedRevision);
-    const lines = versionProductLines(source.version);
-    if (!lines.length) throw new InvalidStateError("В принятом КП нет товарных позиций для заказа.");
+    const lines = source.version ? versionProductLines(source.version) : aggregateProductLines(source.aggregate!);
+    if (!lines.length) throw new InvalidStateError("В смете нет товарных позиций для заказа.");
     const result = await this.cartService.mergeEstimateProducts(userId, {
-      estimateId: source.estimate.id, versionId: source.version.id, expectedRevision: source.estimate.revision,
+      estimateId: source.estimate.id, versionId: source.version?.id ?? null, expectedRevision: source.estimate.revision,
       requestKey: normalizeUuid(requestKey), lines,
     });
-    console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, versionId: source.version.id, ...result });
+    console.info({ event: "estimate_equipment_added_to_cart", estimateId: source.estimate.id, versionId: source.version?.id ?? null, ...result });
     return result;
   }
 
-  private async cartAdmissionSource(userId: string, estimateId: string, versionId: string, expectedRevision: number) {
+  private async cartAdmissionSource(userId: string, estimateId: string, versionId: string | null, expectedRevision: number) {
     const companyId = await this.resolveCompany(userId, CONVERT_PERMISSION);
     const normalizedEstimateId = normalizeId(estimateId);
-    const normalizedVersionId = normalizeId(versionId);
     const revision = normalizeRevision(expectedRevision);
-    const [estimate, version] = await Promise.all([
-      this.estimateRepository.findById(normalizedEstimateId),
-      this.lifecycleRepository.findVersion(normalizedVersionId),
-    ]);
-    if (!estimate || estimate.companyId !== companyId || !version || version.companyId !== companyId || version.estimateId !== estimate.id) {
+    const [estimateRecord, aggregate, version] = versionId
+      ? await Promise.all([
+          this.estimateRepository.findById(normalizedEstimateId),
+          Promise.resolve(null),
+          this.lifecycleRepository.findVersion(normalizeId(versionId)),
+        ])
+      : await Promise.all([
+          Promise.resolve(null),
+          this.estimateRepository.findAggregateById(normalizedEstimateId),
+          Promise.resolve(null),
+        ]);
+    const estimate = estimateRecord ?? aggregate?.estimate ?? null;
+    if (!estimate || estimate.companyId !== companyId || (version && (version.companyId !== companyId || version.estimateId !== estimate.id)) || (versionId && !version)) {
       throw new NotFoundError("Смета не найдена.");
     }
     if (estimate.revision !== revision) {
       throw new InvalidStateError("КП изменилось. Обновите страницу и проверьте состав заказа ещё раз.");
     }
-    return { estimate, version };
+    return { aggregate, estimate, version };
   }
 
   private async readiness(userId: string, estimateId: string) {
@@ -483,6 +494,45 @@ function versionProductLines(version: EstimateVersion): Array<{
       productNameSnapshot: textValue(item.product_name_snapshot),
     }]
     : []);
+}
+
+function aggregateProductLines(aggregate: EstimateAggregate): Array<{
+  lineId: string;
+  productId: string;
+  quantity: number;
+  snapshotPartnerPrice: number | null;
+  snapshotCurrencyCode: string | null;
+  skuSnapshot: string | null;
+  productNameSnapshot: string | null;
+}> {
+  return aggregate.items.flatMap((item) => item.lineType === "product"
+    && item.productId
+    && Number.isInteger(item.quantity)
+    ? [{
+      lineId: item.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      snapshotPartnerPrice: item.sourceUnitPrice,
+      snapshotCurrencyCode: item.sourceCurrencyCode,
+      skuSnapshot: item.skuSnapshot,
+      productNameSnapshot: item.productNameSnapshot,
+    }]
+    : []);
+}
+
+function aggregateItemSnapshot(item: EstimateAggregate["items"][number]): Record<string, unknown> {
+  return {
+    id: item.id,
+    line_type: item.lineType,
+    product_id: item.productId,
+    quantity: item.quantity,
+    unit: item.unit,
+    source_unit_price: item.sourceUnitPrice,
+    source_currency_code: item.sourceCurrencyCode,
+    sku_snapshot: item.skuSnapshot,
+    product_name_snapshot: item.productNameSnapshot,
+    description: item.description,
+  };
 }
 
 function excludedLine(

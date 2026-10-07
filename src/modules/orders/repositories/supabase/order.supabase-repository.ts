@@ -93,12 +93,7 @@ export class SupabaseCartRepository implements CartRepository {
   }
 
   async mergeEstimateProducts(input: Parameters<CartRepository["mergeEstimateProducts"]>[0]) {
-    const { data, error } = await (await createClient()).rpc("transfer_accepted_estimate_to_cart_v3", {
-      target_estimate_id: input.estimateId,
-      target_version_id: input.versionId,
-      expected_estimate_revision: input.expectedRevision,
-      target_request_key: input.requestKey,
-      target_items: input.items.map((item) => ({
+    const targetItems = input.items.map((item) => ({
         line_id: item.lineId,
         product_id: item.productId,
         requested_quantity: item.quantity,
@@ -106,8 +101,22 @@ export class SupabaseCartRepository implements CartRepository {
         currency_code: item.currencyCode,
         available_quantity: item.availableQuantity,
         stock_status: item.stockStatus,
-      })),
-    });
+      }));
+    const client = await createClient();
+    const { data, error } = input.versionId
+      ? await client.rpc("transfer_accepted_estimate_to_cart_v3", {
+          target_estimate_id: input.estimateId,
+          target_version_id: input.versionId,
+          expected_estimate_revision: input.expectedRevision,
+          target_request_key: input.requestKey,
+          target_items: targetItems,
+        })
+      : await client.rpc("transfer_estimate_to_cart_v4", {
+          target_estimate_id: input.estimateId,
+          expected_estimate_revision: input.expectedRevision,
+          target_request_key: input.requestKey,
+          target_items: targetItems,
+        });
     if (error || !isRecord(data)) throw new OrderRepositoryError(error?.code ?? null, error?.message ?? null);
     return {
       cartId: text(data.cartId),
