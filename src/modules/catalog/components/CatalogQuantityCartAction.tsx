@@ -55,6 +55,7 @@ export function CatalogQuantityCartAction({
             setFeedback(null);
           }}
           step={1}
+          style={{ height: 44, minHeight: 44 }}
           type="number"
           value={quantityInput}
         />
