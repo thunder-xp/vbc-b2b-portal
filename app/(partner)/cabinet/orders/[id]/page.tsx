@@ -1,3 +1,4 @@
+import { ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -9,7 +10,6 @@ import { ProductLineThumbnail } from "@/src/modules/catalog/components";
 import { OrderReconciliationStatus } from "@/src/modules/orders/components/OrderReconciliationStatus";
 import {
   formatPartnerDate,
-  formatPartnerRelativeAge,
   getOrdersCopy,
   orderEventLabel,
   orderStatusLabel,
@@ -23,16 +23,13 @@ type OrderDetailPageProps = {
 
 export default async function OrderDetailPage({
   params,
-  searchParams,
 }: OrderDetailPageProps) {
-  const [resolvedParams, resolvedSearchParams, locale] = await Promise.all([
+  const [resolvedParams, locale] = await Promise.all([
     params,
-    searchParams,
     getPartnerLocale(),
   ]);
   const { id } = resolvedParams;
   const copy = getOrdersCopy(locale);
-  const submitted = resolvedSearchParams?.submitted === "1";
   const result = await getPartnerOrderHistoryAction(id);
   if (!result.success) {
     if (result.errorCode === "NOT_FOUND") notFound();
@@ -44,10 +41,9 @@ export default async function OrderDetailPage({
   }
   const order = result.data;
   const portalSubmissionState = order.portalSubmissionState;
-  const showAccepted = (submitted || !order.posted)
-    && (!portalSubmissionState || portalSubmissionState === "confirmed_created");
   const portalAttemptUnresolved = portalSubmissionState
     && portalSubmissionState !== "confirmed_created";
+  const showComposition = order.originType !== "partner_platform" || portalAttemptUnresolved;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -67,44 +63,19 @@ export default async function OrderDetailPage({
           surface="order"
         />
       ) : null}
-      {showAccepted ? (
-        <div
-          className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-emerald-950"
-          role="status"
-        >
-          <h1 className="text-lg font-semibold">{copy.accepted}</h1>
-          <p className="mt-1 text-sm">{copy.acceptedMessage}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              className="text-sm font-semibold text-emerald-800 underline underline-offset-4"
-              href="/cabinet/orders"
-              prefetch={false}
-            >
-              {copy.allOrders}
-            </Link>
-            <Link
-              className="text-sm font-semibold text-emerald-800 underline underline-offset-4"
-              href="/cabinet/catalog"
-              prefetch={false}
-            >
-              {copy.backCatalog}
-            </Link>
+      <section>
+        <h1 className="text-2xl font-semibold">{order.primaryLabel}</h1>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-3 rounded-md bg-zinc-50 px-4 py-3" data-testid="order-status-total-row">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">{copy.status}</p>
+            <p className="mt-1 text-sm font-semibold text-zinc-800">{orderStatusLabel(order.statusCode, copy)}</p>
           </div>
+          {order.documentTotal ? <div className="text-right">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-zinc-500">{copy.total}</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-zinc-950">{order.documentTotal}</p>
+          </div> : null}
         </div>
-      ) : null}
-
-      <section className="border-b border-zinc-200 pb-6">
-        <p className="text-xs font-semibold uppercase text-emerald-700">{copy.partnerOrder}</p>
-        <h2 className="mt-1 text-2xl font-semibold">{order.primaryLabel}</h2>
-        <p className="mt-2 text-sm font-medium text-zinc-700">
-          {orderStatusLabel(order.statusCode, copy)}
-        </p>
-        <p className="mt-1 text-xs text-zinc-500">
-          {order.freshness.updatedAt
-            ? `${copy.updated} ${formatPartnerRelativeAge(order.freshness.updatedAt, locale)}`
-            : copy.updateTimeUnknown}
-        </p>
-        <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-4 grid gap-4 sm:grid-cols-3">
           <Metric label={copy.company} value={order.companyName} />
           <Metric label={copy.orderDate} value={formatDate(order.documentDate, locale)} />
           <Metric
@@ -113,32 +84,26 @@ export default async function OrderDetailPage({
               order.deliveryDate ? formatDate(order.deliveryDate, locale) : copy.notSpecified
             }
           />
-          {order.documentTotal ? (
-            <Metric label={copy.total} value={order.documentTotal} />
-          ) : null}
         </dl>
         {!portalAttemptUnresolved ? (
         <div className="mt-5 flex flex-wrap gap-2">
           <Link
-            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2"
             href={order.posted && order.statusCode === "completed"
               ? `/cabinet/quick-order?repeatOrder=${encodeURIComponent(order.id)}`
               : `/cabinet/orders/${order.id}/reorder`}
             prefetch={false}
           >
-            {copy.buyAgain}
+            <ShoppingCart aria-hidden="true" className="size-4" />
+            {copy.cart}
           </Link>
           <SaveAsPurchasingListButton orderId={order.id} source="order" />
         </div>
         ) : null}
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold">
-          {portalAttemptUnresolved
-            ? copy.preservedCartComposition
-            : copy.currentOneCComposition}
-        </h2>
+      {showComposition ? <section>
+        <h2 className="text-lg font-semibold">{portalAttemptUnresolved ? copy.preservedCartComposition : copy.composition}</h2>
         <div className="mt-3 overflow-hidden rounded-md border border-zinc-200 bg-white">
           <ul className="divide-y divide-zinc-200">
             {order.lines.map((line, index) => (
@@ -200,73 +165,7 @@ export default async function OrderDetailPage({
             ))}
           </ul>
         </div>
-      </section>
-
-      {order.portalSnapshot ? (
-        <section className="border-t border-zinc-200 pt-6">
-          <h2 className="text-lg font-semibold">{copy.submittedComposition}</h2>
-          <p className="mt-1 text-sm text-zinc-500">{copy.submittedPricesNote}</p>
-          <ul className="mt-3 divide-y divide-zinc-200 border border-zinc-200 bg-white">
-            {order.portalSnapshot.lines.map((line, index) => (
-              <li
-                className="grid gap-3 p-3 sm:grid-cols-[3rem_minmax(0,1fr)_auto] sm:items-center"
-                key={`${line.sku}-${index}`}
-              >
-                {line.product ? (
-                  <Link
-                    aria-label={`${copy.openProduct} ${line.productName}`}
-                    className="rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-                    href={`/cabinet/catalog/${line.product.slug}`}
-                    prefetch={false}
-                  >
-                    <ProductLineThumbnail
-                      imageUrl={line.product.thumbnail}
-                      productName={line.productName}
-                      size="compact"
-                    />
-                  </Link>
-                ) : (
-                  <ProductLineThumbnail
-                    imageUrl={null}
-                    productName={line.productName}
-                    size="compact"
-                  />
-                )}
-                <div>
-                  {line.product ? (
-                    <Link
-                      className="font-medium text-zinc-950 hover:text-emerald-700"
-                      href={`/cabinet/catalog/${line.product.slug}`}
-                      prefetch={false}
-                    >
-                      {line.productName}
-                    </Link>
-                  ) : (
-                    <p className="font-medium text-zinc-950">
-                      {line.productName}
-                    </p>
-                  )}
-                  <p className="text-xs text-zinc-500">
-                    {line.sku} · {line.quantity} {copy.units}
-                  </p>
-                </div>
-                <p className="text-sm font-semibold text-zinc-950">
-                  {line.lineTotal ?? "—"}
-                </p>
-              </li>
-            ))}
-          </ul>
-          {order.portalSnapshot.total ? (
-            <p className="mt-3 font-semibold">
-              {copy.total}: {order.portalSnapshot.total}
-            </p>
-          ) : (
-            <p className="mt-3 text-sm text-zinc-600">
-              {copy.accessHidden}
-            </p>
-          )}
-        </section>
-      ) : null}
+      </section> : null}
 
       {!portalAttemptUnresolved ? (
         <RelatedDocuments

@@ -77,6 +77,7 @@ export type PartnerOrderHistorySummaryDto = {
 export type PartnerOrderHistoryDetailDto = PartnerOrderHistorySummaryDto & {
   portalSubmissionState?: PartnerOrderReconciliationStateDto["state"];
   companyName: string;
+  originType: import("../types").PartnerOrderOrigin;
   originLabel: string | null;
   lines: Array<{
     product: ProductReferenceDto | null;
@@ -379,6 +380,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
       return {
         ...toSummary(aggregate.order, aggregate.canViewPartnerPrice),
         companyName: aggregate.companyName,
+        originType: aggregate.order.originType,
         originLabel: aggregate.order.originType === "partner_platform"
           ? null
           : "Заказ из истории Novotech",
@@ -444,6 +446,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
     return {
       ...toSummary(order, canViewPartnerPrice),
       companyName: context.company.displayName,
+      originType: order.originType,
       originLabel: order.originType === "partner_platform" ? null : "Заказ из истории Novotech",
       lines: lineInputs.map(({ productId, ...line }) => ({
         ...line,
@@ -526,6 +529,7 @@ export class DefaultPartnerOrderHistoryService implements PartnerOrderHistorySer
         "Подтверждено",
       ),
       companyName,
+      originType: "partner_platform",
       originLabel: null,
       portalSubmissionState,
       lines,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -78,6 +78,27 @@ describe("LiveCommerceSelectionProvider", () => {
     expect(screen.getByTestId("live-selection-bar")).toHaveClass("bottom-[max(0.75rem,env(safe-area-inset-bottom))]");
     await user.click(screen.getByRole("button", { name: "Открыть" }));
     expect(await screen.findByRole("link", { name: "Создать КП" })).toHaveAttribute("href", "/cabinet/estimates/new?source=selection");
+  });
+
+  it("uses the governed drawer action hierarchy, readable quantity, and destructive clear treatment", async () => {
+    const user = userEvent.setup();
+    render(<Workspace />);
+    await user.click(screen.getByRole("button", { name: "Add camera" }));
+    await user.click(screen.getByRole("button", { name: "Открыть" }));
+
+    const panel = await screen.findByTestId("live-selection-panel");
+    const quantity = within(panel).getByRole("spinbutton", { name: `Количество: ${product.name}` });
+    const close = within(panel).getByRole("button", { name: "Закрыть подборку" });
+    const clear = within(panel).getByRole("button", { name: "Очистить подборку" });
+    const actions = [...panel.querySelectorAll("footer button, footer a")].map((element) => element.textContent?.trim());
+
+    expect(quantity).toHaveClass("bg-white", "text-zinc-950", "focus:text-zinc-950");
+    expect(close).toHaveClass("hover:bg-zinc-100", "focus-visible:ring-2");
+    expect(actions.slice(0, 4)).toEqual(["В корзину", "Создать КП", "Сохранить комплект", "Очистить подборку"]);
+    expect(within(panel).getByRole("button", { name: "В корзину" })).toHaveClass("bg-emerald-700");
+    expect(within(panel).getByRole("link", { name: "Создать КП" })).toHaveClass("border-zinc-300", "bg-white");
+    expect(clear).toHaveClass("text-red-700", "hover:bg-red-50");
+    expect(clear.querySelector(".lucide-trash-2")).not.toBeNull();
   });
 
   it("hides the overlay without clearing and reopens it from local Quick Actions state", async () => {

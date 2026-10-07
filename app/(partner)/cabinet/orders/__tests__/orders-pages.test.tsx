@@ -141,6 +141,7 @@ describe("partner order history pages", () => {
       data: {
         ...summary,
         companyName: "ALERT-SS SRL",
+        originType: "internal_1c",
         originLabel: "Заказ из истории Novotech",
         lines: [{ productName: "Camera", sku: "400691", quantity: 2, unitPrice: "500,00 MDL", lineTotal: "1 000,00 MDL" }],
         timeline: [{ label: "Импортирован из истории 1С", occurredAt: "2026-07-15T10:01:00Z" }],
@@ -158,7 +159,12 @@ describe("partner order history pages", () => {
     expect(screen.getByText("Camera")).toBeInTheDocument();
     expect(screen.queryByText("Снимок при отправке из платформы")).not.toBeInTheDocument();
     expect(screen.getByText("Планируемая отгрузка")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Купить снова" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
+    expect(screen.getByTestId("order-status-total-row")).toHaveTextContent("Итого");
+    expect(screen.getByTestId("order-status-total-row")).toHaveTextContent("1 000,00 MDL");
+    expect(screen.getByRole("heading", { name: "Состав" })).toBeInTheDocument();
+    expect(screen.queryByText("Текущий состав в 1С")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Корзина" })).toHaveAttribute("href", `/cabinet/orders/${summary.id}/reorder`);
+    expect(screen.getByRole("link", { name: "Корзина" }).querySelector(".lucide-shopping-cart")).not.toBeNull();
   });
 
   it("renders a confirmed-not-created attempt as a preserved-cart recovery state", async () => {
@@ -173,6 +179,7 @@ describe("partner order history pages", () => {
         posted: false,
         portalSubmissionState: "confirmed_not_created",
         companyName: "IACUBOI VASILE",
+        originType: "partner_platform",
         originLabel: null,
         lines: [{ productName: "Camera", sku: "400691", quantity: 4, unitPrice: "500,00 MDL", lineTotal: "2 000,00 MDL" }],
         timeline: [],
@@ -202,6 +209,7 @@ describe("partner order history pages", () => {
         ...summary,
         statusCode: "completed",
         companyName: "ALERT-SS SRL",
+        originType: "partner_platform",
         originLabel: null,
         lines: [],
         timeline: [],
@@ -212,10 +220,12 @@ describe("partner order history pages", () => {
 
     render(await OrderDetailPage({ params: Promise.resolve({ id: summary.id }) }));
 
-    expect(screen.getByRole("link", { name: "Купить снова" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Корзина" })).toHaveAttribute(
       "href",
       `/cabinet/quick-order?repeatOrder=${summary.id}`,
     );
+    expect(screen.queryByRole("heading", { name: "Состав" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Состав при отправке из платформы")).not.toBeInTheDocument();
   });
 
   it("returns safe not-found behavior for an inaccessible deleted order", async () => {
