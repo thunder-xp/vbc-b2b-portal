@@ -1,3 +1,5 @@
+import { CampaignCountdown } from "./CampaignCountdown";
+import { CampaignCommercialSummary } from "./CampaignCommercialSummary";
 import { CalendarClock, PackageCheck, Truck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -26,6 +28,9 @@ export function CampaignCard({
   const arriving = campaign.products.filter(
     (product) => product.expectedArrivalDate,
   ).length;
+  const featuredProduct = campaign.mechanicType === "legacy_promo"
+    ? campaign.products.find((product) => product.commercialSummary)
+    : undefined;
   return (
     <article className="grid min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-sm sm:grid-cols-[11rem_1fr]">
       <div className="relative aspect-[16/9] bg-zinc-100 p-3 sm:aspect-auto sm:min-h-48">
@@ -74,7 +79,17 @@ export function CampaignCard({
             </span>
           ) : null}
         </div>
-        {campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} locale={locale} /> : null}
+        {campaign.timeState === "ACTIVE" ? <CampaignCountdown remainingSeconds={campaign.remainingSeconds ?? 0} locale={locale} compact /> : null}
+        <p className="mt-2 text-xs text-zinc-600">{campaign.mechanicType === "bundle_special_price" ? locale === "ro" ? "Set la preț special" : "Набор по спеццене" : campaign.mechanicType === "legacy_promo" ? "PROMO" : campaign.mechanicType === "fixed_bundle_promo" ? locale === "ro" ? "Set → PROMO" : "Комплект → PROMO" : campaign.mechanicType === "quantity_threshold_promo" ? locale === "ro" ? "Cantitate → PROMO" : "Количество → PROMO" : campaign.mechanicType === "conditional_attach_promo" ? locale === "ro" ? "Cumpără X → PROMO pentru Y" : "Купи X → PROMO на Y" : locale === "ro" ? "Sumă → PROMO" : "Сумма закупки → PROMO"}</p>
+        {campaign.commercialSummary ? <><p className="my-2 text-xs">{campaign.commercialSummary.skuCount} SKU · {campaign.commercialSummary.totalUnits} {locale === "ro" ? "buc." : "шт."}</p><CampaignCommercialSummary summary={campaign.commercialSummary} locale={locale} /></> : null}
+        {featuredProduct?.commercialSummary ? (
+          <div className="mt-4 rounded-md border border-zinc-200 p-3" data-testid="campaign-featured-product">
+            <p className="text-sm font-semibold text-zinc-900">{featuredProduct.name}</p>
+            <p className="mb-3 text-xs text-zinc-600">SKU {featuredProduct.sku}</p>
+            <CampaignCommercialSummary summary={featuredProduct.commercialSummary} locale={locale} />
+          </div>
+        ) : null}
+        {campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} mechanicType={campaign.mechanicType} locale={locale} /> : null}
         {campaign.attachProgress ? <CampaignAttachProgress progress={campaign.attachProgress} locale={locale} /> : null}
         {campaign.spendProgress ? <CampaignSpendProgress progress={campaign.spendProgress} locale={locale} /> : null}
         <Link

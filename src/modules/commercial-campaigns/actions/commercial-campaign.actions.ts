@@ -55,6 +55,12 @@ export async function recordCampaignEngagementAction(input: { campaignId: string
   } catch { /* Measurement never blocks the partner flow. */ }
 }
 
+export async function previewCampaignBundleAction(input: CampaignDraftInput, companyId: string): Promise<CampaignActionResult<import("../types").CampaignCommercialSummary | null>> {
+  await requireAnyAdminPermission(["campaigns.create", "campaigns.edit"]);
+  try { return campaignSuccess(await createCommercialCampaignService().previewBundle(input, companyId), "Предпросмотр рассчитан."); }
+  catch (error) { return fail(error, "Проверьте состав, цены и компанию предпросмотра.", "campaign_preview_failed"); }
+}
+
 export async function createCampaignDraftAction(input: CampaignDraftInput): Promise<CampaignActionResult<{ id: string }>> {
   await requireAdminPermission("campaigns.create");
   try {

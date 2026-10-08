@@ -3,7 +3,7 @@ import type { ProductPrice } from "./price";
 /** Source-price provenance; settlement/FX evidence uses the existing order columns. */
 export type EffectivePriceEvidence = {
   commercialSource?: "STANDARD" | "CAMPAIGN";
-  priceSource: "PARTNER" | "CAMPAIGN_PROMO";
+  priceSource: "PARTNER" | "CAMPAIGN_PROMO" | "CAMPAIGN_SPECIAL_PRICE";
   priceTypeRef: string;
   priceId: string;
   sourceAmount: number;

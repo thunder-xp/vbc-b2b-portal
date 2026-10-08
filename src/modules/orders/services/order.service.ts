@@ -447,7 +447,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       return !updatedAt || isStale(updatedAt, "price");
     });
     const staleProductIds = [...new Set(staleCartItems.map((item) => item.productId))];
-    if (staleCartItems.some((item) => (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO")) {
+    if (staleCartItems.some((item) => (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.effectivePriceEvidence?.priceSource?.startsWith("CAMPAIGN_"))) {
       // Existing targeted refresh is scoped to the contract profile, not PROMO.
       // Fail closed rather than refreshing a different profile or accepting stale PROMO.
       throw new RecoverableOrderSubmissionError("The governed PROMO price must be refreshed before checkout.", "ORDER_PRICE_STALE");
@@ -674,8 +674,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           { cartId: cart.id, companyId: company.id, productId: item.productId, sku: identity.sku, product1cRef: identity.external1cId, submissionKey },
         );
       }
-      const expectedSourceCurrency = view?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO"
-        ? "USD" : resolvedCheckout.contract.publishedPriceCurrencyCode;
+      const expectedSourceCurrency = view?.effectivePriceEvidence?.priceSource === "CAMPAIGN_SPECIAL_PRICE"
+        ? view.effectivePriceEvidence.sourceCurrency
+        : view?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO" ? "USD" : resolvedCheckout.contract.publishedPriceCurrencyCode;
       if (sourcePrice.currencyCode !== expectedSourceCurrency) {
         failOrderSubmission(
           "price_type_currency_resolution",
