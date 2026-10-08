@@ -11,6 +11,7 @@ import type { ExternalNomenclatureRecord } from "../repositories";
 import type { EstimateProductPickerDto } from "../services/estimate.service";
 import { GENERATOR_SECTIONS, type GeneratorRequirement, type GeneratorResolutionKind } from "../services/proposal-generator";
 import { NomenclatureCover } from "./NomenclatureCover";
+import { getProposalGuidedCopy } from "../../partner-locale/proposal-guided-copy";
 
 type CatalogResult = EstimateProductPickerDto["products"][number];
 type LineState = "automatic" | "manual" | "required" | "incompatible";
@@ -23,22 +24,31 @@ export function ProposalGeneratorReview({ requirements, currencyCode, incompatib
   const locale = usePartnerLocale();
   const copy = getProposalGeneratorCopy(locale);
   const catalogCopy = getCatalogCopy(locale);
+  const guidedCopy = getProposalGuidedCopy(locale);
   const grouped = useMemo(() => new Map(GENERATOR_SECTIONS.map((section) => [section.key, requirements.filter((item) => item.sectionKey === section.key)])), [requirements]);
   const incompatible = useMemo(() => new Set(incompatibleLineIds), [incompatibleLineIds]);
   const patch = (id: string, value: Partial<GeneratorRequirement>) => onChange(requirements.map((item) => item.id === id ? { ...item, ...value } : item));
   return <div className="space-y-4">{GENERATOR_SECTIONS.map((section) => {
     const lines = grouped.get(section.key) ?? [];
     const subtotal = sectionTotal(lines, currencyCode);
+    const groups = section.key === "equipment" && lines.some((line) => line.id.startsWith("cctv-"))
+      ? [
+        { label: guidedCopy.cameras, lines: lines.filter((line) => line.id === "cctv-indoor" || line.id === "cctv-outdoor") },
+        { label: copy.recorder, lines: lines.filter((line) => line.id === "cctv-nvr") },
+        { label: copy.archive, lines: lines.filter((line) => line.id.startsWith("cctv-storage")) },
+        { label: guidedCopy.network, lines: lines.filter((line) => line.id !== "cctv-indoor" && line.id !== "cctv-outdoor" && line.id !== "cctv-nvr" && !line.id.startsWith("cctv-storage")) },
+      ].filter((group) => group.lines.length)
+      : [{ label: "", lines }];
     return <section className="overflow-hidden rounded-md border border-zinc-200 bg-white" key={section.key}>
       <header className="flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3">
         <div><h2 className="font-semibold">{sectionLabel(section.key, copy)}</h2><p className="mt-0.5 text-xs text-zinc-500">{lines.length} {copy.positions}</p></div>
         {subtotal > 0 && <p className="text-sm font-semibold">{subtotal.toFixed(2)} {currencyCode}</p>}
       </header>
-      <div className="divide-y divide-zinc-100">{lines.length ? lines.map((line) => <GeneratorLine
+      <div className="divide-y divide-zinc-100">{lines.length ? groups.map((group) => <div key={group.label}>{group.label && <h3 className="border-y border-zinc-100 bg-zinc-50/60 px-4 py-2 text-sm font-semibold">{group.label}</h3>}{group.lines.map((line) => <GeneratorLine
         catalogCopy={catalogCopy} copy={copy} currencyCode={currencyCode} key={line.id} line={line} onChange={(value) => patch(line.id, value)}
         onRemove={() => onChange(requirements.filter((item) => item.id !== line.id))}
         state={incompatible.has(line.id) ? "incompatible" : lineState(line)}
-      />) : <p className="px-4 py-4 text-sm text-zinc-500">{copy.noPositions}</p>}</div>
+      />)}</div>) : <p className="px-4 py-4 text-sm text-zinc-500">{copy.noPositions}</p>}</div>
       {subtotal > 0 && <footer className="border-t border-zinc-200 px-4 py-3 text-right text-sm font-semibold">{copy.subtotalFor} {sectionLabel(section.key, copy).toLocaleLowerCase(locale === "ro" ? "ro-RO" : "ru-RU")}: {subtotal.toFixed(2)} {currencyCode}</footer>}
     </section>;
   })}</div>;

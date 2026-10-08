@@ -6,6 +6,17 @@ import { failureFromError, invalidInput, success } from "../../access-control/ac
 import { requireAdminPermission } from "../../admin/services";
 import type { CctvCalculatorInput, GeneratorRequirement } from "../services";
 import { createProposalGeneratorService, getAuthenticatedUserId } from "./service-factory";
+import { guidedZoneFacts, translateGuidedZones, type GuidedProgress, type GuidedZoneRequirements } from "../services/proposal-guided-zones";
+
+export async function recordProposalGuidedProgressAction(input: GuidedProgress) {
+  try { await createProposalGeneratorService().recordGuidedProgress(await getAuthenticatedUserId(), input); return success("", null); }
+  catch (error) { return failureFromError(error); }
+}
+
+export async function reviewProposalCctvAction(input: { parameters: CctvCalculatorInput; requirements: GeneratorRequirement[] }) {
+  try { return success("", await createProposalGeneratorService().reviewCctv(await getAuthenticatedUserId(), input)); }
+  catch (error) { return failureFromError(error); }
+}
 
 export async function generateProposalDraftAction(input: { requirement: string; requestKey: string }) {
   if (input.requirement.trim().length < 10) return invalidInput("Опишите задачу подробнее.");
@@ -18,10 +29,12 @@ export async function generateProposalDraftAction(input: { requirement: string; 
   }
 }
 
-export async function calculateQuickProposalAction(input: { parameters: CctvCalculatorInput; currencyCode: string; requestKey: string }) {
+export async function calculateQuickProposalAction(input: ({ parameters: CctvCalculatorInput; guided?: never } | { guided: GuidedZoneRequirements; parameters?: never }) & { currencyCode: string; requestKey: string }) {
   try {
     const userId = await getAuthenticatedUserId();
-    return success("Ориентировочный расчёт сформирован. Проверьте позиции и соответствия.", await createProposalGeneratorService().calculateCctv(userId, input));
+    const parameters = input.guided ? translateGuidedZones(input.guided) : input.parameters;
+    const guidedFacts = input.guided ? guidedZoneFacts(input.guided) : undefined;
+    return success("Ориентировочный расчёт сформирован. Проверьте позиции и соответствия.", await createProposalGeneratorService().calculateCctv(userId, { parameters, guidedFacts, currencyCode: input.currencyCode, requestKey: input.requestKey }));
   } catch (error) {
     console.error({ event: "estimate_generator_quick_calculation_failed", errorName: error instanceof Error ? error.name : typeof error });
     return failureFromError(error);
