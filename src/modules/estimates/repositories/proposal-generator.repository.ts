@@ -1,5 +1,6 @@
 import type { AddEstimateLineInput, ExternalNomenclatureRecord } from "./estimate.repository";
 import type { EstimateSectionSystemKey } from "../types";
+import type { GuidedProgress } from "../services/proposal-guided-zones";
 type GeneratorResolutionKind = "unresolved" | "catalog" | "service" | "own_nomenclature" | "shared_nomenclature";
 
 export type GeneratorServiceRecord = {
@@ -86,6 +87,7 @@ export type GeneratorAdminReport = {
 };
 
 export interface ProposalGeneratorRepository {
+  recordGuidedProgress(input: GuidedProgress & { companyId: string }): Promise<void>;
   recordSession(input: {
     companyId: string; requestKey: string; fingerprint: string; requirementCount: number; durationMs: number; failed?: boolean;
     generationMode?: "description" | "quick_calculation"; structuredFacts?: {

@@ -13,6 +13,8 @@ import type { EstimateSectionSystemKey } from "../types";
 import { convertMoney, resolveCurrencyRate } from "./commercial-calculation";
 import { countGeneratorResolutions, generateRequirements, type GeneratorRequirement } from "./proposal-generator";
 import { calculateCctvConfiguration, CCTV_CALCULATOR_PROFILE_KEYS, cctvInputFingerprintPayload, type CctvCalculatorInput, type CctvConfigurationSummary } from "./proposal-generator-calculator";
+import type { guidedZoneFacts, GuidedProgress } from "./proposal-guided-zones";
+import { reviewCctvRequirements } from "./proposal-generator-review";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -58,12 +60,12 @@ export class ProposalGeneratorService {
     return { sessionId, fingerprint, requirements };
   }
 
-  async calculateCctv(userId: string, input: { parameters: CctvCalculatorInput; currencyCode: string; requestKey: string }) {
+  async calculateCctv(userId: string, input: { parameters: CctvCalculatorInput; currencyCode: string; requestKey: string; guidedFacts?: ReturnType<typeof guidedZoneFacts> }) {
     const startedAt = performance.now();
     const companyId = await this.resolveCompany(userId, "estimates.manage");
     const contextResolvedAt = performance.now();
     if (!UUID.test(input.requestKey) || !/^[A-Z]{3}$/.test(input.currencyCode)) throw new InvalidStateError("Параметры расчёта некорректны.");
-    const facts = cctvInputFingerprintPayload(input.parameters);
+    const facts = { ...cctvInputFingerprintPayload(input.parameters), ...input.guidedFacts };
     const fingerprint = createHash("sha256").update(JSON.stringify(facts)).digest("hex");
     let requirements: GeneratorRequirement[];
     let compatibility: CctvConfigurationSummary;
@@ -299,6 +301,22 @@ export class ProposalGeneratorService {
   }
 
   getAdminReport(limit = 20) { return this.repository.getAdminReport(Math.max(1, Math.min(limit, 50))); }
+
+  async recordGuidedProgress(userId: string, input: GuidedProgress) {
+    const companyId = await this.resolveCompany(userId, "estimates.manage");
+    if (!UUID.test(input.flowId) || (input.sessionId && !UUID.test(input.sessionId))) throw new InvalidStateError("Invalid generator flow.");
+    await this.repository.recordGuidedProgress({ ...input, companyId });
+  }
+
+  async reviewCctv(userId: string, input: { parameters: CctvCalculatorInput; requirements: GeneratorRequirement[] }) {
+    const companyId = await this.resolveCompany(userId, "estimates.manage");
+    if (!Array.isArray(input.requirements) || input.requirements.length > 30) throw new InvalidStateError("Invalid configuration.");
+    const [mappings, cameras] = await Promise.all([
+      this.repository.resolveCalculatorProfiles(companyId, [...CCTV_CALCULATOR_PROFILE_KEYS]),
+      this.cameraCandidates?.resolve(input.parameters.objectType, ["indoor", "outdoor"]),
+    ]);
+    return reviewCctvRequirements(input.parameters, input.requirements, mappings, cameras);
+  }
 
   listCalculatorProfiles() { return this.repository.listCalculatorProfiles(); }
 

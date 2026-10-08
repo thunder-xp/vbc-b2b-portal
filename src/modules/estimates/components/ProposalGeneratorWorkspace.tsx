@@ -7,12 +7,14 @@ import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import { ActionFeedback, actionClassName, FormField } from "../../platform-ui";
 import { getProposalGeneratorCopy, usePartnerLocale, type ProposalGeneratorCopy } from "../../partner-locale";
-import { createGeneratedEstimateAction, generateProposalDraftAction } from "../actions/proposal-generator.actions";
+import { createGeneratedEstimateAction, generateProposalDraftAction, recordProposalGuidedProgressAction, reviewProposalCctvAction } from "../actions/proposal-generator.actions";
 import { GENERATOR_SECTIONS, summarizeGeneratorPricing, type GeneratorRequirement } from "../services/proposal-generator";
 import { automaticRecorderChannels, type CctvConfigurationSummary } from "../services/proposal-generator-calculator";
 import type { FinalCustomer } from "../types";
 import { FinalCustomerPicker } from "./FinalCustomerPicker";
 import { ProposalGeneratorReview } from "./ProposalGeneratorReview";
+import { getProposalGuidedCopy } from "../../partner-locale/proposal-guided-copy";
+import { guidedZoneFacts, translateGuidedZones, type GuidedZoneRequirements } from "../services/proposal-guided-zones";
 
 const ProposalQuickCalculator = dynamic(() => import("./ProposalQuickCalculator").then((module) => module.ProposalQuickCalculator), {
   loading: GeneratorLoading,
@@ -27,8 +29,14 @@ const readSessionMode = (): GeneratorMode | null => {
 
 export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[] }) {
   const copy = getProposalGeneratorCopy(usePartnerLocale());
+  const guidedCopy = getProposalGuidedCopy(usePartnerLocale());
   const router = useRouter();
   const generationKey = useRef(crypto.randomUUID());
+  const [guidedFlowId] = useState(() => crypto.randomUUID());
+  const manualReplacementCount = useRef(0);
+  const reviewRevision = useRef(0);
+  const [reviewPending, setReviewPending] = useState(false);
+  const [reviewFailed, setReviewFailed] = useState(false);
   const creationKey = useRef(crypto.randomUUID());
   const createPanelRef = useRef<HTMLElement>(null);
   const [pending, startTransition] = useTransition();
@@ -45,19 +53,21 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   const [projectName, setProjectName] = useState("");
   const [createPanelOpen, setCreatePanelOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [guidedDraft, setGuidedDraft] = useState<GuidedZoneRequirements>();
   const pricingSummary = summarizeGeneratorPricing(requirements, currencyCode);
   const recorder = requirements.find((line) => line.id === "cctv-nvr");
   const unverifiedRecorderReplacement = Boolean(
-    recorder?.governedResolvedId && recorder.resolvedId !== recorder.governedResolvedId,
+    reviewFailed || (!guidedDraft && recorder?.governedResolvedId && recorder.resolvedId !== recorder.governedResolvedId),
   );
   const hasBlockingCompatibility = Boolean(
-    compatibility?.issues.some((issue) => issue.severity === "blocking") || unverifiedRecorderReplacement,
+    reviewPending || compatibility?.issues.some((issue) => issue.severity === "blocking") || unverifiedRecorderReplacement,
   );
   const incompatibleLineIds = compatibility?.issues.flatMap((issue) => issue.severity !== "blocking" ? []
     : issue.code.startsWith("recorder_") ? ["cctv-nvr"]
       : issue.code === "storage_incompatible" ? requirements.filter((line) => line.id.startsWith("cctv-storage")).map((line) => line.id) : []) ?? [];
 
   const chooseMode = (value: GeneratorMode | null) => {
+    reviewRevision.current += 1; setReviewPending(false); setReviewFailed(false);
     setSelectedMode(value); setSession(null); setRequirements([]); setCompatibility(null); setMessage(null); setCreatePanelOpen(false);
     if (value) window.sessionStorage.setItem("novotech-proposal-generator-mode", value);
     else window.sessionStorage.removeItem("novotech-proposal-generator-mode");
@@ -88,10 +98,12 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   };
 
   if (!session && !mode) return <ModeChoice copy={copy} onChoose={chooseMode} />;
-  if (!session && mode === "quick_calculation") return <div className="mx-auto w-full max-w-5xl space-y-6">
+  if (!session && mode === "quick_calculation") return <div className="mx-auto w-full max-w-6xl space-y-6">
     <GeneratorHeader copy={copy} description={copy.quickDescription} title={copy.quickTitle} />
-    <ProposalQuickCalculator currencyCode={currencyCode} onBack={() => chooseMode(null)} onCalculated={(result) => {
+    <ProposalQuickCalculator currencyCode={currencyCode} flowId={guidedFlowId} initialValue={guidedDraft} onDraftChange={setGuidedDraft} onBack={() => chooseMode(null)} onCalculated={(result) => {
+      reviewRevision.current += 1; setReviewPending(false); setReviewFailed(false);
       setSession({ id: result.sessionId, fingerprint: result.fingerprint }); setRequirements(result.requirements); setCompatibility(result.compatibility);
+      if (guidedDraft) void recordProposalGuidedProgressAction({ flowId: guidedFlowId, stage: "review", sessionId: result.sessionId, objectType: guidedDraft.objectType, facts: guidedZoneFacts(guidedDraft) }).catch(() => undefined);
     }} />
   </div>;
   if (!session) return <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -105,10 +117,25 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   </div>;
 
   return <div className="mx-auto w-full max-w-7xl space-y-5 overflow-x-clip">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">{copy.resultStep}</p><h2 className="mt-1 text-lg font-semibold">{copy.reviewConfiguration}</h2><p className="mt-1 max-w-3xl text-sm text-zinc-600">{copy.reviewHint}</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />{copy.changeParameters}</button></header>
-    {mode === "quick_calculation" && compatibility && <CctvCompatibilitySummary copy={copy} hasUnverifiedRecorderReplacement={unverifiedRecorderReplacement} requirements={requirements} value={compatibility} />}
+    <header className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">{copy.resultStep}</p><h2 className="mt-1 text-lg font-semibold">{guidedCopy.proposed}</h2><p className="mt-1 max-w-3xl text-sm text-zinc-600">{copy.reviewHint}</p></div><button className={actionClassName.secondary} onClick={() => { setSession(null); setMessage(null); }} type="button"><ChevronLeft className="size-4" />{copy.changeParameters}</button></header>
+    {mode === "quick_calculation" && compatibility && <CctvCompatibilitySummary archiveDays={guidedDraft?.system.archiveDays} copy={copy} hasUnverifiedRecorderReplacement={unverifiedRecorderReplacement} requirements={requirements} value={compatibility} />}
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_19rem]">
-      <ProposalGeneratorReview currencyCode={currencyCode} incompatibleLineIds={incompatibleLineIds} onChange={setRequirements} requirements={requirements} />
+      <ProposalGeneratorReview currencyCode={currencyCode} incompatibleLineIds={incompatibleLineIds} onChange={(next) => {
+        if (guidedDraft && session && next.some((line) => line.resolvedId !== requirements.find((prior) => prior.id === line.id)?.resolvedId)) {
+          manualReplacementCount.current += 1;
+          void recordProposalGuidedProgressAction({ flowId: guidedFlowId, stage: "replacement", sessionId: session.id, objectType: guidedDraft.objectType, facts: guidedZoneFacts(guidedDraft), manualReplacementCount: manualReplacementCount.current }).catch(() => undefined);
+        }
+        setRequirements(next);
+        if (guidedDraft) {
+          const revision = ++reviewRevision.current;
+          setReviewPending(true);
+          void reviewProposalCctvAction({ parameters: translateGuidedZones(guidedDraft), requirements: next }).then((result) => {
+            if (revision !== reviewRevision.current) return;
+            setReviewFailed(!result.success);
+            if (result.success) setCompatibility(result.data);
+          }).catch(() => { if (revision === reviewRevision.current) setReviewFailed(true); }).finally(() => { if (revision === reviewRevision.current) setReviewPending(false); });
+        }
+      }} requirements={requirements} />
       <CommercialSummary copy={copy} currencyCode={currencyCode} hasBlockingCompatibility={hasBlockingCompatibility} onCreate={openCreatePanel} pricingSummary={pricingSummary} requirements={requirements} vatMode={vatMode} />
     </div>
     {createPanelOpen && <section className="grid scroll-mt-24 gap-4 rounded-md border border-zinc-200 bg-white p-4 md:grid-cols-2" ref={createPanelRef}>
@@ -122,7 +149,7 @@ export function ProposalGeneratorWorkspace({ currencies }: { currencies: string[
   </div>;
 }
 
-function CctvCompatibilitySummary({ value, requirements, hasUnverifiedRecorderReplacement, copy }: { value: CctvConfigurationSummary; requirements: GeneratorRequirement[]; hasUnverifiedRecorderReplacement: boolean; copy: ProposalGeneratorCopy }) {
+function CctvCompatibilitySummary({ value, requirements, hasUnverifiedRecorderReplacement, copy, archiveDays }: { archiveDays?: number; value: CctvConfigurationSummary; requirements: GeneratorRequirement[]; hasUnverifiedRecorderReplacement: boolean; copy: ProposalGeneratorCopy }) {
   const cameraCount = requirements.filter((line) => line.id === "cctv-indoor" || line.id === "cctv-outdoor").reduce((sum, line) => sum + line.quantity, 0);
   const minimumChannels = automaticRecorderChannels(cameraCount);
   const blocking = hasUnverifiedRecorderReplacement || value.issues.some((issue) => issue.severity === "blocking");
@@ -137,7 +164,7 @@ function CctvCompatibilitySummary({ value, requirements, hasUnverifiedRecorderRe
     <div className={`flex gap-3 rounded-md border p-4 ${status.className}`}><StatusIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0" /><div><h2 className="font-semibold">{status.title}</h2><p className="mt-1 text-sm">{status.description}</p></div></div>
     <div className="grid gap-3 text-sm md:grid-cols-3">
       <DecisionCard title={copy.recorder}><p>{cameraCount} {copy.cameras} → {copy.minimumRequired} {minimumChannels ?? copy.clarify} {copy.channels}.</p><p className="mt-1 text-zinc-600">{copy.selected}: {value.recorder.channels ? `${copy.nvrFor} ${value.recorder.channels} ${copy.channels}` : copy.notSelected}.</p>{minimumChannels && value.recorder.channels && value.recorder.channels > minimumChannels && <p className="mt-1 text-zinc-600">{copy.largerRecorderHint}</p>}</DecisionCard>
-      <DecisionCard title={copy.archive}><p>{copy.estimatedCapacity}: ~{value.archive.requiredCapacityTb} TB</p><p className="mt-1 text-zinc-600">{copy.selected}: {driveText}</p><p className="mt-1 text-zinc-600">{copy.physicalCapacity}: {value.archive.physicalCapacityTb == null ? copy.notDefined : `${value.archive.physicalCapacityTb} TB`}</p></DecisionCard>
+      <DecisionCard title={copy.archive}>{archiveDays && <p>{archiveDays} {copy.days} →</p>}<p>{copy.estimatedCapacity}: ~{value.archive.requiredCapacityTb} TB</p><p className="mt-1 text-zinc-600">{copy.selected}: {driveText}</p><p className="mt-1 text-zinc-600">{copy.physicalCapacity}: {value.archive.physicalCapacityTb == null ? copy.notDefined : `${value.archive.physicalCapacityTb} TB`}</p></DecisionCard>
       <DecisionCard title="PoE"><p>{copy.integratedPoe}: {value.recorder.integratedPoePorts == null ? copy.dataClarified : `${value.recorder.integratedPoePorts} ${copy.ports}`}</p><p className="mt-1 text-zinc-600">{copy.additionallyRequired}: {value.externalPoePortsRequired} {copy.ports}</p>{value.externalPoePortsRequired > 0 && <p className="mt-1 text-zinc-600">{copy.poeAdded}</p>}</DecisionCard>
     </div>
     {(value.issues.length > 0 || hasUnverifiedRecorderReplacement) && <div className="space-y-2">
@@ -170,7 +197,7 @@ function CommercialSummary({ requirements, currencyCode, pricingSummary, vatMode
 
 function ModeChoice({ onChoose, copy }: { onChoose: (mode: GeneratorMode) => void; copy: ProposalGeneratorCopy }) {
   return <div className="mx-auto w-full max-w-4xl space-y-6"><GeneratorHeader copy={copy} description={copy.methodQuestion} title={copy.generatorTitle} /><div className="grid gap-3 sm:grid-cols-2">
-    <button className="min-h-28 rounded-md border border-zinc-200 bg-white p-5 text-left hover:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-300" onClick={() => onChoose("quick_calculation")} type="button"><strong className="text-lg">{copy.quickTitle}</strong><span className="mt-2 block text-sm text-zinc-600">{copy.quickMethodHint}</span></button>
+    <button className="min-h-28 rounded-md border-2 border-emerald-600 bg-emerald-50 p-5 text-left hover:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-300" onClick={() => onChoose("quick_calculation")} type="button"><strong className="text-lg">{copy.quickTitle}</strong><span className="mt-2 block text-sm text-zinc-600">{copy.quickMethodHint}</span></button>
     <button className="min-h-28 rounded-md border border-zinc-200 bg-white p-5 text-left hover:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-300" onClick={() => onChoose("description")} type="button"><strong className="text-lg">{copy.descriptionTitle}</strong><span className="mt-2 block text-sm text-zinc-600">{copy.descriptionMethodHint}</span></button>
   </div></div>;
 }

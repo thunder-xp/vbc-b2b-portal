@@ -20,36 +20,15 @@ describe("proposal generator UI contract", () => {
     expect(workspace).toContain("novotech-proposal-generator-mode");
     expect(workspace).toContain('dynamic(() => import("./ProposalQuickCalculator")');
   });
-  it("uses three calculator steps and minimal CCTV controls", () => {
-    expect(calculator).toContain("{copy.step} {step} {copy.ofThree}"); expect(workspace).toContain("copy.resultStep");
-    for (const label of ["copy.indoorCameras", "copy.outdoorCameras", "copy.archiveDays", "copy.cableApproximate", "copy.additionalParameters"]) expect(calculator).toContain(label);
-    expect(calculator).toContain("title={copy.recorder}");
-    expect(calculator).toContain("copy.automatic"); expect(calculator).toContain("copy.notNeeded");
-    expect(calculator).toContain("CCTV_CAMERA_RESOLUTIONS.map");
-  });
-  it("uses a semantic lightweight icon for every object type", () => {
+  it("adds a four-stage guided wizard above the existing calculator", () => {
+    expect(calculator).toContain("guided.objectStep"); expect(calculator).toContain("guided.zonesStep"); expect(calculator).toContain("guided.requirementsStep");
+    expect(calculator).toContain("CCTV_CAMERA_RESOLUTIONS.map"); expect(calculator).toContain("CCTV_RECORDER_CHANNELS.map");
+    expect(calculator).toContain('recorderSelection: "auto"'); expect(calculator).toContain("guided.advanced");
+    expect(calculator).toContain("md:grid-cols-2"); expect(calculator).toContain("lg:grid-cols-[minmax(0,1fr)_15rem]");
+    expect(calculator).toContain("aria-pressed"); expect(calculator).toContain("aria-live");
     for (const icon of ["Building2", "House", "Store", "Warehouse", "Factory", "Utensils", "Shapes"]) expect(calculator).toContain(`icon: ${icon}`);
     expect(calculator).toContain("const ObjectIcon = object.icon");
-    expect(calculator).not.toContain("<Video aria-hidden");
-  });
-  it("uses the approved five-row CCTV parameter workspace", () => {
-    expect(calculator).toContain("function ParameterRow");
-    expect(calculator.match(/<ParameterRow/g)).toHaveLength(5);
-    for (const title of ["copy.indoorCameras", "copy.outdoorCameras", "copy.recorder", "copy.archiveStorage", "copy.cable"]) expect(calculator).toContain(`title={${title}}`);
-    for (const label of ["copy.indoorHint", "copy.outdoorHint", "copy.recorderHint", "copy.archiveHint", "copy.cableHint", "copy.resolutionMp", "copy.channelCount", "copy.cableLength"]) expect(calculator).toContain(label);
-    for (const icon of ["Camera", "Cctv", "Server", "HardDrive", "Cable"]) expect(calculator).toContain(`icon={${icon}}`);
-    expect(calculator).toContain("divide-y divide-zinc-200");
-    expect(calculator).toContain("copy.additionalOptions");
-    expect(calculator).toContain("md:grid-cols-3");
-  });
-  it("keeps responsive controls bounded and advanced parameters collapsed by default", () => {
-    expect(calculator).toContain("min-w-0");
-    expect(calculator).toContain("md:grid-cols-2");
-    expect(calculator).toContain("lg:grid-cols-[minmax(16rem,1.15fr)_minmax(11rem,0.85fr)_minmax(11rem,0.85fr)]");
-    expect(calculator).toContain("const [advanced, setAdvanced] = useState(false)");
-    expect(calculator).toContain("open={advanced}");
-  });
-  it("updates authoritative replacement identity and RETAIL presentation", () => {
+  });  it("updates authoritative replacement identity and RETAIL presentation", () => {
     expect(review).toContain("selectCatalog(item)");
     expect(review).toContain("resolvedSku: item.sku");
     expect(review).toContain("resolvedImageUrl: item.imageUrl");
@@ -98,7 +77,7 @@ describe("proposal generator UI contract", () => {
   });
   it("presents Step 3 as a technical configuration review", () => {
     expect(workspace).toContain("copy.resultStep");
-    expect(workspace).toContain("copy.reviewConfiguration");
+    expect(workspace).toContain("guidedCopy.proposed");
     expect(workspace).toContain("copy.configurationReady");
     expect(workspace).toContain("copy.configurationWarning");
     expect(workspace).toContain("copy.recommendationOne");

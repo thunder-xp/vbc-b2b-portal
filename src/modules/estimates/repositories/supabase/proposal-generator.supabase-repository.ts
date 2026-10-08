@@ -8,6 +8,14 @@ function fail(code?: string): never {
 }
 
 export class SupabaseProposalGeneratorRepository implements ProposalGeneratorRepository {
+  async recordGuidedProgress(input: Parameters<ProposalGeneratorRepository["recordGuidedProgress"]>[0]): Promise<void> {
+    const { error } = await (await createClient()).rpc("record_estimate_generator_guided_progress", {
+      target_company_id: input.companyId, target_flow_id: input.flowId, target_stage: input.stage,
+      target_session_id: input.sessionId ?? null,
+      target_facts: { ...input.facts, objectType: input.objectType, manualReplacementCount: input.manualReplacementCount ?? 0 },
+    });
+    if (error) fail(error.code);
+  }
   async recordSession(input: Parameters<ProposalGeneratorRepository["recordSession"]>[0]): Promise<string> {
     const counts = input.resolutionCounts ?? { catalog: 0, service: 0, own: 0, shared: 0, unresolved: input.requirementCount };
     const { data, error } = await (await createClient()).rpc("record_estimate_generator_session_v5", {
