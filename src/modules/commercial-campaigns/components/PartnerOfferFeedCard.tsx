@@ -322,6 +322,7 @@ function CommercialBenefit({
       summary={product.commercialSummary}
       locale={locale}
       specialLabel={specialLabel}
+      normalLabel={locale === "ro" ? "Prețul dvs." : "Ваша цена"}
     />
   ) : (
     <CampaignPriceStack product={product} locale={locale} />

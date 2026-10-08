@@ -9,10 +9,12 @@ export function CampaignCommercialSummary({
   summary,
   locale,
   specialLabel,
+  normalLabel,
 }: {
   summary: Summary;
   locale: PartnerLocale;
   specialLabel?: string;
+  normalLabel?: string;
 }) {
   const ro = locale === "ro";
   const money = (value: string, currency = summary.currency as string) =>
@@ -32,7 +34,7 @@ export function CampaignCommercialSummary({
       ) : null}
       {summary.normalPartnerTotal !== null ? (
         <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px] text-zinc-600">
-          <dt>{ro ? "Prețul obișnuit" : "Обычная цена партнёра"}</dt>
+          <dt>{normalLabel ?? (ro ? "Prețul obișnuit" : "Обычная цена партнёра")}</dt>
           <dd className="line-through">{money(summary.normalPartnerTotal)}</dd>
         </div>
       ) : null}

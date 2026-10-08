@@ -183,7 +183,7 @@ async function renderOffers(searchParams: Promise<Params>) {
           <option value="ending">
             {ro ? "Se încheie curând" : "Скоро заканчиваются"}
           </option>
-          <option value="saving">{ro ? "Economisire maximă, %" : "Макс. экономия, %"}</option>
+          <option value="saving">{ro ? "Economisire maximă, %" : "Максимальная экономия, %"}</option>
           <option value="markup">{ro ? "Cel mai bun adaos" : "Лучшая наценка"}</option>
         </select>
         <button type="submit" className={`${control} font-semibold`}>
