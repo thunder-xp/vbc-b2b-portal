@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 import { getSupabaseServerEnv } from "@/src/lib/env";
-import { recordDatabaseQuery } from "@/src/lib/performance/request-diagnostics";
+import { diagnosticFetch } from "./diagnostic-fetch";
 
 export const createClient = cache(async function createClient() {
   const cookieStore = await cookies();
@@ -13,14 +13,7 @@ export const createClient = cache(async function createClient() {
 
   return createServerClient(url, anonKey, {
     global: {
-      fetch: async (input, init) => {
-        const startedAt = performance.now();
-        try {
-          return await fetch(input, init);
-        } finally {
-          if (isPostgrestRequest(input)) recordDatabaseQuery(performance.now() - startedAt);
-        }
-      },
+      fetch: diagnosticFetch,
     },
     cookies: {
       getAll() {
@@ -49,12 +42,3 @@ export const createClient = cache(async function createClient() {
     },
   });
 });
-
-function isPostgrestRequest(input: RequestInfo | URL): boolean {
-  const rawUrl = input instanceof Request ? input.url : input.toString();
-  try {
-    return new URL(rawUrl).pathname.startsWith("/rest/v1/");
-  } catch {
-    return false;
-  }
-}

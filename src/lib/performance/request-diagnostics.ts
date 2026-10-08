@@ -133,13 +133,20 @@ export async function measurePerformanceStage<T>(
 
   const counters = emptyCounters();
   const startedAt = performance.now();
+  // Promise.all can reject while sibling stages still run. Their inherited
+  // request context owns those reads even after the route returns its fallback.
+  parent.request.pendingBoundaries += 1;
   try {
     return await requestStorage.run(
       { activeStages: [...parent.activeStages, counters], request: parent.request },
       operation,
     );
   } finally {
-    emitPerformanceEvent(parent.request, stage, performance.now() - startedAt, counters);
+    try {
+      emitPerformanceEvent(parent.request, stage, performance.now() - startedAt, counters);
+    } finally {
+      releaseBoundary(parent.request);
+    }
   }
 }
 
