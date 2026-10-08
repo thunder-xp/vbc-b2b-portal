@@ -14,6 +14,10 @@ export function OfferFeedEvidence({
   page,
   filterUsed,
   sortUsed,
+  sortMode = "recommended",
+  route = "/cabinet/offers",
+  sourceSurface = "special_offer_feed",
+  trackImpression = true,
 }: {
   children: ReactNode;
   scope: string;
@@ -21,19 +25,23 @@ export function OfferFeedEvidence({
   page: number;
   filterUsed: boolean;
   sortUsed: boolean;
+  sortMode?: import("../offer-feed").OfferFeedSort;
+  route?: "/cabinet/offers" | "/cabinet/catalog";
+  sourceSurface?: string;
+  trackImpression?: boolean;
 }) {
   const additionalEvents: Parameters<
     typeof BehaviorViewEvent
   >[0]["additionalEvents"] = [];
   // The shared batch authority deduplicates by event name per navigation.
   // Keep filter/sort evidence together and pagination with the impression.
-  if (filterUsed || sortUsed)
+  if (trackImpression && (filterUsed || sortUsed))
     additionalEvents.push({
       dedupeKey: `${scope}:filter`,
       eventName: "filters_applied",
-      route: "/cabinet/offers",
-      sourceSurface: "special_offer_feed",
-      metadataSafe: { action: "controls_used", filterUsed, sortUsed },
+      route,
+      sourceSurface,
+      metadataSafe: { action: "controls_used", filterUsed, sortUsed, sortMode },
     });
   return (
     <div
@@ -46,12 +54,16 @@ export function OfferFeedEvidence({
         try {
           recordBehaviorInteraction({
             eventName: "merchandising_product_clicked",
-            route: "/cabinet/offers",
-            sourceSurface: "special_offer_feed",
+            route,
+            sourceSurface,
             metadataSafe: {
               action: "offer_opened",
               offerId: offer.dataset.offerId ?? "",
               kind: offer.dataset.offerKind ?? "",
+              offerType: offer.dataset.offerKind ?? "",
+              campaignId: offer.dataset.campaignId ?? "",
+              rankPosition: Number(offer.dataset.rankPosition) || null,
+              sortMode,
             },
           });
         } catch {
@@ -59,20 +71,23 @@ export function OfferFeedEvidence({
         }
       }}
     >
-      <BehaviorViewEvent
-        key={scope}
-        dedupeKey={scope}
-        eventName="merchandising_section_viewed"
-        route="/cabinet/offers"
-        sourceSurface="special_offer_feed"
-        resultCount={count}
-        metadataSafe={{
-          action: "feed_impression",
-          page,
-          paginationUsed: page > 1,
-        }}
-        additionalEvents={additionalEvents}
-      />
+      {trackImpression ? (
+        <BehaviorViewEvent
+          key={scope}
+          dedupeKey={scope}
+          eventName="merchandising_section_viewed"
+          route={route}
+          sourceSurface={sourceSurface}
+          resultCount={count}
+          metadataSafe={{
+            action: "feed_impression",
+            page,
+            paginationUsed: page > 1,
+            sortMode,
+          }}
+          additionalEvents={additionalEvents}
+        />
+      ) : null}
       {children}
     </div>
   );

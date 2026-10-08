@@ -1,4 +1,7 @@
 import { CampaignCountdown } from "../../commercial-campaigns/components/CampaignCountdown";
+import { PartnerOfferFeedCard } from "../../commercial-campaigns/components/PartnerOfferFeedCard";
+import { OfferFeedEvidence } from "../../commercial-campaigns/components/OfferFeedEvidence";
+import type { ReactNode } from "react";
 import type {
   CatalogMerchandisingSection,
 } from "../actions/list-merchandising-sections.action";
@@ -40,6 +43,7 @@ export function CatalogMerchandisingSections({
             eventName="merchandising_section_viewed"
             route="/cabinet/catalog"
             sourceSurface={section.labelCode}
+            metadataSafe={section.offers ? { sortMode: "recommended", action: "showcase_impression" } : undefined}
           />
           <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
             <div className="flex min-w-0 flex-wrap items-center gap-x-3"><h2 className="text-lg font-semibold text-zinc-950" id={`section-${section.labelCode}`}>
@@ -57,8 +61,8 @@ export function CatalogMerchandisingSections({
               </BehaviorTrackedCatalogLink>
             </div>
           </div>
-          <div className={CATALOG_PRODUCT_GRID_CLASS} data-testid={`catalog-showcase-grid-${section.labelCode}`}>
-            {section.products.slice(0, 5).map((product, index) => (
+          <ShowcaseEvidence section={section}><div className={CATALOG_PRODUCT_GRID_CLASS} data-testid={`catalog-showcase-grid-${section.labelCode}`}>
+            {section.offers ? section.offers.slice(0, 5).map((offer, index) => <div className={showcaseProductVisibilityClass(index)} data-showcase-product={index + 1} key={offer.offerId}><PartnerOfferFeedCard offer={offer} locale={locale} rankPosition={index + 1} /></div>) : section.products.slice(0, 5).map((product, index) => (
               <div className={showcaseProductVisibilityClass(index)} data-showcase-product={index + 1} key={product.id}>
                 {section.offerRemainingSeconds?.[product.id] !== undefined ? <div className="mb-2"><CampaignCountdown remainingSeconds={section.offerRemainingSeconds[product.id]} locale={locale} compact /></div> : null}
                 <ProductCard
@@ -73,11 +77,15 @@ export function CatalogMerchandisingSections({
                 />
               </div>
             ))}
-          </div>
+          </div></ShowcaseEvidence>
         </section>;
       })}
     </div>
   );
+}
+
+function ShowcaseEvidence({ section, children }: { section: CatalogMerchandisingSection; children: ReactNode }) {
+  return section.offers ? <OfferFeedEvidence route="/cabinet/catalog" sourceSurface="SPECIAL_OFFER" trackImpression={false} scope="showcase-recommended" count={section.offers.length} page={1} filterUsed={false} sortUsed={false}>{children}</OfferFeedEvidence> : children;
 }
 
 export function curatedPeriodHref(states: { popular: RollingPeriodState; new: RollingPeriodState; hot: RollingPeriodState }, key: "popular" | "new" | "hot", target: RollingPeriod): string {

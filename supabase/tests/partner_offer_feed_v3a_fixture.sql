@@ -1,5 +1,5 @@
 begin;
-do $$ begin if current_setting('intent.disposable_task',true) is distinct from 'VBC-SPECIAL-OFFERS-V3A-PARTNER-MIXED-OFFER-MARKETPLACE-20261008' then raise exception 'Local V3A target assertion missing'; end if; end $$;
+do $$ begin if coalesce(current_setting('intent.disposable_task',true),'') not in ('VBC-SPECIAL-OFFERS-V3A-PARTNER-MIXED-OFFER-MARKETPLACE-20261008','VBC-SPECIAL-OFFERS-V3B-COMMERCIAL-ATTRACTIVENESS-20261008') then raise exception 'Local offer-feed task assertion missing'; end if; end $$;
 
 do $$
 <<acceptance>>
@@ -141,7 +141,7 @@ begin
    jsonb_build_object('productId',b,'sortOrder',2,'minimumQuantity',1,'maximumQuantityPerCompany',100,'benefitType','existing_price_profile','governedBenefitReference','b9f5d585-dab1-11e9-8a58-000c29cf9dd4','attachRole',case when m=5 then 'REWARD' end));
    if m=6 then extra:=jsonb_build_object('spendConfig',jsonb_build_object('thresholdAmountUsd','1500','currency','USD','qualifyingProductIds',jsonb_build_array(a),'rewardProductId',b)); end if;
   end if;
-  draft:=extra||jsonb_build_object('contractVersion','3','requestId',gen_random_uuid(),'code','LOCAL_V3A_'||m,'name','Local V3A '||mechanic,'partnerTitle',case when m=1 then 'Всегда готов к защите — Dahua AIR SHIELD' else 'Спецпредложение '||mechanic end,'partnerDescription','LOCAL TEST ONLY / реальная опубликованная механика','campaignType','product_offer','startsAt',now()-interval '1 hour','endsAt',now()+interval '30 days','priority',m,'termsSummary','Локальный тест: условия регулируются campaign engine','mechanicType',mechanic,'audienceMode','explicit_company','companyIds',jsonb_build_array(company),'items',items);
+  draft:=extra||jsonb_build_object('contractVersion','3','requestId',gen_random_uuid(),'code','LOCAL_V3A_'||m,'name','Local V3A '||mechanic,'partnerTitle',(array['Всегда готов к защите — Dahua AIR SHIELD','Спеццена от трёх датчиков','Комплект защиты','Набор по спеццене','Датчик по спеццене при покупке двух','Спеццена при заказе от 1500 USD'])[m],'partnerDescription','LOCAL TEST ONLY / реальная опубликованная механика','campaignType','product_offer','startsAt',now()-interval '1 hour','endsAt',now()+interval '30 days','priority',m,'termsSummary','Локальный тест: условия регулируются campaign engine','mechanicType',mechanic,'audienceMode','explicit_company','companyIds',jsonb_build_array(company),'items',items);
   campaign:=public.create_commercial_campaign_draft_v2(draft);
   perform public.publish_commercial_campaign(campaign,gen_random_uuid());
   insert into offer_feed_fixture.campaigns values(mechanic,campaign);

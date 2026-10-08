@@ -11,13 +11,14 @@ export type OfferFeedMechanicFilter =
   | "bundle"
   | "conditional"
   | "spend";
+export type OfferFeedSort = "recommended" | "saving" | "markup" | "ending";
 export type OfferFeedInput = {
   filter?: CampaignFilter;
   mechanic?: OfferFeedMechanicFilter;
   search?: string;
   categoryId?: string;
   brandId?: string;
-  sort?: "recommended" | "ending";
+  sort?: OfferFeedSort;
   page?: number;
   pageSize?: number;
 };
@@ -44,6 +45,7 @@ export type PartnerOfferFeedItem =
       components: CampaignProduct[];
       progress: PartnerCampaign["bundleProgress"];
       summary: PartnerCampaign["commercialSummary"];
+      composition?: { skuCount: number; totalUnits: number };
     })
   | (FeedContext & {
       kind: "CONDITIONAL";

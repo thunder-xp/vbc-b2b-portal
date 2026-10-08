@@ -32,8 +32,11 @@ describe("Special Offers V2A authoritative projection", () => {
     const expected = canonical.createCommercialOpportunity({ amount: 1565 * 4 + 2234, currencyCode: "MDL", formattedAmount: null },
       { amount: 14600, currencyCode: "MDL", formattedAmount: null }, { rate: 18.6 }, { rate: 18.01 });
     spy.mockClear();
-    expect(campaignCommercialSummary(lines, view, true)).toEqual({ normalPartnerTotal: "518.00", specialBundleTotal: "456.70", saving: "61.30", currency: "USD",
+    const summary = campaignCommercialSummary(lines, view, true);
+    expect(summary).toMatchObject({ normalPartnerTotal: "518.00", specialBundleTotal: "456.70", saving: "61.30", currency: "USD",
       retailTotal: "14600.00", markupFromRetail: expected!.formattedMarkup, skuCount: 2, totalUnits: 5 });
+    expect(summary?.savingPercent).toBeCloseTo(11.8339768339);
+    expect(summary?.markupPercent).toBe(expected!.markupPercent);
     expect(spy).toHaveBeenCalledOnce(); spy.mockRestore();
   });
   it("supports single product advantage and MDL campaign prices without synthetic retail prices", () => {

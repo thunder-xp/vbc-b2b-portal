@@ -35,8 +35,8 @@ export function campaignCommercialSummary(lines: CampaignProduct[], views: Produ
     units += quantity;
     const view = byId.get(line.productId);
     const partner: import("../../pricing-inventory/services/pricing-inventory.service").ProductPriceViewDto | null | undefined = currency === "USD" ? view?.partnerPrice : view?.partnerPriceMdl;
-    if (partner?.currencyCode === currency) normal = normal.plus(new Decimal(partner.amount).times(quantity)); else normalReady = false;
-    if (view?.retailPrice?.currencyCode === "MDL") retail = retail.plus(new Decimal(view.retailPrice.amount).times(quantity)); else retailReady = false;
+    if (partner?.currencyCode === currency && Number.isFinite(partner.amount) && partner.amount > 0) normal = normal.plus(new Decimal(partner.amount).times(quantity)); else normalReady = false;
+    if (view?.retailPrice?.currencyCode === "MDL" && Number.isFinite(view.retailPrice.amount) && view.retailPrice.amount > 0) retail = retail.plus(new Decimal(view.retailPrice.amount).times(quantity)); else retailReady = false;
     special = special.plus(new Decimal(line.specialPrice!.amount).times(quantity));
     const pr = view?.partnerPriceMdl?.conversionEvidence?.appliedRate ?? null;
     const rr = view?.partnerCheckoutPriceMdl?.conversionEvidence?.appliedRate ?? null;
@@ -50,11 +50,13 @@ export function campaignCommercialSummary(lines: CampaignProduct[], views: Produ
     { amount: retail.toNumber(), currencyCode: "MDL", formattedAmount: null },
     partnerRate === null ? null : { rate: partnerRate }, retailRate === null ? null : { rate: retailRate },
   ) : null;
-  return { normalPartnerTotal: normalReady ? normal.toFixed(2) : null, specialBundleTotal: special.toFixed(2), saving: normalReady ? normal.minus(special).toFixed(2) : null,
+  const saving = normalReady && normal.gt(0) && normal.gt(special) ? normal.minus(special) : null;
+  return { normalPartnerTotal: normalReady ? normal.toFixed(2) : null, specialBundleTotal: special.toFixed(2), saving: saving?.toFixed(2) ?? null,
+    savingPercent: saving ? saving.div(normal).times(100).toNumber() : null, markupPercent: opportunity?.markupPercent ?? null,
     currency, retailTotal: retailReady ? retail.toFixed(2) : null, markupFromRetail: opportunity?.formattedMarkup ?? null, skuCount: lines.length, totalUnits: units };
 }
 
 export function projectCampaignCommercial(campaign: PartnerCampaign, views: ProductCommercialViewDto[]): PartnerCampaign {
-  return { ...campaign, commercialSummary: campaign.mechanicType === "bundle_special_price" ? campaignCommercialSummary(campaign.products, views, true) : null,
+  return { ...campaign, commercialSummary: ["bundle_special_price", "fixed_bundle_promo"].includes(campaign.mechanicType) ? campaignCommercialSummary(campaign.products, views, true) : null,
     products: campaign.products.map(product => ({ ...product, commercialSummary: campaignCommercialSummary([product], views, false) })) };
 }

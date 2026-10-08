@@ -52,6 +52,31 @@ const base = {
 };
 
 describe("mixed offer presentation", () => {
+  it("shows conditional trigger quantities and the governed reward without mechanic codes", () => {
+    const offer = { ...base, kind: "CONDITIONAL", mechanicType: "conditional_attach_promo",
+      campaign: { ...base.campaign, products: [{ ...product, attachRole: "REWARD" }] },
+      progress: { triggers: [{ campaignItemId: "trigger", name: "Trigger sensor", requiredTriggerQuantity: 2, currentQuantity: 1 }], triggerStockReady: true, rewardStockReady: true }
+    } as Extract<PartnerOfferFeedItem, { kind: "CONDITIONAL" }>;
+    const { container } = render(<PartnerOfferFeedCard locale="ru" offer={offer} />);
+    expect(screen.getByText("Купите:")).toBeTruthy();
+    expect(screen.getByText("Получите:")).toBeTruthy();
+    expect(screen.getByText("2 шт.")).toBeTruthy();
+    expect(screen.getByText("В корзине: 1 / 2")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Посмотреть условия" }).getAttribute("href")).toBe("/cabinet/offers/campaign");
+    expect(container.textContent).not.toContain("conditional_attach_promo");
+    expect(mocks.cart).not.toHaveBeenCalled();
+  });
+  it("keeps spend threshold and canonical progress in USD without invented conversion", () => {
+    const offer = { ...base, kind: "SPEND_THRESHOLD", mechanicType: "spend_threshold_promo",
+      campaign: { ...base.campaign, products: [{ ...product, spendRole: "REWARD" }] },
+      progress: { thresholdAmountUsd: "1500.00", qualifyingSpendUsd: "200.00", remainingSpendUsd: "1300.00" }
+    } as Extract<PartnerOfferFeedItem, { kind: "SPEND_THRESHOLD" }>;
+    render(<PartnerOfferFeedCard locale="ru" offer={offer} />);
+    expect(screen.getByText("1500.00 USD")).toBeTruthy();
+    expect(screen.getByText("В корзине: 200.00 / 1500.00 USD")).toBeTruthy();
+    expect(screen.getByText("Осталось: 1300.00 USD")).toBeTruthy();
+    expect(mocks.cart).not.toHaveBeenCalled();
+  });
   it("renders one independent product with governed price emphasis and the existing cart identity", () => {
     const { container } = render(
       <PartnerOfferFeedCard
@@ -81,7 +106,7 @@ describe("mixed offer presentation", () => {
     });
     expect(
       screen
-        .getByRole("link", { name: "Условия кампании" })
+        .getByRole("link", { name: "Открыть предложение" })
         .getAttribute("href"),
     ).toBe("/cabinet/offers/campaign");
   });
@@ -104,7 +129,9 @@ describe("mixed offer presentation", () => {
     } as Extract<PartnerOfferFeedItem, { kind: "BUNDLE" }>;
     render(<PartnerOfferFeedCard locale="ru" offer={offer} />);
     expect(screen.getByText("1 SKU · 2 шт.")).toBeTruthy();
-    expect(screen.getByText("SKU SKU-1 · 2 шт.")).toBeTruthy();
+    expect(screen.queryByText("SKU SKU-1 · 2 шт.")).toBeNull();
+    expect(screen.getByText("Набор")).toBeTruthy();
+    expect(screen.getByText("Спеццена набора")).toBeTruthy();
     expect(mocks.bundle.mock.calls[0]?.[0]).toMatchObject({
       compact: true,
       progress: offer.progress,

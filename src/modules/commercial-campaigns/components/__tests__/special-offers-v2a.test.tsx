@@ -33,9 +33,9 @@ describe("Special Offers V2A presentation", () => {
   });
   it("strikes normal partner total only and displays supplied special/saving/retail/markup", () => {
     const { container } = render(<CampaignCommercialSummary summary={summary} locale="ru" />);
-    expect(screen.getByText("Ваша цена").nextElementSibling).toHaveClass("line-through");
+    expect(screen.getByText("Обычная цена партнёра").nextElementSibling).toHaveClass("line-through");
     expect(screen.getByText("Спеццена").nextElementSibling).not.toHaveClass("line-through");
-    expect(screen.getByText("Розничная цена").nextElementSibling).not.toHaveClass("line-through");
+    expect(screen.getByText("Розница").nextElementSibling).not.toHaveClass("line-through");
     expect(screen.getByText("Экономия")).toBeInTheDocument(); expect(screen.getByText("+65%")).toBeInTheDocument();
     expect(container.firstElementChild).toHaveClass("tabular-nums");
   });
@@ -57,7 +57,7 @@ describe("Special Offers V2A presentation", () => {
     const { rerender } = render(<CampaignBundlePreview input={input} companies={[{ id: "company", name: "Test company", status: "active" }]} />);
     expect(preview).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "Рассчитать предпросмотр" }));
     await waitFor(() => expect(screen.getByText("Экономия")).toBeInTheDocument()); expect(preview).toHaveBeenCalledExactlyOnceWith(input, "company");
-    rerender(<CampaignBundlePreview input={{ ...input, partnerTitle: "Edited" }} companies={[{ id: "company", name: "Test company", status: "active" }]} />);
+    await act(async () => { rerender(<CampaignBundlePreview input={{ ...input, partnerTitle: "Edited" }} companies={[{ id: "company", name: "Test company", status: "active" }]} />); });
     expect(screen.queryByText("Экономия")).toBeNull(); expect(preview).toHaveBeenCalledOnce();
   });
 

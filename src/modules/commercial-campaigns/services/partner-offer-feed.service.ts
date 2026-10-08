@@ -9,7 +9,6 @@ import type {
 } from "../offer-feed";
 import {
   projectCampaignCommercial,
-  campaignCommercialSummary,
 } from "./campaign-commercial-projection";
 import {
   campaignTimeState,
@@ -57,15 +56,6 @@ export class PartnerOfferFeedService {
     const items: PartnerOfferFeedItem[] = result.items.map((item) => {
       const campaign = {
         ...projectCampaignCommercial(item.campaign, views),
-        ...(item.campaign.mechanicType === "fixed_bundle_promo"
-          ? {
-              commercialSummary: campaignCommercialSummary(
-                item.campaign.products,
-                views,
-                true,
-              ),
-            }
-          : {}),
         timeState: campaignTimeState(
           item.campaign.startsAt,
           item.campaign.endsAt,
@@ -102,6 +92,7 @@ export class PartnerOfferFeedService {
             components: campaign.products,
             progress: campaign.bundleProgress,
             summary: campaign.commercialSummary,
+            composition: { skuCount: campaign.products.length, totalUnits: campaign.products.reduce((total, product) => total + (product.requiredBundleQuantity ?? 0), 0) },
           };
         case "CONDITIONAL":
           return {

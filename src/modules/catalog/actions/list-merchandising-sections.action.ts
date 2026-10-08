@@ -13,7 +13,8 @@ import {
   createMerchandisingService,
 } from "../../merchandising/actions";
 import type { MerchandisingLabelCode } from "../../merchandising/types";
-import { createCommercialCampaignService } from "../../commercial-campaigns/actions/service-factory";
+import { listPartnerOfferFeedAction } from "../../commercial-campaigns/actions/partner-offer-feed.actions";
+import type { PartnerOfferFeedItem } from "../../commercial-campaigns/offer-feed";
 import { createPartnerWorkspaceContextService } from "../../partner-cabinet/actions/service-factory";
 import { createPricingInventoryService } from "../../pricing-inventory/actions/service-factory";
 import type { ProductCommercialViewDto } from "../../pricing-inventory";
@@ -33,6 +34,7 @@ export type CatalogMerchandisingSection = {
   contextBadge?: string;
   totalCount: number;
   offerRemainingSeconds?: Record<string, number>;
+  offers?: PartnerOfferFeedItem[];
 };
 
 export type CatalogMerchandisingSectionsResult = {
@@ -74,16 +76,16 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       ? new SupabaseWarehouseArrivalRepository().getCurrentReplenishmentPreview(context.companyId)
       : { items: [], totalCount: 0 },
       context.accessState === "active" && context.capabilities.navigation.some((item) => item.key === "offers" && item.availability === "available")
-        ? createCommercialCampaignService().getActiveProductPreview(userId, true)
-        : { productIds: [] as string[], totalCount: 0, timeRemaining: {} as Record<string, number> },
+        ? listPartnerOfferFeedAction({ sort: "recommended", pageSize: 5 })
+        : null,
     ]);
     const replenishment = replenishmentPage.items;
     const productIds = [...new Set([
       ...assignments.map((item) => item.productId),
       ...replenishment.map((item) => item.productId),
-      ...specialOffers.productIds,
     ])];
-    if (!productIds.length) {
+    const offerPage = specialOffers?.success ? specialOffers.data : null;
+    if (!productIds.length && !offerPage?.items.length) {
       return success("Catalog merchandising is empty.", {
         sections: [],
         commercialViews: [],
@@ -97,8 +99,8 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       pricingService,
     );
     const [products, commercialViews] = await Promise.all([
-      catalogService.getProductsByIds(userId, productIds),
-      pricingService.getProductCommercialViews(userId, productIds),
+      productIds.length ? catalogService.getProductsByIds(userId, productIds) : Promise.resolve([]),
+      productIds.length ? pricingService.getProductCommercialViews(userId, productIds) : Promise.resolve([]),
     ]);
     const productsById = new Map(products.map((product) => [
       product.id,
@@ -107,7 +109,6 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
         merchandisingLabels: [...assignments
           .filter((assignment) => assignment.productId === product.id)
           .map((assignment) => assignment.labelCode),
-          ...(specialOffers.productIds.includes(product.id) ? ["SPECIAL_OFFER" as const] : []),
         ],
       },
     ]));
@@ -132,18 +133,14 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
         }]
         : [];
     });
-    const specialOfferProducts = specialOffers.productIds.flatMap((id) => {
-      const product = productsById.get(id);
-      return product ? [product] : [];
-    });
-    if (specialOfferProducts.length) {
+    if (offerPage?.items.length) {
       sections.push({
         labelCode: "SPECIAL_OFFER",
         title: "Спецпредложения",
-        products: specialOfferProducts,
+        products: [],
+        offers: offerPage.items,
         href: "/cabinet/offers",
-        totalCount: specialOffers.totalCount,
-        offerRemainingSeconds: specialOffers.timeRemaining,
+        totalCount: offerPage.totalCount,
       });
     }
     const replenishmentProducts = replenishment

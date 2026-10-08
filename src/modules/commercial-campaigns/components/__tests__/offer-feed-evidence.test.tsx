@@ -17,6 +17,12 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 describe("bounded marketplace evidence", () => {
+  it("measures Showcase clicks with ranking context without duplicating its existing section impression", () => {
+    render(<OfferFeedEvidence scope="showcase" count={5} page={1} filterUsed={false} sortUsed={false} route="/cabinet/catalog" sourceSurface="SPECIAL_OFFER" trackImpression={false}><article data-offer-id="offer" data-offer-kind="BUNDLE" data-campaign-id="campaign" data-rank-position="2"><a href="#terms">Showcase offer</a></article></OfferFeedEvidence>);
+    expect(mocks.view).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("link", { name: "Showcase offer" }));
+    expect(mocks.interaction).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ route: "/cabinet/catalog", sourceSurface: "SPECIAL_OFFER", metadataSafe: expect.objectContaining({ sortMode: "recommended", rankPosition: 2, offerType: "BUNDLE", campaignId: "campaign" }) }));
+  });
   it("keeps filter, sort and pagination evidence without event-name deduplication loss", () => {
     render(
       <OfferFeedEvidence
@@ -58,7 +64,7 @@ describe("bounded marketplace evidence", () => {
         filterUsed={false}
         sortUsed={false}
       >
-        <article data-offer-id="campaign:1:item" data-offer-kind="PRODUCT">
+        <article data-offer-id="campaign:1:item" data-offer-kind="PRODUCT" data-campaign-id="campaign" data-rank-position="7">
           <a href="#detail">Open offer</a>
         </article>
       </OfferFeedEvidence>,
@@ -70,6 +76,10 @@ describe("bounded marketplace evidence", () => {
           action: "offer_opened",
           offerId: "campaign:1:item",
           kind: "PRODUCT",
+          offerType: "PRODUCT",
+          campaignId: "campaign",
+          rankPosition: 7,
+          sortMode: "recommended",
         },
       }),
     );

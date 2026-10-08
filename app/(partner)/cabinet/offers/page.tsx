@@ -3,7 +3,7 @@ import { OfferFeedEvidence } from "@/src/modules/commercial-campaigns/components
 import { withRoutePerformance } from "@/src/lib/performance/request-diagnostics";
 import { listPartnerOfferFeedAction } from "@/src/modules/commercial-campaigns/actions/partner-offer-feed.actions";
 import { PartnerOfferFeedCard } from "@/src/modules/commercial-campaigns/components/PartnerOfferFeedCard";
-import type { OfferFeedMechanicFilter } from "@/src/modules/commercial-campaigns/offer-feed";
+import type { OfferFeedMechanicFilter, OfferFeedSort } from "@/src/modules/commercial-campaigns/offer-feed";
 import type { CampaignFilter } from "@/src/modules/commercial-campaigns/types";
 import { secondaryCopy } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -59,7 +59,7 @@ async function renderOffers(searchParams: Promise<Params>) {
       Math.min(5001, Math.trunc(Number(params.page) || 1)),
     ),
     q = params.q?.trim().slice(0, 100) ?? "",
-    sort = params.sort === "ending" ? "ending" : "recommended",
+    sort: OfferFeedSort = params.sort === "ending" || params.sort === "saving" || params.sort === "markup" ? params.sort : "recommended",
     category = uuid(params.category),
     brand = uuid(params.brand);
   const result = await listPartnerOfferFeedAction({
@@ -95,6 +95,7 @@ async function renderOffers(searchParams: Promise<Params>) {
         q || category || brand || mechanic !== "all" || filter !== "active",
       )}
       sortUsed={params.sort !== undefined}
+      sortMode={sort}
     >
       <nav
         aria-label={ro ? "Tipul ofertei" : "Тип предложения"}
@@ -182,6 +183,8 @@ async function renderOffers(searchParams: Promise<Params>) {
           <option value="ending">
             {ro ? "Se încheie curând" : "Скоро заканчиваются"}
           </option>
+          <option value="saving">{ro ? "Economisire maximă, %" : "Макс. экономия, %"}</option>
+          <option value="markup">{ro ? "Cel mai bun adaos" : "Лучшая наценка"}</option>
         </select>
         <button type="submit" className={`${control} font-semibold`}>
           {ro ? "Aplică" : "Применить"}
@@ -201,12 +204,13 @@ async function renderOffers(searchParams: Promise<Params>) {
           </p>
           {result.data.items.length ? (
             <div
-              className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+              className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5"
               data-offer-feed
             >
               {result.data.items.map((offer, index) => (
                 <PartnerOfferFeedCard
                   priority={index === 0}
+                  rankPosition={(page - 1) * 20 + index + 1}
                   key={offer.offerId}
                   offer={offer}
                   locale={locale}
