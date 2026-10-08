@@ -19,6 +19,7 @@ type Event = {
   liveProviderCalls: number;
   routeCategory: string;
   stage: string;
+  durationMs: number;
 };
 
 describe("request diagnostics", () => {
@@ -31,6 +32,7 @@ describe("request diagnostics", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
@@ -110,6 +112,36 @@ describe("request diagnostics", () => {
     expect(events().map((event) => event.stage)).toEqual(["facets", "total_server"]);
   });
 
+  it("keeps Dashboard ownership until the last parallel stage settles after an early failure", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let last!: Promise<void>;
+    await withRoutePerformance("dashboard", async () => {
+      last = measurePerformanceStage("dashboard", "dashboard_aggregate", async () => {
+        await gate;
+        recordDatabaseQuery(23);
+        recordAuthCall();
+        recordLiveProviderCall();
+      });
+      await Promise.all([
+        last,
+        measurePerformanceStage("dashboard", "product_selections", async () => {
+          throw new Error("selection failure");
+        }),
+      ]).catch(() => undefined);
+    });
+    const prematureTotals = events().filter((event) => event.stage === "total_server");
+    release();
+    await last;
+    expect(prematureTotals).toHaveLength(0);
+    expect(events().map((event) => event.stage)).toEqual([
+      "product_selections", "dashboard_aggregate", "total_server",
+    ]);
+    expect(events().filter((event) => event.stage === "total_server")).toEqual([
+      expect.objectContaining({ databaseQueryCount: 1, databaseDurationMs: 23, authCalls: 1, liveProviderCalls: 1 }),
+    ]);
+  });
+
   it("honors deterministic zero and one sampling rates and safely bounds invalid values", async () => {
     vi.stubEnv("PERFORMANCE_DIAGNOSTICS_SAMPLE_RATE", "0");
     await withRoutePerformance("dashboard", async () => recordDatabaseQuery(5));
@@ -121,6 +153,82 @@ describe("request diagnostics", () => {
     expect(resolveDiagnosticsSampleRate("-1")).toBe(0);
     expect(resolveDiagnosticsSampleRate("2")).toBe(1);
     expect(resolveDiagnosticsSampleRate("not-a-number")).toBe(process.env.NODE_ENV === "production" ? 0.05 : 1);
+  });
+
+  it("covers the last parallel branch with wall time and independent stage counters", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const route = withRoutePerformance("dashboard", async () => {
+      await Promise.all([
+        measurePerformanceStage("dashboard", "finance_guidance", async () => {
+          recordDatabaseQuery(17);
+        }),
+        measurePerformanceStage("dashboard", "reference_enrichment", async () => {
+          await gate;
+          recordDatabaseQuery(41);
+        }),
+      ]);
+      return "unchanged";
+    });
+    vi.advanceTimersByTime(100);
+    release();
+    expect(await route).toBe("unchanged");
+    expect(events().map((event) => event.stage)).toEqual(["finance_guidance", "reference_enrichment", "total_server"]);
+    const total = events().at(-1)!;
+    expect(total.durationMs).toBeGreaterThanOrEqual(100);
+    expect(total.durationMs).toBeGreaterThanOrEqual(Math.max(...events().slice(0, -1).map((event) => event.durationMs)));
+    expect(total).toMatchObject({ databaseQueryCount: 2, databaseDurationMs: 58 });
+    expect(events()[0]).toMatchObject({ databaseQueryCount: 1, databaseDurationMs: 17 });
+    expect(events()[1]).toMatchObject({ databaseQueryCount: 1, databaseDurationMs: 41 });
+  });
+
+  it("keeps nested stages and route calls under one total without double counting", async () => {
+    await withRoutePerformance("dashboard", async () => {
+      await measurePerformanceStage("dashboard", "outer", async () => {
+        recordDatabaseQuery(3);
+        await withRoutePerformance("cart", async () => {
+          await measurePerformanceStage("dashboard", "inner", async () => recordDatabaseQuery(7));
+        });
+      });
+    });
+    expect(events().map((event) => event.stage)).toEqual(["inner", "outer", "total_server"]);
+    expect(events()[0]).toMatchObject({ databaseQueryCount: 1, databaseDurationMs: 7 });
+    expect(events()[1]).toMatchObject({ databaseQueryCount: 2, databaseDurationMs: 10 });
+    expect(events()[2]).toMatchObject({ routeCategory: "dashboard", databaseQueryCount: 2, databaseDurationMs: 10 });
+  });
+
+  it("releases an erroring deferred continuation once and preserves the original error", async () => {
+    let continuation!: ReturnType<typeof deferRoutePerformance>;
+    await withRoutePerformance("dashboard", async () => { continuation = deferRoutePerformance(); });
+    const error = new Error("original error");
+    await expect(continuation(async () => {
+      await measurePerformanceStage("dashboard", "support_tickets", async () => {
+        recordDatabaseQuery(9);
+        throw error;
+      });
+    })).rejects.toBe(error);
+    await expect(continuation(async () => undefined)).rejects.toThrow("already consumed");
+    expect(events().map((event) => event.stage)).toEqual(["support_tickets", "total_server"]);
+  });
+
+  it("isolates pending continuations and parallel stage stacks between requests", async () => {
+    let continuation!: ReturnType<typeof deferRoutePerformance>;
+    await withRoutePerformance("dashboard", async () => { continuation = deferRoutePerformance(); });
+    await withRoutePerformance("cart", async () => {
+      await measurePerformanceStage("cart", "cart_context", async () => recordDatabaseQuery(4));
+    });
+    expect(events().filter((event) => event.stage === "total_server").map((event) => event.routeCategory)).toEqual(["cart"]);
+    await continuation(async () => {
+      await measurePerformanceStage("dashboard", "reference_enrichment", async () => recordDatabaseQuery(8));
+    });
+    const cart = events().filter((event) => event.routeCategory === "cart");
+    const dashboard = events().filter((event) => event.routeCategory === "dashboard");
+    expect(cart).toHaveLength(2);
+    expect(dashboard).toHaveLength(2);
+    expect(cart[0].correlationId).not.toBe(dashboard[0].correlationId);
+    expect(cart.every((event) => event.databaseQueryCount === 1 && event.databaseDurationMs === 4)).toBe(true);
+    expect(dashboard.every((event) => event.databaseQueryCount === 1 && event.databaseDurationMs === 8)).toBe(true);
   });
 
   it("leaves business output unchanged and emits nothing when disabled", async () => {
