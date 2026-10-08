@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+const offerCard = vi.hoisted(() => vi.fn(({ offer, rankPosition }: { offer: {offerId: string}; rankPosition: number }) => <article data-offer-id={offer.offerId} data-rank-position={rankPosition} />));
+vi.mock("../../../commercial-campaigns/components/PartnerOfferFeedCard", () => ({ PartnerOfferFeedCard: offerCard }));
 
 vi.mock("../../behavior-analytics/components/BehaviorViewEvent", () => ({
   BehaviorTrackedCatalogLink: ({ ariaLabel, children, href }: { ariaLabel: string; children: React.ReactNode; href: string }) => <a aria-label={ariaLabel} href={href}>{children}</a>,
@@ -18,6 +20,17 @@ import {
 import { RESTRICTED_PRODUCT_CARD_CAPABILITIES } from "../product-card.model";
 
 describe("partner catalog showcase contract", () => {
+  it("renders the recommended offer prefix through exactly the shared commercial feed card", () => {
+    offerCard.mockClear();
+    render(<CatalogMerchandisingSections capabilities={RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={{}} companyId={null} userId={null} sections={[{
+      labelCode: "SPECIAL_OFFER", title: "Спецпредложения", href: "/cabinet/offers", totalCount: 38, products: [],
+      offers: Array.from({ length: 8 }, (_, index) => ({ offerId: `ranked-${index}` } as never)),
+    }]} />);
+    const cards = screen.getByTestId("catalog-showcase-grid-SPECIAL_OFFER").querySelectorAll("article");
+    expect(Array.from(cards).map(card => card.dataset.offerId)).toEqual(["ranked-0","ranked-1","ranked-2","ranked-3","ranked-4"]);
+    expect(offerCard).toHaveBeenCalledTimes(5);
+    expect(screen.getByRole("link", { name: "Показать все: Спецпредложения" })).toHaveAttribute("href", "/cabinet/offers");
+  });
   it("renders active special offers through canonical cards and the existing full-set destination", () => {
     render(<CatalogMerchandisingSections capabilities={RESTRICTED_PRODUCT_CARD_CAPABILITIES} commercialViews={{}} companyId={null} userId={null} sections={[{
       labelCode: "SPECIAL_OFFER", title: "Спецпредложения", href: "/cabinet/offers", totalCount: 8,

@@ -29,7 +29,7 @@ export type CampaignAttachState = {
   reward: { campaignItemId: string; productId: string; sku: string; name: string; minimumQuantity: number;
     currentQuantity: number; availableQuantity: number | null } | null;
 };
-export type CampaignCommercialSummary = { normalPartnerTotal: string | null; specialBundleTotal: string; saving: string | null; currency: "USD" | "MDL"; retailTotal: string | null; markupFromRetail: string | null; skuCount: number; totalUnits: number };
+export type CampaignCommercialSummary = { normalPartnerTotal: string | null; specialBundleTotal: string; saving: string | null; savingPercent?: number | null; markupPercent?: number | null; currency: "USD" | "MDL"; retailTotal: string | null; markupFromRetail: string | null; skuCount: number; totalUnits: number };
 export type CampaignMoney = { amount: number; currency: string };
 export type CampaignProduct = {
   itemId: string;

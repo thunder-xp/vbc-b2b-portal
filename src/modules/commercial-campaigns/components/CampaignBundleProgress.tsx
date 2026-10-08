@@ -34,7 +34,7 @@ export function CampaignBundleProgress({ progress, locale, mechanicType, compact
         const result = await completeCampaignBundleAction({ campaignId: progress.campaignId, publicationVersion: progress.publicationVersion, requestId: requestId.current });
         setMessage(result.success ? ro ? "Set adăugat în coș." : result.message : ro ? "Set indisponibil. Verificați condițiile." : result.message);
         if (result.success) { requestId.current = null; router.refresh(); }
-      })} type="button">{pending ? ro ? "Se adaugă…" : "Добавляем…" : mechanicType === "bundle_special_price" ? ro ? "Adaugă setul în coș" : "Добавить набор в корзину" : ro ? "Adaugă setul" : "Добавить комплект"}</button>
+      })} type="button">{pending ? ro ? "Se adaugă…" : "Добавляем…" : compact || mechanicType === "bundle_special_price" ? ro ? "Adaugă setul în coș" : "Добавить набор в корзину" : ro ? "Adaugă setul" : "Добавить комплект"}</button>
     {message ? <p className="mt-2 text-xs" role="status">{message}</p> : null}
   </section>;
 }

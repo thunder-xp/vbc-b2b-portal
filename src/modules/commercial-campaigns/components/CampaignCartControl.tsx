@@ -16,6 +16,7 @@ export function CampaignCartControl({
   mechanicType,
   promoThresholdQuantity,
   promoPrice,
+  compact = false,
 }: {
   itemId: string;
   publicationVersion: number;
@@ -24,6 +25,7 @@ export function CampaignCartControl({
   mechanicType: CampaignMechanicType;
   promoThresholdQuantity: number | null;
   promoPrice: CampaignMoney | null;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const locale = usePartnerLocale();
@@ -44,12 +46,12 @@ export function CampaignCartControl({
         : `PROMO активна · ${threshold}+ шт. → ${formatPartnerMoney(promoPrice.amount, "USD", locale)}`
     : "";
   return (
-    <div className="mt-4 flex flex-wrap items-end gap-2">
+    <div className={`${compact ? "mt-0" : "mt-4"} flex flex-wrap items-end gap-2`}>
       <label className="grid gap-1 text-xs font-medium text-zinc-600">
         {copy.quantity}
         <input
           aria-label={`${copy.quantity} ${locale === "ro" ? "produs" : "товара"}`}
-          className="h-11 w-24 rounded-md border border-zinc-300 px-3 text-base"
+          className={`h-11 ${compact ? "w-16 px-2 text-sm" : "w-24 px-3 text-base"} rounded-md border border-zinc-300 tabular-nums`}
           max={maximum ?? 9999}
           min={minimum}
           onChange={(event) => setQuantity(Number(event.target.value))}
@@ -58,7 +60,7 @@ export function CampaignCartControl({
         />
       </label>
       <button
-        className="inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:bg-zinc-300"
+        className={`inline-flex min-h-11 items-center gap-2 rounded-md bg-emerald-700 ${compact ? "px-3 text-xs" : "px-4 text-sm"} font-semibold text-white disabled:bg-zinc-300`}
         disabled={
           pending ||
           quantity < minimum ||

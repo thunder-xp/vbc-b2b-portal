@@ -27,12 +27,12 @@ describe("commercial campaign UI", () => {
     render(<CampaignCard campaign={{ ...campaign, timeState: "ACTIVE", remainingSeconds: 86400, products: [{ ...product, commercialSummary }, { ...product, itemId: "item-2", productId: "product-2", name: "Other camera" }] }} />);
     expect(screen.getByTestId("campaign-featured-product")).toHaveTextContent("Camera");
     expect(screen.getByText("SKU 400123")).toBeInTheDocument();
-    expect(screen.getByText("Ваша цена").nextElementSibling).toHaveClass("line-through");
+    expect(screen.getByText("Обычная цена партнёра").nextElementSibling).toHaveClass("line-through");
     expect(screen.getByText("Спеццена")).toBeInTheDocument();
     expect(screen.getByText("Экономия")).toBeInTheDocument();
     expect(screen.getByText("До конца: 1 дн. 0 ч.")).toBeInTheDocument();
     expect(screen.queryByText("Набор по спеццене")).toBeNull();
-    expect(screen.queryByText("Розничная цена")).toBeNull();
+    expect(screen.queryByText("Розница")).toBeNull();
     expect(screen.queryByText("Наценка от розницы")).toBeNull();
   });
 

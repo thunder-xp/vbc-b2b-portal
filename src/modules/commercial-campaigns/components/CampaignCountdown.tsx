@@ -26,7 +26,7 @@ export function CampaignCountdown({ remainingSeconds, locale = "ru", compact = f
   const minutes = Math.floor(remaining % 3600 / 60);
   const seconds = remaining % 60;
   const description = ro ? `${days} zile ${hours} ore ${minutes} minute ${seconds} secunde` : `${days} дн. ${hours} ч. ${minutes} мин. ${seconds} сек.`;
-  return <div className={`tabular-nums ${remaining < 86400 ? "text-amber-800" : "text-emerald-800"}`}>
+  return <div data-time-band={remaining < 86400 ? "under-24h" : remaining <= 259200 ? "24-72h" : "over-72h"} className={`tabular-nums ${remaining < 86400 ? "text-amber-900" : remaining <= 259200 ? "text-amber-800" : "text-zinc-600"}`}>
     {compact ? <p className="text-xs font-semibold" aria-label={description}>{ro ? "Mai sunt:" : "До конца:"} {days} {ro ? "z." : "дн."} {hours} {ro ? "h." : "ч."}{days === 0 && hours === 0 ? ` ${minutes} ${ro ? "min." : "мин."}` : ""}</p> : <>
       <p className="text-xs font-medium">{ro ? "Până la sfârșitul ofertei:" : "До конца предложения осталось:"}</p>
       <div aria-label={description} className="mt-2 flex flex-wrap gap-2">
