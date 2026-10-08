@@ -7,7 +7,7 @@ import { completeCampaignBundleAction } from "../actions/commercial-campaign.act
 import type { CampaignBundleState as BundleProgress } from "../types";
 
 /** All qualification, progress and stock decisions arrive from the server basket authority. */
-export function CampaignBundleProgress({ progress, locale, mechanicType }: { progress: BundleProgress; locale: PartnerLocale; mechanicType?: import("../types").CampaignMechanicType }) {
+export function CampaignBundleProgress({ progress, locale, mechanicType, compact=false }: { progress: BundleProgress; locale: PartnerLocale; mechanicType?: import("../types").CampaignMechanicType; compact?:boolean }) {
   const router = useRouter();
   const requestId = useRef<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -18,13 +18,13 @@ export function CampaignBundleProgress({ progress, locale, mechanicType }: { pro
     <p className="text-sm font-semibold" data-testid="bundle-status">{special ? progress.eligible ? ro ? "Set complet / preț special activ" : "Набор собран / спеццена активна" : ro ? "Set la preț special" : "Набор по спеццене" : progress.eligible
       ? ro ? "Set complet / PROMO activă" : "Комплект собран / PROMO активна"
       : ro ? "Set → PROMO" : "Комплект → PROMO"}</p>
-    <ul className="mt-2 grid gap-2 text-sm">
+    {!compact?<ul className="mt-2 grid gap-2 text-sm">
       {progress.components.map((component) => <li className="min-w-0" key={component.campaignItemId}>
         <span className="block break-words font-medium">SKU {component.sku} · {component.name}</span>
         <span className="text-xs text-zinc-600">{ro ? "În coș" : "В корзине"}: {component.currentQuantity} / {component.requiredBundleQuantity}</span>
         {component.missingQuantity > 0 ? <span className="ml-2 text-xs text-zinc-700">{special ? ro ? "Mai lipsesc în set" : "Не хватает в наборе" : ro ? "Mai lipsesc pentru PROMO" : "До PROMO не хватает"}: {component.missingQuantity}</span> : null}
       </li>)}
-    </ul>
+    </ul>:null}
     {!progress.conditionsReady ? <p className="mt-2 text-xs text-amber-800">{special ? ro ? "Condițiile ofertei nu sunt disponibile." : "Условия предложения недоступны." : ro ? "Condițiile PROMO nu sunt disponibile." : "Условия PROMO недоступны."}</p> : null}
     {!progress.stockReady ? <p className="mt-2 text-xs text-amber-800">{ro ? "Stoc insuficient pentru setul complet." : "Недостаточно наличия для полного комплекта."}</p> : null}
     <button className="mt-3 min-h-11 rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white disabled:bg-zinc-300"
