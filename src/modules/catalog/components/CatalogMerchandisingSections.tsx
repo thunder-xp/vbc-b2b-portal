@@ -1,3 +1,4 @@
+import { CampaignCountdown } from "../../commercial-campaigns/components/CampaignCountdown";
 import type {
   CatalogMerchandisingSection,
 } from "../actions/list-merchandising-sections.action";
@@ -59,6 +60,7 @@ export function CatalogMerchandisingSections({
           <div className={CATALOG_PRODUCT_GRID_CLASS} data-testid={`catalog-showcase-grid-${section.labelCode}`}>
             {section.products.slice(0, 5).map((product, index) => (
               <div className={showcaseProductVisibilityClass(index)} data-showcase-product={index + 1} key={product.id}>
+                {section.offerRemainingSeconds?.[product.id] !== undefined ? <div className="mb-2"><CampaignCountdown remainingSeconds={section.offerRemainingSeconds[product.id]} locale={locale} compact /></div> : null}
                 <ProductCard
                   analyticsSurface={section.labelCode}
                   capabilities={capabilities}

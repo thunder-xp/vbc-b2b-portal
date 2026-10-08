@@ -1,6 +1,7 @@
 import type { AdminCampaignDetail, AdminCampaignFilter, AdminCampaignPage, CampaignBuilderOptions, CampaignCompanySearch, CampaignDraftInput, CampaignDraftUpdateInput, CampaignFilter, CampaignMechanicType, CampaignProductSearch, CampaignPromoEligibilityReason, PartnerCampaign, PartnerCampaignPage } from "../types";
 
 export interface CommercialCampaignRepository {
+  previewContext?(companyId: string, productIds: string[]): Promise<import("../services/campaign-commercial-projection").CampaignPreviewContext>;
   listPartner(input: { companyId: string; filter: CampaignFilter; limit: number; offset: number }): Promise<PartnerCampaignPage>;
   getPartner(companyId: string, campaignId: string): Promise<PartnerCampaign | null>;
   addToCart(input: { companyId: string; campaignItemId: string; publicationVersion: number; quantity: number; requestId: string }): Promise<{ cartItemId: string; quantity: number; mechanicType: CampaignMechanicType; thresholdQuantity: number | null; promoEligible: boolean; eligibilityReason: CampaignPromoEligibilityReason }>;

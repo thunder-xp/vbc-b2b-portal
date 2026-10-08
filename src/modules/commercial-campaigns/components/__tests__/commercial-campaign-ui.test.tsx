@@ -21,7 +21,7 @@ describe("commercial campaign UI", () => {
   it("uses accessible 44px quantity and cart controls", () => {
     render(<CampaignCartControl publicationVersion={1} itemId="item-1" maximum={10} mechanicType="legacy_promo" minimum={2} promoPrice={product.specialPrice} promoThresholdQuantity={null} />);
     expect(screen.getByRole("spinbutton", { name: "Количество товара" })).toHaveValue(2);
-    expect(screen.getByRole("button", { name: /Добавить в корзину/ })).toHaveClass("min-h-11");
+    expect(screen.getByRole("button", { name: "В корзину" })).toHaveClass("min-h-11");
   });
 
   it("explains progress to the governed per-product PROMO threshold", () => {
