@@ -1,7 +1,7 @@
 export type CampaignStatus = "draft" | "scheduled" | "active" | "paused" | "completed" | "archived";
 export type CampaignFilter = "active" | "ending" | "stock" | "arrivals" | "purchased";
 export type CampaignType = "product_offer" | "stock_clearance" | "arrival_promotion" | "reorder_campaign" | "category_campaign" | "partner_segment_offer";
-export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo" | "spend_threshold_promo";
+export type CampaignMechanicType = "legacy_promo" | "quantity_threshold_promo" | "fixed_bundle_promo" | "conditional_attach_promo" | "spend_threshold_promo" | "bundle_special_price";
 /** Decimal strings preserve the monetary contract across JSON and editor boundaries. */
 export type SpendThresholdPromoConfig = { thresholdAmountUsd: string; currency: "USD"; qualifyingProductIds: string[]; rewardProductId: string };
 export type CampaignSpendState = {
@@ -29,6 +29,7 @@ export type CampaignAttachState = {
   reward: { campaignItemId: string; productId: string; sku: string; name: string; minimumQuantity: number;
     currentQuantity: number; availableQuantity: number | null } | null;
 };
+export type CampaignCommercialSummary = { normalPartnerTotal: string | null; specialBundleTotal: string; saving: string | null; currency: "USD" | "MDL"; retailTotal: string | null; markupFromRetail: string | null; skuCount: number; totalUnits: number };
 export type CampaignMoney = { amount: number; currency: string };
 export type CampaignProduct = {
   itemId: string;
@@ -46,6 +47,7 @@ export type CampaignProduct = {
   attachRole?: "TRIGGER" | "REWARD" | null;
   spendRole?: "QUALIFYING_SPEND" | "REWARD" | null;
   requiredTriggerQuantity?: number | null;
+  commercialSummary?: CampaignCommercialSummary | null;
   msrpPrice: CampaignMoney | null;
   partnerPrice: CampaignMoney | null;
   specialPrice: CampaignMoney | null;
@@ -56,6 +58,9 @@ export type CampaignProduct = {
 };
 
 export type PartnerCampaign = {
+  timeState?: import("./services/campaign-lifecycle").CampaignTimeState;
+  remainingSeconds?: number;
+  commercialSummary?: CampaignCommercialSummary | null;
   id: string;
   publicationVersion: number;
   code: string;
@@ -160,6 +165,8 @@ export type CampaignDraftInput = {
     partnerMessage: string | null;
     promoThresholdQuantity: number | null;
     requiredBundleQuantity?: number | null;
+    bundleSpecialUnitPrice?: string | null;
+    bundleSpecialCurrency?: "USD" | "MDL" | null;
     attachRole?: "TRIGGER" | "REWARD" | null;
     requiredTriggerQuantity?: number | null;
   }>;

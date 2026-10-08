@@ -1,3 +1,6 @@
+import { CampaignCountdown } from "@/src/modules/commercial-campaigns/components/CampaignCountdown";
+import { CampaignBundleSummary } from "@/src/modules/commercial-campaigns/components/CampaignBundleSummary";
+import { CampaignCommercialSummary } from "@/src/modules/commercial-campaigns/components/CampaignCommercialSummary";
 import { CalendarClock, PackageCheck, Truck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,6 +12,7 @@ import { CampaignSpendProgress, CampaignAttachProgress, CampaignBundleProgress, 
 import { ProductThumbnail } from "@/src/modules/catalog/components";
 import {
   formatPartnerDate,
+  formatPartnerMoney,
   secondaryCopy,
 } from "@/src/modules/partner-locale";
 import { getPartnerLocale } from "@/src/modules/partner-locale/server";
@@ -29,7 +33,7 @@ export default async function OfferDetailPage({
   return (
     <div className="space-y-6">
       <CampaignViewEvidence campaignId={campaign.id} />
-      <header className="grid overflow-hidden rounded-md border border-zinc-200 bg-white lg:grid-cols-[minmax(0,1fr)_24rem]" data-partner-page-header>
+      <header className="grid overflow-hidden rounded-md border border-zinc-200 bg-white lg:grid-cols-[minmax(0,1fr)_24rem]" data-testid="campaign-hero">
         <div className="p-6">
           <Link
             className="text-sm font-semibold text-emerald-700"
@@ -40,10 +44,13 @@ export default async function OfferDetailPage({
           <p className="mt-5 text-xs font-semibold uppercase text-emerald-700">
             {copy.specialOffer}
           </p>
+          {campaign.mechanicType === "bundle_special_price" ? <p className="mt-2 text-sm font-semibold">{locale === "ro" ? "Set avantajos pentru parteneri" : "Выгодный комплект для партнёров"}</p> : null}
           <h1 className="mt-1 text-2xl font-semibold sm:text-3xl">
             {campaign.title}
           </h1>
           <p className="mt-3 max-w-3xl text-zinc-600">{campaign.description}</p>
+          {campaign.timeState === "ACTIVE" ? <div className="mt-4"><CampaignCountdown remainingSeconds={campaign.remainingSeconds ?? 0} locale={locale} /></div> : <p className="mt-3 text-xs">{campaign.timeState}</p>}
+          <p className="mt-3 text-xs text-zinc-600">{locale === "ro" ? "Început" : "Начало"}: {formatPartnerDate(campaign.startsAt, locale)}</p>
           <p className="mt-5 inline-flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">
             <CalendarClock className="size-4" />
             {copy.availableUntil} {formatPartnerDate(campaign.endsAt, locale)}
@@ -62,7 +69,8 @@ export default async function OfferDetailPage({
           </div>
         ) : null}
       </header>
-      {campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} locale={locale} /> : null}
+      <CampaignBundleSummary campaign={campaign} locale={locale} />
+      {campaign.mechanicType !== "bundle_special_price" && campaign.bundleProgress ? <CampaignBundleProgress progress={campaign.bundleProgress} locale={locale} /> : null}
       {campaign.attachProgress ? <CampaignAttachProgress progress={campaign.attachProgress} locale={locale} /> : null}
       {campaign.spendProgress ? <CampaignSpendProgress progress={campaign.spendProgress} locale={locale} /> : null}
       <section aria-labelledby="campaign-products">
@@ -95,7 +103,7 @@ export default async function OfferDetailPage({
                 >
                   {product.name}
                 </Link>
-                <CampaignPriceStack locale={locale} product={product} />
+                {product.commercialSummary && ["legacy_promo", "bundle_special_price"].includes(campaign.mechanicType) ? <>{product.msrpPrice ? <p className="mt-2 text-xs text-zinc-600">MSRP: {formatPartnerMoney(product.msrpPrice.amount, product.msrpPrice.currency, locale)}</p> : null}<CampaignCommercialSummary summary={product.commercialSummary} locale={locale} /></> : <CampaignPriceStack locale={locale} product={product} />}
                 <p className="mt-2 flex items-center gap-1.5 text-sm">
                   {(product.availableQuantity ?? 0) > 0 ? (
                     <>
@@ -118,12 +126,12 @@ export default async function OfferDetailPage({
                   </p>
                 ) : null}
                 <p className="mt-2 text-xs text-zinc-500">
-                  {campaign.mechanicType === "spend_threshold_promo" ? product.spendRole === "REWARD" ? locale === "ro" ? "Produs cu PROMO" : "Товар с PROMO" : locale === "ro" ? "Contribuie la prag în USD" : "Учитывается в USD-пороге" : campaign.mechanicType === "conditional_attach_promo" ? product.attachRole === "TRIGGER" ? `${locale === "ro" ? "Condiție" : "Условие"}: ${product.requiredTriggerQuantity}` : locale === "ro" ? "Produs cu PROMO" : "Товар с PROMO" : campaign.mechanicType === "fixed_bundle_promo" ? `${locale === "ro" ? "Cantitate în set" : "Количество в комплекте"}: ${product.requiredBundleQuantity}` : `${copy.minimum}: ${product.minimumQuantity}`} {campaign.mechanicType === "spend_threshold_promo" || campaign.mechanicType === "conditional_attach_promo" && product.attachRole === "REWARD" ? "" : copy.units}
+                  {campaign.mechanicType === "spend_threshold_promo" ? product.spendRole === "REWARD" ? locale === "ro" ? "Produs cu PROMO" : "Товар с PROMO" : locale === "ro" ? "Contribuie la prag în USD" : "Учитывается в USD-пороге" : campaign.mechanicType === "conditional_attach_promo" ? product.attachRole === "TRIGGER" ? `${locale === "ro" ? "Condiție" : "Условие"}: ${product.requiredTriggerQuantity}` : locale === "ro" ? "Produs cu PROMO" : "Товар с PROMO" : ["fixed_bundle_promo", "bundle_special_price"].includes(campaign.mechanicType) ? `${locale === "ro" ? "Cantitate în set" : "Количество в комплекте"}: ${product.requiredBundleQuantity}` : `${copy.minimum}: ${product.minimumQuantity}`} {campaign.mechanicType === "spend_threshold_promo" || campaign.mechanicType === "conditional_attach_promo" && product.attachRole === "REWARD" ? "" : copy.units}
                   {product.maximumQuantityPerCompany
                     ? ` · ${copy.companyLimit}: ${product.maximumQuantityPerCompany} ${copy.units}`
                     : ""}
                 </p>
-                {(campaign.mechanicType !== "conditional_attach_promo" || product.attachRole === "TRIGGER") && (campaign.mechanicType !== "spend_threshold_promo" || product.spendRole === "QUALIFYING_SPEND") ? <CampaignCartControl
+                {campaign.mechanicType !== "bundle_special_price" && (campaign.mechanicType !== "conditional_attach_promo" || product.attachRole === "TRIGGER") && (campaign.mechanicType !== "spend_threshold_promo" || product.spendRole === "QUALIFYING_SPEND") ? <CampaignCartControl
                   itemId={product.itemId}
                   publicationVersion={campaign.publicationVersion}
                   maximum={product.maximumQuantityPerCompany}

@@ -791,7 +791,7 @@ function createGovernedPartnerMdlView(
   };
 }
 
-function convertUsdToWholeMdl(amount: number, mdlPerUsdRate: number | null): number | null {
+export function convertUsdToWholeMdl(amount: number, mdlPerUsdRate: number | null): number | null {
   if (!Number.isFinite(amount) || !Number.isFinite(mdlPerUsdRate) || mdlPerUsdRate === null || mdlPerUsdRate <= 0) return null;
   return new Decimal(amount).times(mdlPerUsdRate).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber();
 }
@@ -825,11 +825,11 @@ function createRetailPriceMdlView(
   };
 }
 
-function createCommercialOpportunity(
+export function createCommercialOpportunity(
   partnerPriceMdl: ProductPriceViewDto | null,
   retailPriceMdl: ProductPriceViewDto | null,
-  partnerRate: CommercialRate | null,
-  retailRate: CommercialRate | null,
+  partnerRate: Pick<CommercialRate, "rate"> | null,
+  retailRate: Pick<CommercialRate, "rate"> | null,
 ): CommercialOpportunityViewDto | null {
   if (!partnerPriceMdl || !retailPriceMdl || !partnerRate || !retailRate) return null;
   if (!Number.isFinite(partnerRate.rate) || partnerRate.rate <= 0 || !Number.isFinite(retailRate.rate) || retailRate.rate <= 0 || partnerPriceMdl.amount <= 0) return null;

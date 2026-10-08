@@ -32,6 +32,7 @@ export type CatalogMerchandisingSection = {
   href?: string;
   contextBadge?: string;
   totalCount: number;
+  offerRemainingSeconds?: Record<string, number>;
 };
 
 export type CatalogMerchandisingSectionsResult = {
@@ -73,8 +74,8 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
       ? new SupabaseWarehouseArrivalRepository().getCurrentReplenishmentPreview(context.companyId)
       : { items: [], totalCount: 0 },
       context.accessState === "active" && context.capabilities.navigation.some((item) => item.key === "offers" && item.availability === "available")
-        ? createCommercialCampaignService().getActiveProductPreview(userId)
-        : { productIds: [] as string[], totalCount: 0 },
+        ? createCommercialCampaignService().getActiveProductPreview(userId, true)
+        : { productIds: [] as string[], totalCount: 0, timeRemaining: {} as Record<string, number> },
     ]);
     const replenishment = replenishmentPage.items;
     const productIds = [...new Set([
@@ -142,6 +143,7 @@ export async function listCatalogMerchandisingSectionsAction(requestedPeriods: {
         products: specialOfferProducts,
         href: "/cabinet/offers",
         totalCount: specialOffers.totalCount,
+        offerRemainingSeconds: specialOffers.timeRemaining,
       });
     }
     const replenishmentProducts = replenishment
