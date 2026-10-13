@@ -4,9 +4,11 @@ import { ProfileForm } from "@/src/modules/agent-cabinet/components/ProfileForm"
 import { cabinetPageNarrow } from "@/src/modules/cabinet-experience/components";
 import { BusinessPhoneEnrollmentLink } from "@/src/modules/quick-auth/components/BusinessPhoneEnrollmentLink";
 import { isBusinessPhoneOtpEnabled } from "@/src/modules/quick-auth/factory";
+import { createBusinessProfilePhoneStateService } from "@/src/modules/quick-auth/enrollment.factory";
 
 export default async function AgentProfilePage() {
-  const [context, locale] = await Promise.all([createAgentCabinetService().context(), getAgentCabinetLocale()]);
+  const otpEnabled = isBusinessPhoneOtpEnabled();
+  const [context, locale, phoneState] = await Promise.all([createAgentCabinetService().context(), getAgentCabinetLocale(), otpEnabled ? createBusinessProfilePhoneStateService().resolveCurrent() : null]);
   if (!context) return null;
   const ro = locale === "ro";
 
@@ -21,7 +23,7 @@ export default async function AgentProfilePage() {
       <h2 className="mb-3 text-lg font-semibold tracking-tight">{ro ? "Date de contact" : "Контактные данные"}</h2>
       <ProfileForm context={context} locale={locale} />
     </section>
-    {isBusinessPhoneOtpEnabled() ? <BusinessPhoneEnrollmentLink locale={locale} returnTo="/agent/profile" /> : null}
+    {otpEnabled && phoneState ? <BusinessPhoneEnrollmentLink locale={locale} returnTo="/agent/profile" state={phoneState.state} /> : null}
   </main>;
 }
 

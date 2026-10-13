@@ -6,6 +6,7 @@ import type { BusinessPhoneEnrollmentAuthGateway, BusinessPhoneEnrollmentReposit
 import { BusinessPhoneAuthError } from "./enrollment.errors";
 import type { BusinessProfilePhoneStateService } from "./profile-phone-state";
 import type { BusinessPhoneEnrollmentPublicState } from "./enrollment.types";
+import { maskBusinessPhone } from "./phone-display";
 
 export class BusinessPhoneEnrollmentService {
   constructor(
@@ -46,7 +47,7 @@ export class BusinessPhoneEnrollmentService {
         await this.repository.fail({ challengeId: preparation.challengeId, authUserId, phoneKeyHash });
         return { ok: false, error: "UNAVAILABLE" };
       }
-      return { ok: true, step: "OTP", challengeId: preparation.challengeId, maskedPhone: maskPhone(phoneE164) };
+      return { ok: true, step: "OTP", challengeId: preparation.challengeId, maskedPhone: maskBusinessPhone(phoneE164) };
     } catch (error) {
       return enrollmentError(error);
     }
@@ -61,7 +62,7 @@ export class BusinessPhoneEnrollmentService {
         return { ok: false, error: "RATE_LIMITED", retryAfterSeconds: sendReservation.retryAfterSeconds };
       }
       await this.auth.resendPhoneVerification(prepared.input.phoneE164);
-      return { ok: true, step: "OTP", challengeId, maskedPhone: maskPhone(prepared.input.phoneE164) };
+      return { ok: true, step: "OTP", challengeId, maskedPhone: maskBusinessPhone(prepared.input.phoneE164) };
     } catch (error) {
       await this.repository.fail({
         ...prepared.input,
@@ -193,10 +194,6 @@ function enrollmentError(error: unknown): BusinessPhoneEnrollmentPublicState {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-function maskPhone(phoneE164: string) {
-  return `+373 ** *** ${phoneE164.slice(-2)}`;
 }
 
 function safeEqual(left: string, right: string) {

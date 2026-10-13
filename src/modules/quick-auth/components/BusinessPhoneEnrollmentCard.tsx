@@ -13,6 +13,7 @@ import {
 } from "../enrollment.actions";
 import type { BusinessProfilePhoneStateCode } from "../profile-phone-state";
 import type { BusinessPhoneEnrollmentPublicState } from "../enrollment.types";
+import { maskBusinessPhone } from "../phone-display";
 
 const copy = {
   ru: {
@@ -30,8 +31,8 @@ const copy = {
     wait: (seconds: number) => `Повторная отправка через ${seconds} сек.`,
     confirmed: "Номер уже подтверждён.",
     confirmedBody: "Этот номер используется для быстрого входа по SMS.",
-    conflict: "Номер связан с другой учётной записью",
-    conflictBody: "SMS-код не отправлен. Используйте другой номер в профиле или обратитесь в Novotech.",
+    conflict: "Номер требует сверки",
+    conflictBody: "SMS-код не отправлен. Данные номера не совпадают или номер недоступен. Обратитесь в Novotech для сверки.",
     notSet: "Номер телефона не указан",
     notSetBody: "Вернитесь в профиль, введите номер телефона и сохраните изменения.",
     back: "Вернуться в профиль",
@@ -57,8 +58,8 @@ const copy = {
     wait: (seconds: number) => `Retrimitere peste ${seconds} sec.`,
     confirmed: "Numărul este deja confirmat.",
     confirmedBody: "Acest număr este utilizat pentru autentificarea rapidă prin SMS.",
-    conflict: "Numărul este asociat altui cont",
-    conflictBody: "Codul SMS nu a fost trimis. Utilizați alt număr în profil sau contactați Novotech.",
+    conflict: "Numărul necesită verificarea datelor",
+    conflictBody: "Codul SMS nu a fost trimis. Datele numărului nu coincid sau numărul nu este disponibil. Contactați Novotech pentru verificare.",
     notSet: "Numărul de telefon nu este indicat",
     notSetBody: "Reveniți la profil, introduceți numărul de telefon și salvați modificările.",
     back: "Înapoi la profil",
@@ -169,7 +170,7 @@ export function BusinessPhoneEnrollmentCard({
           </div>
           <dl className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <dt className="text-xs font-medium text-zinc-500">{labels.target}</dt>
-            <dd className="mt-1 font-mono text-base font-semibold text-zinc-950">{targetPhone}</dd>
+            <dd className="mt-1 font-mono text-base font-semibold text-zinc-950">{targetPhone ? maskBusinessPhone(targetPhone) : "—"}</dd>
           </dl>
           <ErrorMessage message={error} />
           <button className={primaryButton} disabled={pending} onClick={() => void start()} type="button">

@@ -25,9 +25,7 @@ export default async function CabinetProfilePage() {
     );
   }
 
-  const phoneState = await createBusinessProfilePhoneStateService().resolveCurrent({
-    profilePhone: profileResult.data.phone,
-  });
+  const phoneState = await createBusinessProfilePhoneStateService().resolveCurrent();
   if (!phoneState) redirect(`/auth/sign-in?lang=${locale}`);
 
   return (
