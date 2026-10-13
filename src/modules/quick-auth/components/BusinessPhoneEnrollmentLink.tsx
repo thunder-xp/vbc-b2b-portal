@@ -18,8 +18,8 @@ const copy = {
       action: "Подтвердить номер",
     },
     CONFLICT: {
-      status: "Номер связан с другой учётной записью",
-      description: "Используйте другой номер или обратитесь в Novotech.",
+      status: "Номер требует сверки",
+      description: "Данные номера не совпадают или номер недоступен. Обратитесь в Novotech для сверки.",
       action: "Номер недоступен",
     },
     NOT_SET: {
@@ -41,8 +41,8 @@ const copy = {
       action: "Confirmați numărul",
     },
     CONFLICT: {
-      status: "Numărul este asociat altui cont",
-      description: "Utilizați alt număr sau contactați Novotech.",
+      status: "Numărul necesită verificarea datelor",
+      description: "Datele numărului nu coincid sau numărul nu este disponibil. Contactați Novotech pentru verificare.",
       action: "Număr indisponibil",
     },
     NOT_SET: {

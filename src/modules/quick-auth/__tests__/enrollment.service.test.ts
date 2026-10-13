@@ -26,7 +26,7 @@ describe("BusinessPhoneEnrollmentService", () => {
       recordVerification: vi.fn(async () => undefined),
     };
     stateRepository = {
-      getProfilePhone: vi.fn(async () => "+37369982220"),
+      resolvePhone: vi.fn(async () => ({ source: "USER_PROFILE" as const, phoneE164: "+37369982220" })),
       hasOperationalConflict: vi.fn(async () => false),
     };
     auth = {
@@ -44,7 +44,7 @@ describe("BusinessPhoneEnrollmentService", () => {
       challengeId,
       maskedPhone: "+373 ** *** 20",
     });
-    expect(stateRepository.getProfilePhone).toHaveBeenCalledWith(authUserId);
+    expect(stateRepository.resolvePhone).toHaveBeenCalledWith(authUserId);
     expect(repository.prepare).toHaveBeenCalledWith({ authUserId, phoneE164: "+37369982220", phoneKeyHash: phoneHash });
     expect(auth.requestPhoneVerification).toHaveBeenCalledWith("+37369982220");
   });
@@ -53,6 +53,21 @@ describe("BusinessPhoneEnrollmentService", () => {
     vi.mocked(auth.currentUser).mockResolvedValue(null);
     await expect(service().start()).resolves.toEqual({ ok: false, error: "AUTH_REQUIRED" });
     expect(repository.prepare).not.toHaveBeenCalled();
+  });
+
+  it("sends initial enrollment to the governed Agent target without patching user_profiles", async () => {
+    vi.mocked(stateRepository.resolvePhone).mockResolvedValue({ source: "COMMERCIAL_AGENT", phoneE164: "+37369256733" });
+    await expect(service().start()).resolves.toMatchObject({ ok: true, step: "OTP", maskedPhone: "+373 ** *** 33" });
+    expect(auth.requestPhoneVerification).toHaveBeenCalledWith("+37369256733");
+    expect(repository.prepare).toHaveBeenCalledWith({ authUserId, phoneE164: "+37369256733", phoneKeyHash: phoneHash });
+  });
+
+  it("does not prepare a challenge or send SMS for different dual-context phones", async () => {
+    vi.mocked(stateRepository.resolvePhone).mockResolvedValue({ source: "CONFLICT", phoneE164: null });
+    await expect(service().start()).resolves.toEqual({ ok: false, error: "PHONE_CONFLICT" });
+    expect(repository.prepare).not.toHaveBeenCalled();
+    expect(repository.reserveSend).not.toHaveBeenCalled();
+    expect(auth.requestPhoneVerification).not.toHaveBeenCalled();
   });
 
   it("fails closed when the saved Profile phone conflicts with another operational identity", async () => {

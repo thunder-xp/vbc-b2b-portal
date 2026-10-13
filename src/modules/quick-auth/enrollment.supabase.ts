@@ -15,10 +15,14 @@ const preparationSchema = z.discriminatedUnion("result", [
   z.object({ result: z.literal("ALREADY_CONFIRMED") }),
 ]);
 const sendReservationSchema = z.object({ allowed: z.boolean(), retryAfterSeconds: z.number().int().nonnegative() });
+const phoneResolutionSchema = z.object({
+  source: z.enum(["USER_PROFILE", "COMMERCIAL_AGENT", "MATCHING_MULTI_CONTEXT", "NONE", "CONFLICT"]),
+  phoneE164: z.string().regex(/^\+373[0-9]{8}$/).nullable(),
+});
 
 export class SupabaseBusinessPhoneEnrollmentRepository implements BusinessPhoneEnrollmentRepository {
   async prepare(input: Parameters<BusinessPhoneEnrollmentRepository["prepare"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("prepare_business_phone_enrollment_v1", {
+    const { data, error } = await createAdminClient().rpc("prepare_business_phone_enrollment_v3", {
       p_auth_user_id: input.authUserId,
       p_phone_e164: input.phoneE164,
       p_phone_key_hash: input.phoneKeyHash,
@@ -28,7 +32,7 @@ export class SupabaseBusinessPhoneEnrollmentRepository implements BusinessPhoneE
   }
 
   async reserveSend(input: Parameters<BusinessPhoneEnrollmentRepository["reserveSend"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("reserve_business_phone_enrollment_send_v2", {
+    const { data, error } = await createAdminClient().rpc("reserve_business_phone_enrollment_send_v4", {
       p_challenge_id: input.challengeId,
       p_auth_user_id: input.authUserId,
       p_phone_e164: input.phoneE164,
@@ -48,7 +52,7 @@ export class SupabaseBusinessPhoneEnrollmentRepository implements BusinessPhoneE
   }
 
   async complete(input: Parameters<BusinessPhoneEnrollmentRepository["complete"]>[0]) {
-    const { data, error } = await createAdminClient().rpc("complete_business_phone_enrollment_v1", {
+    const { data, error } = await createAdminClient().rpc("complete_business_phone_enrollment_v3", {
       p_challenge_id: input.challengeId,
       p_auth_user_id: input.authUserId,
       p_phone_e164: input.phoneE164,
@@ -80,20 +84,17 @@ export class SupabaseBusinessPhoneEnrollmentRepository implements BusinessPhoneE
 }
 
 export class SupabaseBusinessProfilePhoneStateRepository implements BusinessProfilePhoneStateRepository {
-  async getProfilePhone(authUserId: string) {
-    const { data, error } = await createAdminClient()
-      .from("user_profiles")
-      .select("phone")
-      .eq("id", authUserId)
-      .eq("status", "active")
-      .maybeSingle();
+  async resolvePhone(authUserId: string) {
+    const { data, error } = await createAdminClient().rpc("resolve_business_profile_phone_v1", {
+      p_auth_user_id: authUserId,
+    });
     if (error) throw new Error("Business profile phone lookup failed.");
-    return data?.phone ?? null;
+    return phoneResolutionSchema.parse(data);
   }
 
   async hasOperationalConflict(authUserId: string, phoneE164: string) {
     const { data, error } = await createAdminClient().rpc(
-      "has_business_profile_phone_operational_conflict_v2",
+      "has_business_profile_phone_operational_conflict_v3",
       { p_auth_user_id: authUserId, p_phone_e164: phoneE164 },
     );
     if (error || typeof data !== "boolean") {

@@ -18,8 +18,13 @@ export type BusinessProfilePhoneState = {
   profilePhoneE164: string | null;
 };
 
+export type BusinessPhoneResolution = {
+  source: "USER_PROFILE" | "COMMERCIAL_AGENT" | "MATCHING_MULTI_CONTEXT" | "NONE" | "CONFLICT";
+  phoneE164: string | null;
+};
+
 export interface BusinessProfilePhoneStateRepository {
-  getProfilePhone(authUserId: string): Promise<string | null>;
+  resolvePhone(authUserId: string): Promise<BusinessPhoneResolution>;
   hasOperationalConflict(authUserId: string, phoneE164: string): Promise<boolean>;
 }
 
@@ -29,14 +34,17 @@ export class BusinessProfilePhoneStateService {
     private readonly auth: Pick<BusinessPhoneEnrollmentAuthGateway, "currentUser">,
   ) {}
 
-  async resolveCurrent(input: { profilePhone?: string | null } = {}): Promise<BusinessProfilePhoneState | null> {
+  async resolveCurrent(): Promise<BusinessProfilePhoneState | null> {
     const user = await this.auth.currentUser();
     if (!user) return null;
 
-    const profilePhone = Object.hasOwn(input, "profilePhone")
-      ? input.profilePhone ?? null
-      : await this.repository.getProfilePhone(user.id);
+    const resolution = await this.repository.resolvePhone(user.id);
+    const profilePhone = resolution.phoneE164;
     const profilePhoneE164 = profilePhone ? canonicalMoldovaE164(profilePhone) : null;
+
+    if (resolution.source === "CONFLICT") {
+      return { authUserId: user.id, state: "CONFLICT", profilePhone: null, profilePhoneE164: null };
+    }
 
     if (!profilePhoneE164) {
       return { authUserId: user.id, state: "NOT_SET", profilePhone, profilePhoneE164: null };
