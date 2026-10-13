@@ -450,7 +450,7 @@ describe("1C OData partner provider", () => {
 
   it("revalidates company-scoped contract references through exact 1C record reads", async () => {
     const fetchMock = sequence(
-      record(contractRow()),
+      collection([contractRow()]),
       record(priceTypeRow()),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -461,8 +461,18 @@ describe("1C OData partner provider", () => {
     expect(result.items).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const contractUrl = fetchMock.mock.calls[0]?.[0] as URL;
-    expect(decodeURIComponent(contractUrl.pathname)).toContain(`${ONE_C_RESOURCES.contracts}(guid'${CONTRACT_ID}')`);
-    expect(contractUrl.searchParams.get("$top")).toBeNull();
+    expect(decodeURIComponent(contractUrl.pathname)).toContain(ONE_C_RESOURCES.contracts);
+    expect(contractUrl.searchParams.get("$filter")).toBe(`Ref_Key eq guid'${CONTRACT_ID}'`);
+    expect(contractUrl.searchParams.get("$top")).toBe("2");
+  });
+
+  it("fails closed when an exact contract reference is not unique", async () => {
+    vi.stubGlobal("fetch", sequence(collection([contractRow(), contractRow()])));
+
+    await expect(provider().partners.fetchPartnerContracts({
+      partnerReference: PARTNER_ID,
+      contractReferences: [CONTRACT_ID],
+    })).rejects.toThrow("1C returned duplicate contracts for an exact reference.");
   });
 
   it("stops the fallback contract scan at the configured maximum page count", async () => {
