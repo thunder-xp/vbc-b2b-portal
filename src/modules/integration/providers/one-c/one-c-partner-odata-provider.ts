@@ -63,6 +63,7 @@ const PARTNER_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
 const CONTRACT_FIELDS = ONE_C_CONTRACT_FIELDS.join(",");
 const DEFAULT_CONTRACT_FIELDS = ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS.join(",");
 const PRICE_TYPE_FIELDS = ONE_C_PRICE_TYPE_FIELDS.join(",");
+const COMPLETE_CONTRACT_COLLECTION_LIMIT = 5_000;
 
 export class OneCPartnerODataProvider implements PartnerProvider {
   private readonly mapper = new DefaultOneCPartnerMapper();
@@ -369,20 +370,16 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   }
 
   private async scanContractsByOwner(reference: string): Promise<OneCPartnerContractPayload[]> {
-    const matches: OneCPartnerContractPayload[] = [];
-    for (let page = 0; page < this.config.partnerSearchMaxPages; page += 1) {
-      const rows = await this.getCollection<OneCPartnerContractPayload>(CONTRACTS_RESOURCE, {
-        $select: CONTRACT_FIELDS,
-        $top: String(this.config.partnerSearchPageSize),
-        $skip: String(page * this.config.partnerSearchPageSize),
-      }, "partner_contract_scan");
-      assertRows(rows, isContractRow);
-      rows
-        .filter((row) => contractBelongsToPartner(row, reference))
-        .forEach((row) => matches.push(row));
-      if (rows.length < this.config.partnerSearchPageSize) break;
+    const rows = await this.getCollection<OneCPartnerContractPayload>(CONTRACTS_RESOURCE, {
+      $select: CONTRACT_FIELDS,
+      $top: String(COMPLETE_CONTRACT_COLLECTION_LIMIT),
+      $skip: "0",
+    }, "partner_contract_complete_scan");
+    assertRows(rows, isContractRow);
+    if (rows.length >= COMPLETE_CONTRACT_COLLECTION_LIMIT) {
+      throw new IntegrationValidationError("1C contract collection reached its safety bound.");
     }
-    return matches;
+    return rows.filter((row) => contractBelongsToPartner(row, reference));
   }
 
   private async getCollection<T>(
