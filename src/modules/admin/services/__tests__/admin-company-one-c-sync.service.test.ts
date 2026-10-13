@@ -33,6 +33,10 @@ describe("AdminCompanyOneCManualSyncService", () => {
       priceTypeRef: PRICE_REF,
     });
     expect(discovery.canApply).toBe(true);
+    expect(provider.fetchPartnerContracts).toHaveBeenCalledWith({
+      partnerReference: COUNTERPARTY_REF,
+      contractReferences: [MAIN_REF, CASH_REF],
+    });
   });
 
   it("requires administrator selection when several eligible NS contracts exist", async () => {
@@ -271,7 +275,7 @@ function mapping(ready: boolean) {
     defaultContractAmbiguous: false,
     readiness: { class: ready ? "READY" : "UNKNOWN_PRICE_TYPE", ready },
     cashMapping: { contractRef: ready ? CASH_REF : null, version: 0, active: ready, qualified: ready, events: [] },
-    candidates: [],
+    candidates: [{ external1cId: MAIN_REF }, { external1cId: CASH_REF }],
   };
 }
 

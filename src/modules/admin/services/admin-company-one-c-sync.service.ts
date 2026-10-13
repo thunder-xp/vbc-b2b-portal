@@ -188,8 +188,16 @@ export class AdminCompanyOneCManualSyncService {
     );
     if (!identityMatches) throw new AdminOneCManualSyncError("COUNTERPARTY_CONFLICT");
 
+    const contractReferences = [...new Set([
+      ...mapping.candidates.map((candidate) => candidate.external1cId),
+      mapping.currentContractRef,
+      mapping.cashMapping.contractRef,
+      mapping.suggestedContractRef,
+      mapping.suggestedCashContractRef,
+    ].filter((reference): reference is string => Boolean(reference)))];
     const contractsPage = await this.provider.fetchPartnerContracts({
       partnerReference: partner.reference.externalId,
+      contractReferences,
     });
     const defaultContract = await this.provider.resolveCustomerOrderContract({
       partnerReference: partner.reference.externalId,
