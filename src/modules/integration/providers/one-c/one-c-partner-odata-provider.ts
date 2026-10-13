@@ -399,10 +399,23 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       throw new IntegrationValidationError("Too many 1C contract references were requested.");
     }
     const rows = (await Promise.all(references.map((reference) =>
-      this.getContractByReference(reference),
+      this.findContractByReference(reference),
     ))).filter((row): row is OneCPartnerContractPayload => row !== null);
     assertRows(rows, isContractRow);
     return rows.filter((row) => contractBelongsToPartner(row, partnerReference));
+  }
+
+  private async findContractByReference(reference: string): Promise<OneCPartnerContractPayload | null> {
+    const rows = await this.getCollection<OneCPartnerContractPayload>(CONTRACTS_RESOURCE, {
+      $select: CONTRACT_FIELDS,
+      $filter: `Ref_Key eq guid'${reference}'`,
+      $top: "2",
+    }, "partner_contract_exact_lookup");
+    assertRows(rows, isContractRow);
+    if (rows.length > 1) {
+      throw new IntegrationValidationError("1C returned duplicate contracts for an exact reference.");
+    }
+    return rows[0] ?? null;
   }
 
   private async getCollection<T>(
