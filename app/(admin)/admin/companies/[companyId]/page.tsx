@@ -7,6 +7,7 @@ import {
   AdminCompanyOverviewView,
   AdminCompanyContractMapping,
   AdminCompanyCashContractMapping,
+  AdminCompanyOneCManualSync,
   AdminCompanyAccessSubjects,
   AdminCompanyPlatformAccess,
   AdminHistory,
@@ -43,7 +44,7 @@ export default async function AdminCompanyPage({
   const tab = tabs.some(([value]) => value === requestedTab)
     ? requestedTab
     : "overview";
-  const [companyUsers, platformAccess, history, contractMapping] = await Promise.all([
+  const [companyUsers, platformAccess, history, contractMapping, manualSyncEvents] = await Promise.all([
     tab === "users" || tab === "access"
       ? getCompanyUsersAction({
           companyId,
@@ -63,6 +64,9 @@ export default async function AdminCompanyPage({
     tab === "integration"
       ? companyService.getContractMapping(companyId)
       : Promise.resolve(null),
+    tab === "integration"
+      ? companyService.getManualOneCSyncEvents(companyId)
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -97,6 +101,7 @@ export default async function AdminCompanyPage({
       ) : tab === "integration" && contractMapping ? (
         <div className="space-y-6">
           <AdminCompanyOverviewView company={company} />
+          <AdminCompanyOneCManualSync company={company} events={manualSyncEvents} />
           <AdminCompanyContractMapping
             mapping={contractMapping}
           />

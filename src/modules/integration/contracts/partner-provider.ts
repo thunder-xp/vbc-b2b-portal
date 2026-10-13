@@ -9,6 +9,7 @@ import type {
   PartnerCustomerContractResolutionInputDTO,
   PartnerPriceTypeDTO,
   PartnerPriceTypeLookupInputDTO,
+  PartnerReferenceLookupInputDTO,
   PartnerSearchInputDTO,
   PartnerSearchResultDTO,
 } from "../dto";
@@ -20,6 +21,9 @@ export interface PartnerProvider {
   searchPartners(
     input: PartnerSearchInputDTO,
   ): Promise<IntegrationPageResultDTO<PartnerSearchResultDTO>>;
+  fetchPartnerByReference(
+    input: PartnerReferenceLookupInputDTO,
+  ): Promise<PartnerSearchResultDTO | null>;
   fetchPartnerContracts(
     input: PartnerContractLookupInputDTO,
   ): Promise<IntegrationPageResultDTO<PartnerContractDTO>>;

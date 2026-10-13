@@ -13,6 +13,7 @@ import {
   type AdminCommercialProfileSyncResult,
   type AdminCompanyContractMappingProjection,
   type AdminContractMappingResult,
+  type AdminOneCManualSyncEvent,
   type AdminCashContractMappingResult,
   type PartnerAccessPresetCode,
   PARTNER_ACCESS_PRESETS,
@@ -52,6 +53,11 @@ export class AdminCompanyService {
   getContractMapping(companyId: string): Promise<AdminCompanyContractMappingProjection | null> {
     if (!COMPANY_ID_PATTERN.test(companyId)) return Promise.resolve(null);
     return this.repository.getContractMapping(companyId);
+  }
+
+  getManualOneCSyncEvents(companyId: string): Promise<AdminOneCManualSyncEvent[]> {
+    if (!COMPANY_ID_PATTERN.test(companyId)) return Promise.resolve([]);
+    return this.repository.getManualOneCSyncEvents(companyId);
   }
 
   mapContract(input: {

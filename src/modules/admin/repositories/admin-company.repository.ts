@@ -7,6 +7,8 @@ import type {
   AdminCashContractMappingResult,
   AdminCommercialProfileSyncResult,
   AdminContractMappingResult,
+  AdminOneCManualSyncPublishResult,
+  AdminOneCManualSyncEvent,
   PartnerAccessPresetCode,
 } from "../types";
 
@@ -49,6 +51,15 @@ export interface AdminCompanyRepository {
     source: import("../../integration/dto").PartnerCommercialProfileSourceDTO,
   ): Promise<AdminCommercialProfileSyncResult>;
   failCommercialProfileSync(runId: string, reason: string): Promise<void>;
+  publishManualOneCSnapshot(input: {
+    companyId: string;
+    snapshot: Record<string, unknown>;
+    previousValues: Record<string, unknown>;
+    proposedValues: Record<string, unknown>;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminOneCManualSyncPublishResult>;
+  getManualOneCSyncEvents(companyId: string): Promise<AdminOneCManualSyncEvent[]>;
   updateAccess(input: {
     companyId: string;
     expectedVersion: number;

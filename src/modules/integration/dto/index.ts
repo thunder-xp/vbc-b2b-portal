@@ -64,6 +64,7 @@ export type {
   PartnerCustomerContractResolutionInputDTO,
   PartnerPriceTypeDTO,
   PartnerPriceTypeLookupInputDTO,
+  PartnerReferenceLookupInputDTO,
   PartnerSearchInputDTO,
   PartnerSearchResultDTO,
 } from "./partners";

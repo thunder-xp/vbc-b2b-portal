@@ -60,6 +60,99 @@ export type AdminCompanyOverview = {
   warningCodes: string[];
 };
 
+export type AdminOneCManualSyncErrorCode =
+  | "CONTRACT_NOT_FOUND"
+  | "MULTIPLE_CONTRACT_CANDIDATES"
+  | "PRICE_TYPE_NOT_DEFINED"
+  | "CURRENCY_CONFLICT"
+  | "ORGANIZATION_MISMATCH"
+  | "COUNTERPARTY_CONFLICT"
+  | "ONE_C_UNAVAILABLE"
+  | "COMMERCIAL_PROFILE_NOT_READY"
+  | "UNAUTHORIZED";
+
+export type AdminOneCManualSyncCandidate = {
+  contractRef: string;
+  code: string;
+  name: string;
+  number: string | null;
+  date: string | null;
+  contractType: string | null;
+  organizationRef: string | null;
+  settlementCurrencyRef: string | null;
+  signed: boolean | null;
+  active: boolean;
+  deleted: boolean;
+  default: boolean;
+  priceTypeRef: string | null;
+  priceTypeName: string | null;
+  priceCurrencyRef: string | null;
+  priceTypeActive: boolean;
+  eligible: boolean;
+  blockingCode: AdminOneCManualSyncErrorCode | null;
+  nsCandidate: boolean;
+  cashDisplayCandidate: boolean;
+};
+
+export type AdminOneCManualSyncDiscovery = {
+  companyId: string;
+  correlationId: string;
+  counterparty: {
+    reference: string;
+    code: string;
+    name: string;
+    fiscalCode: string | null;
+    verified: boolean;
+  };
+  previous: {
+    mainContractRef: string | null;
+    cashContractRef: string | null;
+    priceTypeRef: string | null;
+    readiness: string;
+  };
+  proposed: {
+    mainContractRef: string | null;
+    cashContractRef: string | null;
+    priceTypeRef: string | null;
+  };
+  candidates: AdminOneCManualSyncCandidate[];
+  errors: AdminOneCManualSyncErrorCode[];
+  canApply: boolean;
+  contractMappingVersion: number;
+  cashMappingVersion: number;
+  commercialProfileVersion: number;
+  verifiedAt: string;
+};
+
+export type AdminOneCManualSyncPublishResult = {
+  code: "MANUAL_ONE_C_SNAPSHOT_PUBLISHED" | "MANUAL_ONE_C_SNAPSHOT_CONFLICT";
+  correlationId: string;
+  syncId?: string;
+  unchanged?: boolean;
+};
+
+export type AdminOneCManualSyncEvent = {
+  id: string;
+  outcomeCode: "published" | "unchanged";
+  counterpartyRef: string;
+  previousValues: Record<string, unknown>;
+  proposedValues: Record<string, unknown>;
+  reason: string;
+  occurredAt: string;
+  actorName: string | null;
+};
+
+export type AdminOneCManualSyncApplyResult = {
+  status: "success" | "error";
+  code: string;
+  message: string;
+  correlationId: string;
+  readiness: string | null;
+  mainContractRef: string | null;
+  cashContractRef: string | null;
+  priceTypeRef: string | null;
+};
+
 export const CONTRACT_MAPPING_RESULT_CODES = [
   "CONTRACT_MAPPING_SUCCESS",
   "CONTRACT_NOT_FOUND",

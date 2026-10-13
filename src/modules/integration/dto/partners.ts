@@ -2,12 +2,16 @@ import type { ExternalReferenceDTO, IntegrationMetadataDTO } from "./common";
 
 export type PartnerContractDTO = {
   reference: ExternalReferenceDTO;
+  ownerReference: ExternalReferenceDTO;
   code: string;
   name: string;
   number: string | null;
   date: string | null;
   contractType: string | null;
   organizationReference: ExternalReferenceDTO | null;
+  settlementCurrencyReference: ExternalReferenceDTO | null;
+  signed: boolean | null;
+  deleted: boolean;
   isDefault: boolean;
   active: boolean;
   priceTypeReference: ExternalReferenceDTO | null;
@@ -27,6 +31,10 @@ export type PartnerPriceTypeDTO = {
 
 export type PartnerContractLookupInputDTO = {
   partnerReference: string;
+};
+
+export type PartnerReferenceLookupInputDTO = {
+  reference: string;
 };
 
 export type PartnerCustomerContractResolutionInputDTO = {
