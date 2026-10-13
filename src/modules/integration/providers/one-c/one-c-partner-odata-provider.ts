@@ -63,7 +63,7 @@ const PARTNER_FIELDS = ONE_C_PARTNER_FIELDS.join(",");
 const CONTRACT_FIELDS = ONE_C_CONTRACT_FIELDS.join(",");
 const DEFAULT_CONTRACT_FIELDS = ONE_C_DEFAULT_PARTNER_CONTRACT_FIELDS.join(",");
 const PRICE_TYPE_FIELDS = ONE_C_PRICE_TYPE_FIELDS.join(",");
-const COMPLETE_CONTRACT_COLLECTION_LIMIT = 5_000;
+const EXACT_CONTRACT_LOOKUP_LIMIT = 50;
 
 export class OneCPartnerODataProvider implements PartnerProvider {
   private readonly mapper = new DefaultOneCPartnerMapper();
@@ -175,7 +175,9 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         nextCursor: null,
       };
     }
-    const rows = await this.scanContractsByOwner(reference);
+    const rows = input.contractReferences !== undefined
+      ? await this.fetchContractsByReferences(reference, input.contractReferences)
+      : await this.scanContractsByOwner(reference);
     const contracts = rows.map((row) => this.mapContract(row));
     const priceTypeRefs = [...new Set(contracts.flatMap((contract) =>
       contract.priceTypeReference ? [contract.priceTypeReference.externalId] : [],
@@ -370,16 +372,37 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   }
 
   private async scanContractsByOwner(reference: string): Promise<OneCPartnerContractPayload[]> {
-    const rows = await this.getCollection<OneCPartnerContractPayload>(CONTRACTS_RESOURCE, {
-      $select: CONTRACT_FIELDS,
-      $top: String(COMPLETE_CONTRACT_COLLECTION_LIMIT),
-      $skip: "0",
-    }, "partner_contract_complete_scan");
-    assertRows(rows, isContractRow);
-    if (rows.length >= COMPLETE_CONTRACT_COLLECTION_LIMIT) {
-      throw new IntegrationValidationError("1C contract collection reached its safety bound.");
+    const matches: OneCPartnerContractPayload[] = [];
+    for (let page = 0; page < this.config.partnerSearchMaxPages; page += 1) {
+      const rows = await this.getCollection<OneCPartnerContractPayload>(CONTRACTS_RESOURCE, {
+        $select: CONTRACT_FIELDS,
+        $top: String(this.config.partnerSearchPageSize),
+        $skip: String(page * this.config.partnerSearchPageSize),
+      }, "partner_contract_scan");
+      assertRows(rows, isContractRow);
+      rows
+        .filter((row) => contractBelongsToPartner(row, reference))
+        .forEach((row) => matches.push(row));
+      if (rows.length < this.config.partnerSearchPageSize) break;
     }
-    return rows.filter((row) => contractBelongsToPartner(row, reference));
+    return matches;
+  }
+
+  private async fetchContractsByReferences(
+    partnerReference: string,
+    contractReferences: string[],
+  ): Promise<OneCPartnerContractPayload[]> {
+    const references = [...new Set(contractReferences.map((reference) =>
+      requireUuid(reference, "Contract reference"),
+    ))];
+    if (references.length > EXACT_CONTRACT_LOOKUP_LIMIT) {
+      throw new IntegrationValidationError("Too many 1C contract references were requested.");
+    }
+    const rows = (await Promise.all(references.map((reference) =>
+      this.getContractByReference(reference),
+    ))).filter((row): row is OneCPartnerContractPayload => row !== null);
+    assertRows(rows, isContractRow);
+    return rows.filter((row) => contractBelongsToPartner(row, partnerReference));
   }
 
   private async getCollection<T>(

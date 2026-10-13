@@ -255,7 +255,7 @@ describe("1C OData partner provider", () => {
     expect(url.searchParams.get("$filter")).toBeNull();
     expect(url.searchParams.get("$select")).toContain("Owner");
     expect(url.searchParams.get("$select")).toContain("Owner_Type");
-    expect(url.searchParams.get("$top")).toBe("5000");
+    expect(url.searchParams.get("$top")).toBe("50");
     expect(url.searchParams.get("$skip")).toBe("0");
     expect(url.searchParams.get("$format")).toBe("json");
     expect(result.items[0]).toMatchObject({
@@ -448,37 +448,35 @@ describe("1C OData partner provider", () => {
     expect(result.items[0]).toMatchObject({ priceTypeReference: { externalId: FALLBACK_PRICE_TYPE_ID }, priceTypeSource: "contract" });
   });
 
-  it("scans the complete bounded contract collection so owners beyond the legacy first 500 rows are found", async () => {
-    const unrelatedContracts = Array.from({ length: 501 }, () => ({
-      ...contractRow(),
-      Ref_Key: CONTRACT_ID,
-      Owner: "99999999-9999-4999-8999-999999999999",
-    }));
+  it("revalidates company-scoped contract references through exact 1C record reads", async () => {
     const fetchMock = sequence(
-      collection([...unrelatedContracts, contractRow()]),
+      record(contractRow()),
       record(priceTypeRow()),
     );
     vi.stubGlobal("fetch", fetchMock);
-    const result = await provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
+    const result = await provider().partners.fetchPartnerContracts({
+      partnerReference: PARTNER_ID,
+      contractReferences: [CONTRACT_ID],
+    });
     expect(result.items).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const contractUrl = fetchMock.mock.calls[0]?.[0] as URL;
-    expect(contractUrl.searchParams.get("$filter")).toBeNull();
-    expect(contractUrl.searchParams.get("$top")).toBe("5000");
-    expect(contractUrl.searchParams.get("$skip")).toBe("0");
+    expect(decodeURIComponent(contractUrl.pathname)).toContain(`${ONE_C_RESOURCES.contracts}(guid'${CONTRACT_ID}')`);
+    expect(contractUrl.searchParams.get("$top")).toBeNull();
   });
 
-  it("fails closed instead of returning a partial contract collection at the safety bound", async () => {
-    const fetchMock = sequence(collection(Array.from({ length: 5_000 }, () => ({
-      ...contractRow(),
-      Ref_Key: CONTRACT_ID,
-      Owner: "99999999-9999-4999-8999-999999999999",
-    }))));
+  it("stops the fallback contract scan at the configured maximum page count", async () => {
+    const fetchMock = sequence(
+      collection([{ ...contractRow(), Owner: "99999999-9999-4999-8999-999999999999" }]),
+      collection([{ ...contractRow(), Owner: "88888888-8888-4888-8888-888888888888" }]),
+      collection([contractRow()]),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID }))
-      .rejects.toThrow("1C contract collection reached its safety bound.");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const result = await provider({ partnerSearchPageSize: 1, partnerSearchMaxPages: 2 }).partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
+
+    expect(result.items).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it.each([

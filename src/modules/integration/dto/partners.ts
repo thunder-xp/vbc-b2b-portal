@@ -31,6 +31,7 @@ export type PartnerPriceTypeDTO = {
 
 export type PartnerContractLookupInputDTO = {
   partnerReference: string;
+  contractReferences?: string[];
 };
 
 export type PartnerReferenceLookupInputDTO = {
