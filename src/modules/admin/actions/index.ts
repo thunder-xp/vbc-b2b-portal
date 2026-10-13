@@ -29,6 +29,11 @@ export {
   type AdminCommercialProfileSyncActionState,
 } from "./admin-company-contract.actions";
 export {
+  applyAdminCompanyOneCSyncAction,
+  discoverAdminCompanyOneCSyncAction,
+  type AdminOneCManualSyncActionState,
+} from "./admin-company-one-c-sync.actions";
+export {
   moveOrAddPartnerMembershipAction,
   repairApprovedOnboardingAction,
   type PartnerIntegrityActionState,

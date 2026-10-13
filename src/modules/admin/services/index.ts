@@ -25,6 +25,10 @@ export {
   type ListAdminCompaniesInput,
 } from "./admin-company.service";
 export {
+  AdminCompanyOneCManualSyncService,
+  AdminOneCManualSyncError,
+} from "./admin-company-one-c-sync.service";
+export {
   AdminIdentityService,
   createAdminIdentityService,
 } from "./admin-identity.service";

@@ -49,12 +49,16 @@ const metadataSchema = z.object({
 
 const partnerContractSchema = z.object({
   reference: externalReferenceSchema,
+  ownerReference: externalReferenceSchema,
   code: z.string(),
   name: z.string(),
   number: z.string().nullable(),
   date: z.string().nullable(),
   contractType: z.string().nullable(),
   organizationReference: externalReferenceSchema.nullable(),
+  settlementCurrencyReference: externalReferenceSchema.nullable(),
+  signed: z.boolean().nullable(),
+  deleted: z.boolean(),
   isDefault: z.boolean(),
   active: z.boolean(),
   priceTypeReference: externalReferenceSchema.nullable(),

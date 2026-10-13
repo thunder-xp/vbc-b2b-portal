@@ -18,6 +18,8 @@ import type {
   AdminCashContractMappingResult,
   AdminCommercialProfileSyncResult,
   AdminContractMappingResult,
+  AdminOneCManualSyncPublishResult,
+  AdminOneCManualSyncEvent,
   PartnerAccessPresetCode,
 } from "../../types";
 
@@ -221,6 +223,34 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
         errorCode: error.code ?? null,
       });
     }
+  }
+
+  async publishManualOneCSnapshot(input: {
+    companyId: string;
+    snapshot: Record<string, unknown>;
+    previousValues: Record<string, unknown>;
+    proposedValues: Record<string, unknown>;
+    reason: string;
+    correlationId: string;
+  }): Promise<AdminOneCManualSyncPublishResult> {
+    return this.call<AdminOneCManualSyncPublishResult>(
+      "publish_admin_partner_company_one_c_snapshot",
+      {
+        p_company_id: input.companyId,
+        p_snapshot: input.snapshot,
+        p_previous_values: input.previousValues,
+        p_proposed_values: input.proposedValues,
+        p_reason: input.reason,
+        p_correlation_id: input.correlationId,
+      },
+    );
+  }
+
+  async getManualOneCSyncEvents(companyId: string): Promise<AdminOneCManualSyncEvent[]> {
+    return this.call<AdminOneCManualSyncEvent[]>(
+      "get_admin_partner_company_one_c_manual_sync_events",
+      { p_company_id: companyId },
+    );
   }
 
   async updateAccess(input: {

@@ -60,13 +60,14 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
     };
   }
 
-  toContractDTO(payload: OneCPartnerContractPayload, index = 0): PartnerContractDTO {
+  toContractDTO(payload: OneCPartnerContractPayload): PartnerContractDTO {
     const counterpartyPriceType = parseOptionalOneCGuid(payload["ВидЦенКонтрагента_Key"]);
     const contractPriceType = parseOptionalOneCGuid(payload["ВидЦен_Key"]);
     const organizationReference = parseOptionalOneCGuid(payload["Организация_Key"]);
     const priceTypeReference = counterpartyPriceType ?? contractPriceType;
     return {
       reference: mapRawReference(payload.Ref_Key, "partner-contract"),
+      ownerReference: mapRawReference(payload.Owner, "partner-company"),
       code: payload.Code,
       name: payload.Description,
       number: payload["НомерДоговора"] ?? null,
@@ -75,8 +76,13 @@ export class DefaultOneCPartnerMapper implements OneCPartnerMapper {
       organizationReference: organizationReference
         ? mapRawReference(organizationReference, "organization")
         : null,
+      settlementCurrencyReference: parseOptionalOneCGuid(payload["ВалютаРасчетов_Key"])
+        ? mapRawReference(parseOptionalOneCGuid(payload["ВалютаРасчетов_Key"])!, "currency")
+        : null,
+      signed: payload["ДоговорПодписан"] ?? null,
+      deleted: payload.DeletionMark === true,
       active: !payload.DeletionMark && !payload["Недействителен"],
-      isDefault: index === 0,
+      isDefault: false,
       priceTypeReference: priceTypeReference
         ? mapRawReference(priceTypeReference, "price-type")
         : null,

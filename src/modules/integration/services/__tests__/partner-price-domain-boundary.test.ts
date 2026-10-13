@@ -44,6 +44,7 @@ function providerFixture(priceTypes: PartnerPriceTypeDTO[]): PartnerProvider {
   return {
     fetchPartnerCompanies: vi.fn(),
     searchPartners: vi.fn(),
+    fetchPartnerByReference: vi.fn(),
     fetchPartnerContracts: vi.fn(),
     fetchCommercialProfile: vi.fn(),
     resolveCustomerOrderContract: vi.fn(),
@@ -67,12 +68,16 @@ function priceType(reference: string): PartnerPriceTypeDTO {
 function contract(reference: string, priceTypeReference: string): PartnerContractDTO {
   return {
     reference: { providerCode: "one-c", externalId: reference, externalType: "Catalog_ДоговорыКонтрагентов" },
+    ownerReference: { providerCode: "one-c", externalId: "00000000-0000-0000-0000-000000000001", externalType: "partner-company" },
     code: reference,
     name: reference,
     number: null,
     date: null,
     contractType: null,
     organizationReference: null,
+    settlementCurrencyReference: null,
+    signed: null,
+    deleted: false,
     isDefault: true,
     active: true,
     priceTypeReference: { providerCode: "one-c", externalId: priceTypeReference, externalType: "Catalog_ВидыЦен" },

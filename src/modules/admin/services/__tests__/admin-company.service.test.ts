@@ -124,6 +124,11 @@ function makeRepository(): AdminCompanyRepository {
       correlationId: "00000000-0000-0000-0000-000000000001",
     }),
     failCommercialProfileSync: vi.fn().mockResolvedValue(undefined),
+    publishManualOneCSnapshot: vi.fn().mockResolvedValue({
+      code: "MANUAL_ONE_C_SNAPSHOT_PUBLISHED",
+      correlationId: "00000000-0000-0000-0000-000000000001",
+    }),
+    getManualOneCSyncEvents: vi.fn().mockResolvedValue([]),
     updateAccess: vi.fn().mockResolvedValue({
       version: 2,
       correlationId: "00000000-0000-0000-0000-000000000001",

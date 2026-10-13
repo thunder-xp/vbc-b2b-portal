@@ -146,6 +146,22 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     return validated;
   }
 
+  async fetchPartnerByReference(
+    input: { reference: string },
+  ): Promise<PartnerSearchResultDTO | null> {
+    const reference = requireUuid(input.reference, "Partner reference");
+    if (this.config.useMockPartners) {
+      const row = normalizePartnerRow(mockPartners.find((item) => item.Ref_Key === reference) ?? null);
+      return row ? this.mapSearchResult(row) : null;
+    }
+    const row = await this.getSingle<OneCPartnerCompanyPayload>(
+      `${PARTNERS_RESOURCE}(guid'${reference}')`,
+    );
+    if (!row) return null;
+    const normalized = normalizePartnerRow(row);
+    return normalized ? this.mapSearchResult(normalized) : null;
+  }
+
   async fetchPartnerContracts(
     input: PartnerContractLookupInputDTO,
   ): Promise<IntegrationPageResultDTO<PartnerContractDTO>> {
@@ -154,17 +170,24 @@ export class OneCPartnerODataProvider implements PartnerProvider {
       return {
         items: mockContracts
           .filter((row) => contractBelongsToPartner(row, reference))
-          .map((row, index) => this.mapContract(row, index)),
+          .map((row) => this.mapContract(row)),
         nextCursor: null,
       };
     }
     const rows = await this.scanContractsByOwner(reference);
-    const items = await Promise.all(rows.map(async (row, index) => {
-      const contract = this.mapContract(row, index);
-      if (!contract.priceTypeReference) return contract;
+    const contracts = rows.map((row) => this.mapContract(row));
+    const priceTypeRefs = [...new Set(contracts.flatMap((contract) =>
+      contract.priceTypeReference ? [contract.priceTypeReference.externalId] : [],
+    ))];
+    const priceTypes = new Map((await Promise.all(priceTypeRefs.map(async (reference) => {
       logPipelineProgress("price_type_lookup", "partner_contract", 1);
-      const priceType = await this.fetchPriceType({ reference: contract.priceTypeReference.externalId });
-      return { ...contract, priceTypeName: priceType?.name ?? null };
+      return [reference, await this.fetchPriceType({ reference })] as const;
+    }))).filter((entry): entry is readonly [string, PartnerPriceTypeDTO] => entry[1] !== null));
+    const items = contracts.map((contract) => ({
+      ...contract,
+      priceTypeName: contract.priceTypeReference
+        ? priceTypes.get(contract.priceTypeReference.externalId)?.name ?? null
+        : null,
     }));
     logPipelineProgress("contract_mapping", "partner_contracts", items.length);
     return { items, nextCursor: null };
@@ -237,7 +260,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
         partnerReference,
         organizationReference,
         effectiveAt,
-      }).valid ? this.mapContract(row, 0) : null;
+      }).valid ? this.mapContract(row) : null;
     }
 
     const exactRegisterUrl = buildDefaultCustomerContractUrl(
@@ -288,7 +311,7 @@ export class OneCPartnerODataProvider implements PartnerProvider {
           effectiveAt,
         });
         logContractValidation(contract, validation, "default_contract");
-        if (validation.valid) return this.mapContract(contract, 0);
+        if (validation.valid) return this.mapContract(contract);
       }
     }
 
@@ -487,10 +510,9 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
   private mapContract(
     row: OneCPartnerContractPayload,
-    index: number,
   ): PartnerContractDTO {
     try {
-      return this.mapper.toContractDTO(row, index);
+      return this.mapper.toContractDTO(row);
     } catch {
       throw new IntegrationMappingError("1C contract mapping failed.");
     }
@@ -689,7 +711,7 @@ function normalizePartnerRows(
 }
 
 function normalizePartnerRow(
-  row: OneCPartnerCompanyPayload,
+  row: OneCPartnerCompanyPayload | null,
 ): OneCNormalizedPartnerCompanyPayload | null {
   if (!isRecord(row)) {
     logSkippedPartnerRow("invalid_shape");
