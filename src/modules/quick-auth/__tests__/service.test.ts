@@ -59,6 +59,15 @@ describe("QuickAuthResolver", () => {
     expect(otp.send).not.toHaveBeenCalled();
   });
 
+  it("never dispatches OTP when challenge persistence rolls back", async () => {
+    vi.mocked(repository.start).mockRejectedValue(new Error("Quick Auth start failed: 23503"));
+
+    await expect(resolver(true).start("69982220", requesterHash)).resolves.toEqual({ ok: false, error: "UNAVAILABLE" });
+    expect(repository.reserveOtpSend).not.toHaveBeenCalled();
+    expect(otp.send).not.toHaveBeenCalled();
+    expect(otp.preparePhoneEnrollment).not.toHaveBeenCalled();
+  });
+
   it("fails eligible Business identities closed while the production identity gate is disabled", async () => {
     vi.mocked(repository.start).mockResolvedValue(start("BLOCKED"));
 
