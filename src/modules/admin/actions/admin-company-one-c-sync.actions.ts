@@ -69,6 +69,9 @@ export async function applyAdminCompanyOneCSyncAction(
       companyId,
       mainContractRef: String(formData.get("mainContractRef") ?? ""),
       cashContractRef: String(formData.get("cashContractRef") ?? "").trim() || null,
+      expectedContractVersion: Number(formData.get("expectedContractVersion") ?? -1),
+      expectedCashVersion: Number(formData.get("expectedCashVersion") ?? -1),
+      expectedProfileVersion: Number(formData.get("expectedProfileVersion") ?? -1),
       reason: String(formData.get("reason") ?? ""),
       correlationId,
     });

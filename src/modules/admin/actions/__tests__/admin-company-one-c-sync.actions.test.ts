@@ -88,6 +88,9 @@ function form(confirmed: boolean): FormData {
   data.set("companyId", COMPANY_ID);
   data.set("mainContractRef", "00000000-0000-4000-8000-000000000002");
   data.set("cashContractRef", "00000000-0000-4000-8000-000000000003");
+  data.set("expectedContractVersion", "1");
+  data.set("expectedCashVersion", "0");
+  data.set("expectedProfileVersion", "2");
   data.set("reason", "Verified controlled synchronization");
   if (confirmed) data.set("confirmed", "yes");
   return data;

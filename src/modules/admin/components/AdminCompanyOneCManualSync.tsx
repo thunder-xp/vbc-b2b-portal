@@ -110,6 +110,9 @@ export function AdminCompanyOneCManualSync({
           ) : null}
 
           <form action={applyAction} className="space-y-4 border-t border-zinc-200 pt-5">
+            <input name="expectedContractVersion" type="hidden" value={discovery.contractMappingVersion} />
+            <input name="expectedCashVersion" type="hidden" value={discovery.cashMappingVersion} />
+            <input name="expectedProfileVersion" type="hidden" value={discovery.commercialProfileVersion} />
             <input name="companyId" type="hidden" value={company.companyId} />
             <CandidateGroup
               candidates={nsCandidates}

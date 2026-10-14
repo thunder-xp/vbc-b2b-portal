@@ -94,6 +94,8 @@ describe("AdminCompanyService", () => {
 
 function makeRepository(): AdminCompanyRepository {
   return {
+    prepareManualContractSelection: vi.fn().mockResolvedValue("verification-id"),
+    applyManualContractSelection: vi.fn(),
     list: vi.fn().mockResolvedValue({
       records: [],
       page: 1,

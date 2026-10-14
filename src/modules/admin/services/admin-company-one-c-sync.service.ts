@@ -50,6 +50,9 @@ export class AdminCompanyOneCManualSyncService {
     companyId: string;
     mainContractRef: string;
     cashContractRef: string | null;
+    expectedContractVersion: number;
+    expectedCashVersion: number;
+    expectedProfileVersion: number;
     reason: string;
     correlationId: string;
   }): Promise<AdminOneCManualSyncApplyResult> {
@@ -58,6 +61,8 @@ export class AdminCompanyOneCManualSyncService {
       || !UUID_PATTERN.test(input.mainContractRef)
       || (input.cashContractRef !== null && !UUID_PATTERN.test(input.cashContractRef))
       || !UUID_PATTERN.test(input.correlationId)
+      || ![input.expectedContractVersion, input.expectedCashVersion, input.expectedProfileVersion]
+        .every((version) => Number.isInteger(version) && version >= 0)
       || reason.length < 10 || reason.length > 500) {
       throw new Error("Invalid manual 1C synchronization request.");
     }
@@ -76,96 +81,45 @@ export class AdminCompanyOneCManualSyncService {
     );
     if (!main || (input.cashContractRef !== null && !cash)) throw new AdminOneCManualSyncError("CONTRACT_NOT_FOUND");
 
-    const published = await this.repository.publishManualOneCSnapshot({
+    if (context.discovery.contractMappingVersion !== input.expectedContractVersion
+      || context.discovery.cashMappingVersion !== input.expectedCashVersion
+      || context.discovery.commercialProfileVersion !== input.expectedProfileVersion) {
+      return failure(input.correlationId, "MANUAL_SELECTION_CONFLICT");
+    }
+    const source = await this.provider.fetchCommercialProfile({
+      partnerReference: context.discovery.counterparty.reference,
+      contractReference: main.contractRef,
+    });
+    // Default is source evidence, not a requirement for an explicit manual selection.
+    if (source.counterpartyReference.toLowerCase() !== context.discovery.counterparty.reference.toLowerCase()
+      || source.contractReference.toLowerCase() !== main.contractRef.toLowerCase()
+      || source.organizationReference?.toLowerCase() !== NOVOTECH_ONE_C_ORGANIZATION_REF
+      || !isCustomerContract(source.contractType) || !source.active || source.deleted
+      || source.priceTypeReference?.toLowerCase() !== main.priceTypeRef?.toLowerCase()
+      || !source.priceTypeActive || !source.priceTypeCurrencyReference || !source.contractCurrencyReference
+      || source.priceTypeCurrencyReference.toLowerCase() !== main.priceCurrencyRef?.toLowerCase()
+      || source.contractCurrencyReference.toLowerCase() !== main.settlementCurrencyRef?.toLowerCase()) {
+      return failure(input.correlationId, "COMMERCIAL_CONTRACT_INVALID");
+    }
+    const verificationId = await this.repository.prepareManualContractSelection({
       companyId: input.companyId,
+      mainContractRef: main.contractRef,
+      cashContractRef: cash?.contractRef ?? null,
+      expectedContractVersion: input.expectedContractVersion,
+      expectedCashVersion: input.expectedCashVersion,
+      expectedProfileVersion: input.expectedProfileVersion,
       snapshot: context.snapshot,
-      previousValues: context.discovery.previous,
-      proposedValues: {
-        mainContractRef: main.contractRef,
-        cashContractRef: cash?.contractRef ?? context.discovery.previous.cashContractRef,
-        priceTypeRef: main.priceTypeRef,
-      },
+      source,
       reason,
       correlationId: input.correlationId,
     });
-    if (published.code !== "MANUAL_ONE_C_SNAPSHOT_PUBLISHED") {
-      throw new AdminOneCManualSyncError("COUNTERPARTY_CONFLICT");
-    }
-
-    const mainResult = await this.repository.mapContract({
-      companyId: input.companyId,
-      contractRef: main.contractRef,
-      expectedVersion: context.discovery.contractMappingVersion,
-      reason,
-      correlationId: input.correlationId,
-    });
-    if (mainResult.code !== "CONTRACT_MAPPING_SUCCESS") {
-      return failure(input.correlationId, mainResult.code);
-    }
-    if (cash) {
-      const cashResult = await this.repository.mapCashContract({
-        companyId: input.companyId,
-        contractRef: cash.contractRef,
-        expectedVersion: context.discovery.cashMappingVersion,
-        reason,
-        correlationId: crypto.randomUUID(),
-      });
-      if (cashResult.code !== "CASH_CONTRACT_MAPPING_SUCCESS") {
-        return failure(input.correlationId, cashResult.code);
-      }
-    }
-    const profileResult = await this.synchronizeProfile({
-      companyId: input.companyId,
-      expectedVersion: context.discovery.commercialProfileVersion,
-      reason,
-    });
-    if (profileResult !== "COMMERCIAL_PROFILE_SYNC_SUCCESS") {
-      return failure(input.correlationId, profileResult);
-    }
-
-    const final = await this.repository.getContractMapping(input.companyId);
-    if (!final?.readiness.ready) {
-      return failure(input.correlationId, "COMMERCIAL_PROFILE_NOT_READY", final?.readiness.class ?? null);
-    }
+    const result = await this.repository.applyManualContractSelection(verificationId);
     return {
-      status: "success",
-      code: "MANUAL_ONE_C_SYNC_SUCCESS",
-      message: "Данные 1С подтверждены, сопоставления сохранены, коммерческая готовность пересчитана.",
-      correlationId: input.correlationId,
-      readiness: final.readiness.class,
-      mainContractRef: final.currentContractRef,
-      cashContractRef: final.cashMapping.contractRef,
-      priceTypeRef: final.currentPriceTypeRef,
+      ...result,
+      message: result.status === "success"
+        ? "Проверенный ручной выбор MAIN/CASH и коммерческий профиль опубликованы атомарно."
+        : "Публикация отклонена. Предыдущие коммерческие значения сохранены.",
     };
-  }
-
-  private async synchronizeProfile(input: {
-    companyId: string;
-    expectedVersion: number;
-    reason: string;
-  }): Promise<string> {
-    const result = await this.repository.beginCommercialProfileSync({
-      companyId: input.companyId,
-      expectedVersion: input.expectedVersion,
-      reason: input.reason,
-      correlationId: crypto.randomUUID(),
-    });
-    if (!result.claimed || !result.runId || !result.counterpartyRef || !result.contractRef) {
-      return result.code;
-    }
-    try {
-      const source = await this.provider.fetchCommercialProfile({
-        partnerReference: result.counterpartyRef,
-        contractReference: result.contractRef,
-      });
-      return (await this.repository.publishCommercialProfileSync(result.runId, source)).code;
-    } catch (error) {
-      await this.repository.failCommercialProfileSync(
-        result.runId,
-        error instanceof Error ? error.name : "provider_failure",
-      );
-      throw error;
-    }
   }
 
   private async discoverWithSnapshot(input: {

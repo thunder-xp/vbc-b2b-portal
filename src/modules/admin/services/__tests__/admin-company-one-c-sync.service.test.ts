@@ -101,10 +101,11 @@ describe("AdminCompanyOneCManualSyncService", () => {
 
   it("applies an eligible main contract while preserving an unresolved cash mapping", async () => {
     provider.fetchPartnerContracts.mockResolvedValue({ items: [contract()], nextCursor: null });
-    const result = await service().apply({ ...discoveryInput(), mainContractRef: MAIN_REF, cashContractRef: null, reason: "Main non-cash profile repair without a cash assignment" });
+    const result = await service().apply({ ...discoveryInput(), ...versions(), mainContractRef: MAIN_REF, cashContractRef: null, reason: "Main non-cash profile repair without a cash assignment" });
     expect(result.status).toBe("success");
     expect(repository.mapCashContract).not.toHaveBeenCalled();
-    expect(repository.mapContract).toHaveBeenCalledOnce();
+    expect(repository.applyManualContractSelection).toHaveBeenCalledOnce();
+    expect(repository.mapContract).not.toHaveBeenCalled();
   });
 
   it("blocks a contract with no authoritative price type", async () => {
@@ -139,16 +140,18 @@ describe("AdminCompanyOneCManualSyncService", () => {
   it("publishes the bounded snapshot, maps both roles and reaches READY", async () => {
     const result = await service().apply({
       companyId: COMPANY_ID,
+      ...versions(),
       mainContractRef: MAIN_REF,
       cashContractRef: CASH_REF,
       reason: "Verified controlled commercial synchronization",
       correlationId: "00000000-0000-4000-8000-000000000010",
     });
     expect(result).toMatchObject({ status: "success", readiness: "READY", mainContractRef: MAIN_REF, cashContractRef: CASH_REF });
-    expect(repository.publishManualOneCSnapshot).toHaveBeenCalledOnce();
-    expect(repository.mapContract).toHaveBeenCalledWith(expect.objectContaining({ contractRef: MAIN_REF }));
-    expect(repository.mapCashContract).toHaveBeenCalledWith(expect.objectContaining({ contractRef: CASH_REF }));
-    expect(repository.publishCommercialProfileSync).toHaveBeenCalledOnce();
+    expect(repository.prepareManualContractSelection).toHaveBeenCalledWith(expect.objectContaining({ mainContractRef: MAIN_REF, cashContractRef: CASH_REF, source: expect.objectContaining({ default: false }) }));
+    expect(repository.applyManualContractSelection).toHaveBeenCalledWith("verification-id");
+    expect(repository.mapContract).not.toHaveBeenCalled();
+    expect(repository.mapCashContract).not.toHaveBeenCalled();
+    expect(repository.publishCommercialProfileSync).not.toHaveBeenCalled();
   });
 
   it("does not publish when the 1C request fails", async () => {
@@ -161,6 +164,7 @@ describe("AdminCompanyOneCManualSyncService", () => {
   it("rejects arbitrary contract GUIDs that were not returned by the fresh lookup", async () => {
     await expect(service().apply({
       companyId: COMPANY_ID,
+      ...versions(),
       mainContractRef: "00000000-0000-4000-8000-000000000099",
       cashContractRef: CASH_REF,
       reason: "Attempt to submit an unverified contract reference",
@@ -172,14 +176,41 @@ describe("AdminCompanyOneCManualSyncService", () => {
   it("preserves the independent access and commercial status fields", async () => {
     await service().apply({
       companyId: COMPANY_ID,
+      ...versions(),
       mainContractRef: MAIN_REF,
       cashContractRef: CASH_REF,
       reason: "Commercial synchronization without lifecycle changes",
       correlationId: "00000000-0000-4000-8000-000000000012",
     });
-    const published = repository.publishManualOneCSnapshot.mock.calls[0]?.[0];
+    const published = repository.prepareManualContractSelection.mock.calls[0]?.[0];
     expect(published?.snapshot).not.toHaveProperty("status");
     expect(published?.snapshot).not.toHaveProperty("accessStatus");
+  });
+
+  it("rejects stale reviewed versions before preparing evidence", async () => {
+    const result = await service().apply({ ...discoveryInput(), ...versions(), expectedContractVersion: 0, mainContractRef: MAIN_REF, cashContractRef: CASH_REF, reason: "Explicit governed selection" });
+    expect(result.code).toBe("MANUAL_SELECTION_CONFLICT");
+    expect(repository.prepareManualContractSelection).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { counterpartyReference: CASH_REF }, { contractReference: CASH_REF },
+    { organizationReference: CASH_REF }, { contractType: "СПоставщиком" },
+    { active: false }, { deleted: true }, { priceTypeReference: CASH_REF },
+    { priceTypeActive: false }, { priceTypeCurrencyReference: null }, { contractCurrencyReference: null },
+  ])("rejects changed live commercial facts %j before persistence", async (change) => {
+    provider.fetchCommercialProfile.mockResolvedValue({ ...(await provider.fetchCommercialProfile()), ...change });
+    const result = await service().apply({ ...discoveryInput(), ...versions(), mainContractRef: MAIN_REF, cashContractRef: CASH_REF, reason: "Explicit governed selection" });
+    expect(result.status).toBe("error");
+    expect(repository.prepareManualContractSelection).not.toHaveBeenCalled();
+  });
+
+  it("returns atomic failure without retrying legacy mapping operations", async () => {
+    repository.applyManualContractSelection.mockResolvedValue({ status: "error", code: "COMMERCIAL_PRICE_DATA_STALE" });
+    const result = await service().apply({ ...discoveryInput(), ...versions(), mainContractRef: MAIN_REF, cashContractRef: CASH_REF, reason: "Explicit governed selection" });
+    expect(result.status).toBe("error");
+    expect(repository.mapContract).not.toHaveBeenCalled();
+    expect(repository.publishCommercialProfileSync).not.toHaveBeenCalled();
   });
 
   function service() {
@@ -189,6 +220,8 @@ describe("AdminCompanyOneCManualSyncService", () => {
     );
   }
 });
+
+function versions() { return { expectedContractVersion: 1, expectedCashVersion: 0, expectedProfileVersion: 2 }; }
 
 function discoveryInput() {
   return { companyId: COMPANY_ID, correlationId: "00000000-0000-4000-8000-000000000009" };
@@ -208,6 +241,8 @@ function repositoryFixture() {
       finalRead += 1;
       return mapping(finalRead > 1);
     }),
+    prepareManualContractSelection: vi.fn().mockResolvedValue("verification-id"),
+    applyManualContractSelection: vi.fn().mockResolvedValue({ status: "success", readiness: "READY", code: "MANUAL_ONE_C_SYNC_SUCCESS", mainContractRef: MAIN_REF, cashContractRef: CASH_REF, priceTypeRef: PRICE_REF }),
     publishManualOneCSnapshot: vi.fn().mockResolvedValue({ code: "MANUAL_ONE_C_SNAPSHOT_PUBLISHED" }),
     mapContract: vi.fn().mockResolvedValue({ code: "CONTRACT_MAPPING_SUCCESS" }),
     mapCashContract: vi.fn().mockResolvedValue({ code: "CASH_CONTRACT_MAPPING_SUCCESS" }),
@@ -235,6 +270,8 @@ function providerFixture() {
       counterpartyReference: COUNTERPARTY_REF,
       contractReference: MAIN_REF,
       priceTypeReference: PRICE_REF,
+      organizationReference: ORGANIZATION_REF, contractType: "СПокупателем", active: true, deleted: false, default: false,
+      contractCurrencyReference: CURRENCY_REF, priceTypeCurrencyReference: CURRENCY_REF, priceTypeActive: true, verifiedAt: new Date().toISOString(),
     }),
   };
 }

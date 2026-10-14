@@ -60,6 +60,22 @@ const mapping: AdminCompanyContractMappingProjection = {
 };
 
 describe("AdminCompanyContractMapping", () => {
+  it("shows manual READY with informational default divergence and both qualified roles", () => {
+    render(<AdminCompanyContractMapping mapping={{
+      ...mapping, selectionMode: "MANUAL_VERIFIED", selectionVerifiedAt: "2026-10-14T12:00:00Z",
+      currentContractRef: mapping.candidates[0]!.external1cId, suggestedContractRef: null,
+      commercialProfileState: "aligned",
+      readiness: { ...mapping.readiness, class: "READY", ready: true, repairable: false, severity: "none",
+        defaultDivergence: "1C_DEFAULT_DIFFERS_FROM_MANUAL_SELECTION", canonicalContractRef: "different-default",
+        cashlessQualified: true, cashQualified: true },
+    }} />);
+    expect(screen.getByText("MANUAL_VERIFIED")).toBeVisible();
+    expect(screen.getByText("1C_DEFAULT_DIFFERS_FROM_MANUAL_SELECTION")).toBeVisible();
+    expect(screen.getAllByText("PASS")).toHaveLength(2);
+    expect(screen.getByTestId("commercial-readiness-status")).toHaveTextContent("Готовность к оформлению: готов");
+    expect(screen.getAllByRole("radio").every(radio => !(radio as HTMLInputElement).checked)).toBe(true);
+  });
+
   it("shows one bounded local list with required governed contract facts", () => {
     render(<AdminCompanyContractMapping mapping={mapping} />);
 

@@ -270,12 +270,21 @@ export type AdminCompanyContractMappingProjection = {
   suggestedContractRef: string | null;
   suggestedCashContractRef: string | null;
   defaultContractAmbiguous: boolean;
+  selectionMode?: "CANONICAL_DEFAULT" | "MANUAL_VERIFIED";
+  selectionVerifiedAt?: string | null;
+  selectedBy?: string | null;
   readiness: AdminCommercialReadinessProjection;
   cashMapping: AdminCashContractMapping;
   candidates: AdminContractCandidate[];
 };
 
 export type AdminCommercialReadinessProjection = {
+  selectionMode?: "CANONICAL_DEFAULT" | "MANUAL_VERIFIED";
+  selectedContractRef?: string | null;
+  canonicalContractRef?: string | null;
+  defaultDivergence?: "1C_DEFAULT_DIFFERS_FROM_MANUAL_SELECTION" | null;
+  cashlessQualified?: boolean;
+  cashQualified?: boolean;
   class:
     | "READY"
     | "REPAIRABLE_STALE_PROFILE"
