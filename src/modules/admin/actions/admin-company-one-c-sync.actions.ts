@@ -68,7 +68,7 @@ export async function applyAdminCompanyOneCSyncAction(
     const result = await service().apply({
       companyId,
       mainContractRef: String(formData.get("mainContractRef") ?? ""),
-      cashContractRef: String(formData.get("cashContractRef") ?? ""),
+      cashContractRef: String(formData.get("cashContractRef") ?? "").trim() || null,
       reason: String(formData.get("reason") ?? ""),
       correlationId,
     });
@@ -131,6 +131,7 @@ function actionFailure(
 function errorMessage(code: AdminOneCManualSyncErrorCode): string {
   return ({
     CONTRACT_NOT_FOUND: "Подходящий договор 1С не найден.",
+    CASH_CONTRACT_NOT_READY: "Наличный договор не готов; основной безналичный профиль можно синхронизировать отдельно.",
     MULTIPLE_CONTRACT_CANDIDATES: "Найдено несколько договоров; требуется точный выбор администратора.",
     PRICE_TYPE_NOT_DEFINED: "В договоре 1С не определён действующий вид цены.",
     CURRENCY_CONFLICT: "Валютные реквизиты договора и вида цены не прошли проверку.",

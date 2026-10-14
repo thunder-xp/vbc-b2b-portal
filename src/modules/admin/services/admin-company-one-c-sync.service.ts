@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolvePartnerPriceTypes } from "@/src/modules/integration/services/partner-price-type-resolution";
+
 import { NOVOTECH_ONE_C_ORGANIZATION_REF } from "@/src/modules/integration/config";
 import type { PartnerProvider } from "@/src/modules/integration/contracts";
 import type {
@@ -47,14 +49,14 @@ export class AdminCompanyOneCManualSyncService {
   async apply(input: {
     companyId: string;
     mainContractRef: string;
-    cashContractRef: string;
+    cashContractRef: string | null;
     reason: string;
     correlationId: string;
   }): Promise<AdminOneCManualSyncApplyResult> {
     const reason = input.reason.trim();
     if (!UUID_PATTERN.test(input.companyId)
       || !UUID_PATTERN.test(input.mainContractRef)
-      || !UUID_PATTERN.test(input.cashContractRef)
+      || (input.cashContractRef !== null && !UUID_PATTERN.test(input.cashContractRef))
       || !UUID_PATTERN.test(input.correlationId)
       || reason.length < 10 || reason.length > 500) {
       throw new Error("Invalid manual 1C synchronization request.");
@@ -72,7 +74,7 @@ export class AdminCompanyOneCManualSyncService {
       && candidate.cashDisplayCandidate
       && candidate.eligible,
     );
-    if (!main || !cash) throw new AdminOneCManualSyncError("CONTRACT_NOT_FOUND");
+    if (!main || (input.cashContractRef !== null && !cash)) throw new AdminOneCManualSyncError("CONTRACT_NOT_FOUND");
 
     const published = await this.repository.publishManualOneCSnapshot({
       companyId: input.companyId,
@@ -80,7 +82,7 @@ export class AdminCompanyOneCManualSyncService {
       previousValues: context.discovery.previous,
       proposedValues: {
         mainContractRef: main.contractRef,
-        cashContractRef: cash.contractRef,
+        cashContractRef: cash?.contractRef ?? context.discovery.previous.cashContractRef,
         priceTypeRef: main.priceTypeRef,
       },
       reason,
@@ -100,15 +102,17 @@ export class AdminCompanyOneCManualSyncService {
     if (mainResult.code !== "CONTRACT_MAPPING_SUCCESS") {
       return failure(input.correlationId, mainResult.code);
     }
-    const cashResult = await this.repository.mapCashContract({
-      companyId: input.companyId,
-      contractRef: cash.contractRef,
-      expectedVersion: context.discovery.cashMappingVersion,
-      reason,
-      correlationId: crypto.randomUUID(),
-    });
-    if (cashResult.code !== "CASH_CONTRACT_MAPPING_SUCCESS") {
-      return failure(input.correlationId, cashResult.code);
+    if (cash) {
+      const cashResult = await this.repository.mapCashContract({
+        companyId: input.companyId,
+        contractRef: cash.contractRef,
+        expectedVersion: context.discovery.cashMappingVersion,
+        reason,
+        correlationId: crypto.randomUUID(),
+      });
+      if (cashResult.code !== "CASH_CONTRACT_MAPPING_SUCCESS") {
+        return failure(input.correlationId, cashResult.code);
+      }
     }
     const profileResult = await this.synchronizeProfile({
       companyId: input.companyId,
@@ -188,16 +192,8 @@ export class AdminCompanyOneCManualSyncService {
     );
     if (!identityMatches) throw new AdminOneCManualSyncError("COUNTERPARTY_CONFLICT");
 
-    const contractReferences = [...new Set([
-      ...mapping.candidates.map((candidate) => candidate.external1cId),
-      mapping.currentContractRef,
-      mapping.cashMapping.contractRef,
-      mapping.suggestedContractRef,
-      mapping.suggestedCashContractRef,
-    ].filter((reference): reference is string => Boolean(reference)))];
     const contractsPage = await this.provider.fetchPartnerContracts({
       partnerReference: partner.reference.externalId,
-      contractReferences,
     });
     const defaultContract = await this.provider.resolveCustomerOrderContract({
       partnerReference: partner.reference.externalId,
@@ -207,9 +203,12 @@ export class AdminCompanyOneCManualSyncService {
     const priceTypeRefs = [...new Set(contractsPage.items.flatMap((contract) =>
       contract.priceTypeReference ? [contract.priceTypeReference.externalId] : [],
     ))];
-    const priceTypes = new Map((await Promise.all(priceTypeRefs.map(async (reference) =>
-      [reference, await this.provider.fetchPriceType({ reference })] as const,
-    ))).filter((entry): entry is readonly [string, PartnerPriceTypeDTO] => entry[1] !== null));
+    const priceTypes = await resolvePartnerPriceTypes(
+      priceTypeRefs,
+      (reference) => this.provider.fetchPriceType({ reference }),
+      "admin_partner_manual_sync_price_type_lookup",
+      input.correlationId,
+    );
     const candidates = contractsPage.items.map((contract) => toCandidate(
       contract,
       priceTypes.get(contract.priceTypeReference?.externalId ?? "") ?? null,
@@ -220,7 +219,9 @@ export class AdminCompanyOneCManualSyncService {
     const eligibleCash = candidates.filter((candidate) => candidate.cashDisplayCandidate && candidate.eligible);
     const errors = collectErrors(candidates, eligibleNs, eligibleCash);
     const proposedMain = eligibleNs.length === 1 ? eligibleNs[0]! : null;
-    const proposedCash = eligibleCash.length === 1 ? eligibleCash[0]! : null;
+    const proposedCash = mapping.cashMapping.active && mapping.cashMapping.qualified
+      ? eligibleCash.find((candidate) => candidate.contractRef === mapping.cashMapping.contractRef) ?? null
+      : null;
     const discovery: AdminOneCManualSyncDiscovery = {
       companyId: input.companyId,
       correlationId: input.correlationId,
@@ -244,7 +245,7 @@ export class AdminCompanyOneCManualSyncService {
       },
       candidates,
       errors,
-      canApply: eligibleNs.length > 0 && eligibleCash.length > 0,
+      canApply: eligibleNs.length > 0,
       contractMappingVersion: mapping.version,
       cashMappingVersion: mapping.cashMapping.version,
       commercialProfileVersion: mapping.commercialProfileVersion,
@@ -338,13 +339,13 @@ function toCandidate(
     deleted: contract.deleted,
     default: contract.reference.externalId === defaultContractRef,
     priceTypeRef: contract.priceTypeReference?.externalId ?? null,
-    priceTypeName: priceType?.name ?? contract.priceTypeName,
+    priceTypeName: priceType?.name ?? null,
     priceCurrencyRef: priceType?.currency ?? null,
     priceTypeActive: priceType?.active ?? false,
     eligible: blockingCode === null,
     blockingCode,
     nsCandidate: (contract.number ?? "").trim().toLocaleUpperCase("ru-RU").startsWith("NS"),
-    cashDisplayCandidate: normalizeLabel(contract.name) === "спокупателем",
+    cashDisplayCandidate: blockingCode === null,
   };
 }
 
@@ -355,7 +356,8 @@ function collectErrors(
 ): AdminOneCManualSyncErrorCode[] {
   const errors = new Set<AdminOneCManualSyncErrorCode>();
   candidates.forEach((candidate) => { if (candidate.blockingCode) errors.add(candidate.blockingCode); });
-  if (ns.length === 0 || cash.length === 0) errors.add("CONTRACT_NOT_FOUND");
+  if (ns.length === 0) errors.add("CONTRACT_NOT_FOUND");
+  if (cash.length === 0) errors.add("CASH_CONTRACT_NOT_READY");
   if (ns.length > 1) errors.add("MULTIPLE_CONTRACT_CANDIDATES");
   return [...errors];
 }

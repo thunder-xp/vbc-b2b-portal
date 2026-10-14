@@ -1,3 +1,4 @@
+import { resolvePartnerPriceTypes } from "../../services/partner-price-type-resolution";
 import type { PartnerProvider } from "../../contracts";
 import { recordLiveProviderCall } from "@/src/lib/performance/request-diagnostics";
 import type {
@@ -68,6 +69,7 @@ const EXACT_CONTRACT_LOOKUP_LIMIT = 50;
 export class OneCPartnerODataProvider implements PartnerProvider {
   private readonly mapper = new DefaultOneCPartnerMapper();
   private readonly client: OneCODataClient;
+  private discoveryPriceTypes: Map<string, Promise<PartnerPriceTypeDTO | null>> | undefined;
 
   constructor(private readonly config: OneCProviderConfig) {
     this.client = new OneCODataClient(config);
@@ -178,14 +180,15 @@ export class OneCPartnerODataProvider implements PartnerProvider {
     const rows = input.contractReferences !== undefined
       ? await this.fetchContractsByReferences(reference, input.contractReferences)
       : await this.scanContractsByOwner(reference);
+    this.discoveryPriceTypes = new Map();
     const contracts = rows.map((row) => this.mapContract(row));
     const priceTypeRefs = [...new Set(contracts.flatMap((contract) =>
       contract.priceTypeReference ? [contract.priceTypeReference.externalId] : [],
     ))];
-    const priceTypes = new Map((await Promise.all(priceTypeRefs.map(async (reference) => {
+    const priceTypes = await resolvePartnerPriceTypes(priceTypeRefs, async (reference) => {
       logPipelineProgress("price_type_lookup", "partner_contract", 1);
-      return [reference, await this.fetchPriceType({ reference })] as const;
-    }))).filter((entry): entry is readonly [string, PartnerPriceTypeDTO] => entry[1] !== null));
+      return this.fetchPriceType({ reference });
+    }, "partner_contract_price_type_lookup");
     const items = contracts.map((contract) => ({
       ...contract,
       priceTypeName: contract.priceTypeReference
@@ -323,6 +326,17 @@ export class OneCPartnerODataProvider implements PartnerProvider {
 
   async fetchPriceType(input: PartnerPriceTypeLookupInputDTO): Promise<PartnerPriceTypeDTO | null> {
     const reference = requireUuid(input.reference, "Price type reference");
+    if (!this.discoveryPriceTypes) return this.loadPriceType({ reference });
+    let result = this.discoveryPriceTypes.get(reference);
+    if (!result) {
+      result = this.loadPriceType({ reference });
+      this.discoveryPriceTypes.set(reference, result);
+    }
+    return result;
+  }
+
+  private async loadPriceType(input: PartnerPriceTypeLookupInputDTO): Promise<PartnerPriceTypeDTO | null> {
+    const reference = requireUuid(input.reference, "Price type reference");
     if (this.config.useMockPartners) {
       const row = mockPriceTypes.find((item) => item.Ref_Key === reference);
       return row ? this.mapper.toPriceTypeDTO(row) : null;
@@ -372,20 +386,22 @@ export class OneCPartnerODataProvider implements PartnerProvider {
   }
 
   private async scanContractsByOwner(reference: string): Promise<OneCPartnerContractPayload[]> {
-    const matches: OneCPartnerContractPayload[] = [];
-    for (let page = 0; page < this.config.partnerSearchMaxPages; page += 1) {
-      const rows = await this.getCollection<OneCPartnerContractPayload>(CONTRACTS_RESOURCE, {
-        $select: CONTRACT_FIELDS,
-        $top: String(this.config.partnerSearchPageSize),
-        $skip: String(page * this.config.partnerSearchPageSize),
-      }, "partner_contract_scan");
-      assertRows(rows, isContractRow);
-      rows
-        .filter((row) => contractBelongsToPartner(row, reference))
-        .forEach((row) => matches.push(row));
-      if (rows.length < this.config.partnerSearchPageSize) break;
+    const payload = await this.client.getFilteredCollection(CONTRACTS_RESOURCE, {
+      select: CONTRACT_FIELDS,
+      filter: `Owner eq cast(guid'${reference}', '${PARTNERS_RESOURCE}')`,
+      top: 50,
+    }, { requestKind: "partner_contract_owner_lookup" });
+    if (!isCollectionPayload<OneCPartnerContractPayload>(payload) || payload.value.length > 50) {
+      throw new IntegrationValidationError("Invalid bounded 1C contract response.");
     }
-    return matches;
+    assertRows(payload.value, isContractRow);
+    for (const row of payload.value) {
+      if (parseRequiredOneCGuid(row.Owner) !== reference
+        || row.Owner_Type !== "StandardODATA.Catalog_Контрагенты") {
+        throw new IntegrationValidationError("1C contract ownership does not match the requested counterparty.");
+      }
+    }
+    return payload.value;
   }
 
   private async fetchContractsByReferences(
