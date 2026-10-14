@@ -60,6 +60,18 @@ export function AdminCompanyContractMapping({
         </div>
       </div>
 
+      <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+        <Fact label="Режим выбора договора" value={mapping.selectionMode ?? "CANONICAL_DEFAULT"} />
+        <Fact label="Проверка ручного выбора" value={mapping.selectionVerifiedAt ? formatDate(mapping.selectionVerifiedAt) : "—"} />
+        {mapping.readiness.cashlessQualified !== undefined ? <Fact label="Безналичная квалификация" value={mapping.readiness.cashlessQualified ? "PASS" : "FAIL"} /> : null}
+        {mapping.readiness.cashQualified !== undefined ? <Fact label="Наличная квалификация" value={mapping.readiness.cashQualified ? "PASS" : "FAIL"} /> : null}
+      </dl>
+      {mapping.readiness.defaultDivergence ? (
+        <div className="mt-3 border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950">
+          <p>1C_DEFAULT_DIFFERS_FROM_MANUAL_SELECTION</p>
+          <p>Default в 1С: {mapping.readiness.canonicalContractRef ?? "Не определён"}. Используется проверенный выбор администратора.</p>
+        </div>
+      ) : null}
       <CommercialReadinessStatus mapping={mapping} />
       <CommercialProfileFacts mapping={mapping} />
 

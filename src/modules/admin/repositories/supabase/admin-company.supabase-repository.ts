@@ -225,6 +225,36 @@ export class SupabaseAdminCompanyRepository implements AdminCompanyRepository {
     }
   }
 
+  async prepareManualContractSelection(input: Parameters<AdminCompanyRepository["prepareManualContractSelection"]>[0]): Promise<string> {
+    const session = await createClient();
+    const { data: auth, error: authError } = await session.auth.getUser();
+    if (authError || !auth.user) throw new Error("Authenticated administrator is required.");
+    const { data, error } = await createAdminClient().from("partner_manual_contract_verifications").insert({
+      company_id: input.companyId,
+      actor_user_id: auth.user.id,
+      main_contract_ref: input.mainContractRef,
+      cash_contract_ref: input.cashContractRef,
+      expected_contract_version: input.expectedContractVersion,
+      expected_cash_version: input.expectedCashVersion,
+      expected_profile_version: input.expectedProfileVersion,
+      snapshot: input.snapshot,
+      profile_source: input.source,
+      reason: input.reason,
+      correlation_id: input.correlationId,
+    }).select("id").single();
+    if (error || !data) throw new RepositoryUnexpectedError({
+      operation: "prepare_manual_contract_selection", table: "partner_manual_contract_verifications",
+      payloadKeys: ["company_id", "main_contract_ref", "correlation_id"], cause: error,
+    });
+    return data.id;
+  }
+
+  async applyManualContractSelection(verificationId: string) {
+    return this.call<import("../../types").AdminOneCManualSyncApplyResult>(
+      "apply_admin_partner_manual_contract_selection", { p_verification_id: verificationId },
+    );
+  }
+
   async publishManualOneCSnapshot(input: {
     companyId: string;
     snapshot: Record<string, unknown>;

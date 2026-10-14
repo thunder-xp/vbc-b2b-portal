@@ -51,6 +51,19 @@ export interface AdminCompanyRepository {
     source: import("../../integration/dto").PartnerCommercialProfileSourceDTO,
   ): Promise<AdminCommercialProfileSyncResult>;
   failCommercialProfileSync(runId: string, reason: string): Promise<void>;
+  prepareManualContractSelection(input: {
+    companyId: string;
+    mainContractRef: string;
+    cashContractRef: string | null;
+    expectedContractVersion: number;
+    expectedCashVersion: number;
+    expectedProfileVersion: number;
+    snapshot: Record<string, unknown>;
+    source: import("../../integration/dto").PartnerCommercialProfileSourceDTO;
+    reason: string;
+    correlationId: string;
+  }): Promise<string>;
+  applyManualContractSelection(verificationId: string): Promise<import("../types").AdminOneCManualSyncApplyResult>;
   publishManualOneCSnapshot(input: {
     companyId: string;
     snapshot: Record<string, unknown>;
