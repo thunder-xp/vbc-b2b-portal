@@ -62,6 +62,7 @@ export type AdminCompanyOverview = {
 
 export type AdminOneCManualSyncErrorCode =
   | "CONTRACT_NOT_FOUND"
+  | "CASH_CONTRACT_NOT_READY"
   | "MULTIPLE_CONTRACT_CANDIDATES"
   | "PRICE_TYPE_NOT_DEFINED"
   | "CURRENCY_CONFLICT"

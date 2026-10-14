@@ -40,7 +40,7 @@ export function AdminCompanyOneCManualSync({
   );
   const discovery = discoveryState.discovery;
   const nsCandidates = discovery?.candidates.filter((candidate) => candidate.nsCandidate) ?? [];
-  const cashCandidates = discovery?.candidates.filter((candidate) => candidate.cashDisplayCandidate) ?? [];
+  const cashCandidates = discovery?.candidates ?? [];
 
   return (
     <section className="border border-zinc-200 bg-white p-5" data-testid="manual-one-c-sync">
@@ -120,7 +120,7 @@ export function AdminCompanyOneCManualSync({
             <CandidateGroup
               candidates={cashCandidates}
               defaultRef={discovery.proposed.cashContractRef}
-              legend='Договор для наличных операций «С покупателем»'
+              legend="Наличный договор — отдельное назначение администратора"
               name="cashContractRef"
             />
             <label className="grid gap-1.5 text-sm font-medium">
@@ -194,15 +194,21 @@ function CandidateGroup({
   return (
     <fieldset className="space-y-2">
       <legend className="text-sm font-semibold">{legend}</legend>
+      {name === "cashContractRef" ? (
+        <label className="flex items-center gap-3 border border-zinc-300 p-3 text-sm">
+          <input defaultChecked={defaultRef === null} name={name} type="radio" value="" />
+          Сохранить текущее наличное сопоставление без изменений
+        </label>
+      ) : null}
       {candidates.length ? candidates.map((candidate) => (
         <label className={`block border p-3 text-sm ${candidate.eligible ? "border-zinc-300" : "border-zinc-200 bg-zinc-50 text-zinc-500"}`} key={candidate.contractRef}>
           <span className="flex items-start gap-3">
-            <input defaultChecked={candidate.contractRef === defaultRef} disabled={!candidate.eligible} name={name} required type="radio" value={candidate.contractRef} />
+            <input defaultChecked={candidate.contractRef === defaultRef} disabled={!candidate.eligible} name={name} required={name === "mainContractRef"} type="radio" value={candidate.contractRef} />
             <span className="min-w-0 flex-1">
               <span className="font-semibold">{candidate.name} · {candidate.number ?? "без номера"}</span>
               <span className="mt-1 block break-all font-mono text-xs">{candidate.contractRef}</span>
               <span className="mt-2 block text-xs">
-                Тип: {candidate.contractType ?? "—"} · Организация: {candidate.organizationRef ?? "—"} · Вид цены: {candidate.priceTypeName ?? candidate.priceTypeRef ?? "—"} · Валюта расчётов: {candidate.settlementCurrencyRef ?? "—"} · Валюта цены: {candidate.priceCurrencyRef ?? "—"}
+                Тип: {candidate.contractType ?? "—"} · Организация: {candidate.organizationRef ?? "—"} · Вид цены: {candidate.priceTypeName ?? "Не подтверждён"} ({candidate.priceTypeRef ?? "—"}) · Статус цены: {candidate.priceTypeActive ? "Подтверждён" : "Недоступен"} · Допуск: {candidate.eligible ? "Допустим" : "Недопустим"} · Валюта расчётов: {candidate.settlementCurrencyRef ?? "—"} · Валюта цены: {candidate.priceCurrencyRef ?? "—"}
               </span>
               {!candidate.eligible ? <span className="mt-1 block font-semibold text-amber-800">{candidate.blockingCode}</span> : null}
             </span>

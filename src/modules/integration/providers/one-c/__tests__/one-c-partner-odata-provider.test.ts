@@ -247,16 +247,16 @@ describe("1C OData partner provider", () => {
     expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({ reason: "inactive" }));
   });
 
-  it("scans contracts locally without an Owner filter and prefers counterparty price type", async () => {
+  it("uses a bounded typed Owner query and prefers counterparty price type", async () => {
     const fetchMock = sequence(collection([contractRow()]), record(priceTypeRow()));
     vi.stubGlobal("fetch", fetchMock);
     const result = await provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
-    const [url] = fetchMock.mock.calls[0] as [URL];
-    expect(url.searchParams.get("$filter")).toBeNull();
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("$filter")).toBe(`Owner eq cast(guid'${PARTNER_ID}', 'Catalog_Контрагенты')`);
     expect(url.searchParams.get("$select")).toContain("Owner");
     expect(url.searchParams.get("$select")).toContain("Owner_Type");
     expect(url.searchParams.get("$top")).toBe("50");
-    expect(url.searchParams.get("$skip")).toBe("0");
+    expect(url.searchParams.get("$skip")).toBeNull();
     expect(url.searchParams.get("$format")).toBe("json");
     expect(result.items[0]).toMatchObject({
       reference: { externalId: CONTRACT_ID },
@@ -435,17 +435,52 @@ describe("1C OData partner provider", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("filters contracts locally by owner, owner type, and active state", async () => {
+  it("retains inactive and deleted owned contracts for qualification", async () => {
     vi.stubGlobal("fetch", sequence(collection([
-      { ...contractRow(), ВидЦенКонтрагента_Key: "00000000-0000-0000-0000-000000000000", ВидЦен_Key: FALLBACK_PRICE_TYPE_ID },
+      contractRow(),
       { ...contractRow(), Ref_Key: "55555555-5555-4555-8555-555555555555", DeletionMark: true },
       { ...contractRow(), Ref_Key: "66666666-6666-4666-8666-666666666666", Недействителен: true },
-      { ...contractRow(), Ref_Key: "77777777-7777-4777-8777-777777777777", Owner: "99999999-9999-4999-8999-999999999999" },
-      { ...contractRow(), Ref_Key: "88888888-8888-4888-8888-888888888888", Owner_Type: "StandardODATA.Catalog_Организации" },
-    ]), record(priceTypeRow(FALLBACK_PRICE_TYPE_ID))));
+    ]), record(priceTypeRow())));
     const result = await provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
-    expect(result.items).toHaveLength(1);
-    expect(result.items[0]).toMatchObject({ priceTypeReference: { externalId: FALLBACK_PRICE_TYPE_ID }, priceTypeSource: "contract" });
+    expect(result.items).toHaveLength(3);
+    expect(result.items.map(item => item.active)).toEqual([true, false, false]);
+  });
+
+  it.each([
+    { Owner: "99999999-9999-4999-8999-999999999999" },
+    { Owner_Type: "StandardODATA.Catalog_Организации" },
+    { Owner: "not-a-guid" },
+  ])("rejects malformed or mismatched ownership: %j", async (overrides) => {
+    const fetchMock = sequence(collection([{ ...contractRow(), ...overrides }]));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID }))
+      .rejects.toBeInstanceOf(IntegrationValidationError);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("isolates a failing price reference and reuses results during the discovery", async () => {
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = sequence(
+      collection([contractRow(), { ...contractRow(), Ref_Key: "66666666-6666-4666-8666-666666666666", ВидЦенКонтрагента_Key: FALLBACK_PRICE_TYPE_ID }]),
+      record(priceTypeRow()),
+      new Response(JSON.stringify({ "odata.error": { message: { value: "private upstream body" } } }), { status: 500, headers: { "content-type": "application/json" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const partners = provider().partners;
+    const result = await partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map(item => item.priceTypeName)).toEqual(["Distributor", null]);
+    await expect(partners.fetchPriceType({ reference: PRICE_TYPE_ID })).resolves.toMatchObject({ name: "Distributor" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(warning).toHaveBeenCalledWith({ event: "one_c_partner_price_type_lookup_failed", priceTypeRef: FALLBACK_PRICE_TYPE_ID, requestKind: "partner_contract_price_type_lookup", errorClass: "OneCODataProviderError" });
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("private upstream body");
+  });
+
+  it("retains candidates when all price lookups fail", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.stubGlobal("fetch", sequence(collection([contractRow()]), new Response("{}", { status: 500 })));
+    await expect(provider().partners.fetchPartnerContracts({ partnerReference: PARTNER_ID }))
+      .resolves.toMatchObject({ items: [{ priceTypeName: null, priceTypeReference: { externalId: PRICE_TYPE_ID } }] });
   });
 
   it("revalidates company-scoped contract references through exact 1C record reads", async () => {
@@ -475,18 +510,15 @@ describe("1C OData partner provider", () => {
     })).rejects.toThrow("1C returned duplicate contracts for an exact reference.");
   });
 
-  it("stops the fallback contract scan at the configured maximum page count", async () => {
-    const fetchMock = sequence(
-      collection([{ ...contractRow(), Owner: "99999999-9999-4999-8999-999999999999" }]),
-      collection([{ ...contractRow(), Owner: "88888888-8888-4888-8888-888888888888" }]),
-      collection([contractRow()]),
-    );
+  it("never pages through unrelated contracts, regardless of search scan configuration", async () => {
+    const fetchMock = sequence(collection([]));
     vi.stubGlobal("fetch", fetchMock);
-
-    const result = await provider({ partnerSearchPageSize: 1, partnerSearchMaxPages: 2 }).partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
-
-    expect(result.items).toEqual([]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await provider({ partnerSearchPageSize: 1, partnerSearchMaxPages: 2 }).partners.fetchPartnerContracts({ partnerReference: PARTNER_ID });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const url = new URL(String(fetchMock.mock.calls[0]?.[0]));
+    expect(url.searchParams.get("$top")).toBe("50");
+    expect(url.searchParams.has("$skip")).toBe(false);
+    expect(url.searchParams.get("$filter")).toContain("Owner eq cast");
   });
 
   it.each([

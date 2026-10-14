@@ -29,13 +29,12 @@ describe("AdminCompanyOneCManualSyncService", () => {
     expect(discovery.previous.mainContractRef).toBeNull();
     expect(discovery.proposed).toMatchObject({
       mainContractRef: MAIN_REF,
-      cashContractRef: CASH_REF,
+      cashContractRef: null,
       priceTypeRef: PRICE_REF,
     });
     expect(discovery.canApply).toBe(true);
     expect(provider.fetchPartnerContracts).toHaveBeenCalledWith({
       partnerReference: COUNTERPARTY_REF,
-      contractReferences: [MAIN_REF, CASH_REF],
     });
   });
 
@@ -63,7 +62,49 @@ describe("AdminCompanyOneCManualSyncService", () => {
     const discovery = await service().discover(discoveryInput());
     expect(discovery.proposed.mainContractRef).toBe(MAIN_REF);
     expect(discovery.proposed.cashContractRef).toBeNull();
+    expect(discovery.canApply).toBe(true);
+  });
+
+  it("isolates one price failure without losing the valid NS candidate", async () => {
+    const brokenRef = "00000000-0000-4000-8000-000000000099";
+    provider.fetchPartnerContracts.mockResolvedValue({ items: [contract(), { ...cashContract(), priceTypeReference: ref(brokenRef, "price-type") }], nextCursor: null });
+    provider.fetchPriceType.mockImplementation(async ({ reference }: { reference: string }) => {
+      if (reference === brokenRef) throw new Error("private upstream body");
+      return priceType();
+    });
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const discovery = await service().discover(discoveryInput());
+    expect(discovery.proposed.mainContractRef).toBe(MAIN_REF);
+    expect(discovery.canApply).toBe(true);
+    expect(discovery.candidates[0]).toMatchObject({ eligible: true, priceTypeName: "Оптовая" });
+    expect(discovery.candidates[1]).toMatchObject({ eligible: false, priceTypeName: null, blockingCode: "PRICE_TYPE_NOT_DEFINED" });
+    expect(discovery.errors).not.toContain("ONE_C_UNAVAILABLE");
+    expect(JSON.stringify(warning.mock.calls)).not.toContain("private upstream body");
+  });
+
+  it("reports all unavailable price candidates without a discovery-level outage", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    provider.fetchPriceType.mockRejectedValue(new Error("unavailable"));
+    const discovery = await service().discover(discoveryInput());
+    expect(discovery.candidates.every(item => !item.eligible && item.blockingCode === "PRICE_TYPE_NOT_DEFINED")).toBe(true);
+    expect(discovery.errors).not.toContain("ONE_C_UNAVAILABLE");
+    expect(discovery.errors).toContain("CASH_CONTRACT_NOT_READY");
     expect(discovery.canApply).toBe(false);
+  });
+
+  it("does not infer cash role from the description or default contract", async () => {
+    const discovery = await service().discover(discoveryInput());
+    expect(discovery.proposed.cashContractRef).toBeNull();
+    expect(discovery.candidates.find(item => item.contractRef === MAIN_REF)?.cashDisplayCandidate).toBe(true);
+    expect(repository.mapCashContract).not.toHaveBeenCalled();
+  });
+
+  it("applies an eligible main contract while preserving an unresolved cash mapping", async () => {
+    provider.fetchPartnerContracts.mockResolvedValue({ items: [contract()], nextCursor: null });
+    const result = await service().apply({ ...discoveryInput(), mainContractRef: MAIN_REF, cashContractRef: null, reason: "Main non-cash profile repair without a cash assignment" });
+    expect(result.status).toBe("success");
+    expect(repository.mapCashContract).not.toHaveBeenCalled();
+    expect(repository.mapContract).toHaveBeenCalledOnce();
   });
 
   it("blocks a contract with no authoritative price type", async () => {
