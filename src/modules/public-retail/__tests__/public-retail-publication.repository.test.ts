@@ -36,6 +36,39 @@ describe("Public Retail publication repository diagnostics", () => {
     });
   });
 
+  it("accepts the current bounded candidate diagnostics returned by the delta build", async () => {
+    const checksum = "a".repeat(64);
+    rpc.mockResolvedValueOnce({
+      data: {
+        publicationId,
+        candidatePublicationId: publicationId,
+        noOp: false,
+        productDelta: { inserted: 3, updated: 239, removed: 0, unchanged: 574 },
+        sourceProducts: 884,
+        eligibleProducts: 816,
+        excludedProducts: 68,
+        missingRetail: 61,
+        missingImage: 14,
+        missingCategory: 0,
+        productsWithStructuredSpecifications: 700,
+        checksum,
+      },
+      error: null,
+    });
+
+    await expect(new SupabasePublicRetailPublicationRepository().build(publicationId)).resolves.toEqual({
+      publicationId,
+      sourceProducts: 884,
+      eligibleProducts: 816,
+      excludedProducts: 68,
+      missingRetail: 61,
+      missingImage: 14,
+      missingCategory: 0,
+      productsWithStructuredSpecifications: 700,
+      checksum,
+    });
+  });
+
   it("recognizes a database-recorded candidate failure without losing its SQLSTATE", async () => {
     rpc.mockResolvedValueOnce({ data: { publicationId, failed: true, sqlstate: "23505" }, error: null });
 
