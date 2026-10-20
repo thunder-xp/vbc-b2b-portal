@@ -30,15 +30,17 @@ describe("DefaultOrderPriceRefreshService", () => {
       ],
     }));
     expect(result).toMatchObject({ productCount: 2, providerRequestCount: 1, deduplicated: false });
+    expect(dependencies.repository.publishVerifiedPrices.mock.calls[0]![0].verifiedAt).toBe(result.verifiedAt);
+    expect(Date.now() - Date.parse(result.verifiedAt)).toBeLessThan(1000);
   });
 
-  it("does not call 1C when a concurrent refresh already verified the same set", async () => {
+  it.each([PRICE_TYPE, "b9f5d585-dab1-11e9-8a58-000c29cf9dd4"])("does not call 1C when a concurrent refresh already verified profile %s", async (priceTypeRef) => {
     const dependencies = setup();
     dependencies.repository.claimLease.mockResolvedValue(false);
     dependencies.repository.hasVerifiedPricesSince.mockResolvedValue(true);
 
     const result = await dependencies.service.refresh({
-      externalPriceTypeRef: PRICE_TYPE,
+      externalPriceTypeRef: priceTypeRef,
       externalProductRefs: [PRODUCT_A],
     });
 

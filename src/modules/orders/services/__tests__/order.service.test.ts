@@ -8,6 +8,8 @@ import { assertLegacyExportIntegrity, DefaultPartnerOrderService } from "../orde
 import { OrderReconciliationRequiredError, OrderSubmissionInProgressError, RecoverableOrderSubmissionError } from "../order-submission.errors";
 import { EffectiveCommercialPriceChangedError } from "../../../pricing-inventory/types/effective-price";
 
+import { OrderPriceDataMissingError, OrderPriceRefreshFailedError } from "../order-price-refresh.service";
+
 const SUBMISSION_KEY = "55555555-5555-4555-8555-555555555555";
 
 describe("DefaultPartnerOrderService", () => {
@@ -241,6 +243,116 @@ describe("DefaultPartnerOrderService", () => {
     }]);
     await expect(dependencies.service.submit("user-1", input())).rejects.toBeInstanceOf(RecoverableOrderSubmissionError);
     expect(dependencies.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+  });
+
+  describe("governed PROMO freshness recovery", () => {
+    const promoRef = "b9f5d585-dab1-11e9-8a58-000c29cf9dd4";
+    const productRef = "66666666-6666-4666-8666-666666666666";
+    function promo(amount = 8.25, stale = false) {
+      return {
+        ...withPriceUpdatedAt(commercial("product-1", amount), new Date(Date.now() - (stale ? 37 : 0) * 3600000).toISOString()),
+        effectivePriceEvidence: { priceSource: "CAMPAIGN_PROMO" as const, priceTypeRef: promoRef,
+          priceId: "promo-price", sourceAmount: amount, sourceCurrency: "USD" as const,
+          campaignId: "campaign", campaignItemId: "campaign-item", publicationVersion: 5,
+          mechanicType: "legacy_promo" as const },
+      };
+    }
+    function setup() {
+      const d = makeDependencies();
+      d.pricingService.getProductCommercialViews.mockResolvedValueOnce([promo(8.25, true)]).mockResolvedValue([promo()]);
+      return d;
+    }
+    it("refreshes the server-resolved PROMO profile and submits the fresh unchanged effective price", async () => {
+      const d = setup();
+      await d.service.submit("user-1", input());
+      expect(d.priceRefreshService.refresh).toHaveBeenCalledExactlyOnceWith({ externalPriceTypeRef: promoRef, externalProductRefs: [productRef] });
+      expect(d.pricingService.getAuthoritativeOrderPricing).toHaveBeenCalledTimes(2);
+      expect(d.pricingService.getAuthoritativeOrderPricing).toHaveBeenLastCalledWith("user-1", ["product-1"], d.company.external1cPriceTypeId, input().cartId);
+      expect(d.orderRepository.beginSubmission.mock.calls[0]![0].items[0]).toMatchObject({ sourceUnitPrice: 8.25, effectivePriceEvidence: promo().effectivePriceEvidence });
+      expect(d.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+    });
+    it("groups five PROMO products and duplicate SKU lines into one profile refresh", async () => {
+      const d = makeDependencies();
+      const products = Array.from({ length: 5 }, (_, index) => ({ id: `product-${index + 1}`, ref: `66666666-6666-4666-8666-66666666666${index}` }));
+      const items = products.map(({ id }) => cartItem(id, 1));
+      items.push({ ...items[0]!, id: "same-product-other-line" });
+      d.cartRepository.listItems.mockResolvedValue(items);
+      d.catalogService.getProductOrderIdentities.mockResolvedValue(products.map(({ id, ref }) => identity(id, id, ref)));
+      const views = (stale: boolean) => items.map((item) => ({ ...promo(8.25, stale), productId: item.productId, cartItemId: item.id }));
+      d.pricingService.getProductCommercialViews.mockResolvedValueOnce(views(true)).mockResolvedValueOnce(views(false));
+      await d.service.submit("user-1", input());
+      expect(d.priceRefreshService.refresh).toHaveBeenCalledExactlyOnceWith({ externalPriceTypeRef: promoRef, externalProductRefs: products.map((p) => p.ref) });
+      expect(d.orderRepository.beginSubmission.mock.calls[0]![0].items).toHaveLength(6);
+    });
+    it.each(["full", "retail_only"] as const)("requires explicit review for a changed effective PROMO amount in %s mode", async (commercialMode) => {
+      const d = makeDependencies({ commercialMode });
+      d.pricingService.getProductCommercialViews.mockResolvedValueOnce([promo(8.25, true)]).mockResolvedValueOnce([promo(9)]);
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+      expect(d.orderRepository.beginSubmission).not.toHaveBeenCalled();
+      expect(d.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    });
+    it.each([
+      [new OrderPriceDataMissingError("missing-correlation"), "ORDER_PRICE_DATA_MISSING", "missing-correlation"],
+      [new OrderPriceRefreshFailedError("failed-correlation"), "ORDER_PRICE_REFRESH_FAILED", "failed-correlation"],
+    ] as const)("preserves known refresh failures and correlation IDs (%s)", async (error, code, correlationId) => {
+      const d = setup(); d.priceRefreshService.refresh.mockRejectedValue(error);
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code, correlationId });
+      expect(d.orderRepository.beginSubmission).not.toHaveBeenCalled();
+      expect(d.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    });
+    it("rejects a successful refresh if the re-resolved synced_at remains stale", async () => {
+      const d = makeDependencies(); d.pricingService.getProductCommercialViews.mockResolvedValue([promo(8.25, true)]);
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_STALE" });
+      expect(d.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    });
+    it("rejects a missing price after publication", async () => {
+      const d = setup();
+      d.pricingService.getAuthoritativeOrderPricing.mockResolvedValueOnce({ commercialMode: "full", views: [promo(8.25, true)] }).mockResolvedValueOnce({ commercialMode: "full", views: [] });
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_DATA_MISSING" });
+      expect(d.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    });
+    it.each(["inactive campaign", "publication version change", "audience change"])("preserves resolver PT409 after refresh: %s", async () => {
+      const d = setup();
+      d.pricingService.getAuthoritativeOrderPricing.mockResolvedValueOnce({ commercialMode: "full", views: [promo(8.25, true)] }).mockRejectedValueOnce(new EffectiveCommercialPriceChangedError());
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_CHANGED" });
+      expect(d.priceRefreshService.refresh).toHaveBeenCalledOnce();
+      expect(d.orderRepository.beginSubmission).not.toHaveBeenCalled();
+      expect(d.orderProvider.exportSalesOrder).not.toHaveBeenCalled();
+    });
+    it("never refreshes CAMPAIGN_SPECIAL_PRICE through PROMO", async () => {
+      const d = makeDependencies();
+      d.pricingService.getProductCommercialViews.mockResolvedValue([{ ...promo(8.25, true), effectivePriceEvidence: { ...promo().effectivePriceEvidence, priceSource: "CAMPAIGN_SPECIAL_PRICE" as const } }]);
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_STALE" });
+      expect(d.priceRefreshService.refresh).not.toHaveBeenCalled();
+      expect(d.orderRepository.beginSubmission).not.toHaveBeenCalled();
+    });
+    it("fails closed on an invalid server profile without using the contract as a fallback", async () => {
+      const d = makeDependencies();
+      d.pricingService.getProductCommercialViews.mockResolvedValue([{ ...promo(8.25, true), effectivePriceEvidence: { ...promo().effectivePriceEvidence, priceTypeRef: "invalid" } }]);
+      await expect(d.service.submit("user-1", input())).rejects.toMatchObject({ code: "ORDER_PRICE_DATA_MISSING" });
+      expect(d.priceRefreshService.refresh).not.toHaveBeenCalled();
+    });
+    it("refreshes mixed same-SKU STANDARD and PROMO contexts once per effective profile", async () => {
+      const d = makeDependencies();
+      d.cartRepository.listItems.mockResolvedValue([cartItem("product-1", 1), { ...cartItem("product-1", 1), id: "promo-line" }]);
+      const views = (stale: boolean) => [
+        { ...withPriceUpdatedAt(commercial("product-1", 12.5), new Date(Date.now() - (stale ? 37 : 0) * 3600000).toISOString()), cartItemId: "item-product-1" },
+        { ...promo(8.25, stale), cartItemId: "promo-line" },
+      ];
+      d.pricingService.getProductCommercialViews.mockResolvedValueOnce(views(true)).mockResolvedValueOnce(views(false));
+      await d.service.submit("user-1", input());
+      expect(d.priceRefreshService.refresh).toHaveBeenCalledTimes(2);
+      for (const profile of [d.company.external1cPriceTypeId, promoRef]) expect(d.priceRefreshService.refresh).toHaveBeenCalledWith({ externalPriceTypeRef: profile, externalProductRefs: [productRef] });
+      expect(d.pricingService.getAuthoritativeOrderPricing).toHaveBeenCalledTimes(2);
+      expect(d.orderRepository.beginSubmission.mock.calls[0]![0].items.map((item) => item.sourceUnitPrice)).toEqual([12.5, 8.25]);
+    });
+    it("returns an already submitted PROMO intent without another refresh or order export", async () => {
+      const d = setup(); await d.service.submit("user-1", input());
+      d.orderRepository.findBySubmissionKey.mockResolvedValue(order({ status: PartnerOrderStatus.Submitted, external1cRef: "77777777-7777-4777-8777-777777777777" }));
+      await d.service.submit("user-1", input());
+      expect(d.priceRefreshService.refresh).toHaveBeenCalledOnce();
+      expect(d.orderProvider.exportSalesOrder).toHaveBeenCalledOnce();
+    });
   });
 
   it("bulk refreshes one stale price and continues when the verified price is unchanged", async () => {
