@@ -447,11 +447,6 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
       return !updatedAt || isStale(updatedAt, "price");
     });
     const staleProductIds = [...new Set(staleCartItems.map((item) => item.productId))];
-    if (staleCartItems.some((item) => (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.effectivePriceEvidence?.priceSource?.startsWith("CAMPAIGN_"))) {
-      // Existing targeted refresh is scoped to the contract profile, not PROMO.
-      // Fail closed rather than refreshing a different profile or accepting stale PROMO.
-      throw new RecoverableOrderSubmissionError("The governed PROMO price must be refreshed before checkout.", "ORDER_PRICE_STALE");
-    }
     if (staleProductIds.length) {
       console.info({
         event: "partner_order_checkout_preflight",
@@ -470,20 +465,38 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         submissionKey,
         staleProductCount: staleProductIds.length,
       });
-      const staleProductRefs = staleProductIds.map((productId) =>
-        identitiesById.get(productId)?.external1cId?.trim() ?? "",
-      );
-      if (staleProductRefs.some((value) => !isOneCGuid(value)) || !this.priceRefreshService) {
+      const priceRefreshService = this.priceRefreshService;
+      if (!priceRefreshService) {
         failOrderSubmission("partner_price_freshness", new RecoverableOrderSubmissionError(
-          "Authoritative partner price refresh is required.",
-          this.priceRefreshService ? "ORDER_PRICE_DATA_MISSING" : "ORDER_PRICE_REFRESH_REQUIRED",
+          "Authoritative price refresh is required.", "ORDER_PRICE_REFRESH_REQUIRED",
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleProductIds.length });
       }
-      const beforePrices = new Map(staleCartItems.map((item) => {
+      const refreshGroups = new Map<string, Set<string>>();
+      for (const item of staleCartItems) {
+        const evidence = (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.effectivePriceEvidence;
+        if (evidence?.priceSource === "CAMPAIGN_SPECIAL_PRICE") {
+          throw new RecoverableOrderSubmissionError("The governed campaign price remains stale.", "ORDER_PRICE_STALE");
+        }
+        // Only canonical server-resolved PROMO evidence can select a campaign profile.
+        const priceTypeRef = evidence?.priceSource === "CAMPAIGN_PROMO"
+          ? evidence.priceTypeRef : checkoutPriceTypeRef;
+        const productRef = identitiesById.get(item.productId)?.external1cId?.trim() ?? "";
+        if (!isOneCGuid(priceTypeRef) || !isOneCGuid(productRef)) {
+          failOrderSubmission("partner_price_freshness", new RecoverableOrderSubmissionError(
+            "Authoritative price refresh is required.",
+            "ORDER_PRICE_DATA_MISSING",
+          ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: staleProductIds.length });
+        }
+        const profile = priceTypeRef.toLowerCase();
+        const refs = refreshGroups.get(profile) ?? new Set<string>();
+        refs.add(productRef.toLowerCase());
+        refreshGroups.set(profile, refs);
+      }
+      const beforePrices = new Map(cartItems.map((item) => {
         const price = (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.partnerPrice;
         return [item.id, price ? `${price.currencyCode}:${price.amount}` : null] as const;
       }));
-      let refreshResult;
+      const refreshResults = [];
       try {
         console.info({
           event: "partner_order_checkout_recovery_attempted",
@@ -491,10 +504,18 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           companyId: company.id,
           submissionKey,
         });
-        refreshResult = await this.priceRefreshService.refresh({
-          externalPriceTypeRef: checkoutPriceTypeRef,
-          externalProductRefs: staleProductRefs,
-        });
+        for (const [externalPriceTypeRef, productRefs] of refreshGroups) {
+          const result = await priceRefreshService.refresh({
+            externalPriceTypeRef,
+            externalProductRefs: [...productRefs],
+          });
+          refreshResults.push(result);
+          console.info({
+            event: "partner_order_price_profile_refreshed",
+            cartId: cart.id, companyId: company.id, submissionKey, externalPriceTypeRef,
+            ...result,
+          });
+        }
       } catch (error) {
         const correlationId = error instanceof OrderPriceDataMissingError || error instanceof OrderPriceRefreshFailedError
           ? error.correlationId
@@ -547,7 +568,7 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
           "Authoritative partner prices remain stale.", "ORDER_PRICE_STALE",
         ), { cartId: cart.id, companyId: company.id, submissionKey, staleProductCount: stillStale.length });
       }
-      const changedProductIds = staleCartItems.filter((item) => {
+      const changedProductIds = cartItems.filter((item) => {
         const price = (refreshedViewsById.get(item.id) ?? refreshedViewsById.get(item.productId))?.partnerPrice;
         return beforePrices.get(item.id) !== (price ? `${price.currencyCode}:${price.amount}` : null);
       });
@@ -556,10 +577,10 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         cartId: cart.id,
         companyId: company.id,
         submissionKey,
-        productCount: refreshResult.productCount,
-        providerRequestCount: refreshResult.providerRequestCount,
-        deduplicated: refreshResult.deduplicated,
-        durationMs: refreshResult.durationMs,
+        productCount: refreshResults.reduce((total, result) => total + result.productCount, 0),
+        providerRequestCount: refreshResults.reduce((total, result) => total + result.providerRequestCount, 0),
+        deduplicated: refreshResults.every((result) => result.deduplicated),
+        durationMs: refreshResults.reduce((total, result) => total + result.durationMs, 0),
         changedProductCount: changedProductIds.length,
       });
       console.info({
@@ -569,7 +590,9 @@ export class DefaultPartnerOrderService implements PartnerOrderService {
         submissionKey,
         recoveryAttempt: 1,
       });
-      if (changedProductIds.length && commercialMode === "full") {
+      if (changedProductIds.length && (commercialMode === "full" || changedProductIds.some((item) =>
+        (initialViewsById.get(item.id) ?? initialViewsById.get(item.productId))?.effectivePriceEvidence?.priceSource === "CAMPAIGN_PROMO"
+      ))) {
         failOrderSubmission("partner_price_comparison", new RecoverableOrderSubmissionError(
           "One or more authoritative partner prices changed.", "ORDER_PRICE_CHANGED",
         ), { cartId: cart.id, companyId: company.id, submissionKey, changedProductCount: changedProductIds.length });
