@@ -67,3 +67,35 @@ Do not weaken reliability, security, auditability, reconciliation, or critical-p
 Release checklist:
 
 [ ] Cost impact reviewed; no unjustified increase in builds, invocations, CPU, memory, logs, or transfer.
+
+3. Managed local development and worktree lifecycle
+
+DEVELOPMENT MODE
+
+DEFAULT: LOCAL
+WORKTREE: EXCEPTION
+MAX ACTIVE PARALLEL WORKTREES: 3
+DEPENDENCIES: INSTALL ONLY WHEN REQUIRED
+RETIREMENT: REQUIRED AFTER TASK COMPLETION
+
+Canonical repository: C:\VibeCoding\Projects\B2B\vbc-b2b-portal. All sequential development, bugfix, UI, tests, refactoring, documentation, architecture and small migrations run here. Inspect status and preserve unrelated changes. Do not create a new worktree automatically, install dependencies per task, or use dirty files alone as an isolation reason. Do not stash/reset/checkout over the owner's current work without necessity and explicit permission.
+
+An additional worktree requires actual parallel isolation: an independent active canonical task, an unsafe experiment that cannot safely run locally, independent release/hotfix verification, or temporary performance/migration verification. Record concrete evidence. Reuse a suitable justified checkout before creating another. A new task, follow-up, branch or read-only review alone is not sufficient.
+
+Before every automated creation or activation, use scripts/worktree-governance.ps1. It identifies canonical, checks isolation evidence and counts ACTIVE additional checkouts plus CREATED slot reservations under one exclusive lock. Three slots is the normal maximum; a fourth needs separately granted, recorded OwnerLimitApproval. Never invent this approval. Historical dormant/unclassified directories do not automatically consume active slots or block ordinary Local work; they remain protected debt, not deletion candidates. Explicitly activate a legacy checkout before reusing it, and register already active legacy tasks before authorizing another exception. Never silently assign another task's active checkout.
+
+New lifecycle: CREATED → ACTIVE → COMPLETED / ABANDONED → RETIRED. Record TASK_ID, owner, path, branch, exact HEAD, purpose/isolation evidence, completion criteria, timestamps and cleanup policy in canonical .git/worktree-governance/lifecycle.json. On completion/abandonment: inspect Git status, preserve necessary changes, prove commit/branch disposition, record actual evidence, review and remove regenerable caches only after activity/data checks, close the task's own marker, record retirement, and propose guarded removal. Unknown or failed cleanup remains explicitly pending; never leave an unexplained state. Failed creation keeps its reservation for owner review rather than silently freeing a slot.
+
+Dependencies are on demand. Before any installation use the Dependencies action with the actual verification need. Only build, tests, dev server or executable verification can justify installation; analysis, documentation, Git inspection, SQL review and architecture cannot. Reuse canonical's existing node_modules. Keep npm and package-lock.json; use npm's per-user cache and npm ci --prefer-offline only when a clean installation is actually needed and safe. Never run npm install/npm ci automatically for each worktree, replace an active installation, share node_modules via junctions/symlinks, switch package managers or purge cache merely to reclaim space.
+
+Temporary-worktree node_modules, .next, .turbo and coverage are regenerable artifacts after review, not permanent task results. .env/secrets, local Supabase state, Vercel configuration, Codex evidence, local patches, unknown ignored files and NTFS links are protected; never treat them as caches. Retire refuses while cache roots or an active task marker remain. The lifecycle tool itself never deletes source, caches, branches or worktrees; use a separately reviewed activity-aware cleanup, preserving required data with verified backups. Canonical never participates in mass cleanup, including dependency eviction.
+
+Reclamation is a separate safety decision, not a lifecycle state inferred from CLEAN or merge ancestry. Protect main/current, dirty/untracked/unique history, unfinished operations, active or ambiguous use and local data. Verify backups outside deletion targets with SHA-256, appropriate ACLs and a tested recovery path; recheck immediately before removal. Retired metadata alone is not owner authorization: record actual ReclaimApproval separately. Use scripts/worktree-audit.ps1, scripts/worktree-safe-reclaim.ps1 and scripts/worktree-health-check.ps1; their safety checks remain mandatory.
+
+Without separate explicit owner permission, git reset --hard, git clean -fdx and git worktree remove --force are forbidden. Normal reclamation uses only ordinary git worktree remove; refusal means preserve and investigate, never bypass with recursive deletion. Production, remote Git/resources, Docker volumes and Supabase/Vercel data are outside development cleanup scope. Do not fetch or modify remote refs automatically.
+
+The guard is mandatory for repository automation and agent workflows, including recovery creation. It does not change the desktop Local/Worktree setting or intercept arbitrary external Git commands. Start new sequential chats in Local mode targeting canonical; do not use an unguarded creation tool to bypass the limit. See docs/WORKTREE_LIFECYCLE.md for commands, dependency gates and retirement.
+
+If canonical already hosts an independent active task, preserve its task file; first pass the isolation guard, then create the new task file in the justified assigned checkout.
+
+New feature/fix objective → new TASK_ID. Sequential work runs in the existing canonical repository C:\VibeCoding\Projects\B2B\vbc-b2b-portal. A new task or unrelated dirty files are not reasons to create a worktree. Use an additional worktree only for the justified isolation exceptions in section 3, after its guard passes.
