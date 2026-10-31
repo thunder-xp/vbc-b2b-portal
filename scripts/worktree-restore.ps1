@@ -10,6 +10,17 @@ $backup=[IO.Path]::GetFullPath($BackupDirectory).TrimEnd('\')
 if(-not $backup.StartsWith($script:BackupParent+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Backup outside protected root'}
 Assert-NoLinks $backup
 $m=Get-Content -LiteralPath (Join-Path $backup 'manifest.json') -Raw | ConvertFrom-Json
+if((Get-RecordValue $m Schema '') -eq 'MERGED_CANONICAL_RECOVERY_V1'){
+ $m=Assert-MergedRecoveryManifest $backup
+ $target=[IO.Path]::GetFullPath($m.Path).TrimEnd('\');Assert-NoLinks $target
+ if($target -ieq $script:Canonical -or [IO.Path]::GetDirectoryName($target) -ine [IO.Path]::GetDirectoryName($script:Canonical) -or -not [IO.Path]::GetFileName($target).StartsWith('vbc-b2b-portal-')){throw 'Invalid restore target'}
+ if(Test-Path -LiteralPath $target){throw 'Restore target exists; preserve it'}
+ if(-not $Execute){[pscustomobject]@{Mode='DRY_RUN';Target=$target;Head=$m.Head;Tree=$m.Tree;CanonicalRecoveryVerified=$true;BundleRequired=$false}|ConvertTo-Json;return}
+ if($Confirmation -cne 'RESTORE-VERIFIED-WORKTREE'){throw 'Explicit restore confirmation required'}
+ & (Join-Path $PSScriptRoot 'worktree-governance.ps1') -Action Create -Path $target -Detach -BaseRef $m.Head -TaskId $TaskId -Owner $Owner -IsolationReason $IsolationReason -IsolationEvidence $IsolationEvidence -ParallelTaskId $ParallelTaskId -OwnerLimitApproval $OwnerLimitApproval -CompletionCriteria 'Restore exact merged-manifest commit and tracked tree' -Execute | Out-Null
+ if((Invoke-LocalGit $target @('rev-parse','HEAD^{tree}')).Text.Trim() -cne $m.Tree -or (Invoke-LocalGit $target @('status','--porcelain=v1','--untracked-files=all')).Text){throw 'Restored tree validation failed; preserve for inspection'}
+ [pscustomobject]@{Restored=$target;Head=$m.Head;Tree=$m.Tree;State='ACTIVE';CanonicalRecoveryVerified=$true}|ConvertTo-Json;return
+}
 $bundle=Join-Path $backup 'history.bundle'
 if((Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash -ne $m.BundleSha256){throw 'Bundle digest mismatch'}
 $null=Invoke-LocalGit $script:Canonical @('bundle','verify',$bundle)
