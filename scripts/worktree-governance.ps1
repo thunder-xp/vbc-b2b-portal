@@ -31,7 +31,7 @@ function Get-CanonicalTaskId {
 }
 function Read-GovernanceRecords {
  $records=@(Get-WorktreeLifecycleRecords);$seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
- foreach($r in $records){if($r.Path){$r.Path=[IO.Path]::GetFullPath($r.Path).TrimEnd('\')};if(-not $r.Path -or -not $r.State -or -not $seen.Add([IO.Path]::GetFullPath($r.Path))){throw 'INVALID_OR_DUPLICATE_LIFECYCLE_RECORD'};if($r.State -notin @('CREATED','ACTIVE','COMPLETED','ABANDONED','RETIRED','REVIEW','ACCEPTED','RECLAIM_ELIGIBLE','REMOVED')){throw 'UNKNOWN_LIFECYCLE_STATE'}}
+ foreach($r in $records){if($r.Path){$r.Path=[IO.Path]::GetFullPath($r.Path).TrimEnd('\')};if(-not $r.Path -or -not $r.State -or -not $seen.Add([IO.Path]::GetFullPath($r.Path))){throw 'INVALID_OR_DUPLICATE_LIFECYCLE_RECORD'};if($r.State -notin @('CREATED','ACTIVE','COMPLETED','ABANDONED','RETIRED','REVIEW','ACCEPTED','RECLAIM_ELIGIBLE','REMOVED','LEGACY_RECLAIM_REVIEWED')){throw 'UNKNOWN_LIFECYCLE_STATE'}}
  $records
 }
 function Save-GovernanceRecords($Records){

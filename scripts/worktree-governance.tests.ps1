@@ -2,6 +2,8 @@
 # Synthetic registrations only: no real git worktree add or npm.
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'worktree-governance.ps1')
+$realLifecycleFile=Join-Path (Split-Path -Parent $PSScriptRoot) '.git/worktree-governance/lifecycle.json'
+$realLifecycleBefore=if(Test-Path -LiteralPath $realLifecycleFile){(Get-FileHash -LiteralPath $realLifecycleFile).Hash}else{'ABSENT'}
 $results=[Collections.Generic.List[object]]::new()
 function Check([string]$Name,[bool]$Condition){if(-not $Condition){throw ('FAIL:'+ $Name)};$results.Add([pscustomobject]@{Test=$Name;Result='PASS'})}
 function Rows([int]$Active,[int]$Created=0){@(for($i=0;$i -lt $Active;$i++){[pscustomobject]@{Path=('C:\VibeCoding\Projects\B2B\vbc-b2b-portal-active-'+$i);State='ACTIVE'}};for($i=0;$i -lt $Created;$i++){[pscustomobject]@{Path=('C:\VibeCoding\Projects\B2B\vbc-b2b-portal-created-'+$i);State='CREATED'}})}
@@ -100,7 +102,8 @@ $a=[PowerShell]::Create();$b=[PowerShell]::Create()
 try{$null=$a.AddScript($worker).AddArgument($file).AddArgument($fn);$null=$b.AddScript($worker).AddArgument($file).AddArgument($fn);$x=$a.BeginInvoke();$y=$b.BeginInvoke();$v=@($a.EndInvoke($x))+@($b.EndInvoke($y));if($a.HadErrors -or $b.HadErrors){throw 'CONCURRENT_WORKER_FAILED'};Check 'Concurrent callers cannot both take last slot' (@($v | Where-Object {$_ -eq 'ALLOCATED'}).Count -eq 1 -and [IO.File]::ReadAllText($file) -eq '3')}finally{$a.Dispose();$b.Dispose()}
 $restore=[IO.File]::ReadAllText((Join-Path $PSScriptRoot 'worktree-restore.ps1'))
 Check 'Restore delegates creation to shared guard' ($restore.Contains('worktree-governance.ps1') -and -not $restore.Contains('@(''worktree'',''add'''))
-Check 'Real lifecycle registry untouched by tests' (-not (Microsoft.PowerShell.Management\Test-Path -LiteralPath (Join-Path $root '.git/worktree-governance/lifecycle.json')))
+$realLifecycleAfter=if(Microsoft.PowerShell.Management\Test-Path -LiteralPath $realLifecycleFile){(Get-FileHash -LiteralPath $realLifecycleFile).Hash}else{'ABSENT'}
+Check 'Real lifecycle registry untouched by tests' ($realLifecycleAfter -ceq $realLifecycleBefore)
 $report=[pscustomobject]@{TaskId='VBC-LOCAL-FIRST-DEVELOPMENT-GOVERNANCE-FINAL';Tests=$results;SyntheticGitCallsOnly=$true;RealWorktreesCreated=0;NpmExecuted=$false;EvidenceDirectory=$fixture}
 $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $root '.git/worktree-governance/validation.json') -Encoding utf8
 [pscustomobject]@{Passed=$results.Count;RealWorktreesCreated=0;NpmExecuted=$false}|ConvertTo-Json
