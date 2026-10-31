@@ -270,3 +270,82 @@ without persisting acceptance. Keep ACTIVE, DIRTY, unmerged and unknown-data tre
 Focused validation:
 `pwsh -NoProfile -File scripts/worktree-governance.tests.ps1` and
 `pwsh -NoProfile -File scripts/worktree-legacy.tests.ps1`.
+
+## Protected-data classification and link objects
+
+`worktree-protected-audit.ps1 -ReportDirectory <NEW_PROTECTED_DIRECTORY>` is
+diagnostic. It runs the canonical classifier on current CLEAN_MERGED trees, hashes
+local files without printing their contents, and records ignored/protected/unknown
+roots, link metadata, comparison to canonical bytes and task-marker states. A
+non-following walk stops at every reparse point. Hardlinks have multiple names, not
+a single target; their link count is recorded and they remain protected.
+
+The classifier exposes GeneratedRoots, GeneratedMetadata, GeneratedLinks,
+Protected, Unknown, LinksProtected and TaskMetadata. Compatibility field Links
+contains only protected links. Protected/unknown file SHA-256, metadata identity,
+empty directories and link target/type participate in the classification
+fingerprint. Any changed classification invalidates exact-HEAD legacy acceptance.
+
+Only these additional ignored metadata paths have regeneration evidence:
+
+- `next-env.d.ts`: the tracked package declares Next, tsconfig includes the file,
+  and its complete bounded text matches known Next-generated references/imports
+  and notices. Custom code/comments/paths remain unknown. Next's existing
+  `next typegen`, `next dev` or `next build` regenerates it during an authorized
+  verification. The reclaimer never installs dependencies or starts a build.
+- `tsconfig.tsbuildinfo`: tracked tsconfig enables incremental compilation and
+  the bounded JSON matches known TypeScript build-info keys/version structure.
+  Unknown or secret-like keys remain unknown. An authorized typecheck/build with
+  the project's existing TypeScript compiler regenerates this cache. Arbitrary
+  `*.tsbuildinfo` locations, test outputs and `.eslintcache` are not allowlisted.
+- `.vercel`: protected by default. `VERCEL_LINK_METADATA_REGENERABLE` requires a
+  flat root containing only `project.json` and optionally the byte-exact public
+  Vercel CLI README template. JSON must be strict, without duplicate keys, and
+  contain only projectId/orgId/optional projectName identifiers. Extra fields,
+  files, directories or links protect the entire root. A shared project identity
+  must have at least two reviewed CLEAN_MERGED replicas, plus an independently
+  verified protected local recovery copy with exact SHA-256 and restricted ACLs.
+  Unique project-link metadata stays protected. Canonical metadata absence is not
+  treated as evidence of disposability.
+
+`worktree-data-review.ps1 -Path <REGISTERED_TREE>` defaults to dry-run. With
+`-ExpectedHead <FULL_HEAD> -TaskId <CURRENT_REVIEW_TASK> -Execute` it may copy only
+the proven shared project-link metadata to `_environment-backups/metadata-*` and
+record hash-only references in canonical `.git/worktree-governance/data-recovery.json`.
+It does not modify source, grant reclaim approval, call Vercel, or copy secrets.
+Recovery is an exact copy from that verified directory, without relinking a remote
+project. No project/org identifiers or credential values enter Git or reports.
+
+`.env*`, token/credential/key files, database files, local Supabase state and unknown
+Codex evidence stay protected, including byte-identical copies of canonical data.
+Nested local Supabase state is identified separately from generated caches. This
+policy does not authorize deleting or moving any of these protected files.
+
+Link taxonomy is based on actual resolved target and scope. Only a directory
+junction inside an existing generated root pointing to npm's non-reparse
+content-addressed `_cacache` can be SAFE_GENERATED_LINK. Canonical, another
+worktree, user data/Documents/Desktop/Downloads, Supabase persistent paths,
+unknown external targets, same-worktree links and hardlinks remain protected.
+Symbolic directory links remain protected because the host could not create the
+required synthetic test without additional privilege; no privilege is requested.
+
+The exact native `RemoveDirectoryW` primitive was tested on disposable directories
+outside registered worktrees. It unlinks a junction without traversing its nonempty
+target. Generated-link cleanup rechecks current acceptance, target/type, scope and
+protected data, unlinks only the reviewed object and verifies that its target still
+exists. It never enumerates or deletes target contents. Synthetic tests verify
+target file hashes before/after, including a junction nested in a generated root.
+New links appearing after review cause refusal; they are never followed.
+
+Generated metadata cleanup uses only exact verified files followed by an empty
+directory removal. After each authorized unlink/metadata removal, the classifier
+must differ only by that exact removed path; the locked legacy record is advanced
+to that fingerprint. Any other change stops cleanup. Full checks run again before
+ordinary Git removal. Main/current, dirty/unmerged history, active tasks and all
+unresolved data remain protected. Full-backlog execution requires its own task.
+
+Additional Windows validation: `pwsh -NoProfile -File scripts/worktree-data.tests.ps1`.
+Sources: [Windows RemoveDirectory](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-removedirectoryw),
+[Next-generated types](https://nextjs.org/docs/app/api-reference/config/typescript),
+[TypeScript incremental cache](https://www.typescriptlang.org/tsconfig/incremental.html),
+[Vercel CLI link implementation](https://github.com/vercel/vercel/blob/main/packages/cli/src/util/projects/link.ts).

@@ -29,7 +29,7 @@ function Get-CandidateActivity([string]$Path){
   [pscustomobject]@{State=if($signals.Count){'ACTIVE_TASK_PROVEN'}else{'NO_CANDIDATE_ACTIVITY_EVIDENCE'};Signals=@($signals);UnobservableCommandLines=$unknown;OtherProcessCwd='NOT_OBSERVED';OpenHandles='NOT_ENUMERATED';Boundary='Ordinary non-force Git removal; no global process-name inference'}
  }catch{[pscustomobject]@{State='UNKNOWN_PROCESS_ACCESS';Signals=@($signals);Boundary='Process enumeration failed; preserve'}}
 }
-function Test-PersistentLocalFileName([string]$Relative){$Relative -match '(?i)(^|/)(\.env[^/]*|credentials[^/]*|secrets?[^/]*)(/|$)|\.(pem|key|pfx|p12|db|sqlite|sqlite3)$'}
+function Test-PersistentLocalFileName([string]$Relative){$Relative -match '(?i)(^|/)(\.env[^/]*|credentials[^/]*|secrets?[^/]*)(/|$)|(^|/)([^/]+-)?(access-token|refresh-token|service-role|token)(\.(txt|json))?$|\.env$|\.(pem|key|pfx|p12|db|sqlite|sqlite3)$'}
 function Test-ProtectedLocalName([string]$Relative){(Test-PersistentLocalFileName $Relative) -or $Relative -match '(?i)^supabase/|^\.vercel(/|$)'}
 function Initialize-ReclaimFileIdentity {
  if('VbcReclaimFileIdentity' -as [type]){return}
@@ -79,9 +79,9 @@ function Get-IgnoredClassification([string]$Path){
  }
  # Never delete a root containing a tracked entry, including ignored tracked files.
  foreach($g in $generated){if(@($tracked | Where-Object {$_ -ieq $g -or $_.StartsWith($g+'/',[StringComparison]::OrdinalIgnoreCase)}).Count){$unknown.Add($g+':TRACKED_CONTENT')}}
- $identity=@($ignored | Where-Object {$r=$_.TrimEnd('/');$r.Split('/')[0] -notin $allowed -and $r -ne '.codex/CURRENT_TASK.md' -and -not ($r -eq '.codex' -and $metadata.Count)} | Sort-Object)+@($protected | Sort-Object)+@($links | Sort-Object)
- [pscustomobject]@{GeneratedRoots=@($generated | Sort-Object);Protected=@($protected | Sort-Object -Unique);Unknown=@($unknown | Sort-Object -Unique);Links=@($links | Sort-Object -Unique);TaskMetadata=@($metadata);TotalLogicalBytes=$logicalBytes;GeneratedLogicalBytes=$generatedBytes;Fingerprint=Get-TextSha256 ($identity -join "`n");Policy='Only exact node_modules/.next/.turbo/coverage roots; no optional outputs assumed'}
+ Get-ExpandedDataClassification -Candidate $Path -Generated @($generated | Sort-Object) -Protected @($protected | Sort-Object -Unique) -Unknown @($unknown | Sort-Object -Unique) -OldLinks @($links | Sort-Object -Unique) -TaskMetadata @($metadata) -TotalBytes $logicalBytes -GeneratedBytes $generatedBytes
 }
+. (Join-Path $PSScriptRoot 'worktree-data-common.ps1')
 function Get-LegacyTaskMarker([string]$Path,[bool]$Clean,[bool]$Merged,[string]$Activity,[string]$TaskId,[string]$Approval){
  $file=Join-Path $Path '.codex/CURRENT_TASK.md'
  if(-not (Test-Path -LiteralPath $file)){return [pscustomobject]@{State='ABSENT';Sha256='';TaskId='';LastWriteUtc=''}}
