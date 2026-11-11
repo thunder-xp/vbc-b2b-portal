@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  redirect: vi.fn(), signInWithPassword: vi.fn(), signUp: vi.fn(), getCurrentProfile: vi.fn(),
+  redirect: vi.fn(), signInWithPassword: vi.fn(), signUp: vi.fn(), getCurrentProfile: vi.fn(), ensureProfileAfterAuthentication: vi.fn(),
   acceptInvitation: vi.fn(), activateCurrent: vi.fn(), resolvePostSignInAccess: vi.fn(),
   resolveAuthorizedPostSignInTarget: vi.fn(), isBusinessPhoneOtpEnabled: vi.fn(), setPartnerLocaleCookie: vi.fn(),
 }));
@@ -10,7 +10,10 @@ vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("@/src/lib/supabase/server", () => ({ createClient: vi.fn(async () => ({ auth: { signInWithPassword: mocks.signInWithPassword, signUp: mocks.signUp } })) }));
 vi.mock("@/src/modules/access-control/actions/service-factory", () => ({
   createCompanyUserManagementService: vi.fn(() => ({ acceptInvitation: mocks.acceptInvitation })),
-  createUserProfileService: vi.fn(() => ({ getCurrentProfile: mocks.getCurrentProfile })),
+  createUserProfileService: vi.fn(() => ({
+    getCurrentProfile: mocks.getCurrentProfile,
+    ensureProfileAfterAuthentication: mocks.ensureProfileAfterAuthentication,
+  })),
 }));
 vi.mock("@/src/modules/admin/services", () => ({ createAdminInternalUserProvisioningService: vi.fn(() => ({ activateCurrent: mocks.activateCurrent })) }));
 vi.mock("@/src/modules/partner-locale", () => ({ isPartnerLocale: vi.fn((value: unknown) => value === "ru" || value === "ro") }));
@@ -50,6 +53,7 @@ describe("classic password sign-in routing", () => {
     mocks.signInWithPassword.mockResolvedValue({ data: { user: { id: "user-1", phone: "+37360000000", phone_confirmed_at: "2026-09-20T00:00:00.000Z", user_metadata: {} } }, error: null });
     mocks.signUp.mockResolvedValue({ data: { session: null }, error: null });
     mocks.getCurrentProfile.mockResolvedValue(null);
+    mocks.ensureProfileAfterAuthentication.mockResolvedValue({ preferredLocale: null });
     mocks.resolvePostSignInAccess.mockResolvedValue({
       kind: "NONE", targetRoute: "/auth/business-access-state", requiresBusinessPhoneEnrollment: false,
     });
@@ -71,6 +75,11 @@ describe("classic password sign-in routing", () => {
 
   it("honors an explicitly governed onboarding continuation before automatic resolution", async () => {
     await expectSignInRedirect("/onboarding/profile?lang=ro", "/onboarding/profile?lang=ro");
+    expect(mocks.ensureProfileAfterAuthentication).toHaveBeenCalledWith({
+      userId: "user-1",
+      email: "user@example.com",
+      correlationId: expect.any(String),
+    });
     expect(mocks.resolvePostSignInAccess).not.toHaveBeenCalled();
   });
 

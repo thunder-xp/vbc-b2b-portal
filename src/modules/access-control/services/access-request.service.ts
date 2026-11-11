@@ -2,6 +2,8 @@ import type { AccessRequest } from "../types";
 
 export interface SubmitAccessRequestInput {
   userId: string;
+  authenticatedEmail: string;
+  correlationId: string;
   requestedCompanyName?: string | null;
   requestedFiscalCode?: string | null;
   contactPhone?: string | null;

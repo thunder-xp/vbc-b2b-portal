@@ -213,6 +213,7 @@ function service(fixtures: Fixtures = {}) {
 
   const userProfileService: UserProfileService = {
     async getCurrentProfile() { return fixtures.profileMissing ? null : currentProfile; },
+    async ensureProfileAfterAuthentication() { return currentProfile; },
     async createProfileAfterSignup() { return currentProfile; },
     async updateOwnProfile() { return currentProfile; },
     async ensureActiveUser() { return currentProfile; },

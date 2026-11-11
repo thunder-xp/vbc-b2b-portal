@@ -3,6 +3,7 @@ export { OnboardingApprovalWizard } from "./OnboardingApprovalWizard";
 export { OnboardingCorrectionForm } from "./OnboardingCorrectionForm";
 export { OnboardingDecisionForms } from "./OnboardingDecisionForms";
 export { OnboardingHealthView } from "./OnboardingHealthView";
+export { ConfirmedInstallerRecoveryForm } from "./ConfirmedInstallerRecoveryForm";
 export { OnboardingQueueView } from "./OnboardingQueueView";
 export { FailedRegistrationPurgeControl } from "./FailedRegistrationPurgeControl";
 export { PartnerOnboardingStatusCenter } from "./PartnerOnboardingStatusCenter";

@@ -7,6 +7,7 @@ export {
   getOnboardingDetailAction,
   getOnboardingHealthAction,
   getOwnOnboardingStatusAction,
+  recoverConfirmedInstallerOnboardingAction,
   listOnboardingQueueAction,
   moveOnboardingWizardStepAction,
   markOnboardingCounterpartyAbsentAction,
@@ -30,6 +31,7 @@ export type {
   OnboardingDirectoryRefreshActionState,
   OnboardingCandidateRematchActionState,
   OnboardingWorkflowActionState,
+  ConfirmedInstallerRecoveryActionState,
 } from "./onboarding.actions";
 export {
   purgeFailedRegistrationAction,

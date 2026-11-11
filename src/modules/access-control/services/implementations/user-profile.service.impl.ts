@@ -38,6 +38,12 @@ export class DefaultUserProfileService implements UserProfileService {
     return this.findCurrentProfile(userId);
   }
 
+  async ensureProfileAfterAuthentication(
+    input: Pick<CreateProfileAfterSignupInput, "userId" | "email" | "correlationId">,
+  ): Promise<UserProfile> {
+    return this.createProfileAfterSignup(input);
+  }
+
   async createProfileAfterSignup(
     input: CreateProfileAfterSignupInput,
   ) {

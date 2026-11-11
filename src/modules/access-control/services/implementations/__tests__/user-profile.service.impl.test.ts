@@ -196,6 +196,26 @@ describe("DefaultUserProfileService", () => {
     ).rejects.toBeInstanceOf(OperationNotAvailableError);
   });
 
+  it("ensures a confirmed authenticated profile through the governed create boundary", async () => {
+    const repository = new FakeUserProfileRepository();
+    const service = new DefaultUserProfileService(repository);
+
+    const result = await service.ensureProfileAfterAuthentication({
+      userId: "user-1",
+      email: "partner@example.com",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+    });
+
+    expect(result.id).toBe("user-1");
+    expect(repository.lastCreateInput).toEqual({
+      id: "user-1",
+      email: "partner@example.com",
+      fullName: undefined,
+      phone: null,
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+    });
+  });
+
   it("canonicalizes a Moldova phone for governed profile creation", async () => {
     const repository = new FakeUserProfileRepository();
     const service = new DefaultUserProfileService(repository);

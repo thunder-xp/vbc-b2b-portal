@@ -57,7 +57,14 @@ export async function signInAction(
 
   if (data.user?.id) {
     try {
-      const profile = await createUserProfileService().getCurrentProfile(data.user.id);
+      const profileService = createUserProfileService();
+      const profile = continuation?.kind === "GOVERNED_ONBOARDING"
+        ? await profileService.ensureProfileAfterAuthentication({
+            userId: data.user.id,
+            email: data.user.email ?? email,
+            correlationId: randomUUID(),
+          })
+        : await profileService.getCurrentProfile(data.user.id);
       if (isPartnerLocale(profile?.preferredLocale)) {
         await setPartnerLocaleCookie(profile.preferredLocale);
       }

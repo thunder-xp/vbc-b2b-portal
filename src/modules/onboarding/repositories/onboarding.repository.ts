@@ -27,6 +27,10 @@ export interface OnboardingRepository {
   listQueue(input: OnboardingQueueInput): Promise<OnboardingQueue>;
   getDetail(requestId: string): Promise<OnboardingDetailRecord | null>;
   getHealth(): Promise<OnboardingHealth>;
+  recoverConfirmedInstaller(input: RecoverConfirmedInstallerInput): Promise<{
+    profileId: string;
+    requestId: string;
+  }>;
   assign(requestId: string, assigneeUserId: string): Promise<void>;
   unassign(requestId: string): Promise<void>;
   transition(
@@ -57,6 +61,14 @@ export interface OnboardingRepository {
   recordDirectoryRefreshEvent(input: DirectoryRefreshEventInput): Promise<void>;
   markWaitingForOneCCounterparty(input: MarkWaitingForOneCInput): Promise<void>;
 }
+
+export type RecoverConfirmedInstallerInput = {
+  authUserId: string;
+  companyName: string;
+  fiscalCode: string;
+  counterpartyExternal1cId: string;
+  correlationId: string;
+};
 
 export type DirectoryRefreshEventInput = {
   requestId: string;

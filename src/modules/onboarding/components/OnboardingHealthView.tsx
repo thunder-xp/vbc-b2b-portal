@@ -5,6 +5,7 @@ import type { OnboardingHealth } from "../types";
 export function OnboardingHealthView({ health }: { health: OnboardingHealth }) {
   const directory = health.directory;
   const queue = health.queue;
+  const integrity = health.integrity;
 
   return (
     <div className="space-y-6">
@@ -60,6 +61,18 @@ export function OnboardingHealthView({ health }: { health: OnboardingHealth }) {
             <Metric label="Просрочены" value={String(queue.overdue)} />
             <Metric label="Конфликты сопоставления" value={String(queue.matchConflicts)} />
             <Metric label="Ожидают 1С" value={String(queue.awaitingOneCCompany)} />
+          </dl>
+        </section>
+      )}
+
+      {integrity && (
+        <section aria-labelledby="integrity-health">
+          <h2 id="integrity-health" className="text-lg font-semibold">Целостность профилей</h2>
+          <dl className="mt-4 grid gap-px overflow-hidden rounded-lg border border-zinc-200 bg-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
+            <Metric
+              label="Подтверждённые Auth без профиля"
+              value={String(integrity.confirmedAuthWithoutProfile)}
+            />
           </dl>
         </section>
       )}
