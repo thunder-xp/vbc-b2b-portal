@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   createCompanyAccessService: vi.fn(),
   userProfileService: {
     createProfileAfterSignup: vi.fn(),
+    ensureProfileAfterAuthentication: vi.fn(),
     getCurrentProfile: vi.fn(),
     updateOwnProfile: vi.fn(),
   },
@@ -54,7 +55,7 @@ vi.mock("../service-factory", () => ({
 import { failureFromError } from "../action-result";
 import { cancelOwnAccessRequestAction } from "../cancel-access-request.action";
 import { createProfileAction } from "../create-profile.action";
-import { getCurrentProfileAction } from "../current-profile.action";
+import { ensureCurrentProfileAction, getCurrentProfileAction } from "../current-profile.action";
 import { getOwnAccessRequestsAction } from "../get-access-requests.action";
 import { getOwnMembershipsAction } from "../get-memberships.action";
 import { submitAccessRequestAction } from "../submit-access-request.action";
@@ -183,6 +184,20 @@ describe("onboarding Server Actions", () => {
     });
   });
 
+  it("ensureCurrentProfileAction repairs the authenticated user through verified identity", async () => {
+    const profile = makeUserProfile({ status: UserStatus.Registered });
+    mocks.userProfileService.ensureProfileAfterAuthentication.mockResolvedValue(profile);
+
+    const result = await ensureCurrentProfileAction();
+
+    expect(mocks.userProfileService.ensureProfileAfterAuthentication).toHaveBeenCalledWith({
+      userId: "user-1",
+      email: "partner@example.com",
+      correlationId: expect.any(String),
+    });
+    expect(result).toMatchObject({ success: true, data: { id: "user-1" } });
+  });
+
   it("updateOwnProfileAction updates safe fields only", async () => {
     const profile = makeUserProfile({
       fullName: "Partner User",
@@ -228,6 +243,8 @@ describe("onboarding Server Actions", () => {
 
     expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith({
       userId: "user-1",
+      authenticatedEmail: "partner@example.com",
+      correlationId: expect.any(String),
       requestedCompanyName: "Partner Company",
       requestedFiscalCode: "1020602003976",
       contactPhone: "+359 1 234",
@@ -294,6 +311,8 @@ describe("onboarding Server Actions", () => {
 
     expect(mocks.accessRequestService.submitAccessRequest).toHaveBeenCalledWith({
       userId: "user-1",
+      authenticatedEmail: "partner@example.com",
+      correlationId: expect.any(String),
       requestedCompanyName: "Partner Company",
       requestedFiscalCode: null,
       contactPhone: null,

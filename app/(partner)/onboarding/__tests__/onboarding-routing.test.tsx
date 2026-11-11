@@ -9,10 +9,12 @@ import {
 
 const mocks = vi.hoisted(() => ({
   getCurrentProfileAction: vi.fn(),
+  ensureCurrentProfileAction: vi.fn(),
   getOwnAccessRequestsAction: vi.fn(),
   getOwnMembershipsAction: vi.fn(),
   getOwnOnboardingStatusAction: vi.fn(),
   getAuthenticatedUser: vi.fn(),
+  ensureProfileAfterAuthentication: vi.fn(),
   redirect: vi.fn((href: string) => {
     throw new Error(`NEXT_REDIRECT:${href}`);
   }),
@@ -24,6 +26,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/src/modules/access-control/actions/current-profile.action", () => ({
   getCurrentProfileAction: mocks.getCurrentProfileAction,
+  ensureCurrentProfileAction: mocks.ensureCurrentProfileAction,
 }));
 
 vi.mock("@/src/modules/access-control/actions/get-access-requests.action", () => ({
@@ -36,6 +39,9 @@ vi.mock("@/src/modules/access-control/actions/get-memberships.action", () => ({
 
 vi.mock("@/src/modules/access-control/actions/service-factory", () => ({
   getAuthenticatedUser: mocks.getAuthenticatedUser,
+  createUserProfileService: () => ({
+    ensureProfileAfterAuthentication: mocks.ensureProfileAfterAuthentication,
+  }),
 }));
 
 vi.mock("@/src/modules/onboarding/actions", () => ({
@@ -77,6 +83,12 @@ describe("onboarding route decisions", () => {
       message: "Current profile loaded.",
       data: makeProfile(),
     });
+    mocks.ensureCurrentProfileAction.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Current profile is ready.",
+      data: makeProfile(),
+    });
     mocks.getOwnAccessRequestsAction.mockResolvedValue({
       success: true,
       errorCode: null,
@@ -98,6 +110,7 @@ describe("onboarding route decisions", () => {
       registrationLegalForm: "INDIVIDUAL",
       preferredRegistrationLocale: "ru",
     });
+    mocks.ensureProfileAfterAuthentication.mockResolvedValue(makeProfile());
   });
 
   it("keeps an Agent applicant out of Partner profile and access-request routes", async () => {
@@ -123,6 +136,20 @@ describe("onboarding route decisions", () => {
     await expect(OnboardingProfilePage()).rejects.toThrow(
       "NEXT_REDIRECT:/onboarding/access-request",
     );
+  });
+
+  it("repairs an orphan on the first authenticated onboarding profile visit", async () => {
+    mocks.ensureCurrentProfileAction.mockResolvedValue({
+      success: true,
+      errorCode: null,
+      message: "Current profile loaded.",
+      data: makeProfile(),
+    });
+
+    await expect(OnboardingProfilePage()).rejects.toThrow(
+      "NEXT_REDIRECT:/onboarding/access-request",
+    );
+    expect(mocks.ensureCurrentProfileAction).toHaveBeenCalledOnce();
   });
 
   it("redirects duplicate pending review request to waiting state", async () => {

@@ -16,6 +16,9 @@ export interface UpdateOwnProfileInput {
 
 export interface UserProfileService {
   getCurrentProfile(userId: string): Promise<UserProfile | null>;
+  ensureProfileAfterAuthentication(
+    input: Pick<CreateProfileAfterSignupInput, "userId" | "email" | "correlationId">,
+  ): Promise<UserProfile>;
   createProfileAfterSignup(
     input: CreateProfileAfterSignupInput,
   ): Promise<UserProfile>;

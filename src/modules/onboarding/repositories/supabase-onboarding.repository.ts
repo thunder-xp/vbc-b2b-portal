@@ -269,6 +269,9 @@ const healthSchema = z.object({
     matchConflicts: z.number(),
     awaitingOneCCompany: z.number(),
   }).optional(),
+  integrity: z.object({
+    confirmedAuthWithoutProfile: z.number().int().nonnegative(),
+  }).optional(),
 });
 
 export class SupabaseOnboardingRepository implements OnboardingRepository {
@@ -321,6 +324,30 @@ export class SupabaseOnboardingRepository implements OnboardingRepository {
     const { data, error } = await client.rpc("get_onboarding_health");
     if (error) throw repositoryError("get_onboarding_health", error);
     return healthSchema.parse(data) as OnboardingHealth;
+  }
+
+  async recoverConfirmedInstaller(input: {
+    authUserId: string;
+    companyName: string;
+    fiscalCode: string;
+    counterpartyExternal1cId: string;
+    correlationId: string;
+  }): Promise<{ profileId: string; requestId: string }> {
+    const client = await createClient();
+    const { data, error } = await client.rpc("recover_confirmed_installer_onboarding_v1", {
+      p_auth_user_id: input.authUserId,
+      p_requested_company_name: input.companyName,
+      p_requested_fiscal_code: input.fiscalCode,
+      p_counterparty_external_1c_id: input.counterpartyExternal1cId,
+      p_correlation_id: input.correlationId,
+    });
+    if (error) throw repositoryError("recover_confirmed_installer_onboarding_v1", error);
+    const parsed = z.object({
+      ok: z.literal(true),
+      profileId: z.string().uuid(),
+      requestId: z.string().uuid(),
+    }).parse(data);
+    return { profileId: parsed.profileId, requestId: parsed.requestId };
   }
 
   async assign(requestId: string, assigneeUserId: string): Promise<void> {

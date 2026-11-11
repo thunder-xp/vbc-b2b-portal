@@ -19,7 +19,6 @@ import {
   DuplicateRequestError,
   ForbiddenError,
   InvalidStateError,
-  NotFoundError,
   OperationNotAvailableError,
 } from "../../errors";
 import { DefaultAccessRequestService } from "../access-request.service.impl";
@@ -91,6 +90,7 @@ class FakeAccessRequestRepository implements AccessRequestRepository {
 
 class FakeUserProfileService implements UserProfileService {
   profile: UserProfile | null = makeUserProfile();
+  ensureCalls = 0;
 
   async getCurrentProfile(): Promise<UserProfile | null> {
     return this.profile;
@@ -98,6 +98,12 @@ class FakeUserProfileService implements UserProfileService {
 
   async createProfileAfterSignup(): Promise<UserProfile> {
     return makeUserProfile();
+  }
+
+  async ensureProfileAfterAuthentication(): Promise<UserProfile> {
+    this.ensureCalls += 1;
+    this.profile ??= makeUserProfile();
+    return this.profile;
   }
 
   async updateOwnProfile(): Promise<UserProfile> {
@@ -117,6 +123,8 @@ describe("DefaultAccessRequestService", () => {
 
     const result = await service.submitAccessRequest({
       userId: "user-1",
+      authenticatedEmail: "partner@example.com",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
       requestedCompanyName: "Partner Company",
       requestedFiscalCode: "BG123456789",
       contactPhone: "+359 1 234",
@@ -153,25 +161,28 @@ describe("DefaultAccessRequestService", () => {
     await expect(
       service.submitAccessRequest({
         userId: "user-1",
+        authenticatedEmail: "partner@example.com",
+        correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
         requestedCompanyName: "Partner Company",
       }),
     ).rejects.toBeInstanceOf(DuplicateRequestError);
     expect(repository.lastCreateInput).toBeNull();
   });
 
-  it("submitAccessRequest throws NotFoundError when own profile is missing", async () => {
+  it("submitAccessRequest repairs a missing profile before creating the request", async () => {
     const repository = new FakeAccessRequestRepository();
     const profileService = new FakeUserProfileService();
     profileService.profile = null;
     const service = new DefaultAccessRequestService(repository, profileService);
 
-    await expect(
-      service.submitAccessRequest({
-        userId: "user-1",
-        requestedCompanyName: "Partner Company",
-      }),
-    ).rejects.toBeInstanceOf(NotFoundError);
-    expect(repository.lastCreateInput).toBeNull();
+    await expect(service.submitAccessRequest({
+      userId: "user-1",
+      authenticatedEmail: "partner@example.com",
+      correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
+      requestedCompanyName: "Partner Company",
+    })).resolves.toMatchObject({ userId: "user-1" });
+    expect(profileService.ensureCalls).toBe(1);
+    expect(repository.lastCreateInput).not.toBeNull();
   });
 
   it("submitAccessRequest does not accept company, approve, create membership, or call 1C", async () => {
@@ -295,6 +306,8 @@ describe("DefaultAccessRequestService", () => {
     await expect(
       service.submitAccessRequest({
         userId: "user-1",
+        authenticatedEmail: "partner@example.com",
+        correlationId: "8d216433-29d4-4785-9506-50ad2d515b04",
         requestedCompanyName: "Partner Company",
       }),
     ).rejects.toBeInstanceOf(OperationNotAvailableError);

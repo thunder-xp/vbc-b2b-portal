@@ -256,6 +256,9 @@ export type OnboardingHealth = {
     matchConflicts: number;
     awaitingOneCCompany: number;
   };
+  integrity?: {
+    confirmedAuthWithoutProfile: number;
+  };
 };
 
 export type OnboardingQueueRow = {

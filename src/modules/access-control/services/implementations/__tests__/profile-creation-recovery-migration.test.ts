@@ -28,4 +28,12 @@ describe("new partner profile creation recovery migration", () => {
     expect(sql).toContain("PROFILE_CREATE_RECOVERED");
     expect(sql).toContain("on conflict (auth_user_id, correlation_id) do nothing");
   });
+
+  it("is idempotent and never overwrites populated profile identity fields", () => {
+    expect(sql).toContain("if found then");
+    expect(sql).toContain("'PROFILE_ALREADY_EXISTS'");
+    expect(sql).toContain("set full_name = coalesce(profile.full_name, v_full_name)");
+    expect(sql).toContain("when profile.phone is null then v_phone");
+    expect(sql).toContain("where profile.id = v_user_id");
+  });
 });

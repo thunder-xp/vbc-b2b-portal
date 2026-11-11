@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import type { UserProfile, UserStatus } from "../types";
 import {
   type ActionResult,
@@ -8,6 +10,7 @@ import {
 } from "./action-result";
 import {
   createUserProfileService,
+  getAuthenticatedUser,
   getAuthenticatedUserId,
 } from "./service-factory";
 
@@ -32,6 +35,22 @@ export async function getCurrentProfileAction(): Promise<
       profile ? "Current profile loaded." : "Profile is missing.",
       profile ? toCurrentProfileDto(profile) : null,
     );
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function ensureCurrentProfileAction(): Promise<
+  ActionResult<CurrentProfileDto>
+> {
+  try {
+    const user = await getAuthenticatedUser();
+    const profile = await createUserProfileService().ensureProfileAfterAuthentication({
+      userId: user.id,
+      email: user.email,
+      correlationId: randomUUID(),
+    });
+    return success("Current profile is ready.", toCurrentProfileDto(profile));
   } catch (error) {
     return failureFromError(error);
   }

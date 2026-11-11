@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
+import { ensureCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
 import { getOwnAccessRequestsAction } from "@/src/modules/access-control/actions/get-access-requests.action";
 import { getOwnMembershipsAction } from "@/src/modules/access-control/actions/get-memberships.action";
 import { OnboardingStateCard } from "@/src/modules/access-control/components/onboarding";
@@ -11,14 +11,10 @@ import {
 } from "@/src/modules/access-control/types";
 
 export default async function OnboardingPage() {
-  const profileResult = await getCurrentProfileAction();
+  const profileResult = await ensureCurrentProfileAction();
 
   if (!profileResult.success) {
     redirect("/auth/sign-in");
-  }
-
-  if (!profileResult.data) {
-    redirect("/onboarding/profile");
   }
 
   if (

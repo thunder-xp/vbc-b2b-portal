@@ -31,7 +31,7 @@ export class DefaultAccessRequestService implements AccessRequestService {
   async submitAccessRequest(
     input: SubmitAccessRequestInput,
   ): Promise<AccessRequest> {
-    await this.ensureCanSubmitAccessRequest(input.userId);
+    await this.ensureCanSubmitAccessRequest(input);
 
     const duplicateRequest = await this.findPendingDuplicate(input);
 
@@ -86,21 +86,23 @@ export class DefaultAccessRequestService implements AccessRequestService {
     }
   }
 
-  private async ensureCanSubmitAccessRequest(userId: string): Promise<void> {
-    const profile = await this.userProfileService.getCurrentProfile(userId);
+  private async ensureCanSubmitAccessRequest(
+    input: SubmitAccessRequestInput,
+  ): Promise<void> {
+    const profile = await this.userProfileService.ensureProfileAfterAuthentication({
+      userId: input.userId,
+      email: input.authenticatedEmail,
+      correlationId: input.correlationId,
+    });
 
     console.info("[access-request-submit] service profile check", {
       permission: "CanSubmitAccessRequest",
-      userId,
+      userId: input.userId,
       profileFound: Boolean(profile),
       profileId: profile?.id ?? null,
-      profileBelongsToAuthUser: profile?.id === userId,
+      profileBelongsToAuthUser: profile.id === input.userId,
       profileStatus: profile?.status ?? null,
     });
-
-    if (!profile) {
-      throw new NotFoundError("User profile was not found.");
-    }
 
     if (
       profile.status === UserStatus.Suspended ||

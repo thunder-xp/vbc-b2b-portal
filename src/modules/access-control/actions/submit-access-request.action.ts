@@ -1,5 +1,7 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
+
 import type { AccessRequest, AccessRequestStatus } from "../types";
 import { normalizeFiscalCode } from "@/src/modules/company-identity/fiscal-code";
 import {
@@ -10,7 +12,7 @@ import {
 } from "./action-result";
 import {
   createAccessRequestService,
-  getAuthenticatedUserId,
+  getAuthenticatedUser,
 } from "./service-factory";
 
 export type SubmitAccessRequestActionInput = {
@@ -36,7 +38,7 @@ export async function submitAccessRequestAction(
   input: SubmitAccessRequestActionInput = {},
 ): Promise<ActionResult<AccessRequestDto>> {
   try {
-    const userId = await getAuthenticatedUserId();
+    const user = await getAuthenticatedUser();
     const requestedFiscalCode = normalizeOptionalText(input.requestedFiscalCode);
     const normalizedFiscalCode = requestedFiscalCode
       ? normalizeFiscalCode(requestedFiscalCode)
@@ -52,8 +54,8 @@ export async function submitAccessRequestAction(
     };
 
     console.info("[access-request-submit] action auth/input", {
-      hasAuthenticatedUserId: Boolean(userId),
-      userId,
+      hasAuthenticatedUserId: Boolean(user.id),
+      userId: user.id,
       requestedCompanyNamePresent: Boolean(normalizedInput.requestedCompanyName),
       requestedFiscalCodePresent: Boolean(normalizedInput.requestedFiscalCode),
       contactPhonePresent: Boolean(normalizedInput.contactPhone),
@@ -61,7 +63,9 @@ export async function submitAccessRequestAction(
     });
 
     const request = await createAccessRequestService().submitAccessRequest({
-      userId,
+      userId: user.id,
+      authenticatedEmail: user.email,
+      correlationId: randomUUID(),
       ...normalizedInput,
     });
 

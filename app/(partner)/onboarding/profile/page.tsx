@@ -1,9 +1,8 @@
-import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
+import { ensureCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
 import { getAuthenticatedUser } from "@/src/modules/access-control/actions/service-factory";
 import { UnauthenticatedError } from "@/src/modules/access-control/services";
 import {
   OnboardingStateCard,
-  ProfileForm,
 } from "@/src/modules/access-control/components/onboarding";
 import { redirect } from "next/navigation";
 
@@ -20,34 +19,22 @@ export default async function OnboardingProfilePage() {
     redirect(`/become-partner/agent?lang=${user.preferredRegistrationLocale ?? "ru"}`);
   }
 
-  const profileResult = await getCurrentProfileAction();
-
-  if (!profileResult.success && profileResult.errorCode === "AUTH_REQUIRED") {
-    redirect("/auth/sign-in");
-  }
-
-  if (profileResult.success && profileResult.data) {
-    redirect("/onboarding/access-request");
-  }
-
-  return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
-      <div className="mx-auto grid w-full max-w-3xl gap-6">
-        {!profileResult.success && (
+  const profileResult = await ensureCurrentProfileAction();
+  if (!profileResult.success) {
+    return (
+      <main className="min-h-screen bg-zinc-50 px-6 py-12 text-zinc-950">
+        <div className="mx-auto w-full max-w-3xl">
           <OnboardingStateCard
-            message="We could not load your profile right now. Try again, or sign in again if your session expired."
-            primaryHref="/"
-            primaryLabel="Back to home"
+            message="We could not prepare your profile right now. Please try again."
+            primaryHref="/onboarding/profile"
+            primaryLabel="Try again"
             secondaryHref="/auth/sign-in"
-            secondaryLabel="Sign in"
+            secondaryLabel="Sign in again"
             title="Profile setup"
           />
-        )}
-
-        {profileResult.success && !profileResult.data && (
-          <ProfileForm profile={null} />
-        )}
-      </div>
-    </main>
-  );
+        </div>
+      </main>
+    );
+  }
+  redirect("/onboarding/access-request");
 }

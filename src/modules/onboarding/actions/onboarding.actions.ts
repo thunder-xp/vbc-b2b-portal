@@ -87,6 +87,10 @@ export type OnboardingCandidateRematchActionState = ActionResult<{
   matchOutcome: OnboardingDetail["companyVerification"]["matchOutcome"];
   exactCandidateCount: number;
 }>;
+export type ConfirmedInstallerRecoveryActionState = ActionResult<{
+  profileId: string;
+  requestId: string;
+}>;
 
 export async function listOnboardingQueueAction(
   input: OnboardingQueueInput,
@@ -149,6 +153,32 @@ export async function getOnboardingHealthAction(): Promise<ActionResult<Onboardi
     await requireAdminPermission("onboarding.requests.view");
     const health = await new SupabaseOnboardingRepository().getHealth();
     return success("Состояние онбординга загружено.", health);
+  } catch (error) {
+    return failureFromError(error);
+  }
+}
+
+export async function recoverConfirmedInstallerOnboardingAction(
+  _previousState: ConfirmedInstallerRecoveryActionState | null,
+  formData: FormData,
+): Promise<ConfirmedInstallerRecoveryActionState> {
+  try {
+    await requireAdminPermission("onboarding.requests.review");
+    const authUserId = uuidSchema.parse(formData.get("authUserId"));
+    const companyName = requiredBoundedText(formData, "companyName", 2, 200);
+    const fiscalCode = normalizeFiscalCode(requiredBoundedText(formData, "fiscalCode", 1, 64));
+    const counterpartyExternal1cId = uuidSchema.parse(formData.get("counterpartyExternal1cId"));
+    if (!fiscalCode) throw new Error("invalid_fiscal_code");
+    const result = await new SupabaseOnboardingRepository().recoverConfirmedInstaller({
+      authUserId,
+      companyName,
+      fiscalCode,
+      counterpartyExternal1cId,
+      correlationId: randomUUID(),
+    });
+    revalidatePath("/admin/onboarding");
+    revalidatePath("/admin/onboarding/health");
+    return success("Профиль восстановлен, заявка доступна в обычной очереди.", result);
   } catch (error) {
     return failureFromError(error);
   }

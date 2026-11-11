@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
+import { ensureCurrentProfileAction } from "@/src/modules/access-control/actions/current-profile.action";
 import { getOwnAccessRequestsAction } from "@/src/modules/access-control/actions/get-access-requests.action";
 import { getAuthenticatedUser } from "@/src/modules/access-control/actions/service-factory";
 import { UnauthenticatedError } from "@/src/modules/access-control/services";
@@ -23,14 +23,9 @@ export default async function OnboardingAccessRequestPage() {
     redirect(`/become-partner/agent?lang=${user.preferredRegistrationLocale ?? "ru"}`);
   }
 
-  const profileResult = await getCurrentProfileAction();
-
+  const profileResult = await ensureCurrentProfileAction();
   if (!profileResult.success) {
-    redirect("/auth/sign-in");
-  }
-
-  if (!profileResult.data) {
-    redirect("/onboarding/profile");
+    redirect("/onboarding/profile?recovery=retry");
   }
 
   const canRequestAccess =
