@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  resolve(process.cwd(), "supabase/migrations/20261111120000_onboarding_confirmed_profile_integrity.sql"),
+  resolve(process.cwd(), "supabase/migrations/20261111203501_onboarding_confirmed_profile_integrity.sql"),
   "utf8",
 );
 
